@@ -32,6 +32,7 @@ placement: {weights: {...}}    # optional placer tuning
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
 | decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin |
 | margin_mm | 1.0 | keep parts this far from the board edge |
+| optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
 ## nets
 

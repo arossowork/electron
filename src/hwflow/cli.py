@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -82,12 +83,66 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
     return out
 
 
+def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
+    out = _out(d)
+    name = d.name
+    pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
+    log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
+    tracks, vias = pcb.import_ses(out / f"{name}.ses", d)
+    import re as _re
+    done = [ln for ln in log.splitlines() if "Auto-routing stage completed" in ln]
+    m = _re.search(r"\((\d+) unrouted and (\d+) violations\)", done[0] if done else "")
+    unrouted = int(m.group(1)) if m else 999
+    summary = f"{m.group(1)} unrouted, {m.group(2)} violations" if m else "unknown"
+    return tracks, vias, summary, unrouted
+
+
+def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights):
+    """Shrink the board (keeping the requested aspect ratio) until placement or routing fails."""
+    b = d.raw.setdefault("board", {})
+    W0, H0 = float(d.board["width_mm"]), float(d.board["height_mm"])
+    probe = placer.build_parts(d, libs)
+    parts_area = sum(p.w * p.h for p in probe.values())
+    m = d.board["margin_mm"]
+    best, tried = None, []
+    for factor in (3.0, 2.4, 2.0, 1.7, 1.5, 1.35, 1.25):
+        area = parts_area * factor
+        W = math.ceil(math.sqrt(area * W0 / H0) + 2 * m)
+        H = math.ceil(area / max(W - 2 * m, 1) + 2 * m)
+        if W > W0 or H > H0:
+            continue
+        b["width_mm"], b["height_mm"] = W, H
+        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights)
+        if viol:
+            tried.append(f"{W}x{H}: placement fails")
+            break
+        tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes)
+        if unrouted:
+            tried.append(f"{W}x{H}: {unrouted} unrouted")
+            break
+        tried.append(f"{W}x{H}: ok")
+        best = (W, H, parts, cost, viol, tracks, vias, summary)
+    if best is None:
+        b["width_mm"], b["height_mm"] = W0, H0
+        return None, tried
+    b["width_mm"], b["height_mm"] = best[0], best[1]
+    return best, tried
+
+
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
                  passes: int = 30) -> dict:
     out = _out(d)
     pj = out / "placement.json"
     t0 = time.time()
-    if reuse and pj.exists():
+    weights = (d.raw.get("placement") or {}).get("weights")
+    area_log = None
+    pre = None
+    if d.board.get("optimize_area") and not reuse:
+        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights)
+    if pre:
+        _, _, parts, cost, viol, tracks, vias, summary = pre
+    elif reuse and pj.exists():
+        _apply_layout_size(d)
         parts = placer.build_parts(d, libs)
         saved = json.loads(pj.read_text())
         for r, p in parts.items():
@@ -97,29 +152,31 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         pl.legalize()
         viol, cost = pl.violations(), pl.cost()
     else:
-        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters,
-                                         weights=(d.raw.get("placement") or {}).get("weights"))
+        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights)
     pj.write_text(json.dumps({r: [p.x, p.y, p.r] for r, p in parts.items()}, indent=1))
     name = d.name
     board = out / f"{name}.kicad_pcb"
-    pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
-    log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
-    tracks, vias = pcb.import_ses(out / f"{name}.ses", d)
+    if not pre:
+        tracks, vias, summary, _ = _route_once(d, libs, parts, passes)
     pcb.write_board(board, pcb.build_board(d, libs, parts, tracks, vias))
     drc = kicad.drc(board, refill=True, parity=True)
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
-    import re as _re
-    done = [ln for ln in log.splitlines() if "Auto-routing stage completed" in ln]
-    m = _re.search(r"\((\d+) unrouted and (\d+) violations\)", done[0] if done else "")
-    summary = f"{m.group(1)} unrouted, {m.group(2)} violations" if m else "unknown"
-    return {"ok": not errs and not viol, "placement_cost": round(cost, 1), "placement_violations": viol,
+    return {"ok": not errs and not viol, "board_mm": [d.board["width_mm"], d.board["height_mm"]],
+            "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40],
             "seconds": round(time.time() - t0, 1)}
 
 
+def _apply_layout_size(d: Design):
+    lay = _status(d).get("layout") or {}
+    if lay.get("board_mm"):
+        d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = lay["board_mm"]
+
+
 def stage_post(d: Design) -> dict:
+    _apply_layout_size(d)
     out = _out(d)
     board = out / f"{d.name}.kicad_pcb"
     ex = postlayout.Extraction(d, board)
@@ -200,7 +257,9 @@ def write_report(d: Design) -> str:
             verdict.append(f"{c['total'] - c['passed']} sim measures fail")
     if "layout" in s:
         c = s["layout"]
-        L.append(f"- layout: {'OK' if c['ok'] else 'FAIL'}; router {c['router']}; {c['segments']} segments, "
+        if c.get("area_search"):
+            L.append(f"- area search: {'; '.join(c['area_search'])}")
+        L.append(f"- layout: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
         for v in c["placement_violations"][:5]:

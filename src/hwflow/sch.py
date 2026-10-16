@@ -39,11 +39,25 @@ def _unit_pins(sym: dict, unit: int) -> list[dict]:
     return [p for p in sym["pins"] if p["unit"] in (0, unit)]
 
 
-def _extent(pins):
+def _label_len(net: str) -> float:
+    return 1.27 * 0.8 * len(net) + 3.0
+
+
+def _extent(pins, nets: dict | None = None):
+    """Bounding box of pin endpoints plus the net labels that grow out of them (screen coordinates)."""
     if not pins:
         return -2.54, -2.54, 2.54, 2.54
-    xs = [p["x"] for p in pins]
-    ys = [-p["y"] for p in pins]
+    nets = nets or {}
+    xs, ys = [], []
+    for p in pins:
+        x, y = p["x"], -p["y"]
+        xs.append(x)
+        ys.append(y)
+        L = _label_len(nets.get(p["number"], ""))
+        ang = int((p["angle"] + 180) % 360)
+        dx, dy = {0: (L, 0), 180: (-L, 0), 90: (0, -L), 270: (0, L)}[ang]
+        xs.append(x + dx)
+        ys.append(y + dy)
     return min(xs), min(ys), max(xs), max(ys)
 
 
@@ -100,13 +114,13 @@ def build_schematic(design: Design, libs) -> list:
                       ["effects", ["font", ["size", 2.0, 2.0], ["bold", "yes"]], ["justify", "left"]], ["uuid", uid()]])
         for ref, unit, sym, c in insts:
             pins = _unit_pins(sym, unit)
-            x0, y0, x1, y1 = _extent(pins)
-            w = (x1 - x0) + 2 * LABEL_SPACE
-            h = (y1 - y0) + 10.16
+            x0, y0, x1, y1 = _extent(pins, c.pins)
+            w = (x1 - x0) + 12.7
+            h = (y1 - y0) + 7.62
             if y_cursor + h > 270:
                 x_cursor += col_w + 10
                 y_cursor, col_w = 30.48, 0.0
-            sx = snap(x_cursor + LABEL_SPACE - x0)
+            sx = snap(x_cursor - x0)
             sy = snap(y_cursor - y0 + 2.54)
             col_w = max(col_w, w)
             y_cursor += h

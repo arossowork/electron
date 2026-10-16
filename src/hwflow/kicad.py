@@ -86,8 +86,10 @@ def export_fab(pcb: Path, sch: Path | None, outdir: Path) -> list[str]:
         ["pcb", "export", "gerbers", "-o", str(g) + "/", str(pcb)],
         ["pcb", "export", "drill", "-o", str(g) + "/", str(pcb)],
         ["pcb", "export", "pos", "--format", "csv", "--units", "mm", "-o", str(outdir / "positions.csv"), str(pcb)],
-        ["pcb", "export", "svg", "--mode-single", "--layers", "F.Cu,B.Cu,F.SilkS,Edge.Cuts", "--fit-page-to-board",
+        ["pcb", "export", "svg", "--mode-single", "--layers", "F.Cu,F.SilkS,F.Mask,Edge.Cuts", "--page-size-mode", "2",
          "--exclude-drawing-sheet", "-o", str(outdir / "pcb.svg"), str(pcb)],
+        ["pcb", "export", "svg", "--mode-single", "--layers", "B.Cu,B.SilkS,Edge.Cuts", "--page-size-mode", "2",
+         "--mirror", "--exclude-drawing-sheet", "-o", str(outdir / "pcb_bottom.svg"), str(pcb)],
         ["pcb", "render", "--output", str(outdir / "pcb_3d_top.png"), "--width", "1600", "--height", "1200",
          "--quality", "basic", str(pcb)],
     ]
