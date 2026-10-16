@@ -69,3 +69,21 @@ def test_optimizer_keeps_constraints(tmp_path):
     assert res["fails"] == 0
     assert res["measures"]["out_noise_uv"] <= res["baseline"]["out_noise_uv"]
     assert 900 <= res["measures"]["f3db"] <= 1500
+
+
+def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
+    """A transient that stops before its stop time must not pass on the truncated waveform."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
+    fake = "doAnalyses: TRAN:  Timestep too small\nHWF __tend 0.001\n" + "".join(
+        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2}\n" for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (fake, 1))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["aborted"]
+    assert r["rows"] and not any(row["pass"] for row in r["rows"])
+    # same values with a complete run pass
+    full = fake.replace("Timestep too small", "ok").replace("__tend 0.001", "__tend 0.04")
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (full, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert not r["aborted"] and all(row["pass"] for row in r["rows"])

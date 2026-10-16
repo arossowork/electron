@@ -154,6 +154,9 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     lines.append(".control")
     lines.append("set noaskquit")
     lines.append(_subst(analysis.get("cmd", "op"), nm, nets))
+    if analysis.get("cmd", "op").split()[0].lower() == "tran":
+        lines.append("let hwf_tend = time[length(time)-1]")
+        lines.append("echo HWF __tend $&hwf_tend")
     for m in analysis.get("measures") or []:
         if m.get("plot"):
             lines.append(f"setplot {m['plot']}")
@@ -209,14 +212,35 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
     return rows
 
 
+ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
+                      r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted|singular matrix", re.I)
+
+
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
                  temp=None, tag: str = "") -> dict:
     net, unmodeled = build_netlist(design, analysis, nm, values, temp)
-    out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
+    try:
+        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
+    except subprocess.TimeoutExpired:
+        out, rc = "Error: ngspice timed out (simulation aborted)", -1
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
-    return {"name": analysis["name"], "rows": evaluate(analysis.get("measures") or [], vals),
-            "unmodeled": unmodeled, "errors": errors, "rc": rc}
+    rows = evaluate(analysis.get("measures") or [], vals)
+    aborted = [ln.strip() for ln in out.splitlines() if ABORT_RE.search(ln)][:3]
+    parts = analysis.get("cmd", "op").split()
+    if parts[0].lower() == "tran" and len(parts) >= 3:
+        tstop = parse_value(parts[2])
+        tend = vals.get("__tend")
+        if tend is None or tend < tstop * 0.999:
+            aborted.insert(0, f"transient stopped at {tend if tend is not None else 'n/a'} s of {tstop:g} s")
+    if aborted:
+        # a measure on a cut waveform is not evidence: fail every row of this analysis
+        for r in rows:
+            r["pass"] = False
+            r["aborted"] = True
+        errors = [f"simulation aborted: {aborted[0]}"] + errors
+    return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
+            "aborted": bool(aborted)}
 
 
 def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "") -> list[dict]:
