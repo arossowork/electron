@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
 PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "haiku")
+CALL_TIMEOUT = int(os.environ.get("HWFLOW_CALL_TIMEOUT", str(6 * 3600)))  # one designer turn can run hours
 
 PM_PROMPT = """You are the product manager in a hardware project. You are not an engineer.
 Answer the engineer's questions using ONLY the facts below. Keep each answer to one or two sentences.
@@ -43,7 +44,7 @@ FACTS:
 
 
 def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,
-           headless: bool = True, timeout: int = 3600, log: Path | None = None) -> dict:
+           headless: bool = True, timeout: int = CALL_TIMEOUT, log: Path | None = None) -> dict:
     cmd = ["claude", "-p", prompt, "--model", model, "--output-format", "json"]
     if resume:
         cmd += ["--resume", resume]
@@ -56,11 +57,14 @@ def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system
     if headless:
         env["HWFLOW_HEADLESS"] = "1"
     t0 = time.time()
-    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
     try:
-        out = json.loads(p.stdout)
-    except json.JSONDecodeError:
-        out = {"is_error": True, "result": p.stdout[-2000:] + p.stderr[-2000:]}
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
+        try:
+            out = json.loads(p.stdout)
+        except json.JSONDecodeError:
+            out = {"is_error": True, "result": p.stdout[-2000:] + p.stderr[-2000:]}
+    except subprocess.TimeoutExpired:
+        out = {"is_error": True, "result": f"TIMEOUT after {timeout}s", "session_id": resume}
     out["_seconds"] = round(time.time() - t0, 1)
     if log:
         with open(log, "a") as fh:
@@ -72,11 +76,27 @@ def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system
 
 # ------------------------------------------------------------------ one trial
 
-def run_trial(fx: dict, model: str, trial: int, run_dir: Path) -> dict:
+def run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str | None = None) -> dict:
+    try:
+        return _run_trial(fx, model, trial, run_dir, resume_sid)
+    except Exception as e:  # noqa: BLE001  one broken trial must not end the run
+        tdir = run_dir / f"{fx['id']}__{model}__t{trial}"
+        with open(tdir / "errors.log", "a") as fh:
+            fh.write(f"{time.strftime('%H:%M:%S')} {type(e).__name__}: {e}\n")
+        return score_trial(tdir, fx)
+
+
+def _save_meta(tdir: Path, meta: dict, sid: str | None):
+    meta["session_id"] = sid
+    (tdir / "meta.json").write_text(json.dumps(meta, indent=1))
+
+
+def _run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str | None) -> dict:
     tdir = run_dir / f"{fx['id']}__{model}__t{trial}"
     proj = tdir / "proj"
     proj.mkdir(parents=True, exist_ok=True)
-    (proj / "brief.md").write_text(fx["brief"])
+    if not (proj / "brief.md").exists():
+        (proj / "brief.md").write_text(fx["brief"])
     log = tdir / "transcript.jsonl"
     rel = proj.relative_to(ROOT)
     if fx.get("mode") == "from_requirements":
@@ -86,12 +106,21 @@ def run_trial(fx: dict, model: str, trial: int, run_dir: Path) -> dict:
     else:
         first = f"/hw-design new {rel} . The product person's brief is in brief.md."
     t0 = time.time()
-    meta = {"fixture": fx["id"], "model": model, "trial": trial, "questions": 0, "rounds": 0,
-            "designer_calls": 0, "cost_usd": 0.0, "errors": []}
-    r = claude(first, model, ROOT, log=log)
-    sid = r.get("session_id")
-    meta["designer_calls"] += 1
-    meta["cost_usd"] += r.get("total_cost_usd") or 0
+    mp = tdir / "meta.json"
+    meta = json.loads(mp.read_text()) if mp.exists() else {
+        "fixture": fx["id"], "model": model, "trial": trial, "questions": 0, "rounds": 0,
+        "designer_calls": 0, "cost_usd": 0.0, "errors": [], "seconds": 0}
+    prior_seconds = meta.get("seconds") or 0
+    if resume_sid:
+        sid = resume_sid
+    else:
+        r = claude(first, model, ROOT, log=log)
+        sid = r.get("session_id")
+        meta["designer_calls"] += 1
+        meta["cost_usd"] += r.get("total_cost_usd") or 0
+        if r.get("is_error"):
+            meta["errors"].append(str(r.get("result"))[:300])
+        _save_meta(tdir, meta, sid)
     for _ in range(int(fx.get("max_designer_turns", 6))):
         state = (proj / "state.md").read_text().lower() if (proj / "state.md").exists() else ""
         qf = proj / "inbox" / "questions.json"
@@ -110,15 +139,36 @@ def run_trial(fx: dict, model: str, trial: int, run_dir: Path) -> dict:
             break
         else:
             msg = "Continue the /hw-design flow from state.md until sign-off or until you need product answers."
+        if not sid:
+            meta["errors"].append("no session id; cannot continue")
+            break
         r = claude(msg, model, ROOT, resume=sid, log=log)
-        sid = r.get("session_id", sid)
+        sid = r.get("session_id") or sid
         meta["designer_calls"] += 1
         meta["cost_usd"] += r.get("total_cost_usd") or 0
         if r.get("is_error"):
             meta["errors"].append(str(r.get("result"))[:300])
-    meta["seconds"] = round(time.time() - t0, 1)
-    (tdir / "meta.json").write_text(json.dumps(meta, indent=1))
+        meta["seconds"] = round(prior_seconds + time.time() - t0, 1)
+        _save_meta(tdir, meta, sid)
+    meta["seconds"] = round(prior_seconds + time.time() - t0, 1)
+    _save_meta(tdir, meta, sid)
     return score_trial(tdir, fx)
+
+
+def find_session(tdir: Path) -> str | None:
+    """Session id of a trial: from meta.json, else from Claude's local session store (first prompt names the trial)."""
+    mp = tdir / "meta.json"
+    if mp.exists() and json.loads(mp.read_text()).get("session_id"):
+        return json.loads(mp.read_text())["session_id"]
+    store = Path.home() / ".claude" / "projects" / str(ROOT).replace("/", "-")
+    key = str((tdir / "proj").resolve().relative_to(ROOT))
+    hits = []
+    for f in store.glob("*.jsonl"):
+        with open(f, errors="replace") as fh:
+            head = fh.read(20000)
+        if key in head and "/hw-design new" in head:
+            hits.append((f.stat().st_mtime, f.stem))
+    return max(hits)[1] if hits else None
 
 
 # ------------------------------------------------------------------ deterministic scoring
@@ -233,6 +283,10 @@ def main():
     r.add_argument("--trials", type=int, default=1)
     r.add_argument("--fixtures", default="all")
     r.add_argument("--parallel", type=int, default=2)
+    rs = sub.add_parser("resume", help="continue unfinished trials of a run")
+    rs.add_argument("run_dir")
+    rs.add_argument("--parallel", type=int, default=3)
+    rs.add_argument("--only", default="", help="comma-separated fixture ids")
     for name in ("score", "compare", "baseline"):
         p = sub.add_parser(name)
         p.add_argument("run_dir")
@@ -251,7 +305,29 @@ def main():
         print(json.dumps(agg, indent=1))
         print(f"run dir: {run_dir}")
         return
-    run_dir = Path(a.run_dir)
+    run_dir = Path(a.run_dir).resolve()
+    if a.cmd == "resume":
+        jobs = []
+        for t in sorted(run_dir.iterdir()):
+            if not t.is_dir() or not (t / "proj").exists():
+                continue
+            state = (t / "proj" / "state.md").read_text().lower() if (t / "proj" / "state.md").exists() else ""
+            if re.search(r"\bdone\b", state):
+                continue
+            fid, model, tr = t.name.split("__")
+            if a.only and fid not in a.only.split(","):
+                continue
+            sid = find_session(t)
+            print(f"resume {t.name}: session {sid}")
+            jobs.append((fixtures[fid], model, int(tr[1:]), sid))
+        with ThreadPoolExecutor(max_workers=a.parallel) as ex:
+            list(ex.map(lambda j: run_trial(j[0], j[1], j[2], run_dir, j[3]), jobs))
+        cards = [score_trial(t, fixtures[t.name.split("__")[0]]) for t in sorted(run_dir.iterdir())
+                 if t.is_dir() and (t / "proj").exists()]
+        agg = aggregate(cards)
+        (run_dir / "aggregate.json").write_text(json.dumps(agg, indent=1))
+        print(json.dumps(agg, indent=1))
+        return
     if a.cmd == "score":
         cards = [score_trial(t, fixtures[t.name.split("__")[0]]) for t in sorted(run_dir.iterdir())
                  if t.is_dir() and (t / "proj").exists()]
