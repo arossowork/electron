@@ -108,13 +108,21 @@ class Libs:
         props = {str(p[1]): str(p[2]) for p in sexpr.find_all(tree, "property")}
         return {"lib_id": lib_id, "pins": pins, "units": sorted(units) or [1], "props": props, "tree": tree}
 
-    def search_symbols(self, query: str, limit: int = 30) -> list[tuple[str, str]]:
-        q = query.lower().split()
-        res = []
-        for f in sorted((self.root / "symbols").iterdir()):
-            lib = f.name.split(".")[0]
-            if not (f.suffix in (".kicad_sym", ".kicad_symdir")):
+    def _symbol_index(self) -> list[tuple[str, str]]:
+        """[(lib:name, description keywords)] cached in ~/.cache/hwflow, rebuilt when KiCad changes."""
+        import json
+        cache = Path.home() / ".cache" / "hwflow" / "symbol_index.json"
+        sym_dir = self.root / "symbols"
+        stamp = f"{sym_dir}:{sym_dir.stat().st_mtime}"
+        if cache.exists():
+            data = json.loads(cache.read_text())
+            if data.get("stamp") == stamp:
+                return [tuple(x) for x in data["items"]]
+        items = []
+        for f in sorted(sym_dir.iterdir()):
+            if f.suffix not in (".kicad_sym", ".kicad_symdir"):
                 continue
+            lib = f.name.split(".")[0]
             try:
                 names = self._sym_lib(lib)
             except Exception:  # noqa: BLE001
@@ -122,11 +130,19 @@ class Libs:
             for n, s in names.items():
                 desc = " ".join(str(p[2]) for p in sexpr.find_all(s, "property")
                                 if str(p[1]) in ("Description", "ki_description", "ki_keywords"))
-                hay = f"{lib}:{n} {desc}".lower()
-                if all(t in hay for t in q):
-                    res.append((f"{lib}:{n}", desc[:110]))
-                    if len(res) >= limit:
-                        return res
+                items.append((f"{lib}:{n}", desc))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps({"stamp": stamp, "items": items}))
+        return items
+
+    def search_symbols(self, query: str, limit: int = 30) -> list[tuple[str, str]]:
+        q = query.lower().split()
+        res = []
+        for lid, desc in self._symbol_index():
+            if all(t in f"{lid} {desc}".lower() for t in q):
+                res.append((lid, desc[:110]))
+                if len(res) >= limit:
+                    break
         return res
 
     # ------------------------------------------------------------ footprints

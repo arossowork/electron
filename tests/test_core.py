@@ -49,3 +49,23 @@ def test_spice_ldo_and_gain(tmp_path):
     res = {r["name"]: r for a in spice.run_all(d, tmp_path) for r in a["rows"]}
     assert abs(res["v3v3"]["value"] - 3.30) < 0.01
     assert abs(res["gain_db"]["value"] - 20.0) < 0.2
+
+
+def test_optimizer_keeps_constraints(tmp_path):
+    import shutil
+
+    import yaml
+
+    from hwflow import optimize
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    d = yaml.safe_load((proj / "design.yaml").read_text())
+    for a in d["sim"]["analyses"]:
+        a["measures"] = [m for m in a["measures"] if m["name"] not in ("vout_dc", "sig_pp")]
+    d["optimize"] = {"budget": 16, "variables": [{"ref": "C4", "min": "100p", "max": "10n", "series": "E12"}],
+                     "objectives": [{"measure": "out_noise_uv", "weight": 1}]}
+    (proj / "design.yaml").write_text(yaml.safe_dump(d, sort_keys=False))
+    res = optimize.run(Design.load(proj), tmp_path, log=lambda *_: None)
+    assert res["fails"] == 0
+    assert res["measures"]["out_noise_uv"] <= res["baseline"]["out_noise_uv"]
+    assert 900 <= res["measures"]["f3db"] <= 1500

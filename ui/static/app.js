@@ -29,7 +29,7 @@ function add(ev) {
   if (ev.kind === 'status') { $('#busy').textContent = /started/.test(ev.text) ? 'working...' : ''; loadProjects(); }
 }
 async function open(name) {
-  cur = name; $('#pname').textContent = name; $('#side').classList.remove('open');
+  cur = name; history.replaceState(null, '', '#' + name); $('#pname').textContent = name; $('#side').classList.remove('open');
   const info = await api(`/api/projects/${name}/info`);
   $('#log').innerHTML = ''; info.history.forEach(add);
   $('#busy').textContent = info.busy ? 'working...' : '';
@@ -103,3 +103,4 @@ $('#newform').onsubmit = async (e) => {
 };
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 loadProjects(); setInterval(loadProjects, 10000);
+if (location.hash.length > 1) open(decodeURIComponent(location.hash.slice(1)));

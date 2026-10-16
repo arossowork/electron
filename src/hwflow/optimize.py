@@ -3,6 +3,7 @@
 design.yaml:
   optimize:
     budget: 80                       # max evaluations
+    margin: 0.1                      # keep measures 10% of their limit span inside the limits
     variables:
       - {ref: R1, min: 10k, max: 1meg, series: E96}
       - {ref: U2, choices: [{}, {mpn: OPA344, price_usd: 0.9, spice: {params: {EN: 30n}}}]}
@@ -71,21 +72,33 @@ def evaluate(design: Design, workdir: Path) -> dict:
     return rows
 
 
-def score(rows: dict, objectives: list[dict], ref: dict) -> tuple[float, int]:
+def score(rows: dict, objectives: list[dict], ref: dict, margin: float = 0.0) -> tuple[float, int]:
+    """Penalty for constraint violations (limits tightened by `margin`) plus weighted objectives."""
     viol = 0.0
     nfail = 0
     for r in rows.values():
-        if r.get("pass"):
-            continue
-        nfail += 1
         v = r.get("value")
+        lo, hi = r.get("min"), r.get("max")
         if v is None:
-            viol += 10
+            if r.get("pass") is False:
+                nfail += 1
+                viol += 10
             continue
-        for bound, sign in (("min", -1), ("max", 1)):
-            lim = r.get(bound)
-            if lim is not None and sign * (v - float(lim)) > 0:
-                viol += abs(v - float(lim)) / max(abs(float(lim)), 1e-9)
+        lo = None if lo is None else float(lo)
+        hi = None if hi is None else float(hi)
+        span = (hi - lo) if lo is not None and hi is not None else abs(lo if lo is not None else hi or 1.0)
+        if lo is not None:
+            lo += margin * span
+        if hi is not None:
+            hi -= margin * span
+        bad = False
+        if lo is not None and v < lo:
+            viol += (lo - v) / max(abs(span), 1e-9)
+            bad = True
+        if hi is not None and v > hi:
+            viol += (v - hi) / max(abs(span), 1e-9)
+            bad = True
+        nfail += bad
     obj = 0.0
     for o in objectives:
         r = rows.get(o["measure"])
@@ -124,7 +137,7 @@ def run(design: Design, workdir: Path, budget: int | None = None, seed: int = 1,
         if key not in cache:
             evals[0] += 1
             rows = evaluate(apply_point(design, variables, point), workdir / "opt" / f"e{evals[0]}")
-            cache[key] = (*score(rows, objectives, ref), rows)
+            cache[key] = (*score(rows, objectives, ref, float(spec.get("margin", 0.1))), rows)
         return cache[key]
 
     best = list(start)

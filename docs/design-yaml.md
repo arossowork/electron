@@ -130,6 +130,7 @@ Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a conn
 ```yaml
 optimize:
   budget: 60
+  margin: 0.1
   variables:
     - {ref: R1, min: 10k, max: 1meg, series: E96}
     - {ref: U2, choices: [{}, {value: OPA344, mpn: OPA344NA, price_usd: 0.95, spice: {params: {EN: 9n}}}]}
@@ -139,4 +140,4 @@ optimize:
     - {measure: bandwidth, weight: 1, goal: max}
 ```
 
-Every measure with limits stays a hard constraint. Objectives are normalized to the starting design and summed with the weights. A choice is a patch that is merged into the component.
+Every measure with limits stays a hard constraint. `margin` (default 0.1) keeps each measure that fraction of its limit span away from the limits, so the optimum is not on the edge. Objectives are normalized to the starting design and summed with the weights. A choice is a patch that is merged into the component.
