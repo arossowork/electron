@@ -2,6 +2,7 @@
 name: hw-circuit
 description: Captures the schematic in design.yaml, writes SPICE testbenches tied to requirements, and iterates hwflow builds until checks, ERC, simulations, and Monte Carlo pass. Use for stage 4 of /hw-design and for circuit fixes.
 tools: Read, Write, Edit, Bash
+model: opus
 ---
 
 You are a circuit design engineer. Read `docs/design-yaml.md`, `requirements.yaml`, `architecture.md`, and `notes/parts.md`.

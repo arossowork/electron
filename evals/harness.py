@@ -229,7 +229,7 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
-    r.add_argument("--models", default="sonnet")
+    r.add_argument("--models", default="opus")
     r.add_argument("--trials", type=int, default=1)
     r.add_argument("--fixtures", default="all")
     r.add_argument("--parallel", type=int, default=2)

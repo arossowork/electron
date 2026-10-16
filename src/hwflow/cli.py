@@ -87,6 +87,9 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "fails": [r for r in rows if not r["pass"]], "derating": der,
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
+           "generic_models": sorted(c.ref for c in d.components.values()
+                                    if isinstance(c.get("spice"), dict) and not c.get("spice").get("lib")
+                                    and str(c.get("spice").get("subckt", "")).endswith(("_GENERIC", "_AVG", "_SHUNT"))),
            "errors": [e for a in res for e in a["errors"]]}
     if mc:
         out["monte_carlo"] = spice.monte_carlo(d, w, runs=mc)
@@ -263,6 +266,9 @@ def write_report(d: Design) -> str:
             L.append(f"  - ngspice: {e}")
         if c["unmodeled"]:
             L.append(f"  - not simulated: {', '.join(c['unmodeled'])}")
+        if c.get("generic_models"):
+            L.append(f"  - generic behavioral models (approximate, use vendor models before sign-off): "
+                     f"{', '.join(c['generic_models'])}")
         hot = sorted(c["derating"], key=lambda r: -r.get("p_w", 0))[:3]
         L.append("- derating: " + ("OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
                  "; top dissipation " + ", ".join(f"{r['ref']} {r['p_w'] * 1e3:.1f} mW" for r in hot))
@@ -341,6 +347,8 @@ def score(d: Design) -> dict:
         "sim_pass_ratio": g("sim", lambda c: c["passed"] / max(c["total"], 1)),
         "sim_measures": g("sim", lambda c: c["total"]),
         "derating_issues": g("sim", lambda c: len(c["derating_issues"])),
+        "generic_models": g("sim", lambda c: len(c.get("generic_models", []))),
+        "mc_min_yield": g("sim", lambda c: min((m["yield"] for m in c.get("monte_carlo") or []), default=None)),
         "drc_errors": g("layout", lambda c: c["drc_errors"]),
         "unrouted": g("layout", lambda c: c["unrouted"]),
         "post_pass_ratio": g("post", lambda c: sum(x["pass_post"] for x in c["deltas"]) / max(len(c["deltas"]), 1)),

@@ -7,4 +7,4 @@ hidden_spec: ""
 planted_conflicts: []
 expected_requirements: []
 limits: {max_area_mm2: 1200, max_cost_usd: 3.0}
-max_designer_turns: 4
+max_designer_turns: 10

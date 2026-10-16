@@ -30,4 +30,4 @@ expected_requirements:
   - [size, mm, dimension]
   - [cost, usd, "$"]
 limits: {max_area_mm2: 400, max_cost_usd: 3.0}
-max_designer_turns: 8
+max_designer_turns: 14

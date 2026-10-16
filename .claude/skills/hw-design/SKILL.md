@@ -29,10 +29,18 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
 5. Review (subagent `hw-reviewer`). It does an independent review of things that the tools do not check: datasheet application notes, absolute maximum ratings, ESD and reverse-polarity protection, pull-ups, enable and boot pins, connector pinouts, and thermal limits. Fix every finding at `must` level.
 6. Optimize. If the requirements name optimization criteria, write the `optimize` section, run `uv run hwflow optimize <proj>`, show the trade-off to the product person if it changes cost or a spec, and apply it with `--apply`. Then rerun stage 4.
 7. Layout (subagent `hw-layout`). Run `uv run hwflow build <proj> --until post`. Fix DRC errors, unrouted nets, and post-layout warnings by changing placement hints, board size, net classes, or layer count. To optimize area, shrink the board in steps until placement or routing fails, then take the last size that passed.
-8. Sign-off. Run a full `uv run hwflow build <proj> --mc 50` and `uv run hwflow trace <proj>`. Write `SUMMARY.md` for the product person: what the board does, the requirement table with status, the cost, the size, the open risks, and the decisions they made. Set `state.md` to `done`.
+8. Sign-off. A board goes to fabrication only once, so every gate below must hold before `state.md` becomes `done`:
+   - `uv run hwflow build <proj> --mc 100` gives a PASS verdict, with Monte Carlo yield of 99% or more, and the measures run at the temperature extremes of the requirements (`temps`).
+   - Every active part whose vendor publishes a SPICE model uses that model (`spice.lib`). The report lists the parts that still use generic models. For each one, `notes/models.md` says why the generic model is enough for the claim it supports.
+   - `hw-reviewer` ran on the final design, and a second review after the fixes has zero `must` findings.
+   - `uv run hwflow trace <proj>` shows zero failing and zero unverified `must` requirements.
+   - `SUMMARY.md` has a first-article risk list: what the simulation cannot prove, and the bench test that proves each item on the first board.
+   If a gate cannot hold, the state is `blocked`, not `done`, and `SUMMARY.md` says which gate failed.
+   Run a full `uv run hwflow build <proj> --mc 100` and `uv run hwflow trace <proj>`. Write `SUMMARY.md` for the product person: what the board does, the requirement table with status, the cost, the size, the open risks, and the decisions they made. Set `state.md` to `done`.
 
 ## Loop discipline
 
+- In headless mode, do not end your turn between stages. Go from one stage to the next in the same turn. End your turn only when you wait for product answers, when `state.md` is `done`, or when you are blocked and wrote the reason in `state.md`.
 - After each build, read `build/REPORT.md` only. Do not read `build/status.json` unless you need a detail.
 - Fix the root cause. Do not widen a measure limit to make it pass. If a limit is wrong, the requirement is wrong, and the product person decides.
 - If a stage does not converge after 6 iterations, write what you tried in `state.md`, and either ask the product person or change the architecture.
