@@ -34,8 +34,19 @@ def _status(d) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+def _design_hash(d) -> str:
+    import hashlib
+    h = hashlib.sha1(d.path.read_bytes())
+    rq = d.dir / "requirements.yaml"
+    if rq.exists():
+        h.update(rq.read_bytes())
+    return h.hexdigest()[:12]
+
+
 def _save_status(d, key, val):
     s = _status(d)
+    if isinstance(val, dict) and key in ("check", "sch", "sim", "layout", "post", "fab", "optimize"):
+        val["design_hash"] = _design_hash(d)
     s[key] = val
     s["updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
     _status_path(d).write_text(json.dumps(s, indent=2, default=str))
@@ -219,8 +230,15 @@ def write_report(d: Design) -> str:
     if t["total"]:
         _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
     s = _status(d)
+    cur = _design_hash(d)
+    stale = [k for k in ("check", "sch", "sim", "layout", "post", "fab")
+             if k in s and s[k].get("design_hash") != cur]
+    for k in stale:
+        s.pop(k)  # results from an older design.yaml are not evidence for this one
     L = [f"# {d.name}: build report", f"Updated {s.get('updated', '?')}. Source: design.yaml.", ""]
     verdict = []
+    if stale:
+        L.append(f"- stale (older design.yaml, not shown, rerun to refresh): {', '.join(stale)}")
     if "check" in s:
         c = s["check"]
         L.append(f"- check: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
@@ -305,9 +323,16 @@ def write_report(d: Design) -> str:
     return text
 
 
+def _fresh_status(d) -> dict:
+    s = _status(d)
+    cur = _design_hash(d)
+    return {k: v for k, v in s.items()
+            if not (isinstance(v, dict) and "design_hash" in v and v["design_hash"] != cur)}
+
+
 def score(d: Design) -> dict:
     """Deterministic scorecard used by evals."""
-    s = _status(d)
+    s = _fresh_status(d)
     cost, missing = d.cost()
     g = lambda k, f, dflt=None: f(s[k]) if k in s else dflt  # noqa: E731
     return {
@@ -334,7 +359,7 @@ def trace(d: Design) -> dict:
     import yaml
     rp = d.dir / "requirements.yaml"
     reqs = (yaml.safe_load(rp.read_text()) or {}).get("requirements", []) if rp.exists() else []
-    s = _status(d)
+    s = _fresh_status(d)
     results: dict[str, list] = {}
     for a in (s.get("sim") or {}).get("analyses", []):
         for r in a["rows"]:

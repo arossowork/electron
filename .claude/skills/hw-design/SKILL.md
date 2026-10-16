@@ -37,6 +37,8 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
 - Fix the root cause. Do not widen a measure limit to make it pass. If a limit is wrong, the requirement is wrong, and the product person decides.
 - If a stage does not converge after 6 iterations, write what you tried in `state.md`, and either ask the product person or change the architecture.
 - Delegate to subagents with a self-contained brief: the project path, the stage goal, and the files to read. A subagent returns a short result, not file dumps.
+- Run subagents in the foreground and wait for their result in the same turn. Do not use background agents, ScheduleWakeup, or loops that wait for a later message. In headless mode, the session ends when your turn ends, and background work is lost.
+- If you find that a requirement or a testbench measure is inconsistent with another one (for example, a full-gain test tone placed above the bandwidth corner), record it in `conflicts.md` with the arithmetic. In headless mode, write it as a question for the product person. Do not change the limit yourself.
 
 ## requirements.yaml format
 
