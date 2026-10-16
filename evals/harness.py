@@ -27,6 +27,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?done\b", re.I | re.M)  # only an explicit status line counts
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
 PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "haiku")
@@ -135,10 +136,12 @@ def _run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str 
                 fh.write(f"\n## Round {q.get('round', meta['rounds'])}\n{pm.get('result', '')}\n")
             qf.rename(proj / "inbox" / f"questions_round{meta['rounds']}.json")
             msg = "The product person answered. The answers are in inbox/answers.md. Continue the flow."
-        elif re.search(r"\bdone\b", state):
+        elif DONE_RE.search(state):
             break
         else:
-            msg = "Continue the /hw-design flow from state.md until sign-off or until you need product answers."
+            msg = ("Continue the /hw-design flow from state.md through all remaining stages without stopping, "
+                   "until sign-off or until you need product answers. Keep a `status:` line at the top of "
+                   "state.md (running, waiting-for-answers, blocked, or done).")
         if not sid:
             meta["errors"].append("no session id; cannot continue")
             break
@@ -312,7 +315,7 @@ def main():
             if not t.is_dir() or not (t / "proj").exists():
                 continue
             state = (t / "proj" / "state.md").read_text().lower() if (t / "proj" / "state.md").exists() else ""
-            if re.search(r"\bdone\b", state):
+            if DONE_RE.search(state):
                 continue
             fid, model, tr = t.name.split("__")
             if a.only and fid not in a.only.split(","):

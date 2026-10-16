@@ -20,7 +20,7 @@ The product person is not an engineer. Ask about outcomes (battery life, size, c
 
 ## Stages
 
-Record the stage, the open issues, and the iteration count in `state.md` after each stage. Keep `state.md` under 40 lines.
+Record the stage, the open issues, and the iteration count in `state.md` after each stage. Start `state.md` with two lines: `stage: <n>-<name>` and `status: running | waiting-for-answers | blocked | done`. Keep `state.md` under 40 lines.
 
 1. Requirements (subagent `hw-requirements`). Interview until every requirement has a measurable acceptance criterion and a priority (`must`, `should`, `could`). Cover the power source, the interfaces, the environment, the size, the cost target, the volume, certifications, and the optimization criteria with weights. Write `requirements.yaml` (format below) and `conflicts.md`. A conflict is two requirements that cannot both be met, or one that physics or budget rules out. Examples: battery life against average current, size against connector count, noise against cost. For each conflict, compute the numbers, propose resolutions, and ask the product person to choose. Do not continue with an unresolved must-level conflict.
 2. Architecture (subagent `hw-architect`). Write `architecture.md`: block diagram (mermaid), power tree, power budget, error and noise budget, and interface list. Every budget line shows its calculation. Then check conflicts again with the real numbers.
@@ -36,6 +36,7 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
    - `uv run hwflow trace <proj>` shows zero failing and zero unverified `must` requirements.
    - `SUMMARY.md` has a first-article risk list: what the simulation cannot prove, and the bench test that proves each item on the first board.
    If a gate cannot hold, the state is `blocked`, not `done`, and `SUMMARY.md` says which gate failed.
+   When every gate holds, the first lines of `state.md` are `stage: 8-signoff` and `status: done`. Runners look for that exact `status:` line.
    Run a full `uv run hwflow build <proj> --mc 100` and `uv run hwflow trace <proj>`. Write `SUMMARY.md` for the product person: what the board does, the requirement table with status, the cost, the size, the open risks, and the decisions they made. Set `state.md` to `done`.
 
 ## Loop discipline

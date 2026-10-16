@@ -16,7 +16,7 @@ for i in $(seq 1 "${MAX_ROUNDS:-8}"); do
     echo "Write them to $DIR/inbox/answers.md, delete questions.json, and run this script again."
     exit 2
   fi
-  if grep -qiE '^\s*(stage|status):\s*done' "$DIR/state.md" 2>/dev/null; then
+  if grep -qiE '^\s*[-*]?\s*status:\s*done' "$DIR/state.md" 2>/dev/null; then
     echo "Done. See $DIR/SUMMARY.md and $DIR/build/REPORT.md"; exit 0
   fi
   if [ -s "$SID_FILE" ]; then
