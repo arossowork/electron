@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+tools/*.jar
+evals/runs/
+.pytest_cache/
+*.kicad_prl
+fp-info-cache

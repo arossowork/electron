@@ -1,0 +1,80 @@
+* hwflow generic behavioral models, parameterized from datasheet values.
+* Each model documents its port order. design.yaml maps symbol pin numbers to
+* these ports with `spice.ports`.
+
+* ---------------------------------------------------------------- op-amp
+* ports: inp inn out vcc vee
+* GBW gain-bandwidth [Hz], AOL open-loop gain [V/V], VOS offset [V],
+* IQ supply current [A], EN input voltage noise [V/rtHz], ROUT [ohm],
+* VDROP output swing to each rail [V], SR slew rate [V/s]
+.subckt OPAMP_GENERIC inp inn out vcc vee params: GBW=1e6 AOL=1e5 VOS=1e-3 IQ=1e-3 EN=10e-9 ROUT=50 VDROP=0.05 SR=1e6
+Rn inp inp_n {EN*EN/1.6568e-20}
+Vos inp_n inp_o {VOS}
+Rin inp_o inn 1e12
+Bgm 0 n1 I = max(min(v(inp_o,inn), {SR/(6.2832*GBW)}), -{SR/(6.2832*GBW)})
+R1 n1 0 {AOL}
+C1 n1 0 {1/(6.2832*GBW)}
+D1 n1 vcc DCLAMP
+D2 vee n1 DCLAMP
+Bout n2 0 V = max(min(v(n1), v(vcc)-{VDROP}), v(vee)+{VDROP})
+Rout n2 out {ROUT}
+Iq vcc vee {IQ}
+.model DCLAMP D(IS=1e-14 N=0.1)
+.ends OPAMP_GENERIC
+
+* ---------------------------------------------------------------- comparator
+* ports: inp inn out vcc vee   (push-pull output)
+.subckt COMP_GENERIC inp inn out vcc vee params: TPD=100n IQ=10u HYST=0
+B1 n1 0 V = v(inp,inn) > 0 ? v(vcc) : v(vee)
+R1 n1 n2 1k
+C1 n2 0 {TPD/1k}
+Rout n2 out 10
+Iq vcc vee {IQ}
+.ends COMP_GENERIC
+
+* ---------------------------------------------------------------- linear regulator
+* ports: in out gnd
+* VOUT [V], VDROP dropout [V], IQ quiescent [A], ROUT load regulation [ohm],
+* PSRR_DB [dB] (applied as DC line sensitivity), ILIM current limit [A]
+.subckt LDO_GENERIC in out gnd params: VOUT=3.3 VDROP=0.3 IQ=50u ROUT=0.05 PSRR_DB=60 ILIM=0.5 TAU=10u
+Iq in gnd {IQ}
+B1 n1 gnd V = max(min({VOUT} + (v(in,gnd)-{VOUT})*pwr(10,-{PSRR_DB}/20), v(in,gnd)-{VDROP}), 0)
+R1 n1 n2 1k
+C1 n2 gnd {TAU/1k}
+E1 n3 gnd n2 gnd 1
+Bpass in out I = min(max((v(n3,gnd)-v(out,gnd))/{ROUT}, 0), {ILIM})
+.ends LDO_GENERIC
+
+* ---------------------------------------------------------------- buck converter (averaged)
+* ports: vin sw_out gnd     (averaged model, no switching ripple)
+* VOUT target [V], EFF efficiency, ILIM [A], IQ [A]
+.subckt BUCK_AVG vin out gnd params: VOUT=3.3 EFF=0.9 ILIM=2 IQ=100u TAU=50u
+Iq vin gnd {IQ}
+B1 n1 gnd V = min({VOUT}, v(vin,gnd)*0.95)
+R1 n1 n2 1k
+C1 n2 gnd {TAU/1k}
+Bout vin_x out I = min(max((v(n2,gnd)-v(out,gnd))/0.02, 0), {ILIM})
+Vx vin_x gnd 0
+Bin vin gnd I = -v(out,gnd)*i(Vx)/max(v(vin,gnd),0.1)/{EFF}
+.ends BUCK_AVG
+
+* ---------------------------------------------------------------- voltage reference
+* ports: k a  (shunt reference, cathode/anode)
+.subckt VREF_SHUNT k a params: VREF=2.5 RZ=0.2
+D1 a k DZ
+.model DZ D(BV={VREF} IBV=1e-3 RS={RZ} IS=1e-14)
+.ends VREF_SHUNT
+
+* ---------------------------------------------------------------- diodes
+.model D_GENERIC D(IS=2.5n RS=0.5 N=1.75 BV=100 IBV=1u CJO=4p TT=5n)
+.model D_SCHOTTKY D(IS=5u RS=0.05 N=1.05 BV=40 IBV=100u CJO=100p)
+.model LED_RED D(IS=1e-19 N=1.8 RS=5 BV=5 IBV=10u)
+.model LED_GREEN D(IS=1e-24 N=1.9 RS=8 BV=5 IBV=10u)
+.model LED_BLUE D(IS=1e-28 N=2.0 RS=10 BV=5 IBV=10u)
+.model LED_WHITE D(IS=1e-28 N=2.0 RS=10 BV=5 IBV=10u)
+
+* ---------------------------------------------------------------- transistors
+.model NMOS_LOGIC NMOS(LEVEL=1 VTO=1.5 KP=0.5 LAMBDA=0.01 RD=0.05 RS=0.05 CGSO=1e-9 CGDO=1e-10)
+.model PMOS_LOGIC PMOS(LEVEL=1 VTO=-1.5 KP=0.3 LAMBDA=0.01 RD=0.05 RS=0.05 CGSO=1e-9 CGDO=1e-10)
+.model NPN_GENERIC NPN(IS=1e-14 BF=200 VAF=100 CJE=8p CJC=4p TF=0.4n)
+.model PNP_GENERIC PNP(IS=1e-14 BF=150 VAF=100 CJE=8p CJC=4p TF=0.6n)

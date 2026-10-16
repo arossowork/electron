@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run hwflow:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run python -m hwflow:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir -p projects/:*)",
+      "Edit(projects/**)",
+      "Write(projects/**)",
+      "Read(**)",
+      "WebSearch",
+      "WebFetch"
+    ]
+  }
+}

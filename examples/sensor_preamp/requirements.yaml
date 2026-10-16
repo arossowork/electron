@@ -1,0 +1,9 @@
+product: USB-powered sensor preamplifier
+requirements:
+  - {id: R1, priority: must, text: "Powered from USB 5 V (4.5 to 5.25 V)", verification: simulation}
+  - {id: R2, priority: must, text: "Local 3.3 V rail within 1.5% with ripple under 20 mV during USB line steps", verification: simulation}
+  - {id: R3, priority: must, text: "Gain of 10 (20 dB +-0.2 dB); 0-100 mV input maps to 0-1 V output", verification: simulation}
+  - {id: R4, priority: must, text: "Bandwidth 900 Hz to 1.5 kHz (-3 dB)", verification: simulation}
+  - {id: R5, priority: should, text: "Supply current under 5 mA", verification: simulation}
+  - {id: R6, priority: should, text: "Output noise under 60 uVrms (1 Hz to 100 kHz)", verification: simulation}
+  - {id: R7, priority: must, text: "Board fits 40 x 30 mm, 2 layers", verification: layout, evidence: "board.width_mm/height_mm"}
