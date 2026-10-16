@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -331,6 +332,61 @@ def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) 
     if not ses.exists():
         raise RuntimeError("freerouting produced no session file:\n" + log[-2000:])
     return log
+
+
+KRT_DIR = Path(os.environ.get("KRT_DIR") or Path(__file__).resolve().parents[2] / "tools" / "KiCadRoutingTools")
+
+
+def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout: int = 1800) -> tuple[list, list, str, int]:
+    """Route with KiCadRoutingTools: one pass per track-width class (widest first), keeping earlier copper.
+
+    Power-tap mode is not used, because it places vias inside same-net SMD pads.
+    Returns (tracks, vias, summary, unrouted) like the Freerouting path.
+    """
+    import json as _json
+    from . import kicad as _kicad
+    route_py = KRT_DIR / "py_router" / "route.py"
+    if not route_py.exists():
+        raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
+    b = design.board
+    name = design.name
+    src = workdir / f"{name}_unrouted.kicad_pcb"
+    write_board(src, build_board(design, libs, parts))
+    pro = workdir / f"{name}.kicad_pro"
+    classes = net_classes(design)
+    gnds = design.ground_nets() if b["gnd_pour"] else set()
+    groups: dict[float, list[str]] = {}
+    for net, cl in classes.items():
+        if net not in gnds:
+            groups.setdefault(cl["width"], []).append(net)
+    env = dict(os.environ, KICAD_CLI=_kicad.cli())
+    common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
+              "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
+              "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
+    cur, log, last = src, [], {}
+    for i, (w, nets) in enumerate(sorted(groups.items(), reverse=True)):
+        out = workdir / f"{name}_krt{i}.kicad_pcb"
+        if pro.exists():
+            shutil.copy(pro, cur.with_suffix(".kicad_pro"))
+        cmd = [sys.executable, str(route_py), str(cur), str(out), "--nets", *nets, "--track-width", str(w), *common]
+        if i:
+            cmd.append("--keep-input-copper")
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
+        log.append(p.stdout + p.stderr)
+        for ln in (p.stdout + p.stderr).splitlines():
+            if ln.startswith("JSON_SUMMARY_MIN:"):
+                last[w] = _json.loads(ln.split(":", 1)[1])
+        if not out.exists():
+            (workdir / "krt.log").write_text("\n".join(log))
+            raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm (exit {p.returncode}); see krt.log")
+        cur = out
+    (workdir / "krt.log").write_text("\n".join(log))
+    routed = read_board(cur)
+    tracks = [dict(s) for s in routed["segments"] if s["net"]]
+    vias = [dict(v) for v in routed["vias"] if v["net"]]
+    unrouted = sum(int(v.get("failed", 0)) + int(v.get("multipoint_deficit", 0)) + len(v.get("open_single") or [])
+                   for v in last.values())
+    return tracks, vias, f"{unrouted} unrouted, krt {len(groups)} pass(es)", unrouted
 
 
 def import_ses(ses: Path, design: Design) -> tuple[list, list]:

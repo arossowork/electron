@@ -100,6 +100,8 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
 def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
     out = _out(d)
     name = d.name
+    if d.board.get("router", "freerouting") == "krt":
+        return pcb.run_krt(d, libs, parts, out)
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
     log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
     tracks, vias = pcb.import_ses(out / f"{name}.ses", d)
@@ -279,7 +281,10 @@ def write_report(d: Design) -> str:
             L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})")
         if not c["ok"]:
             verdict.append(f"{c['total'] - c['passed']} sim measures fail")
-    if "layout" in s:
+    if "layout" in s and "exception" in s["layout"]:
+        L.append(f"- layout: FAIL ({s['layout']['exception'][:200]})")
+        verdict.append("layout did not run")
+    elif "layout" in s:
         c = s["layout"]
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
@@ -292,7 +297,10 @@ def write_report(d: Design) -> str:
             L.append(f"  - DRC {x['type']}: {x['msg']} {x['items'][:2]}")
         if not c["ok"]:
             verdict.append("layout/DRC errors")
-    if "post" in s:
+    if "post" in s and "exception" in s["post"]:
+        L.append(f"- post-layout: FAIL ({s['post']['exception'][:200]})")
+        verdict.append("post-layout did not run")
+    elif "post" in s:
         c = s["post"]
         m = c["metrics"]
         L.append(f"- post-layout: {'OK' if c['ok'] else 'FAIL'}; board {m['area_mm2']} mm2, {m['layers']} layers, "
