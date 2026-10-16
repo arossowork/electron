@@ -11,7 +11,17 @@
       "Write(projects/**)",
       "Read(**)",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(python3 -c:*)",
+      "Bash(uv run python -c:*)",
+      "Read(//Users/**/Applications/KiCad/**)",
+      "Edit(evals/runs/**)",
+      "Write(evals/runs/**)",
+      "Bash(mkdir -p evals/runs/:*)"
     ]
   }
 }

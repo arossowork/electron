@@ -1,0 +1,10 @@
+id: usb_preamp
+mode: from_requirements          # skips the interview: tests circuit, sim, layout
+brief: |
+  USB powered x10 preamplifier for a 0-100 mV sensor, 1 kHz bandwidth, status LED.
+requirements_file: ../../examples/sensor_preamp/requirements.yaml
+hidden_spec: ""
+planted_conflicts: []
+expected_requirements: []
+limits: {max_area_mm2: 1200, max_cost_usd: 3.0}
+max_designer_turns: 4

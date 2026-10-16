@@ -1,0 +1,25 @@
+id: led_driver
+mode: full
+brief: |
+  We need a small board that drives a string of white LEDs for a desk lamp from a
+  12 V wall adapter, with dimming. Cheap and simple please.
+hidden_spec: |
+  - Input: 12 V DC adapter, 11 to 13 V, barrel jack.
+  - Load: 3 white LEDs in series (Vf about 3.1 V each at 350 mA), constant current 350 mA +-5%.
+  - Dimming: PWM input from an external pin, 1 kHz, 0-100%.
+  - Efficiency above 85% at full brightness (thermal: no heatsink, plastic case).
+  - Cost: cheapest possible, the PM prefers a linear driver because "switching is noisy".
+  - Board: 30 x 20 mm max, 2 layers.
+  - If shown that linear cannot reach 85% at 12 V input with 9.3 V string, accept a buck LED driver.
+planted_conflicts:
+  - id: linear_vs_efficiency
+    desc: linear regulator efficiency ~ 9.3/12 = 78% < 85% required
+    keywords: [[linear], [efficien, "85", "78", "77", loss, dissipat]]
+expected_requirements:
+  - ["350", current]
+  - [pwm, dimming]
+  - ["12 v", "12v", adapter, input]
+  - [efficien]
+  - [size, mm]
+limits: {max_area_mm2: 600, max_cost_usd: 2.0}
+max_designer_turns: 8

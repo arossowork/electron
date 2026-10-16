@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hwflow</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<meta name="theme-color" content="#0f172a">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <button id="menu" aria-label="Projects">☰</button>
+  <h1>hwflow</h1>
+  <span id="pname"></span>
+  <select id="model" aria-label="Model">
+    <option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option>
+  </select>
+</header>
+<main>
+  <aside id="side">
+    <button id="new" class="primary">New product</button>
+    <ul id="projects"></ul>
+  </aside>
+  <section id="chat">
+    <div id="log"></div>
+    <form id="qform" hidden></form>
+    <form id="composer">
+      <textarea id="msg" rows="2" placeholder="Describe the product, answer, or give direction"></textarea>
+      <div class="row">
+        <button type="submit" class="primary">Send</button>
+        <button type="button" id="stop">Stop</button>
+        <button type="button" id="build" title="Rebuild with hwflow, no LLM">Rebuild</button>
+        <span id="busy"></span>
+      </div>
+    </form>
+  </section>
+  <section id="panel">
+    <nav id="tabs"></nav>
+    <div id="view"><p class="muted">Pick or create a product.</p></div>
+  </section>
+</main>
+<dialog id="newdlg">
+  <form method="dialog" id="newform">
+    <h2>New product</h2>
+    <label>Short name <input name="name" required pattern="[a-z0-9][a-z0-9_\-]{1,40}" placeholder="coin-logger"></label>
+    <label>What should it do? <textarea name="brief" rows="6" required placeholder="A tiny coin-cell temperature logger for shipping boxes..."></textarea></label>
+    <div class="row"><button value="cancel" formnovalidate>Cancel</button><button class="primary" value="ok">Start</button></div>
+  </form>
+</dialog>
+<script src="/app.js"></script>
+</body>
+</html>

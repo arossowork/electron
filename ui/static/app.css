@@ -1,0 +1,44 @@
+:root{--bg:#f8fafc;--panel:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--user:#eff6ff;--agent:#fff;--tool:#f1f5f9;--ok:#15803d;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1120;--panel:#111827;--fg:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--user:#172554;--agent:#111827;--tool:#0f172a;--ok:#4ade80;--bad:#f87171}}
+:root[data-theme="dark"]{--bg:#0b1120;--panel:#111827;--fg:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--user:#172554;--agent:#111827;--tool:#0f172a;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;margin:0}
+#pname{color:var(--muted);flex:1}
+main{flex:1;display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1.1fr);min-height:0}
+aside{border-right:1px solid var(--line);padding:12px;overflow:auto;background:var(--panel)}
+aside ul{list-style:none;padding:0;margin:12px 0 0}
+aside li{padding:8px;border-radius:8px;cursor:pointer;margin-bottom:4px}
+aside li.active,aside li:hover{background:var(--tool)}
+aside li small{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted)}
+.dot.busy{background:var(--accent)}.dot.wait{background:#f59e0b}
+#chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+#log{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 12px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;max-width:100%}
+.user{background:var(--user);align-self:flex-end}
+.agent{background:var(--agent);border:1px solid var(--line)}
+.tool{background:var(--tool);color:var(--muted);font:12px ui-monospace,monospace;padding:4px 8px}
+.status{color:var(--muted);font-size:12px;text-align:center}
+form#composer,form#qform{border-top:1px solid var(--line);padding:12px;background:var(--panel)}
+#qform h3{margin:0 0 8px}#qform fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 8px;padding:8px}
+#qform legend{font-weight:600}#qform .why{color:var(--muted);font-size:12px}
+textarea,input,select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+select#model{width:auto}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+button{background:var(--tool);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+#panel{display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+#tabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--line);overflow-x:auto}
+#tabs button.active{background:var(--accent);color:var(--accent-fg)}
+#view{flex:1;overflow:auto;padding:16px}
+#view pre{white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;margin:0}
+#view img,#view object{max-width:100%;background:#fff;border-radius:8px}
+.score{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.score div{border:1px solid var(--line);border-radius:8px;padding:8px}.score b{display:block;font-size:18px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.muted{color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg);width:min(520px,92vw)}
+dialog label{display:block;margin-bottom:12px}
+#menu{display:none}
+@media (max-width:900px){main{grid-template-columns:1fr}aside{display:none;position:fixed;inset:49px 0 0 0;z-index:5}aside.open{display:block}#menu{display:block}#panel{border-top:1px solid var(--line);max-height:45vh}#chat{border-right:none}}

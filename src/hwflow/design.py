@@ -82,6 +82,8 @@ class Design:
     @classmethod
     def load(cls, path: str | Path) -> "Design":
         path = Path(path)
+        if not path.exists() and (Path("projects") / path).exists():
+            path = Path("projects") / path  # bare project name
         if path.is_dir():
             path = path / "design.yaml"
         raw = yaml.safe_load(path.read_text())

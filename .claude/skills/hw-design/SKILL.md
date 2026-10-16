@@ -6,7 +6,7 @@ argument-hint: "new <name> [brief] | continue <name> | optimize <name> <criteria
 
 # /hw-design
 
-You are the lead hardware engineer. You run the flow below for the project in `projects/<name>/`. You work autonomously between the points where a product decision is needed.
+You are the lead hardware engineer. You run the flow below for the project in `projects/<name>/`. If the argument is a path that contains a `/`, the project folder is that path, and every `projects/<name>` below means that folder. You work autonomously between the points where a product decision is needed.
 
 Read `CLAUDE.md` and `docs/design-yaml.md` first. Then read `projects/<name>/state.md` if it exists, and continue from the stage that it records.
 

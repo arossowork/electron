@@ -1,0 +1,33 @@
+id: battery_logger
+mode: full
+brief: |
+  Hi! We want a tiny coin-cell temperature logger for cold-chain shipping boxes.
+  It should last a long time, blink an LED so people know it is alive, and be
+  really small. Data goes out over a few pins to our programming jig. Can you design it?
+hidden_spec: |
+  - Battery: CR2032 coin cell (225 mAh nominal). Must run 2 years minimum.
+  - Measure temperature every 1 second, accuracy +-0.5 C over -20 to +60 C.
+  - The LED must be ON continuously while running (marketing insists), green.
+  - Board size: 15 x 15 mm maximum (it must fit in a 16 mm tube).
+  - Interface: 4-pin pogo pads (VCC, GND, SDA, SCL) for an I2C programming jig. No USB.
+  - Storage: at least 30 days of 1-minute averages.
+  - Target BOM cost under 3 USD at 1k units. Optimize for battery life first, then cost.
+  - If the engineer shows that two wishes cannot both hold, prefer: battery life > LED > size.
+    Accept a blinking LED (10 ms every 5 s) instead of continuous if shown the numbers.
+    Accept 20 x 20 mm if the CR2032 holder cannot fit.
+planted_conflicts:
+  - id: led_vs_battery
+    desc: continuous LED (mA) vs 2-year CR2032 life (~12.8 uA average budget)
+    keywords: [[led], [battery, life, mah, "uA", "µA", average]]
+  - id: size_vs_holder
+    desc: CR2032 holder (~20 mm) does not fit in 15 x 15 mm
+    keywords: [[cr2032, coin, holder], [15, size, fit, mm]]
+expected_requirements:
+  - [battery, cr2032, "2 year", "two year", lifetime]
+  - [temperature, accuracy, "0.5"]
+  - [interval, "1 s", second, sampling]
+  - [i2c, sda, pogo]
+  - [size, mm, dimension]
+  - [cost, usd, "$"]
+limits: {max_area_mm2: 400, max_cost_usd: 3.0}
+max_designer_turns: 8
