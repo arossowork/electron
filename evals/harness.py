@@ -44,7 +44,48 @@ FACTS:
 """
 
 
+LIMIT_RE = re.compile(r"usage limit|hit your limit|rate limit|limit reached|resets? (at )?\d|overloaded|529", re.I)
+
+
+def _limit_wait_seconds(text: str) -> int:
+    """Seconds until the subscription window resets, from the CLI message; 15 min when unknown."""
+    m = re.search(r"\|(\d{10})", text)  # "Claude AI usage limit reached|1792170000"
+    if m:
+        return max(60, int(m.group(1)) - int(time.time()) + 60)
+    m = re.search(r"resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text, re.I)
+    if m:
+        h, mi = int(m.group(1)), int(m.group(2) or 0)
+        if m.group(3):
+            h = h % 12 + (12 if m.group(3).lower() == "pm" else 0)
+        now = time.localtime()
+        target = time.mktime((now.tm_year, now.tm_mon, now.tm_mday, h, mi, 0, 0, 0, -1))
+        if target <= time.time():
+            target += 86400
+        return int(target - time.time()) + 60
+    return 900
+
+
 def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,
+           headless: bool = True, timeout: int | None = None, log: Path | None = None) -> dict:
+    """claude -p with automatic waiting when the subscription usage window is exhausted."""
+    for _ in range(48):
+        out = _claude_once(prompt, model, cwd, resume, system, headless, timeout or CALL_TIMEOUT, log)
+        text = str(out.get("result", ""))
+        if out.get("is_error") and LIMIT_RE.search(text) and "TIMEOUT" not in text:
+            wait = _limit_wait_seconds(text)
+            print(f"{time.strftime('%H:%M')} usage limit: waiting {wait // 60} min for the window to refresh",
+                  flush=True)
+            if log:
+                with open(log, "a") as fh:
+                    fh.write(json.dumps({"event": "limit_wait", "seconds": wait, "msg": text[:300]}) + "\n")
+            time.sleep(wait)
+            resume = out.get("session_id") or resume
+            continue
+        return out
+    return out
+
+
+def _claude_once(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,
            headless: bool = True, timeout: int = CALL_TIMEOUT, log: Path | None = None) -> dict:
     cmd = ["claude", "-p", prompt, "--model", model, "--output-format", "json"]
     if resume:

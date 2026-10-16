@@ -24,6 +24,8 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "evals"))
+from harness import LIMIT_RE, _limit_wait_seconds  # noqa: E402
 PROJECTS = ROOT / "projects"
 STATIC = Path(__file__).parent / "static"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
@@ -66,6 +68,7 @@ class Session:
         if self.busy():
             raise RuntimeError("the agent is still working; stop it first or wait")
         self.emit({"kind": "user", "text": text})
+        self.last_model = model
         sid = self.session_id
         prompt = text if sid else f"/hw-design new {self.name} . {text}"
         cmd = ["claude", "-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose",
@@ -96,13 +99,25 @@ class Session:
                         desc = i.get("description") or i.get("command") or i.get("file_path") or i.get("prompt", "")
                         self.emit({"kind": "tool", "text": f"{c['name']}: {str(desc)[:160]}"})
             elif d.get("type") == "result":
-                self.emit({"kind": "status", "text": f"agent finished ({d.get('num_turns')} turns, "
-                                                     f"{round((d.get('duration_ms') or 0) / 1000)} s)"})
+                text = str(d.get("result", ""))
+                if d.get("is_error") and LIMIT_RE.search(text):
+                    wait = _limit_wait_seconds(text)
+                    self.emit({"kind": "status", "text": f"usage limit reached; the agent continues automatically "
+                                                         f"in {wait // 60} min, when the window refreshes"})
+                    threading.Timer(wait, self._retry_after_limit).start()
+                else:
+                    self.emit({"kind": "status", "text": f"agent finished ({d.get('num_turns')} turns, "
+                                                         f"{round((d.get('duration_ms') or 0) / 1000)} s)"})
         proc.wait()
         self.emit({"kind": "files", "files": self.files()})
         q = self.questions()
         if q:
             self.emit({"kind": "questions", "questions": q})
+
+    def _retry_after_limit(self):
+        if not self.busy():
+            self.send("Continue the /hw-design flow from state.md. The usage limit interrupted the last turn.",
+                      self.last_model)
 
     def stop(self):
         if self.busy():

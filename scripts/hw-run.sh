@@ -26,5 +26,13 @@ for i in $(seq 1 "${MAX_ROUNDS:-8}"); do
     OUT=$(claude -p "/hw-design continue $P . $EXTRA" --model "$MODEL" --permission-mode acceptEdits --output-format json)
   fi
   echo "$OUT" >> "$LOG"
+  # Subscription usage window exhausted: wait for the reset, then retry the same round.
+  WAIT=$(echo "$OUT" | uv run python -c "import json,sys; sys.path.insert(0,'evals'); import harness as h
+d=json.loads(sys.stdin.read() or '{}'); t=str(d.get('result',''))
+print(h._limit_wait_seconds(t) if d.get('is_error') and h.LIMIT_RE.search(t) else 0)")
+  if [ "$WAIT" -gt 0 ]; then
+    echo "usage limit reached: waiting $((WAIT / 60)) min for the window to refresh"
+    sleep "$WAIT"; continue
+  fi
   echo "$OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); open('$SID_FILE','w').write(d.get('session_id','')); print('round $i:', d.get('num_turns'), 'turns;', str(d.get('result'))[:300])"
 done
