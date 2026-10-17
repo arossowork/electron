@@ -104,3 +104,31 @@ def test_monte_carlo_parallel_is_deterministic(tmp_path):
     a = spice.monte_carlo(d, tmp_path / "a", runs=12, workers=1)
     b = spice.monte_carlo(d, tmp_path / "b", runs=12, workers=6)
     assert a == b
+
+
+def test_custom_pad_exports_full_outline():
+    """SOT-89 tab is a custom pad: the router must see the whole tab, not just the anchor rectangle."""
+    from hwflow.libs import Libs
+    from hwflow.pcb import _padstack
+    pad = next(p for p in Libs().footprint("Package_TO_SOT_SMD:SOT-89-3")["pads"] if p["number"] == "2")
+    _, ps = _padstack(pad, ["F.Cu", "B.Cu"])
+    shape = ps[2][1]
+    assert shape[0] == "polygon"
+    xs = shape[3::2]
+    assert max(xs) - min(xs) > 4000  # um: anchor 1.475 mm plus the 3.1 mm tab
+
+
+def test_post_layout_inductors_are_damped(tmp_path):
+    import json
+    import shutil
+    from hwflow.cli import main
+    from hwflow import postlayout
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    main(["build", str(proj), "--until", "layout"])
+    d = Design.load(proj)
+    d.raw["board"]["width_mm"], d.raw["board"]["height_mm"] = json.loads(
+        (proj / "build" / "status.json").read_text())["layout"]["board_mm"]
+    ex = postlayout.Extraction(d, proj / "build" / f"{d.name}.kicad_pcb")
+    lines = postlayout.PostLayoutNodeMap(d, ex).extra()
+    assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0

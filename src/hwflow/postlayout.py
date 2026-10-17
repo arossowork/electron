@@ -207,7 +207,8 @@ class Extraction:
             td = math.sqrt(ee) / C0 * L * 1e-3
             s["z0"] = z0
             R = RHO_CU * (L * 1e-3) / (s["w"] * 1e-3 * self.t_mm * 1e-3)
-            self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L})
+            self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L,
+                                  "Z0": z0})
         # 2. trace ends that touch (closer than half the narrower width) are one node
         ends = []
         for s in segs:
@@ -346,6 +347,9 @@ class PostLayoutNodeMap(NodeMap):
                 mid = f"m{i}"
                 lines.append(f"Rpx{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
                 lines.append(f"Lpx{i} {mid} {b} {e['L']:.6g}")
+                # damping across the trace inductance: kills the GHz LC ringing of nH/fF segments,
+                # which made switching transients stall, and leaves behaviour below ~1 GHz unchanged
+                lines.append(f"Rdx{i} {mid} {b} {e.get('Z0', 50):.6g}")
             else:
                 lines.append(f"Rpx{i} {a} {b} {max(e['R'], 1e-6):.6g}")
             if e["C"] > 0:

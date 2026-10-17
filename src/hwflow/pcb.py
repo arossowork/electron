@@ -246,8 +246,14 @@ def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list]:
     w, h = _um(p["w"]), _um(p["h"])
     shape = p["shape"]
     shapes = []
+    hull = p.get("hull")
     for L in lays:
-        if shape == "circle":
+        if hull:  # custom pad: full outline (anchor + primitives), y flipped for Specctra
+            coords = []
+            for x, y in hull:
+                coords += [_um(x), -_um(y)]
+            shapes.append(["shape", ["polygon", L, 0] + coords])
+        elif shape == "circle":
             shapes.append(["shape", ["circle", L, w]])
         elif shape == "oval":
             if w > h:
@@ -257,6 +263,8 @@ def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list]:
         else:
             shapes.append(["shape", ["rect", L, -w / 2, -h / 2, w / 2, h / 2]])
     name = f"{shape}_{p['kind']}_{w:g}x{h:g}_{'-'.join(lays)}".replace(".", "")
+    if hull:
+        name += "_h" + str(abs(hash(tuple(hull))) % 100000)
     return name, ["padstack", Q(name)] + shapes + [["attach", "off"]]
 
 
@@ -439,9 +447,16 @@ def read_board(path: Path) -> dict:
             n = sexpr.find(p, "net")
             ang = float(pat[3]) if len(pat) > 3 else 0.0
             w, h = float(size[1]), float(size[2])
+            hull = sexpr.custom_pad_hull(p)
+            off = (0.0, 0.0)
+            if hull:  # custom pad: bounding box of the full outline, centred where the copper really is
+                hx, hy = [q[0] for q in hull], [q[1] for q in hull]
+                w, h = max(hx) - min(hx), max(hy) - min(hy)
+                ox, oy = (max(hx) + min(hx)) / 2, (max(hy) + min(hy)) / 2
+                off = rot(ox, oy, ang)
             if ang % 180 == 90:
                 w, h = h, w
-            pads.append({"number": str(p[1]), "x": fx + dx, "y": fy + dy, "w": w, "h": h,
+            pads.append({"number": str(p[1]), "x": fx + dx + off[0], "y": fy + dy + off[1], "w": w, "h": h,
                          "net": netname(n),
                          "kind": str(p[2]), "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}

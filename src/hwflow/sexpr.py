@@ -87,3 +87,38 @@ def find_all(node, key):
 def value(node, key, default=None):
     f = find(node, key)
     return f[1] if f and len(f) > 1 else default
+
+
+def custom_pad_hull(pad: list) -> list[tuple[float, float]] | None:
+    """Convex hull (pad-local mm, before pad rotation) of a custom pad: anchor rectangle plus gr_poly primitives."""
+    if len(pad) < 4 or str(pad[3]) != "custom":
+        return None
+    size = find(pad, "size")
+    w, h = float(size[1]), float(size[2])
+    pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+    prim = find(pad, "primitives")
+    for g in find_all(prim or [], "gr_poly"):
+        for xy in find_all(find(g, "pts") or [], "xy"):
+            pts.append((float(xy[1]), float(xy[2])))
+    for g in find_all(prim or [], "gr_rect"):
+        st, en = find(g, "start"), find(g, "end")
+        if st and en:
+            x0, y0, x1, y1 = float(st[1]), float(st[2]), float(en[1]), float(en[2])
+            pts += [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    pts = sorted(set(pts))
+    if len(pts) < 3:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
