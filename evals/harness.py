@@ -27,7 +27,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?done\b", re.I | re.M)  # only an explicit status line counts
+DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?(done|blocked)\b", re.I | re.M)  # explicit final status line only
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
 PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "haiku")
