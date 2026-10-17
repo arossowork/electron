@@ -30,13 +30,18 @@ ROOT = Path(__file__).resolve().parents[1]
 DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?(done|blocked)\b", re.I | re.M)  # explicit final status line only
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
-PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "haiku")
+PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "sonnet")
 CALL_TIMEOUT = int(os.environ.get("HWFLOW_CALL_TIMEOUT", str(6 * 3600)))  # one designer turn can run hours
 
 PM_PROMPT = """You are the product manager in a hardware project. You are not an engineer.
 Answer the engineer's questions using ONLY the facts below. Keep each answer to one or two sentences.
-If a question is not covered by the facts, answer "No preference, use your judgment."
-If the engineer shows numbers that prove two wishes conflict, follow the preference rules in the facts.
+Rules, in this order:
+1. A number in the facts (size, cost, battery life, current, accuracy) is a hard limit. Keep it, unless a
+   preference rule in the facts says you may relax it, and the engineer showed numbers that prove the conflict.
+2. If the engineer proves a conflict and the facts give a preference rule, follow that rule exactly.
+3. If the engineer proves a conflict and no rule covers it, answer: "That limit is firm. Find a solution
+   inside it, or tell me the smallest change you need and its cost." Do not accept a relaxed limit yourself.
+4. If a question is not covered by the facts, answer "No preference, use your judgment."
 Never invent new requirements. Answer every question by its id, as "q1: ...".
 
 FACTS:
