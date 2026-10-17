@@ -239,7 +239,9 @@ def _hit(text: str, group: list) -> bool:
 def score_trial(tdir: Path, fx: dict) -> dict:
     proj = tdir / "proj"
     meta = json.loads((tdir / "meta.json").read_text()) if (tdir / "meta.json").exists() else {}
-    card: dict = {"fixture": fx["id"], "model": meta.get("model"), "trial": meta.get("trial")}
+    _fid, _model, _tr = tdir.name.split("__")  # the folder name is the source of truth
+    card: dict = {"fixture": fx["id"], "model": meta.get("model") or _model,
+                  "trial": meta.get("trial") or int(_tr.lstrip("t"))}
     has_design = (proj / "design.yaml").exists()
     card["has_design"] = has_design
     sc = {}
