@@ -335,15 +335,19 @@ class PostLayoutNodeMap(NodeMap):
         conns = sorted(conns, key=lambda rp: (not rp[0].startswith("J"), rp[0]))
         return self.pin(*conns[0]) if conns else spice.sanitize(net, self.grounds)
 
-    def extra(self):
-        lines = ["* --- post-layout parasitics ---"]
+    def extra(self, analysis: dict | None = None):
+        # Trace L matters in frequency-domain runs. In transients, nH segments with fF nodes only add
+        # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
+        kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
+        use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
+        lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
         for i, e in enumerate(self.ex.elements):
             if self._is_ideal(e["net"]):
                 continue
             a, b = self.ex.node_name(e["a"]), self.ex.node_name(e["b"])
             if a == b:
                 continue
-            if self.with_l and e["L"] > 0:
+            if use_l and e["L"] > 0:
                 mid = f"m{i}"
                 lines.append(f"Rpx{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
                 lines.append(f"Lpx{i} {mid} {b} {e['L']:.6g}")

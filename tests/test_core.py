@@ -132,3 +132,12 @@ def test_post_layout_inductors_are_damped(tmp_path):
     ex = postlayout.Extraction(d, proj / "build" / f"{d.name}.kicad_pcb")
     lines = postlayout.PostLayoutNodeMap(d, ex).extra()
     assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0
+
+
+def test_run_all_parallel_matches_serial(tmp_path):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = spice.run_all(d, tmp_path / "a", workers=1)
+    b = spice.run_all(d, tmp_path / "b", workers=6)
+    assert [(r["name"], [x["value"] for x in r["rows"]]) for r in a] == \
+           [(r["name"], [x["value"] for x in r["rows"]]) for r in b]

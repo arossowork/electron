@@ -78,7 +78,7 @@ class NodeMap:
                 return self.pin(ref, pin)
         return self.net(t)
 
-    def extra(self) -> list[str]:
+    def extra(self, analysis: dict | None = None) -> list[str]:
         return []
 
 
@@ -178,7 +178,7 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     lines += [f".include {lib}" for lib in sorted(libs)]
     for inc in sim.get("includes") or []:
         lines.append(f".include {(design.dir / inc).resolve()}")
-    lines += comp + nm.extra() + testbench_lines(design, nm)
+    lines += comp + nm.extra(analysis) + testbench_lines(design, nm)
     lines.append(f".options temp={temp if temp is not None else sim.get('temp', 25)}")
     for opt in sim.get("options") or []:
         lines.append(f".options {opt}")
@@ -274,17 +274,23 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             "aborted": bool(aborted)}
 
 
-def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "") -> list[dict]:
+def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:
+    """Every analysis at every temperature, in parallel; results keep the order of design.yaml."""
+    import os
+    from concurrent.futures import ThreadPoolExecutor
     sim = design.raw.get("sim") or {}
-    results = []
-    for a in sim.get("analyses") or []:
-        temps = a.get("temps") or [None]
-        for t in temps:
-            r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
-            if t is not None:
-                r["name"] += f" @ {t}C"
-            results.append(r)
-    return results
+    jobs = [(a, t) for a in sim.get("analyses") or [] for t in (a.get("temps") or [None])]
+    workers = workers or max(1, (os.cpu_count() or 2) - 1)
+
+    def one(job):
+        a, t = job
+        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
+        if t is not None:
+            r["name"] += f" @ {t}C"
+        return r
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        return list(ex.map(one, jobs))
 
 
 # --------------------------------------------------------------- Monte Carlo
