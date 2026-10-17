@@ -91,6 +91,10 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "errors": [e for a in res for e in a["errors"]]}
     if mc:
         out["monte_carlo"] = spice.monte_carlo(d, w, runs=mc)
+    else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
+        prev = _status(d).get("sim") or {}
+        if prev.get("monte_carlo") and prev.get("design_hash") == _design_hash(d):
+            out["monte_carlo"] = prev["monte_carlo"]
     out["ok"] = out["passed"] == out["total"] and not out["errors"]
     return out
 

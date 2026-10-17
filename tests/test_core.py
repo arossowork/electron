@@ -158,3 +158,17 @@ def test_thermal_vias_land_inside_their_pad():
     assert len(vias) == 4 and all(v["net"] == "VBUS" for v in vias)
     # the tab spans about 4.6 x 1.7 mm; rotated 90 deg it is tall in y around x = 10
     assert all(abs(v["x"] - 10.0) < 1.0 and abs(v["y"] - 10.0) < 3.0 for v in vias)
+
+
+def test_save_keeps_comments(tmp_path):
+    import shutil
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    text = (proj / "design.yaml").read_text().replace("components:", "# the parts list\ncomponents:", 1)
+    (proj / "design.yaml").write_text(text)
+    d = Design.load(proj)
+    d.components["R1"].data["value"] = "91k"
+    d.save()
+    out = (proj / "design.yaml").read_text()
+    assert "# the parts list" in out and "91k" in out
+    assert Design.load(proj).components["R1"].get("value") == "91k"

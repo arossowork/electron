@@ -9,6 +9,7 @@ dependencies = [
     "scipy>=1.17.1",
     "shapely>=2.2.0",
     "pillow>=13.0.0",
+    "ruamel-yaml>=0.19.1",
 ]
 
 [project.scripts]
