@@ -141,3 +141,20 @@ def test_run_all_parallel_matches_serial(tmp_path):
     b = spice.run_all(d, tmp_path / "b", workers=6)
     assert [(r["name"], [x["value"] for x in r["rows"]]) for r in a] == \
            [(r["name"], [x["value"] for x in r["rows"]]) for r in b]
+
+
+def test_thermal_vias_land_inside_their_pad():
+    from hwflow.libs import Libs
+    from hwflow.pcb import thermal_vias
+    from hwflow.placer import build_parts
+    d = Design.load(EX)
+    d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
+    d.components["U1"].data["pins"] = {"1": "GND", "2": "VBUS", "3": "+3V3"}
+    d.components["U1"].data["thermal_vias"] = {"pad": "2", "count": 4}
+    libs = Libs()
+    parts = build_parts(d, libs)
+    parts["U1"].x, parts["U1"].y, parts["U1"].r = 10.0, 10.0, 90.0
+    vias = thermal_vias(d, libs, parts)
+    assert len(vias) == 4 and all(v["net"] == "VBUS" for v in vias)
+    # the tab spans about 4.6 x 1.7 mm; rotated 90 deg it is tall in y around x = 10
+    assert all(abs(v["x"] - 10.0) < 1.0 and abs(v["y"] - 10.0) < 3.0 for v in vias)

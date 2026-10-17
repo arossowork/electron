@@ -76,6 +76,7 @@ components:
     tolerance: 0.01                         # Monte Carlo tolerance (R 1%, C 10%, L 20% default)
     voltage_rating_v: 16                    # capacitors: derating check (50% by default)
     power_rating_w: 0.1                     # resistors: default from package size
+    thermal_vias: {pad: "2", count: 6}     # via grid inside a thermal pad, to the opposite-layer pour
     theta_ja: 250                           # junction temperature estimate
     tj_max_c: 125
     spice: {...}                            # how to simulate it, see below

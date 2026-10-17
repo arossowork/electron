@@ -390,10 +390,12 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                                               f"{info['current_a']} A at 10C rise (IPC-2221)")
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
+    declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
+                if c.get("thermal_vias")}
     for v in ex.board["vias"]:
         for ref, fp in ex.board["footprints"].items():
             for p in fp["pads"]:
-                if p["kind"] != "smd":
+                if p["kind"] != "smd" or (ref, p["number"]) in declared:
                     continue
                 dx, dy = abs(v["x"] - p["x"]), abs(v["y"] - p["y"])
                 if dx < p["w"] / 2 + vr and dy < p["h"] / 2 + vr:

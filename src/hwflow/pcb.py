@@ -140,6 +140,41 @@ def _rotate_text(item: list, r: float):
         at.append(a)
 
 
+def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
+    """Via grids inside thermal pads, from `thermal_vias: {pad, count, pitch_mm}` on a component."""
+    b = design.board
+    out = []
+    for ref, part in parts.items():
+        c = design.components[ref]
+        tv = c.get("thermal_vias")
+        if not tv:
+            continue
+        pad_no = str(tv.get("pad", ""))
+        net = c.pins.get(pad_no)
+        pad = next((p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pad_no), None)
+        if not net or pad is None:
+            continue
+        w, h = pad["w"], pad["h"]
+        if pad.get("hull"):
+            xs, ys = [q[0] for q in pad["hull"]], [q[1] for q in pad["hull"]]
+            cx0, cy0 = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+            w, h = max(xs) - min(xs), max(ys) - min(ys)
+        else:
+            cx0, cy0 = 0.0, 0.0
+        if pad["rot"] % 180:
+            w, h = h, w
+        pitch = float(tv.get("pitch_mm", max(b["via_dia_mm"] + 0.4, 1.0)))
+        r = b["via_dia_mm"] / 2
+        nx = max(1, int((w - 2 * r) // pitch) + 1)
+        ny = max(1, int((h - 2 * r) // pitch) + 1)
+        pts = [((i - (nx - 1) / 2) * pitch + cx0, (j - (ny - 1) / 2) * pitch + cy0) for i in range(nx) for j in range(ny)]
+        pts = pts[: int(tv.get("count", len(pts)))]
+        for lx, ly in pts:
+            dx, dy = rot(pad["x"] + lx, pad["y"] + ly, part.r)
+            out.append({"net": net, "x": part.x + dx, "y": part.y + dy, "thermal": f"{ref}.{pad_no}"})
+    return out
+
+
 def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | None = None,
                 vias: list | None = None) -> list:
     b = design.board
@@ -173,6 +208,8 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
                      ["width", t["w"]], ["layer", Q(t["layer"])], ["net", netidx[t["net"]]], ["uuid", uid()]])
+    if tracks is not None:  # routed board: add declared thermal via grids inside their pads
+        vias = list(vias or []) + thermal_vias(design, libs, parts)
     for v in vias or []:
         tree.append(["via", ["at", round(v["x"], 4), round(v["y"], 4)], ["size", b["via_dia_mm"]],
                      ["drill", b["via_drill_mm"]], ["layers", Q("F.Cu"), Q("B.Cu")], ["net", netidx[v["net"]]],

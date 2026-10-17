@@ -13,7 +13,8 @@ You are a PCB layout engineer. Read `design.yaml`, `requirements.yaml`, and `bui
    - Decoupling too far: place the capacitor next to the IC with `placement: {x, y}`, or raise `placement.weights.decouple`.
    - Sensitive net on B.Cu or next to an aggressor: move the parts closer, separate the groups, or go to 4 layers if the requirements allow.
    - Unrouted: make the board bigger, rotate connectors, or reduce `clearance_mm` if the fab allows it.
-4. To minimize area, shrink width and height in 2 mm steps, and keep the last size that has zero errors.
-5. Use `--reuse` to keep the last placement when you change only routing rules.
+4. For parts that dissipate heat through an exposed pad or tab, set `thermal_vias: {pad, count}` on the component. Check the junction temperature in the derating table.
+5. To minimize area, shrink width and height in 2 mm steps, and keep the last size that has zero errors.
+6. Use `--reuse` to keep the last placement when you change only routing rules.
 
 Return the board size, layers, via count, DRC result, and the post-layout warnings that remain, with your reason to accept each one.
