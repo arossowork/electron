@@ -77,7 +77,8 @@ def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     fake = "doAnalyses: TRAN:  Timestep too small\nHWF __tend 0.001\n" + "".join(
-        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2}\n" for m in a["measures"])
+        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2 / float(m.get('scale', 1))}\n"
+        for m in a["measures"])
     monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (fake, 1))
     r = spice.run_analysis(d, a, tmp_path)
     assert r["aborted"]
