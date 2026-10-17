@@ -88,3 +88,11 @@ def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
     monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (full, 0))
     r = spice.run_analysis(d, a, tmp_path)
     assert not r["aborted"] and all(row["pass"] for row in r["rows"])
+
+
+def test_cpwg_matches_openems_reference():
+    """Trace 0.25 mm wide, 0.2 mm from a same-layer pour on 1.6 mm FR-4: openEMS TDR gave 86.5 ohm."""
+    from hwflow.postlayout import cpwg_z0, microstrip
+    z, _ = cpwg_z0(0.25, 0.2, 1.6, 4.3)
+    assert abs(z - 86.5) / 86.5 < 0.05
+    assert microstrip(0.25, 1.6, 0.035, 4.3)[0] > 120  # the pour-free formula overestimates here

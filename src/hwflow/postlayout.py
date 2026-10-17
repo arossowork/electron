@@ -7,7 +7,9 @@ import math
 import re
 from pathlib import Path
 
-from . import spice
+import numpy as np
+
+from . import sexpr, spice
 from .design import Design
 from .pcb import ipc2221_width_mm, net_classes, read_board
 from .spice import NodeMap
@@ -29,6 +31,58 @@ def microstrip(w_mm: float, h_mm: float, t_mm: float, er: float) -> tuple[float,
     f = 6 + (2 * math.pi - 6) * math.exp(-(30.666 / u) ** 0.7528)
     z0_air = 60 * math.log(f / u + math.sqrt(1 + (2 / u) ** 2))
     return z0_air / math.sqrt(ee), ee
+
+
+def _ellipk(k: float) -> float:
+    """Complete elliptic integral of the first kind K(k) (modulus k) by the AGM."""
+    a, b = 1.0, math.sqrt(1 - k * k)
+    while abs(a - b) > 1e-15:
+        a, b = (a + b) / 2, math.sqrt(a * b)
+    return math.pi / (2 * a)
+
+
+def cpwg_z0(w_mm: float, gap_mm: float, h_mm: float, er: float) -> tuple[float, float]:
+    """Grounded coplanar waveguide (trace in a same-layer pour, plane below), zero thickness.
+
+    Conformal mapping (Wadell, Transmission Line Design Handbook 3.4.3). This is what a routed
+    trace inside a GND pour really is; `postlayout.microstrip()` ignores the same-layer pour.
+    """
+    k = w_mm / (w_mm + 2 * gap_mm)
+    k1 = math.tanh(math.pi * w_mm / (4 * h_mm)) / math.tanh(math.pi * (w_mm + 2 * gap_mm) / (4 * h_mm))
+    r = _ellipk(k) / _ellipk(math.sqrt(1 - k * k))
+    r1 = _ellipk(k1) / _ellipk(math.sqrt(1 - k1 * k1))
+    ee = (1 + er * r1 / r) / (1 + r1 / r)
+    return 60 * math.pi / math.sqrt(ee) / (r + r1), ee
+
+
+def _zone_fills(pcb: Path) -> list[dict]:
+    """Filled zone polygons (KiCad stores them fractured: one outline, holes joined by slits)."""
+    t = sexpr.loads(pcb.read_text())
+    out = []
+    for z in sexpr.find_all(t, "zone"):
+        net = sexpr.value(z, "net_name")
+        if net is None:                   # KiCad 10: (net "GND"); older: (net 3) (net_name "GND")
+            n = sexpr.find(z, "net")
+            net = n[1] if n is not None and len(n) > 1 else None
+        for fp in sexpr.find_all(z, "filled_polygon"):
+            layer = str(sexpr.value(fp, "layer"))
+            pts = [(float(p[1]), float(p[2])) for p in sexpr.find_all(sexpr.find(fp, "pts"), "xy")]
+            if len(pts) >= 3:
+                out.append({"net": str(net), "layer": layer, "pts": np.array(pts).T})
+    return out
+
+
+def _edge_dist(px: float, py: float, poly: np.ndarray) -> float:
+    """Distance from a point to the nearest edge of a (fractured) polygon outline, slits excluded."""
+    a = poly.T
+    b = np.roll(a, -1, axis=0)
+    d = b - a
+    L2 = (d ** 2).sum(1)
+    ok = L2 > 1e-8
+    a, d, L2 = a[ok], d[ok], L2[ok]
+    t = np.clip(((px - a[:, 0]) * d[:, 0] + (py - a[:, 1]) * d[:, 1]) / L2, 0, 1)
+    q = a + d * t[:, None]
+    return float(np.min(np.hypot(q[:, 0] - px, q[:, 1] - py)))
 
 
 class UF:
@@ -91,6 +145,7 @@ class Extraction:
     def __init__(self, design: Design, board_path: Path):
         self.d = design
         self.b = design.board
+        self.path = Path(board_path)
         self.board = read_board(board_path)
         self.grounds = design.ground_nets()
         self.t_mm = 0.035 * self.b["copper_oz"]
@@ -132,6 +187,7 @@ class Extraction:
                     break
         segs = _split_tjunctions(segs)
         self.segs = segs
+        fills = [z for z in _zone_fills(self.path) if z["net"] in self.grounds] if self.path else []
         for s in segs:
             a, c = self._key(s["x1"], s["y1"], s["layer"]), self._key(s["x2"], s["y2"], s["layer"])
             L = math.hypot(s["x2"] - s["x1"], s["y2"] - s["y1"])
@@ -140,6 +196,14 @@ class Extraction:
                 self.uf.union(a, c)
                 continue
             z0, ee = microstrip(s["w"], self.h_mm, self.t_mm, self.er)
+            s["line"] = "microstrip"
+            mx, my = (s["x1"] + s["x2"]) / 2, (s["y1"] + s["y2"]) / 2
+            same = [_edge_dist(mx, my, z["pts"]) for z in fills if z["layer"] == s["layer"]]
+            if same:
+                gap = max(min(same) - s["w"] / 2, 0.05)
+                if gap < 2 * self.h_mm:  # the same-layer pour couples: grounded coplanar waveguide
+                    z0, ee = cpwg_z0(s["w"], gap, self.h_mm, self.er)
+                    s["line"], s["gap"] = "cpwg", round(gap, 3)
             td = math.sqrt(ee) / C0 * L * 1e-3
             s["z0"] = z0
             R = RHO_CU * (L * 1e-3) / (s["w"] * 1e-3 * self.t_mm * 1e-3)

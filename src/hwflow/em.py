@@ -32,7 +32,7 @@ import numpy as np
 
 from . import sexpr
 from .pcb import read_board
-from .postlayout import microstrip
+from .postlayout import _edge_dist, _ellipk, _zone_fills, cpwg_z0, microstrip  # noqa: F401
 
 C0 = 299792458.0
 EPS0 = 8.854187817e-12
@@ -90,27 +90,6 @@ def _timesteps(sim_path: Path, dt_ps: float) -> int | None:
             return int(round(float(rows[-1].split()[0]) / (dt_ps * 1e-12)))
     return None
 
-
-def _ellipk(k: float) -> float:
-    """Complete elliptic integral of the first kind K(k) (modulus k) by the AGM."""
-    a, b = 1.0, math.sqrt(1 - k * k)
-    while abs(a - b) > 1e-15:
-        a, b = (a + b) / 2, math.sqrt(a * b)
-    return math.pi / (2 * a)
-
-
-def cpwg_z0(w_mm: float, gap_mm: float, h_mm: float, er: float) -> tuple[float, float]:
-    """Grounded coplanar waveguide (trace in a same-layer pour, plane below), zero thickness.
-
-    Conformal mapping (Wadell, Transmission Line Design Handbook 3.4.3). This is what a routed
-    trace inside a GND pour really is; `postlayout.microstrip()` ignores the same-layer pour.
-    """
-    k = w_mm / (w_mm + 2 * gap_mm)
-    k1 = math.tanh(math.pi * w_mm / (4 * h_mm)) / math.tanh(math.pi * (w_mm + 2 * gap_mm) / (4 * h_mm))
-    r = _ellipk(k) / _ellipk(math.sqrt(1 - k * k))
-    r1 = _ellipk(k1) / _ellipk(math.sqrt(1 - k1 * k1))
-    ee = (1 + er * r1 / r) / (1 + r1 / r)
-    return 60 * math.pi / math.sqrt(ee) / (r + r1), ee
 
 
 # ---------------------------------------------------------------- validation case
@@ -214,36 +193,6 @@ def _stadium(x1, y1, x2, y2, w, n=6) -> np.ndarray:
             t = a0 + math.pi * k / n
             pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
     return np.array(pts).T
-
-
-def _zone_fills(pcb: Path) -> list[dict]:
-    """Filled zone polygons (KiCad stores them fractured: one outline, holes joined by slits)."""
-    t = sexpr.loads(pcb.read_text())
-    out = []
-    for z in sexpr.find_all(t, "zone"):
-        net = sexpr.value(z, "net_name")
-        if net is None:                   # KiCad 10: (net "GND"); older: (net 3) (net_name "GND")
-            n = sexpr.find(z, "net")
-            net = n[1] if n is not None and len(n) > 1 else None
-        for fp in sexpr.find_all(z, "filled_polygon"):
-            layer = str(sexpr.value(fp, "layer"))
-            pts = [(float(p[1]), float(p[2])) for p in sexpr.find_all(sexpr.find(fp, "pts"), "xy")]
-            if len(pts) >= 3:
-                out.append({"net": str(net), "layer": layer, "pts": np.array(pts).T})
-    return out
-
-
-def _edge_dist(px: float, py: float, poly: np.ndarray) -> float:
-    """Distance from a point to the nearest edge of a (fractured) polygon outline, slits excluded."""
-    a = poly.T
-    b = np.roll(a, -1, axis=0)
-    d = b - a
-    L2 = (d ** 2).sum(1)
-    ok = L2 > 1e-8
-    a, d, L2 = a[ok], d[ok], L2[ok]
-    t = np.clip(((px - a[:, 0]) * d[:, 0] + (py - a[:, 1]) * d[:, 1]) / L2, 0, 1)
-    q = a + d * t[:, None]
-    return float(np.min(np.hypot(q[:, 0] - px, q[:, 1] - py)))
 
 
 def _grid(a: float, b: float, step: float, fixed: list[float]) -> list[float]:
