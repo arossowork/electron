@@ -258,22 +258,32 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
 # --------------------------------------------------------------- Monte Carlo
 
-def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1) -> list[dict]:
+def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None) -> list[dict]:
+    """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`."""
+    import os
+    from concurrent.futures import ThreadPoolExecutor
     rng = random.Random(seed)
     sim = design.raw.get("sim") or {}
+    workers = workers or max(1, (os.cpu_count() or 2) - 1)
+    # draw every sample up front so results do not depend on scheduling
+    samples_values = []
+    for _ in range(runs):
+        values = {}
+        for c in design.components.values():
+            if c.kind in DEFAULT_TOL and c.get("value") and not (c.get("spice") or {}).get("subckt"):
+                tol = float(c.get("tolerance", DEFAULT_TOL[c.kind]))
+                values[c.ref] = parse_value(c.get("value")) * (1 + rng.gauss(0, tol / 3))
+        samples_values.append(values)
     out = []
     for a in sim.get("analyses") or []:
         if not a.get("monte_carlo", True) or not a.get("measures"):
             continue
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            results = list(ex.map(lambda iv: run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}"),
+                                  enumerate(samples_values)))
         samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"]}
         fails = 0
-        for i in range(runs):
-            values = {}
-            for c in design.components.values():
-                if c.kind in DEFAULT_TOL and c.get("value") and not (c.get("spice") or {}).get("subckt"):
-                    tol = float(c.get("tolerance", DEFAULT_TOL[c.kind]))
-                    values[c.ref] = parse_value(c.get("value")) * (1 + rng.gauss(0, tol / 3))
-            r = run_analysis(design, a, workdir / "mc", values=values, tag=f"_mc{i}")
+        for r in results:
             if not all(row["pass"] for row in r["rows"]):
                 fails += 1
             for row in r["rows"]:

@@ -96,3 +96,11 @@ def test_cpwg_matches_openems_reference():
     z, _ = cpwg_z0(0.25, 0.2, 1.6, 4.3)
     assert abs(z - 86.5) / 86.5 < 0.05
     assert microstrip(0.25, 1.6, 0.035, 4.3)[0] > 120  # the pour-free formula overestimates here
+
+
+def test_monte_carlo_parallel_is_deterministic(tmp_path):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = spice.monte_carlo(d, tmp_path / "a", runs=12, workers=1)
+    b = spice.monte_carlo(d, tmp_path / "b", runs=12, workers=6)
+    assert a == b
