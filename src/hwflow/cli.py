@@ -238,10 +238,15 @@ def write_report(d: Design) -> str:
              if k in s and s[k].get("design_hash") != cur]
     for k in stale:
         s.pop(k)  # results from an older design.yaml are not evidence for this one
+    crashed = {k: s.pop(k)["exception"] for k in ("check", "sch", "sim", "layout", "post", "fab")
+               if isinstance(s.get(k), dict) and "exception" in s[k]}
     L = [f"# {d.name}: build report", f"Updated {s.get('updated', '?')}. Source: design.yaml.", ""]
     verdict = []
     if stale:
         L.append(f"- stale (older design.yaml, not shown, rerun to refresh): {', '.join(stale)}")
+    for k, e in crashed.items():
+        L.append(f"- {k}: FAIL, the stage did not run ({e[:200]})")
+        verdict.append(f"{k} did not run")
     if "check" in s:
         c = s["check"]
         L.append(f"- check: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
@@ -279,10 +284,7 @@ def write_report(d: Design) -> str:
             L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})")
         if not c["ok"]:
             verdict.append(f"{c['total'] - c['passed']} sim measures fail")
-    if "layout" in s and "exception" in s["layout"]:
-        L.append(f"- layout: FAIL ({s['layout']['exception'][:200]})")
-        verdict.append("layout did not run")
-    elif "layout" in s:
+    if "layout" in s:
         c = s["layout"]
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
@@ -295,10 +297,7 @@ def write_report(d: Design) -> str:
             L.append(f"  - DRC {x['type']}: {x['msg']} {x['items'][:2]}")
         if not c["ok"]:
             verdict.append("layout/DRC errors")
-    if "post" in s and "exception" in s["post"]:
-        L.append(f"- post-layout: FAIL ({s['post']['exception'][:200]})")
-        verdict.append("post-layout did not run")
-    elif "post" in s:
+    if "post" in s:
         c = s["post"]
         m = c["metrics"]
         L.append(f"- post-layout: {'OK' if c['ok'] else 'FAIL'}; board {m['area_mm2']} mm2, {m['layers']} layers, "
@@ -524,7 +523,7 @@ def main(argv=None):
         _save_status(d, "optimize", {k: res[k] for k in ("evals", "score", "fails", "start", "best", "measures")})
         return 0
 
-    libs = Libs()
+    libs = Libs(design=d)
     order = ["check", "sch", "sim", "layout", "post", "fab"]
     if a.cmd == "build":
         stages = order[: order.index(a.until) + 1]

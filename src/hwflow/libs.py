@@ -27,10 +27,25 @@ def share_dir() -> Path:
     raise FileNotFoundError("KiCad libraries not found. Set KICAD_SHARE to the folder holding symbols/ and footprints/")
 
 
+PROJECT_LIB_DIRS = ("lib", "libs", "kicad_share")
+
+
+def project_lib_dirs(design) -> list[Path]:
+    """Project libraries: `libraries:` in design.yaml plus conventional folders. Each may hold symbols/ and
+    footprints/ subfolders or the .kicad_sym files and .pretty folders directly."""
+    out = []
+    for rel in list(design.raw.get("libraries") or []) + [d for d in PROJECT_LIB_DIRS if (design.dir / d).is_dir()]:
+        base = (design.dir / rel).resolve()
+        for cand in (base, base / "symbols", base / "footprints"):
+            if cand.is_dir() and cand not in out:
+                out.append(cand)
+    return out
+
+
 class Libs:
-    def __init__(self, extra_dirs: list[Path] | None = None):
+    def __init__(self, extra_dirs: list[Path] | None = None, design=None):
         self.root = share_dir()
-        self.extra = [Path(p) for p in (extra_dirs or [])]
+        self.extra = [Path(p) for p in (extra_dirs or [])] + (project_lib_dirs(design) if design is not None else [])
 
     # ------------------------------------------------------------ symbols
     def _sym_lib_path(self, lib: str) -> Path:
@@ -179,10 +194,13 @@ class Libs:
                 "rratio": float(sexpr.value(p, "roundrect_rratio", 0.25)),
             })
         xs, ys = [], []
+        side_pts = {"F.CrtYd": ([], []), "B.CrtYd": ([], [])}
         for kind in ("fp_line", "fp_rect", "fp_circle", "fp_poly", "fp_arc"):
             for g in sexpr.find_all(t, kind):
-                if str(sexpr.value(g, "layer", "")) not in ("F.CrtYd", "B.CrtYd"):
+                layer = str(sexpr.value(g, "layer", ""))
+                if layer not in ("F.CrtYd", "B.CrtYd"):
                     continue
+                n0 = len(xs)
                 for key in ("start", "end", "mid", "center"):
                     e = sexpr.find(g, key)
                     if e:
@@ -198,11 +216,20 @@ class Libs:
                     r = ((float(c[1]) - float(e[1])) ** 2 + (float(c[2]) - float(e[2])) ** 2) ** 0.5
                     xs += [float(c[1]) - r, float(c[1]) + r]
                     ys += [float(c[2]) - r, float(c[2]) + r]
+                side_pts[layer][0].extend(xs[n0:])
+                side_pts[layer][1].extend(ys[n0:])
         if not xs:
             for p in pads:
                 xs += [p["x"] - p["w"] / 2, p["x"] + p["w"] / 2]
                 ys += [p["y"] - p["h"] / 2, p["y"] + p["h"] / 2]
-        return {"id": fp_id, "pads": pads, "bbox": (min(xs), min(ys), max(xs), max(ys)), "tree": t,
+        sides = {}
+        for layer, side in (("F.CrtYd", "front"), ("B.CrtYd", "back")):
+            sx, sy = side_pts[layer]
+            if sx:
+                sides[side] = (min(sx), min(sy), max(sx), max(sy))
+        if not sides:
+            sides["front"] = (min(xs), min(ys), max(xs), max(ys))
+        return {"id": fp_id, "pads": pads, "bbox": (min(xs), min(ys), max(xs), max(ys)), "sides": sides, "tree": t,
                 "smd": all(p["kind"] == "smd" for p in pads if p["number"])}
 
     def search_footprints(self, query: str, limit: int = 40) -> list[str]:

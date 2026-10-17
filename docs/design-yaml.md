@@ -13,8 +13,13 @@ nets: {...}                    # per-net electrical intent
 components: {...}              # parts, keyed by reference designator
 sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
+libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
 ```
+
+## libraries
+
+A part that KiCad's libraries do not have goes into a project library. Put `<lib>.kicad_sym` files in `<proj>/lib/symbols/` and `<lib>.pretty/` folders in `<proj>/lib/footprints/`. Folders named `lib`, `libs` or `kicad_share` load automatically, and `libraries:` adds others. Project libraries come before KiCad's own. Never point `KICAD_SHARE` at a project copy: the scorer and the fab outputs run without your shell environment.
 
 ## board
 
