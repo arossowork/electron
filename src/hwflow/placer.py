@@ -31,6 +31,7 @@ class Part:
     edge: str | None = None
     group: str | None = None
     decouples: str | None = None
+    pad_size: dict | None = None  # pad number -> (w, h) at rot 0, for the copper-to-edge check
 
     def box(self):
         cx, cy = rot(self.cx, self.cy, self.r)
@@ -51,13 +52,15 @@ def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
             continue
         fp = libs.footprint(c.get("footprint"))
         x0, y0, x1, y1 = fp["bbox"]
-        pads = {}
+        pads, sizes = {}, {}
         for p in fp["pads"]:
             if p["number"] and p["number"] not in pads:
                 pads[p["number"]] = (p["x"], p["y"])
+                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
+                sizes[p["number"]] = (w, h)
         pl = c.get("placement") or {}
         part = Part(c.ref, x1 - x0 + 2 * margin, y1 - y0 + 2 * margin, (x0 + x1) / 2, (y0 + y1) / 2, pads,
-                    edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"))
+                    edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes)
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))
@@ -237,9 +240,19 @@ class Placer:
             for b in refs[i + 1:]:
                 if _overlap(boxes[a], boxes[b]) > 0.01:
                     out.append(f"courtyard overlap {a}/{b}")
-            x0, y0, x1, y1 = boxes[a]
-            if x0 < -0.01 or y0 < -0.01 or x1 > self.W + 0.01 or y1 > self.H + 0.01:
-                out.append(f"{a} outside board")
+            # copper must stay inside the board with the copper-to-edge clearance; a courtyard (body)
+            # may overhang on purpose, for example a connector flush with the edge
+            ce = float(self.d.board.get("copper_edge_mm", 0.3))
+            part = P[a]
+            for n in part.pads:
+                px, py = part.pad(n)
+                w, h = (part.pad_size or {}).get(n, (0.0, 0.0))
+                if part.r % 180:
+                    w, h = h, w
+                if px - w / 2 < ce - 0.01 or py - h / 2 < ce - 0.01 or px + w / 2 > self.W - ce + 0.01 \
+                        or py + h / 2 > self.H - ce + 0.01:
+                    out.append(f"{a} pad {n} copper closer than {ce} mm to the board edge")
+                    break
         return out
 
     def _state(self):

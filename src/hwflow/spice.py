@@ -23,6 +23,37 @@ def sanitize(net: str, grounds: set[str]) -> str:
     return ("n_" + s if s[0].isdigit() else s).lower()
 
 
+def _generic_names() -> set[str]:
+    names = set()
+    for ln in MODELS.read_text().splitlines():
+        parts = ln.split()
+        if len(parts) >= 2 and parts[0].lower() in (".subckt", ".model"):
+            names.add(parts[1].upper())
+    return names
+
+
+GENERIC_NAMES = _generic_names()
+
+
+def model_origin(c) -> str | None:
+    """'vendor', 'fit', 'behavioral', 'builtin' or 'unclassified' for a simulated active part; None otherwise."""
+    sp = c.get("spice")
+    if sp is False or c.kind in ("R", "C", "L") or c.get("virtual"):
+        return None
+    sp = sp if isinstance(sp, dict) else {}
+    if sp.get("source"):
+        return str(sp["source"]).lower()
+    if not sp.get("lib"):
+        name = str(sp.get("subckt") or sp.get("model") or ("D_GENERIC" if c.kind == "D" else "")).upper()
+        return "builtin" if name in GENERIC_NAMES else None
+    return "unclassified"
+
+
+def uses_generic_model(c) -> bool:
+    """True when an active part's model is an approximation (built-in, datasheet fit, behavioral, or unknown)."""
+    return model_origin(c) not in (None, "vendor")
+
+
 class NodeMap:
     """Maps design pins and nets to SPICE node names (schematic level: one node per net)."""
 

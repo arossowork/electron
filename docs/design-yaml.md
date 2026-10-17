@@ -89,6 +89,8 @@ Every symbol pin must be in `pins` or in `nc`, otherwise `hwflow check` reports 
 | vendor model | `{lib: models/opa344.lib, subckt: OPA344, ports: [...]}` (path is relative to the project) |
 | not simulated | `spice: false` (connectors, mounting holes, test points) |
 
+Every active part with a model in a project `.lib` file sets `spice.source`: `vendor` (the manufacturer's model, unchanged or only translated), `fit` (parameters fitted to the datasheet), or `behavioral` (written for this project). Only `vendor` counts as an exact model. The report lists every other active part as approximate.
+
 The built-in models are in `src/hwflow/models/generic.lib`. You set their parameters from the datasheet:
 
 - `OPAMP_GENERIC` ports `inp inn out vcc vee`: GBW, AOL, VOS, IQ, EN (V/rtHz), ROUT, VDROP (swing to rail), SR.
