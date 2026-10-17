@@ -175,7 +175,13 @@ def _run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str 
             meta["cost_usd"] += pm.get("total_cost_usd") or 0
             with open(proj / "inbox" / "answers.md", "a") as fh:
                 fh.write(f"\n## Round {q.get('round', meta['rounds'])}\n{pm.get('result', '')}\n")
-            qf.rename(proj / "inbox" / f"questions_round{meta['rounds']}.json")
+            n = q.get("round") or meta["rounds"]
+            dest = proj / "inbox" / f"questions_round{n}.json"
+            k = 1
+            while dest.exists():  # never overwrite an archived round (resumes restart the counter)
+                k += 1
+                dest = proj / "inbox" / f"questions_round{n}_{k}.json"
+            qf.rename(dest)
             msg = "The product person answered. The answers are in inbox/answers.md. Continue the flow."
         elif DONE_RE.search(state):
             break
