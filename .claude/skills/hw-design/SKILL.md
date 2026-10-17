@@ -31,7 +31,7 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
 7. Layout (subagent `hw-layout`). Run `uv run hwflow build <proj> --until post`. Fix DRC errors, unrouted nets, and post-layout warnings by changing placement hints, board size, net classes, or layer count. To optimize area, shrink the board in steps until placement or routing fails, then take the last size that passed.
 8. Sign-off. A board goes to fabrication only once, so every gate below must hold before `state.md` becomes `done`:
    - `uv run hwflow build <proj> --mc 100` gives a PASS verdict, with Monte Carlo yield of 99% or more, and the measures run at the temperature extremes of the requirements (`temps`).
-   - Every active part whose vendor publishes a SPICE model uses that model (`spice.lib`). The report lists the parts that still use generic models. For each one, `notes/models.md` says why the generic model is enough for the claim it supports.
+   - Every active part whose vendor publishes a SPICE model uses that model (`spice.lib`, `spice.source: vendor`). Datasheet fits use `spice.source: fit`, and project-written models use `behavioral`. The report lists the parts that still use generic models. For each one, `notes/models.md` says why the generic model is enough for the claim it supports.
    - `hw-reviewer` ran on the final design, and a second review after the fixes has zero `must` findings.
    - `uv run hwflow trace <proj>` shows zero failing and zero unverified `must` requirements.
    - `SUMMARY.md` has a first-article risk list: what the simulation cannot prove, and the bench test that proves each item on the first board.
