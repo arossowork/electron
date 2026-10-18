@@ -7,3 +7,5 @@ evals/runs/
 .pytest_cache/
 *.kicad_prl
 fp-info-cache
+tools/KiCadRoutingTools/
+.claude/worktrees/

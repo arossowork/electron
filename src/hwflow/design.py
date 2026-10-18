@@ -93,8 +93,30 @@ class Design:
         return d
 
     def save(self):
+        """Write back only what changed, keeping comments, order and flow style (ruamel round-trip)."""
+        import io
+
+        from ruamel.yaml import YAML
         self.raw["components"] = {r: c.data for r, c in self.components.items()}
-        self.path.write_text(yaml.safe_dump(self.raw, sort_keys=False, allow_unicode=True, width=120))
+        rt = YAML()
+        rt.preserve_quotes = True
+        rt.width = 120
+        doc = rt.load(self.path.read_text())
+
+        def merge(dst, src):
+            for k in list(dst.keys()):
+                if k not in src:
+                    del dst[k]
+            for k, v in src.items():
+                if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                    merge(dst[k], v)
+                elif dst.get(k) != v or k not in dst:
+                    dst[k] = v
+
+        merge(doc, self.raw)
+        buf = io.StringIO()
+        rt.dump(doc, buf)
+        self.path.write_text(buf.getvalue())
 
     @property
     def name(self) -> str:
@@ -108,7 +130,7 @@ class Design:
     def board(self) -> dict:
         b = {"width_mm": 50, "height_mm": 40, "layers": 2, "thickness_mm": 1.6, "copper_oz": 1.0,
              "clearance_mm": 0.2, "track_mm": 0.25, "via_drill_mm": 0.3, "via_dia_mm": 0.6,
-             "gnd_pour": True, "er": 4.3, "margin_mm": 1.0}
+             "gnd_pour": True, "er": 4.3, "margin_mm": 1.0, "router": "krt"}
         b.update(self.raw.get("board") or {})
         return b
 

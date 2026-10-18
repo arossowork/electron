@@ -87,12 +87,14 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "fails": [r for r in rows if not r["pass"]], "derating": der,
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
-           "generic_models": sorted(c.ref for c in d.components.values()
-                                    if isinstance(c.get("spice"), dict) and not c.get("spice").get("lib")
-                                    and str(c.get("spice").get("subckt", "")).endswith(("_GENERIC", "_AVG", "_SHUNT"))),
+           "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
            "errors": [e for a in res for e in a["errors"]]}
     if mc:
         out["monte_carlo"] = spice.monte_carlo(d, w, runs=mc)
+    else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
+        prev = _status(d).get("sim") or {}
+        if prev.get("monte_carlo") and prev.get("design_hash") == _design_hash(d):
+            out["monte_carlo"] = prev["monte_carlo"]
     out["ok"] = out["passed"] == out["total"] and not out["errors"]
     return out
 
@@ -100,6 +102,10 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
 def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
     out = _out(d)
     name = d.name
+    if d.board.get("router", "krt") == "krt":
+        if (pcb.KRT_DIR / "py_router" / "route.py").exists():
+            return pcb.run_krt(d, libs, parts, out)
+        print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
     log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
     tracks, vias = pcb.import_ses(out / f"{name}.ses", d)
@@ -238,10 +244,15 @@ def write_report(d: Design) -> str:
              if k in s and s[k].get("design_hash") != cur]
     for k in stale:
         s.pop(k)  # results from an older design.yaml are not evidence for this one
+    crashed = {k: s.pop(k)["exception"] for k in ("check", "sch", "sim", "layout", "post", "fab")
+               if isinstance(s.get(k), dict) and "exception" in s[k]}
     L = [f"# {d.name}: build report", f"Updated {s.get('updated', '?')}. Source: design.yaml.", ""]
     verdict = []
     if stale:
         L.append(f"- stale (older design.yaml, not shown, rerun to refresh): {', '.join(stale)}")
+    for k, e in crashed.items():
+        L.append(f"- {k}: FAIL, the stage did not run ({e[:200]})")
+        verdict.append(f"{k} did not run")
     if "check" in s:
         c = s["check"]
         L.append(f"- check: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
@@ -267,8 +278,8 @@ def write_report(d: Design) -> str:
         if c["unmodeled"]:
             L.append(f"  - not simulated: {', '.join(c['unmodeled'])}")
         if c.get("generic_models"):
-            L.append(f"  - generic behavioral models (approximate, use vendor models before sign-off): "
-                     f"{', '.join(c['generic_models'])}")
+            L.append(f"  - approximate models (built-in, datasheet fit, behavioral or no `spice.source`): "
+                     f"{', '.join(c['generic_models'])}; justify each in notes/models.md or use a vendor model")
         hot = sorted(c["derating"], key=lambda r: -r.get("p_w", 0))[:3]
         L.append("- derating: " + ("OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
                  "; top dissipation " + ", ".join(f"{r['ref']} {r['p_w'] * 1e3:.1f} mW" for r in hot))
@@ -393,6 +404,41 @@ def trace(d: Design) -> dict:
             "unverified": sum(r["status"] == "UNVERIFIED" for r in rows)}
 
 
+# ------------------------------------------------------------------ em (optional, prototype)
+
+OPENEMS_PYTHON = Path.home() / "opt" / "openEMS" / "venv" / "bin" / "python"
+
+
+def cmd_em(a, argv) -> int:
+    """openEMS lives in its own venv (built from source). Re-execute there when it is not importable here."""
+    import os
+    from . import em
+    if not em.available():
+        py = Path(os.environ.get("HWFLOW_OPENEMS_PYTHON", OPENEMS_PYTHON))
+        if not py.exists() or os.environ.get("HWFLOW_EM_REEXEC"):
+            print("em: openEMS Python bindings not found (see docs/em-openems-spike.md); skipped")
+            return 0
+        env = dict(os.environ, HWFLOW_EM_REEXEC="1",
+                   PYTHONPATH=os.pathsep.join([str(Path(__file__).resolve().parents[1]), os.environ.get("PYTHONPATH", "")]))
+        import subprocess
+        return subprocess.call([str(py), "-m", "hwflow.cli"] + list(argv if argv is not None else sys.argv[1:]), env=env)
+    d = _load(a.project)
+    if not em.em_nets(d) and not a.net:
+        print("em: no net has `em:` set in design.yaml; nothing to do")
+        return 0
+    res = em.run_project(d, a.net, a.fmax_ghz, a.cell_mm)
+    for r in res["nets"]:
+        s = {x["f_ghz"]: x for x in r["s_at"]}
+        s1 = s.get(1.0) or r["s_at"][-1]
+        print(f"em {r['net']} {r['ports'][0]}->{r['ports'][1]} {r['length_mm']} mm: Z_tdr {_fmt(r['z_tdr_plateau'])} ohm "
+              f"(closed form microstrip {r['z0_closed_form']}, CPWG {_fmt(r['z0_cpwg_closed_form_lenavg'])}), "
+              f"@{s1['f_ghz']} GHz S11 {s1['s11_db']} dB S21 {s1['s21_db']} dB; "
+              f"{r['runtime_s']:.0f} s, {r['cells']} cells, {r['peak_rss_mb']:.0f} MB"
+              + ("" if r["ok"] else f"  FAIL vs target {r['z_target']} ohm"))
+    _save_status(d, "em", res)
+    return 0 if res["ok"] else 1
+
+
 # ------------------------------------------------------------------ main
 
 def main(argv=None):
@@ -416,7 +462,13 @@ def main(argv=None):
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
     sub.add_parser("trace").add_argument("project")
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")
+    p = sub.add_parser("em", help="optional openEMS field-solver run on nets with `em:` set (prototype)")
+    p.add_argument("project"); p.add_argument("--net", action="append")
+    p.add_argument("--fmax-ghz", type=float); p.add_argument("--cell-mm", type=float)
     a = ap.parse_args(argv)
+
+    if a.cmd == "em":
+        return cmd_em(a, argv)
 
     if a.cmd == "lib":
         libs = Libs()
@@ -477,7 +529,7 @@ def main(argv=None):
         _save_status(d, "optimize", {k: res[k] for k in ("evals", "score", "fails", "start", "best", "measures")})
         return 0
 
-    libs = Libs()
+    libs = Libs(design=d)
     order = ["check", "sch", "sim", "layout", "post", "fab"]
     if a.cmd == "build":
         stages = order[: order.index(a.until) + 1]

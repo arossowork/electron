@@ -11,7 +11,8 @@ For each block:
 1. Find candidates with `uv run hwflow parts <category> key=value --text "..."` (categories: resistors, capacitors, inductors, ldos, buck_converters, boost_converters, diodes, leds, mosfets, bjt_transistors, opamps, microcontrollers, usb_c_connectors, headers, crystals, fuses, adcs, dacs). If the index has no match, use WebSearch on LCSC, Mouser, or the manufacturer site.
 2. Prefer JLCPCB basic parts, high stock, and parts with a KiCad library symbol (`uv run hwflow lib sym <mpn or family>`). If no symbol exists for the exact part, use a generic symbol with the same pinout, and check the pin mapping against the datasheet table.
 3. Choose the footprint with `uv run hwflow lib fp <package>`, and make sure that pad numbers match the symbol pins (`hwflow lib show` and `hwflow lib pads`).
-4. Read the datasheet (WebFetch) for the values that the SPICE model needs (see docs/design-yaml.md), the absolute maximum ratings, and the recommended application circuit.
-5. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
+4. Get the vendor SPICE model when the manufacturer publishes one. Store it in `models/`, and set `spice.lib` and `spice.source: vendor`. Otherwise fit a model to the datasheet and set `spice.source: fit`.
+5. Read the datasheet (WebFetch) for the values that the SPICE model needs (see docs/design-yaml.md), the absolute maximum ratings, and the recommended application circuit.
+6. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
 
 Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model).

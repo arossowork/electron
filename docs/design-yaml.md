@@ -13,8 +13,13 @@ nets: {...}                    # per-net electrical intent
 components: {...}              # parts, keyed by reference designator
 sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
+libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
 ```
+
+## libraries
+
+A part that KiCad's libraries do not have goes into a project library. Put `<lib>.kicad_sym` files in `<proj>/lib/symbols/` and `<lib>.pretty/` folders in `<proj>/lib/footprints/`. Folders named `lib`, `libs` or `kicad_share` load automatically, and `libraries:` adds others. Project libraries come before KiCad's own. Never point `KICAD_SHARE` at a project copy: the scorer and the fab outputs run without your shell environment.
 
 ## board
 
@@ -32,6 +37,8 @@ placement: {weights: {...}}    # optional placer tuning
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
 | decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin |
 | margin_mm | 1.0 | keep parts this far from the board edge |
+| router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
+| post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
 ## nets
@@ -69,6 +76,7 @@ components:
     tolerance: 0.01                         # Monte Carlo tolerance (R 1%, C 10%, L 20% default)
     voltage_rating_v: 16                    # capacitors: derating check (50% by default)
     power_rating_w: 0.1                     # resistors: default from package size
+    thermal_vias: {pad: "2", count: 6}     # via grid inside a thermal pad, to the opposite-layer pour
     theta_ja: 250                           # junction temperature estimate
     tj_max_c: 125
     spice: {...}                            # how to simulate it, see below
@@ -87,6 +95,8 @@ Every symbol pin must be in `pins` or in `nc`, otherwise `hwflow check` reports 
 | IC | `{subckt: OPAMP_GENERIC, ports: [...pin numbers in model port order...], params: {...}}` |
 | vendor model | `{lib: models/opa344.lib, subckt: OPA344, ports: [...]}` (path is relative to the project) |
 | not simulated | `spice: false` (connectors, mounting holes, test points) |
+
+Every active part with a model in a project `.lib` file sets `spice.source`: `vendor` (the manufacturer's model, unchanged or only translated), `fit` (parameters fitted to the datasheet), or `behavioral` (written for this project). Only `vendor` counts as an exact model. The report lists every other active part as approximate.
 
 The built-in models are in `src/hwflow/models/generic.lib`. You set their parameters from the datasheet:
 

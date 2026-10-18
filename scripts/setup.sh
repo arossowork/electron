@@ -17,5 +17,10 @@ if [ ! -f "$FR" ]; then
   mkdir -p tools
   curl -sSL -o "$FR" https://github.com/freerouting/freerouting/releases/download/v2.5.0/freerouting-2.5.0.jar
 fi
+KRT=tools/KiCadRoutingTools
+if [ ! -d "$KRT" ]; then
+  git clone -q --depth 1 https://github.com/drandyhaas/KiCadRoutingTools.git "$KRT"
+fi
 uv sync
+(cd "$KRT" && ../../.venv/bin/python build_router.py)   # downloads the prebuilt Rust router for this OS
 uv run pytest -q

@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -139,6 +140,41 @@ def _rotate_text(item: list, r: float):
         at.append(a)
 
 
+def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
+    """Via grids inside thermal pads, from `thermal_vias: {pad, count, pitch_mm}` on a component."""
+    b = design.board
+    out = []
+    for ref, part in parts.items():
+        c = design.components[ref]
+        tv = c.get("thermal_vias")
+        if not tv:
+            continue
+        pad_no = str(tv.get("pad", ""))
+        net = c.pins.get(pad_no)
+        pad = next((p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pad_no), None)
+        if not net or pad is None:
+            continue
+        w, h = pad["w"], pad["h"]
+        if pad.get("hull"):
+            xs, ys = [q[0] for q in pad["hull"]], [q[1] for q in pad["hull"]]
+            cx0, cy0 = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+            w, h = max(xs) - min(xs), max(ys) - min(ys)
+        else:
+            cx0, cy0 = 0.0, 0.0
+        if pad["rot"] % 180:
+            w, h = h, w
+        pitch = float(tv.get("pitch_mm", max(b["via_dia_mm"] + 0.4, 1.0)))
+        r = b["via_dia_mm"] / 2
+        nx = max(1, int((w - 2 * r) // pitch) + 1)
+        ny = max(1, int((h - 2 * r) // pitch) + 1)
+        pts = [((i - (nx - 1) / 2) * pitch + cx0, (j - (ny - 1) / 2) * pitch + cy0) for i in range(nx) for j in range(ny)]
+        pts = pts[: int(tv.get("count", len(pts)))]
+        for lx, ly in pts:
+            dx, dy = rot(pad["x"] + lx, pad["y"] + ly, part.r)
+            out.append({"net": net, "x": part.x + dx, "y": part.y + dy, "thermal": f"{ref}.{pad_no}"})
+    return out
+
+
 def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | None = None,
                 vias: list | None = None) -> list:
     b = design.board
@@ -172,6 +208,8 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
                      ["width", t["w"]], ["layer", Q(t["layer"])], ["net", netidx[t["net"]]], ["uuid", uid()]])
+    if tracks is not None:  # routed board: add declared thermal via grids inside their pads
+        vias = list(vias or []) + thermal_vias(design, libs, parts)
     for v in vias or []:
         tree.append(["via", ["at", round(v["x"], 4), round(v["y"], 4)], ["size", b["via_dia_mm"]],
                      ["drill", b["via_drill_mm"]], ["layers", Q("F.Cu"), Q("B.Cu")], ["net", netidx[v["net"]]],
@@ -245,8 +283,14 @@ def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list]:
     w, h = _um(p["w"]), _um(p["h"])
     shape = p["shape"]
     shapes = []
+    hull = p.get("hull")
     for L in lays:
-        if shape == "circle":
+        if hull:  # custom pad: full outline (anchor + primitives), y flipped for Specctra
+            coords = []
+            for x, y in hull:
+                coords += [_um(x), -_um(y)]
+            shapes.append(["shape", ["polygon", L, 0] + coords])
+        elif shape == "circle":
             shapes.append(["shape", ["circle", L, w]])
         elif shape == "oval":
             if w > h:
@@ -256,6 +300,8 @@ def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list]:
         else:
             shapes.append(["shape", ["rect", L, -w / 2, -h / 2, w / 2, h / 2]])
     name = f"{shape}_{p['kind']}_{w:g}x{h:g}_{'-'.join(lays)}".replace(".", "")
+    if hull:
+        name += "_h" + str(abs(hash(tuple(hull))) % 100000)
     return name, ["padstack", Q(name)] + shapes + [["attach", "off"]]
 
 
@@ -333,6 +379,61 @@ def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) 
     return log
 
 
+KRT_DIR = Path(os.environ.get("KRT_DIR") or Path(__file__).resolve().parents[2] / "tools" / "KiCadRoutingTools")
+
+
+def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout: int = 1800) -> tuple[list, list, str, int]:
+    """Route with KiCadRoutingTools: one pass per track-width class (widest first), keeping earlier copper.
+
+    Power-tap mode is not used, because it places vias inside same-net SMD pads.
+    Returns (tracks, vias, summary, unrouted) like the Freerouting path.
+    """
+    import json as _json
+    from . import kicad as _kicad
+    route_py = KRT_DIR / "py_router" / "route.py"
+    if not route_py.exists():
+        raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
+    b = design.board
+    name = design.name
+    src = workdir / f"{name}_unrouted.kicad_pcb"
+    write_board(src, build_board(design, libs, parts))
+    pro = workdir / f"{name}.kicad_pro"
+    classes = net_classes(design)
+    gnds = design.ground_nets() if b["gnd_pour"] else set()
+    groups: dict[float, list[str]] = {}
+    for net, cl in classes.items():
+        if net not in gnds:
+            groups.setdefault(cl["width"], []).append(net)
+    env = dict(os.environ, KICAD_CLI=_kicad.cli())
+    common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
+              "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
+              "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
+    cur, log, last = src, [], {}
+    for i, (w, nets) in enumerate(sorted(groups.items(), reverse=True)):
+        out = workdir / f"{name}_krt{i}.kicad_pcb"
+        if pro.exists():
+            shutil.copy(pro, cur.with_suffix(".kicad_pro"))
+        cmd = [sys.executable, str(route_py), str(cur), str(out), "--nets", *nets, "--track-width", str(w), *common]
+        if i:
+            cmd.append("--keep-input-copper")
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
+        log.append(p.stdout + p.stderr)
+        for ln in (p.stdout + p.stderr).splitlines():
+            if ln.startswith("JSON_SUMMARY_MIN:"):
+                last[w] = _json.loads(ln.split(":", 1)[1])
+        if not out.exists():
+            (workdir / "krt.log").write_text("\n".join(log))
+            raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm (exit {p.returncode}); see krt.log")
+        cur = out
+    (workdir / "krt.log").write_text("\n".join(log))
+    routed = read_board(cur)
+    tracks = [dict(s) for s in routed["segments"] if s["net"]]
+    vias = [dict(v) for v in routed["vias"] if v["net"]]
+    unrouted = sum(int(v.get("failed", 0)) + int(v.get("multipoint_deficit", 0)) + len(v.get("open_single") or [])
+                   for v in last.values())
+    return tracks, vias, f"{unrouted} unrouted, krt {len(groups)} pass(es)", unrouted
+
+
 def import_ses(ses: Path, design: Design) -> tuple[list, list]:
     tree = sexpr.loads(ses.read_text())
     routes = sexpr.find(tree, "routes")
@@ -383,9 +484,16 @@ def read_board(path: Path) -> dict:
             n = sexpr.find(p, "net")
             ang = float(pat[3]) if len(pat) > 3 else 0.0
             w, h = float(size[1]), float(size[2])
+            hull = sexpr.custom_pad_hull(p)
+            off = (0.0, 0.0)
+            if hull:  # custom pad: bounding box of the full outline, centred where the copper really is
+                hx, hy = [q[0] for q in hull], [q[1] for q in hull]
+                w, h = max(hx) - min(hx), max(hy) - min(hy)
+                ox, oy = (max(hx) + min(hx)) / 2, (max(hy) + min(hy)) / 2
+                off = rot(ox, oy, ang)
             if ang % 180 == 90:
                 w, h = h, w
-            pads.append({"number": str(p[1]), "x": fx + dx, "y": fy + dy, "w": w, "h": h,
+            pads.append({"number": str(p[1]), "x": fx + dx + off[0], "y": fy + dy + off[1], "w": w, "h": h,
                          "net": netname(n),
                          "kind": str(p[2]), "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}

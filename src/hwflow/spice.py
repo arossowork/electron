@@ -23,6 +23,37 @@ def sanitize(net: str, grounds: set[str]) -> str:
     return ("n_" + s if s[0].isdigit() else s).lower()
 
 
+def _generic_names() -> set[str]:
+    names = set()
+    for ln in MODELS.read_text().splitlines():
+        parts = ln.split()
+        if len(parts) >= 2 and parts[0].lower() in (".subckt", ".model"):
+            names.add(parts[1].upper())
+    return names
+
+
+GENERIC_NAMES = _generic_names()
+
+
+def model_origin(c) -> str | None:
+    """'vendor', 'fit', 'behavioral', 'builtin' or 'unclassified' for a simulated active part; None otherwise."""
+    sp = c.get("spice")
+    if sp is False or c.kind in ("R", "C", "L") or c.get("virtual"):
+        return None
+    sp = sp if isinstance(sp, dict) else {}
+    if sp.get("source"):
+        return str(sp["source"]).lower()
+    if not sp.get("lib"):
+        name = str(sp.get("subckt") or sp.get("model") or ("D_GENERIC" if c.kind == "D" else "")).upper()
+        return "builtin" if name in GENERIC_NAMES else None
+    return "unclassified"
+
+
+def uses_generic_model(c) -> bool:
+    """True when an active part's model is an approximation (built-in, datasheet fit, behavioral, or unknown)."""
+    return model_origin(c) not in (None, "vendor")
+
+
 class NodeMap:
     """Maps design pins and nets to SPICE node names (schematic level: one node per net)."""
 
@@ -47,7 +78,7 @@ class NodeMap:
                 return self.pin(ref, pin)
         return self.net(t)
 
-    def extra(self) -> list[str]:
+    def extra(self, analysis: dict | None = None) -> list[str]:
         return []
 
 
@@ -147,13 +178,16 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     lines += [f".include {lib}" for lib in sorted(libs)]
     for inc in sim.get("includes") or []:
         lines.append(f".include {(design.dir / inc).resolve()}")
-    lines += comp + nm.extra() + testbench_lines(design, nm)
+    lines += comp + nm.extra(analysis) + testbench_lines(design, nm)
     lines.append(f".options temp={temp if temp is not None else sim.get('temp', 25)}")
     for opt in sim.get("options") or []:
         lines.append(f".options {opt}")
     lines.append(".control")
     lines.append("set noaskquit")
     lines.append(_subst(analysis.get("cmd", "op"), nm, nets))
+    if analysis.get("cmd", "op").split()[0].lower() == "tran":
+        lines.append("let hwf_tend = time[length(time)-1]")
+        lines.append("echo HWF __tend $&hwf_tend")
     for m in analysis.get("measures") or []:
         if m.get("plot"):
             lines.append(f"setplot {m['plot']}")
@@ -209,27 +243,54 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
     return rows
 
 
+ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
+                      r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
+
+
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
                  temp=None, tag: str = "") -> dict:
     net, unmodeled = build_netlist(design, analysis, nm, values, temp)
-    out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
+    try:
+        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
+    except subprocess.TimeoutExpired:
+        out, rc = "Error: ngspice timed out (simulation aborted)", -1
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
-    return {"name": analysis["name"], "rows": evaluate(analysis.get("measures") or [], vals),
-            "unmodeled": unmodeled, "errors": errors, "rc": rc}
+    rows = evaluate(analysis.get("measures") or [], vals)
+    aborted = [ln.strip() for ln in out.splitlines() if ABORT_RE.search(ln)][:3]
+    parts = analysis.get("cmd", "op").split()
+    if parts[0].lower() == "tran" and len(parts) >= 3:
+        tstop = parse_value(parts[2])
+        tend = vals.get("__tend")
+        if tend is None or tend < tstop * 0.999:
+            aborted.insert(0, f"transient stopped at {tend if tend is not None else 'n/a'} s of {tstop:g} s")
+    if aborted:
+        # a measure on a cut waveform is not evidence: fail every row of this analysis
+        for r in rows:
+            r["pass"] = False
+            r["aborted"] = True
+        errors = [f"simulation aborted: {aborted[0]}"] + errors
+    return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
+            "aborted": bool(aborted)}
 
 
-def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "") -> list[dict]:
+def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:
+    """Every analysis at every temperature, in parallel; results keep the order of design.yaml."""
+    import os
+    from concurrent.futures import ThreadPoolExecutor
     sim = design.raw.get("sim") or {}
-    results = []
-    for a in sim.get("analyses") or []:
-        temps = a.get("temps") or [None]
-        for t in temps:
-            r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
-            if t is not None:
-                r["name"] += f" @ {t}C"
-            results.append(r)
-    return results
+    jobs = [(a, t) for a in sim.get("analyses") or [] for t in (a.get("temps") or [None])]
+    workers = workers or max(1, (os.cpu_count() or 2) - 1)
+
+    def one(job):
+        a, t = job
+        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
+        if t is not None:
+            r["name"] += f" @ {t}C"
+        return r
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        return list(ex.map(one, jobs))
 
 
 # --------------------------------------------------------------- Monte Carlo

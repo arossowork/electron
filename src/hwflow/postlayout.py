@@ -7,7 +7,9 @@ import math
 import re
 from pathlib import Path
 
-from . import spice
+import numpy as np
+
+from . import sexpr, spice
 from .design import Design
 from .pcb import ipc2221_width_mm, net_classes, read_board
 from .spice import NodeMap
@@ -29,6 +31,58 @@ def microstrip(w_mm: float, h_mm: float, t_mm: float, er: float) -> tuple[float,
     f = 6 + (2 * math.pi - 6) * math.exp(-(30.666 / u) ** 0.7528)
     z0_air = 60 * math.log(f / u + math.sqrt(1 + (2 / u) ** 2))
     return z0_air / math.sqrt(ee), ee
+
+
+def _ellipk(k: float) -> float:
+    """Complete elliptic integral of the first kind K(k) (modulus k) by the AGM."""
+    a, b = 1.0, math.sqrt(1 - k * k)
+    while abs(a - b) > 1e-15:
+        a, b = (a + b) / 2, math.sqrt(a * b)
+    return math.pi / (2 * a)
+
+
+def cpwg_z0(w_mm: float, gap_mm: float, h_mm: float, er: float) -> tuple[float, float]:
+    """Grounded coplanar waveguide (trace in a same-layer pour, plane below), zero thickness.
+
+    Conformal mapping (Wadell, Transmission Line Design Handbook 3.4.3). This is what a routed
+    trace inside a GND pour really is; `postlayout.microstrip()` ignores the same-layer pour.
+    """
+    k = w_mm / (w_mm + 2 * gap_mm)
+    k1 = math.tanh(math.pi * w_mm / (4 * h_mm)) / math.tanh(math.pi * (w_mm + 2 * gap_mm) / (4 * h_mm))
+    r = _ellipk(k) / _ellipk(math.sqrt(1 - k * k))
+    r1 = _ellipk(k1) / _ellipk(math.sqrt(1 - k1 * k1))
+    ee = (1 + er * r1 / r) / (1 + r1 / r)
+    return 60 * math.pi / math.sqrt(ee) / (r + r1), ee
+
+
+def _zone_fills(pcb: Path) -> list[dict]:
+    """Filled zone polygons (KiCad stores them fractured: one outline, holes joined by slits)."""
+    t = sexpr.loads(pcb.read_text())
+    out = []
+    for z in sexpr.find_all(t, "zone"):
+        net = sexpr.value(z, "net_name")
+        if net is None:                   # KiCad 10: (net "GND"); older: (net 3) (net_name "GND")
+            n = sexpr.find(z, "net")
+            net = n[1] if n is not None and len(n) > 1 else None
+        for fp in sexpr.find_all(z, "filled_polygon"):
+            layer = str(sexpr.value(fp, "layer"))
+            pts = [(float(p[1]), float(p[2])) for p in sexpr.find_all(sexpr.find(fp, "pts"), "xy")]
+            if len(pts) >= 3:
+                out.append({"net": str(net), "layer": layer, "pts": np.array(pts).T})
+    return out
+
+
+def _edge_dist(px: float, py: float, poly: np.ndarray) -> float:
+    """Distance from a point to the nearest edge of a (fractured) polygon outline, slits excluded."""
+    a = poly.T
+    b = np.roll(a, -1, axis=0)
+    d = b - a
+    L2 = (d ** 2).sum(1)
+    ok = L2 > 1e-8
+    a, d, L2 = a[ok], d[ok], L2[ok]
+    t = np.clip(((px - a[:, 0]) * d[:, 0] + (py - a[:, 1]) * d[:, 1]) / L2, 0, 1)
+    q = a + d * t[:, None]
+    return float(np.min(np.hypot(q[:, 0] - px, q[:, 1] - py)))
 
 
 class UF:
@@ -91,6 +145,7 @@ class Extraction:
     def __init__(self, design: Design, board_path: Path):
         self.d = design
         self.b = design.board
+        self.path = Path(board_path)
         self.board = read_board(board_path)
         self.grounds = design.ground_nets()
         self.t_mm = 0.035 * self.b["copper_oz"]
@@ -107,10 +162,32 @@ class Extraction:
         return ("p", round(x, 3), round(y, 3), layer)
 
     def _build(self):
+        """Copper graph using overlap rules like KiCad: trace ends, via rings and pads connect when copper touches."""
         b = self.board
+        layers = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] if self.b["layers"] == 4 else ["F.Cu", "B.Cu"]
+        via_r = self.b["via_dia_mm"] / 2
         segs = [dict(s) for s in b["segments"] if s["net"]]
+        # 1. split traces where a via ring sits on their interior, so the via has a node to attach to
+        for v in b["vias"]:
+            changed = True
+            while changed:
+                changed = False
+                for s in segs:
+                    if s["net"] != v["net"]:
+                        continue
+                    t = _on_segment(v["x"], v["y"], s, s["w"] / 2 + via_r)
+                    if t is None:
+                        continue
+                    px, py = s["x1"] + t * (s["x2"] - s["x1"]), s["y1"] + t * (s["y2"] - s["y1"])
+                    if min(math.hypot(px - s["x1"], py - s["y1"]), math.hypot(px - s["x2"], py - s["y2"])) < 1e-3:
+                        continue
+                    segs.remove(s)
+                    segs += [dict(s, x2=px, y2=py), dict(s, x1=px, y1=py)]
+                    changed = True
+                    break
         segs = _split_tjunctions(segs)
         self.segs = segs
+        fills = [z for z in _zone_fills(self.path) if z["net"] in self.grounds] if self.path else []
         for s in segs:
             a, c = self._key(s["x1"], s["y1"], s["layer"]), self._key(s["x2"], s["y2"], s["layer"])
             L = math.hypot(s["x2"] - s["x1"], s["y2"] - s["y1"])
@@ -119,11 +196,29 @@ class Extraction:
                 self.uf.union(a, c)
                 continue
             z0, ee = microstrip(s["w"], self.h_mm, self.t_mm, self.er)
+            s["line"] = "microstrip"
+            mx, my = (s["x1"] + s["x2"]) / 2, (s["y1"] + s["y2"]) / 2
+            same = [_edge_dist(mx, my, z["pts"]) for z in fills if z["layer"] == s["layer"]]
+            if same:
+                gap = max(min(same) - s["w"] / 2, 0.05)
+                if gap < 2 * self.h_mm:  # the same-layer pour couples: grounded coplanar waveguide
+                    z0, ee = cpwg_z0(s["w"], gap, self.h_mm, self.er)
+                    s["line"], s["gap"] = "cpwg", round(gap, 3)
             td = math.sqrt(ee) / C0 * L * 1e-3
             s["z0"] = z0
             R = RHO_CU * (L * 1e-3) / (s["w"] * 1e-3 * self.t_mm * 1e-3)
-            self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L})
-        layers = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] if self.b["layers"] == 4 else ["F.Cu", "B.Cu"]
+            self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L,
+                                  "Z0": z0})
+        # 2. trace ends that touch (closer than half the narrower width) are one node
+        ends = []
+        for s in segs:
+            for x, y in ((s["x1"], s["y1"]), (s["x2"], s["y2"])):
+                ends.append((s["net"], s["layer"], x, y, s["w"], self._key(x, y, s["layer"])))
+        for i, e1 in enumerate(ends):
+            for e2 in ends[i + 1:]:
+                if e1[0] == e2[0] and e1[1] == e2[1] and math.hypot(e1[2] - e2[2], e1[3] - e2[3]) <= min(e1[4], e2[4]) / 2:
+                    self.uf.union(e1[5], e2[5])
+        # 3. vias: a barrel joins its own layer nodes; any trace end inside the ring joins the via
         drill = self.b["via_drill_mm"]
         hv = self.b["thickness_mm"]
         r_via = RHO_CU * hv * 1e-3 / (math.pi * drill * 1e-3 * 25e-6)
@@ -133,12 +228,10 @@ class Extraction:
             nodes = [self._key(v["x"], v["y"], L) for L in layers]
             for n1, n2 in zip(nodes, nodes[1:]):
                 self.elements.append({"net": v["net"], "a": n1, "b": n2, "R": r_via, "L": l_via, "C": 0, "len": 0})
-        # merge any coincident or overlapping point nodes (endpoint inside another trace end)
-        pts = {}
-        for e in self.elements:
-            for n in (e["a"], e["b"]):
-                pts.setdefault(n, e["net"])
-        # pads
+            for net, layer, x, y, w, key in ends:
+                if net == v["net"] and math.hypot(x - v["x"], y - v["y"]) <= via_r + w / 2:
+                    self.uf.union(key, self._key(v["x"], v["y"], layer))
+        # 4. pads: a trace end whose copper (half width) reaches the pad rectangle joins the pad
         self.pad_nodes = {}
         for ref, fp in b["footprints"].items():
             for p in fp["pads"]:
@@ -147,14 +240,16 @@ class Extraction:
                 pn = ("pad", ref, p["number"])
                 self.uf.find(pn)
                 self.pad_nodes[(ref, p["number"])] = pn
-                cu = [l for l in p["layers"] if l.endswith(".Cu")]
-                if "*.Cu" in p["layers"]:
-                    cu = layers
-                for n, net in pts.items():
-                    if net != p["net"] or n[3] not in cu:
-                        continue
-                    if abs(n[1] - p["x"]) <= p["w"] / 2 + 1e-3 and abs(n[2] - p["y"]) <= p["h"] / 2 + 1e-3:
-                        self.uf.union(pn, n)
+                cu = layers if "*.Cu" in p["layers"] else [l for l in p["layers"] if l.endswith(".Cu")]
+                for net, layer, x, y, w, key in ends:
+                    if net == p["net"] and layer in cu and abs(x - p["x"]) <= p["w"] / 2 + w / 2 \
+                            and abs(y - p["y"]) <= p["h"] / 2 + w / 2:
+                        self.uf.union(pn, key)
+                if p["kind"] == "thru_hole":
+                    for v_layer in cu:
+                        for v in b["vias"]:
+                            if v["net"] == p["net"] and abs(v["x"] - p["x"]) <= p["w"] / 2 and abs(v["y"] - p["y"]) <= p["h"] / 2:
+                                self.uf.union(pn, self._key(v["x"], v["y"], v_layer))
         for e in self.elements:
             ra, rb = self.uf.find(e["a"]), self.uf.find(e["b"])
             self.adj.setdefault(ra, []).append((rb, e))
@@ -240,18 +335,25 @@ class PostLayoutNodeMap(NodeMap):
         conns = sorted(conns, key=lambda rp: (not rp[0].startswith("J"), rp[0]))
         return self.pin(*conns[0]) if conns else spice.sanitize(net, self.grounds)
 
-    def extra(self):
-        lines = ["* --- post-layout parasitics ---"]
+    def extra(self, analysis: dict | None = None):
+        # Trace L matters in frequency-domain runs. In transients, nH segments with fF nodes only add
+        # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
+        kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
+        use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
+        lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
         for i, e in enumerate(self.ex.elements):
             if self._is_ideal(e["net"]):
                 continue
             a, b = self.ex.node_name(e["a"]), self.ex.node_name(e["b"])
             if a == b:
                 continue
-            if self.with_l and e["L"] > 0:
+            if use_l and e["L"] > 0:
                 mid = f"m{i}"
                 lines.append(f"Rpx{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
                 lines.append(f"Lpx{i} {mid} {b} {e['L']:.6g}")
+                # damping across the trace inductance: kills the GHz LC ringing of nH/fF segments,
+                # which made switching transients stall, and leaves behaviour below ~1 GHz unchanged
+                lines.append(f"Rdx{i} {mid} {b} {e.get('Z0', 50):.6g}")
             else:
                 lines.append(f"Rpx{i} {a} {b} {max(e['R'], 1e-6):.6g}")
             if e["C"] > 0:
@@ -286,6 +388,20 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
             if wmin + 1e-6 < need:
                 add("error", "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
                                               f"{info['current_a']} A at 10C rise (IPC-2221)")
+    # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
+    vr = b["via_dia_mm"] / 2
+    declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
+                if c.get("thermal_vias")}
+    for v in ex.board["vias"]:
+        for ref, fp in ex.board["footprints"].items():
+            for p in fp["pads"]:
+                if p["kind"] != "smd" or (ref, p["number"]) in declared:
+                    continue
+                dx, dy = abs(v["x"] - p["x"]), abs(v["y"] - p["y"])
+                if dx < p["w"] / 2 + vr and dy < p["h"] / 2 + vr:
+                    inside = dx < p["w"] / 2 and dy < p["h"] / 2
+                    add("warn", "via-in-pad", f"via on {v['net']} {'inside' if inside else 'touching'} pad "
+                                              f"{ref}.{p['number']}: needs filled and capped vias (IPC-4761 VII)")
     # decoupling distance
     for c in design.components.values():
         ic = c.get("decouples")

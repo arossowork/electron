@@ -31,6 +31,18 @@ class Part:
     edge: str | None = None
     group: str | None = None
     decouples: str | None = None
+    pad_size: dict | None = None  # pad number -> (w, h) at rot 0, for the copper-to-edge check
+    sides: dict | None = None     # "front"/"back" -> (w, h, cx, cy) courtyard per board side
+
+    def side_box(self, side: str):
+        if not self.sides or side not in self.sides:
+            return None
+        w, h, cx, cy = self.sides[side]
+        ox, oy = rot(cx, cy, self.r)
+        if self.r % 180:
+            w, h = h, w
+        x, y = self.x + ox, self.y + oy
+        return x - w / 2, y - h / 2, x + w / 2, y + h / 2
 
     def box(self):
         cx, cy = rot(self.cx, self.cy, self.r)
@@ -51,13 +63,18 @@ def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
             continue
         fp = libs.footprint(c.get("footprint"))
         x0, y0, x1, y1 = fp["bbox"]
-        pads = {}
+        pads, sizes = {}, {}
         for p in fp["pads"]:
             if p["number"] and p["number"] not in pads:
                 pads[p["number"]] = (p["x"], p["y"])
+                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
+                sizes[p["number"]] = (w, h)
         pl = c.get("placement") or {}
+        sides = {k: (b[2] - b[0] + 2 * margin, b[3] - b[1] + 2 * margin, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
+                 for k, b in fp.get("sides", {}).items()}
         part = Part(c.ref, x1 - x0 + 2 * margin, y1 - y0 + 2 * margin, (x0 + x1) / 2, (y0 + y1) / 2, pads,
-                    edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"))
+                    edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes,
+                    sides=sides)
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))
@@ -65,6 +82,16 @@ def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
             part.r = float(pl["rot"])
         parts[c.ref] = part
     return parts
+
+
+def _side_overlap(pa: "Part", pb: "Part") -> float:
+    """Courtyard overlap on the same board side only (a back-side holder may sit under top parts)."""
+    total = 0.0
+    for side in ("front", "back"):
+        ba, bb = pa.side_box(side), pb.side_box(side)
+        if ba and bb:
+            total += _overlap(ba, bb)
+    return total
 
 
 def _overlap(a, b) -> float:
@@ -117,7 +144,7 @@ class Placer:
         for i, a in enumerate(refs):
             ba = boxes[a]
             for b in refs[i + 1:]:
-                c += self.wt["overlap"] * _overlap(ba, boxes[b])
+                c += self.wt["overlap"] * _side_overlap(P[a], P[b])
             m = self.d.board["margin_mm"]
             x0, y0, x1, y1 = ba
             c += self.wt["bounds"] * (max(0, m - x0) + max(0, m - y0) + max(0, x1 - self.W + m) + max(0, y1 - self.H + m))
@@ -196,7 +223,15 @@ class Placer:
             moved = False
             for i, a in enumerate(P):
                 for b in P[i + 1:]:
-                    ba, bb = a.box(), b.box()
+                    pair = None
+                    for side in ("front", "back"):  # only courtyards on the same side collide
+                        ba, bb = a.side_box(side), b.side_box(side)
+                        if ba and bb and _overlap(ba, bb) > 0:
+                            pair = (ba, bb)
+                            break
+                    if pair is None:
+                        continue
+                    ba, bb = pair
                     ox = min(ba[2], bb[2]) - max(ba[0], bb[0])
                     oy = min(ba[3], bb[3]) - max(ba[1], bb[1])
                     if ox <= 0.001 or oy <= 0.001:
@@ -235,11 +270,21 @@ class Placer:
         boxes = {r: P[r].box() for r in refs}
         for i, a in enumerate(refs):
             for b in refs[i + 1:]:
-                if _overlap(boxes[a], boxes[b]) > 0.01:
+                if _side_overlap(P[a], P[b]) > 0.01:
                     out.append(f"courtyard overlap {a}/{b}")
-            x0, y0, x1, y1 = boxes[a]
-            if x0 < -0.01 or y0 < -0.01 or x1 > self.W + 0.01 or y1 > self.H + 0.01:
-                out.append(f"{a} outside board")
+            # copper must stay inside the board with the copper-to-edge clearance; a courtyard (body)
+            # may overhang on purpose, for example a connector flush with the edge
+            ce = float(self.d.board.get("copper_edge_mm", 0.3))
+            part = P[a]
+            for n in part.pads:
+                px, py = part.pad(n)
+                w, h = (part.pad_size or {}).get(n, (0.0, 0.0))
+                if part.r % 180:
+                    w, h = h, w
+                if px - w / 2 < ce - 0.01 or py - h / 2 < ce - 0.01 or px + w / 2 > self.W - ce + 0.01 \
+                        or py + h / 2 > self.H - ce + 0.01:
+                    out.append(f"{a} pad {n} copper closer than {ce} mm to the board edge")
+                    break
         return out
 
     def _state(self):

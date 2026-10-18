@@ -69,3 +69,118 @@ def test_optimizer_keeps_constraints(tmp_path):
     assert res["fails"] == 0
     assert res["measures"]["out_noise_uv"] <= res["baseline"]["out_noise_uv"]
     assert 900 <= res["measures"]["f3db"] <= 1500
+
+
+def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
+    """A transient that stops before its stop time must not pass on the truncated waveform."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
+    fake = "doAnalyses: TRAN:  Timestep too small\nHWF __tend 0.001\n" + "".join(
+        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2 / float(m.get('scale', 1))}\n"
+        for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (fake, 1))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["aborted"]
+    assert r["rows"] and not any(row["pass"] for row in r["rows"])
+    # same values with a complete run pass
+    full = fake.replace("Timestep too small", "ok").replace("__tend 0.001", "__tend 0.04")
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (full, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert not r["aborted"] and all(row["pass"] for row in r["rows"])
+
+
+def test_cpwg_matches_openems_reference():
+    """Trace 0.25 mm wide, 0.2 mm from a same-layer pour on 1.6 mm FR-4: openEMS TDR gave 86.5 ohm."""
+    from hwflow.postlayout import cpwg_z0, microstrip
+    z, _ = cpwg_z0(0.25, 0.2, 1.6, 4.3)
+    assert abs(z - 86.5) / 86.5 < 0.05
+    assert microstrip(0.25, 1.6, 0.035, 4.3)[0] > 120  # the pour-free formula overestimates here
+
+
+def test_monte_carlo_parallel_is_deterministic(tmp_path):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = spice.monte_carlo(d, tmp_path / "a", runs=12, workers=1)
+    b = spice.monte_carlo(d, tmp_path / "b", runs=12, workers=6)
+    assert a == b
+
+
+def test_custom_pad_exports_full_outline():
+    """SOT-89 tab is a custom pad: the router must see the whole tab, not just the anchor rectangle."""
+    from hwflow.libs import Libs
+    from hwflow.pcb import _padstack
+    pad = next(p for p in Libs().footprint("Package_TO_SOT_SMD:SOT-89-3")["pads"] if p["number"] == "2")
+    _, ps = _padstack(pad, ["F.Cu", "B.Cu"])
+    shape = ps[2][1]
+    assert shape[0] == "polygon"
+    xs = shape[3::2]
+    assert max(xs) - min(xs) > 4000  # um: anchor 1.475 mm plus the 3.1 mm tab
+
+
+def test_post_layout_inductors_are_damped(tmp_path):
+    import json
+    import shutil
+    from hwflow.cli import main
+    from hwflow import postlayout
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    main(["build", str(proj), "--until", "layout"])
+    d = Design.load(proj)
+    d.raw["board"]["width_mm"], d.raw["board"]["height_mm"] = json.loads(
+        (proj / "build" / "status.json").read_text())["layout"]["board_mm"]
+    ex = postlayout.Extraction(d, proj / "build" / f"{d.name}.kicad_pcb")
+    lines = postlayout.PostLayoutNodeMap(d, ex).extra()
+    assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0
+
+
+def test_run_all_parallel_matches_serial(tmp_path):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = spice.run_all(d, tmp_path / "a", workers=1)
+    b = spice.run_all(d, tmp_path / "b", workers=6)
+    assert [(r["name"], [x["value"] for x in r["rows"]]) for r in a] == \
+           [(r["name"], [x["value"] for x in r["rows"]]) for r in b]
+
+
+def test_thermal_vias_land_inside_their_pad():
+    from hwflow.libs import Libs
+    from hwflow.pcb import thermal_vias
+    from hwflow.placer import build_parts
+    d = Design.load(EX)
+    d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
+    d.components["U1"].data["pins"] = {"1": "GND", "2": "VBUS", "3": "+3V3"}
+    d.components["U1"].data["thermal_vias"] = {"pad": "2", "count": 4}
+    libs = Libs()
+    parts = build_parts(d, libs)
+    parts["U1"].x, parts["U1"].y, parts["U1"].r = 10.0, 10.0, 90.0
+    vias = thermal_vias(d, libs, parts)
+    assert len(vias) == 4 and all(v["net"] == "VBUS" for v in vias)
+    # the tab spans about 4.6 x 1.7 mm; rotated 90 deg it is tall in y around x = 10
+    assert all(abs(v["x"] - 10.0) < 1.0 and abs(v["y"] - 10.0) < 3.0 for v in vias)
+
+
+def test_save_keeps_comments(tmp_path):
+    import shutil
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    text = (proj / "design.yaml").read_text().replace("components:", "# the parts list\ncomponents:", 1)
+    (proj / "design.yaml").write_text(text)
+    d = Design.load(proj)
+    d.components["R1"].data["value"] = "91k"
+    d.save()
+    out = (proj / "design.yaml").read_text()
+    assert "# the parts list" in out and "91k" in out
+    assert Design.load(proj).components["R1"].get("value") == "91k"
+
+
+def test_recoverable_singular_matrix_warning_is_not_an_abort(tmp_path, monkeypatch):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
+    out = "Warning: singular matrix: check node x\nNote: Starting dynamic gmin stepping\n" + "".join(
+        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2 / float(m.get('scale', 1))}\n"
+        for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (out, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert not r["aborted"] and all(row["pass"] for row in r["rows"])
