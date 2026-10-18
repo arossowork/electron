@@ -252,10 +252,14 @@ def score_trial(tdir: Path, fx: dict) -> dict:
     sc = {}
     if has_design:
         shutil.rmtree(proj / "build", ignore_errors=True)  # never trust the agent's own build
+        import signal
+        proc = subprocess.Popen([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         try:
-            subprocess.run([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
-                           capture_output=True, text=True, timeout=int(os.environ.get("HWFLOW_SCORE_TIMEOUT", 3600)))
+            proc.wait(timeout=int(os.environ.get("HWFLOW_SCORE_TIMEOUT", 3600)))
         except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)  # the build and every ngspice it started
+            proc.wait()
             card["build_timeout"] = True  # stages not finished in time score as missing (0 points)
             subprocess.run([sys.executable, "-m", "hwflow.cli", "report", str(proj)], cwd=ROOT,
                            capture_output=True, text=True, timeout=300)
