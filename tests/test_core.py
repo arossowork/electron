@@ -172,3 +172,15 @@ def test_save_keeps_comments(tmp_path):
     out = (proj / "design.yaml").read_text()
     assert "# the parts list" in out and "91k" in out
     assert Design.load(proj).components["R1"].get("value") == "91k"
+
+
+def test_recoverable_singular_matrix_warning_is_not_an_abort(tmp_path, monkeypatch):
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
+    out = "Warning: singular matrix: check node x\nNote: Starting dynamic gmin stepping\n" + "".join(
+        f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2 / float(m.get('scale', 1))}\n"
+        for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (out, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert not r["aborted"] and all(row["pass"] for row in r["rows"])

@@ -244,7 +244,7 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
 
 
 ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
-                      r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted|singular matrix", re.I)
+                      r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
 
 
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
