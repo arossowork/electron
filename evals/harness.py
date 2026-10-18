@@ -252,8 +252,13 @@ def score_trial(tdir: Path, fx: dict) -> dict:
     sc = {}
     if has_design:
         shutil.rmtree(proj / "build", ignore_errors=True)  # never trust the agent's own build
-        subprocess.run([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
-                       capture_output=True, text=True, timeout=1800)
+        try:
+            subprocess.run([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
+                           capture_output=True, text=True, timeout=int(os.environ.get("HWFLOW_SCORE_TIMEOUT", 3600)))
+        except subprocess.TimeoutExpired:
+            card["build_timeout"] = True  # stages not finished in time score as missing (0 points)
+            subprocess.run([sys.executable, "-m", "hwflow.cli", "report", str(proj)], cwd=ROOT,
+                           capture_output=True, text=True, timeout=300)
         sp = proj / "build" / "status.json"
         sc = json.loads(sp.read_text()).get("score", {}) if sp.exists() else {}
     card.update({f"m_{k}": v for k, v in sc.items()})
@@ -347,6 +352,7 @@ def main():
     for name in ("score", "compare", "baseline"):
         p = sub.add_parser(name)
         p.add_argument("run_dir")
+        p.add_argument("--only", default="")
         p.add_argument("--baseline", default=str(ROOT / "evals" / "baseline.json"))
     a = ap.parse_args()
     fixtures = {p.stem: yaml.safe_load(p.read_text()) for p in sorted(FIX.glob("*.yaml"))}
@@ -386,8 +392,16 @@ def main():
         print(json.dumps(agg, indent=1))
         return
     if a.cmd == "score":
-        cards = [score_trial(t, fixtures[t.name.split("__")[0]]) for t in sorted(run_dir.iterdir())
-                 if t.is_dir() and (t / "proj").exists()]
+        only = [x for x in (a.only or "").split(",") if x]
+        cards = []
+        for t in sorted(run_dir.iterdir()):
+            if not t.is_dir() or not (t / "proj").exists():
+                continue
+            fid = t.name.split("__")[0]
+            if only and fid not in only and (t / "score.json").exists():
+                cards.append(json.loads((t / "score.json").read_text()))  # keep the existing card
+            else:
+                cards.append(score_trial(t, fixtures[fid]))
         agg = aggregate(cards)
         (run_dir / "aggregate.json").write_text(json.dumps(agg, indent=1))
         print(json.dumps(agg, indent=1))
