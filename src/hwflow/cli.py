@@ -102,8 +102,10 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
 def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
     out = _out(d)
     name = d.name
-    if d.board.get("router", "freerouting") == "krt":
-        return pcb.run_krt(d, libs, parts, out)
+    if d.board.get("router", "krt") == "krt":
+        if (pcb.KRT_DIR / "py_router" / "route.py").exists():
+            return pcb.run_krt(d, libs, parts, out)
+        print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
     log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
     tracks, vias = pcb.import_ses(out / f"{name}.ses", d)

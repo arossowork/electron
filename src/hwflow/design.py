@@ -130,7 +130,7 @@ class Design:
     def board(self) -> dict:
         b = {"width_mm": 50, "height_mm": 40, "layers": 2, "thickness_mm": 1.6, "copper_oz": 1.0,
              "clearance_mm": 0.2, "track_mm": 0.25, "via_drill_mm": 0.3, "via_dia_mm": 0.6,
-             "gnd_pour": True, "er": 4.3, "margin_mm": 1.0}
+             "gnd_pour": True, "er": 4.3, "margin_mm": 1.0, "router": "krt"}
         b.update(self.raw.get("board") or {})
         return b
 

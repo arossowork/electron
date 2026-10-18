@@ -37,7 +37,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
 | decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin |
 | margin_mm | 1.0 | keep parts this far from the board edge |
-| router | freerouting | `freerouting` or `krt` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
+| router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
 | post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
