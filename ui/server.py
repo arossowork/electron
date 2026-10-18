@@ -137,7 +137,12 @@ class Session:
         (self.dir / "inbox").mkdir(exist_ok=True)
         with open(self.dir / "inbox" / "answers.md", "a") as fh:
             fh.write("\n".join(lines) + "\n")
-        (self.dir / "inbox" / "questions.json").rename(self.dir / "inbox" / f"questions_round{q.get('round', 0)}.json")
+        dest = self.dir / "inbox" / f"questions_round{q.get('round', 0)}.json"
+        k = 1
+        while dest.exists():
+            k += 1
+            dest = self.dir / "inbox" / f"questions_round{q.get('round', 0)}_{k}.json"
+        (self.dir / "inbox" / "questions.json").rename(dest)
         self.send("The product person answered. The answers are in inbox/answers.md. Continue the flow.", model)
 
     def files(self):

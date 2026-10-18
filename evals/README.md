@@ -5,7 +5,7 @@ These evaluations measure the `/hw-design` agent, which is not deterministic, wi
 ## Parts
 
 - `fixtures/*.yaml`: one product per file. Each file has the brief that the agent sees and a `hidden_spec` that only the simulated product person knows. It also has `planted_conflicts` with keyword groups, `expected_requirements`, and area and cost `limits`. If `mode: from_requirements` is set, the interview is skipped and only the engineering stages are tested.
-- The product person is a separate `claude -p` session (default model `haiku`, set `HWFLOW_PM_MODEL` to change it). It answers only from the hidden specification, and it follows the preference rules there when the agent proves a conflict.
+- The product person is a separate `claude -p` session (default model `sonnet`, set `HWFLOW_PM_MODEL` to change it). It keeps every number in the facts as a hard limit unless a preference rule in the facts allows relaxing it. It answers only from the hidden specification, and it follows the preference rules there when the agent proves a conflict.
 - `harness.py score` rebuilds every design with `hwflow` from a clean state. It never uses the agent's own build and never asks an LLM.
 
 ## Score (100 points)
