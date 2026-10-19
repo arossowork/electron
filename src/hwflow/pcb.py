@@ -395,6 +395,7 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
         raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
     b = design.board
     name = design.name
+    workdir = Path(workdir).resolve()  # the router runs with cwd=KRT_DIR, so relative paths would not be found
     src = workdir / f"{name}_unrouted.kicad_pcb"
     write_board(src, build_board(design, libs, parts))
     pro = workdir / f"{name}.kicad_pro"
