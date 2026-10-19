@@ -236,3 +236,53 @@ def test_debug_measures_do_not_count(tmp_path):
     assert sorted(x["name"] for x in r["debug"]) == ["dbg_v3v3", "probe2"]
     _save_status(d, "sim", r)
     assert all("dbg_v3v3" not in m for row in trace(d)["rows"] for m in row["measures"])
+
+
+def test_analysis_timeout_is_reported(tmp_path):
+    """Backlog 22/42: per-analysis timeout_s; the analysis is marked timeout and its rows say why they are n/a."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient"), timeout_s=0.001)
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["status"] == "timeout" and r["seconds"] < 5
+    assert all(row["value"] is None and "timeout after 0.001 s" in row["na_reason"] for row in r["rows"])
+    ok = spice.run_analysis(d, next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op"), tmp_path)
+    assert ok["status"] == "ok" and "reason" not in ok
+
+
+def test_ngspice_crash_is_retried_once(tmp_path, monkeypatch):
+    """Backlog 41: a signal exit is retried once and the run is marked flaky, not reported as a design result."""
+    import subprocess
+    from types import SimpleNamespace
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
+    calls = []
+
+    def fake_run(*args, **kw):
+        calls.append(1)
+        if len(calls) == 1:
+            return SimpleNamespace(stdout="", stderr="free(): invalid next size (normal)", returncode=-6)
+        return SimpleNamespace(stdout=_fake_out(a), stderr="", returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    r = spice.run_analysis(d, a, tmp_path)
+    assert len(calls) == 2 and r["status"] == "ok" and "free(): invalid" in r["flaky"]
+    assert all(x["pass"] for x in r["rows"])
+    calls.clear()
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kw: SimpleNamespace(stdout="", stderr="", returncode=-11))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["status"] == "crash" and all(x["na_reason"].startswith("ngspice crashed") for x in r["rows"])
+
+
+def test_report_names_the_analysis_that_timed_out(tmp_path):
+    from hwflow.cli import _save_status, stage_sim, write_report
+    import yaml
+    proj = _copy_example(tmp_path)
+    y = yaml.safe_load((proj / "design.yaml").read_text())
+    next(x for x in y["sim"]["analyses"] if x["name"] == "line_transient")["timeout_s"] = 0.001
+    (proj / "design.yaml").write_text(yaml.safe_dump(y, sort_keys=False))
+    d = Design.load(proj)
+    _save_status(d, "sim", stage_sim(d))
+    text = write_report(d)
+    assert "analysis line_transient: timeout after" in text and "n/a: timeout after 0.001 s" in text

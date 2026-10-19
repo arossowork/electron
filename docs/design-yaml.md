@@ -138,6 +138,8 @@ sim:
 
 Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a connector, because the post-layout run then injects at that pad. `v(NET)` and `$(NET)` inside commands are replaced with SPICE node names. `meas` is the ngspice `meas` syntax without the analysis type and the name. `expr` is an ngspice vector expression. `scale` multiplies the result before the limits apply. `req` names the requirement IDs that the measure verifies, as a comma-separated list.
 
+`timeout_s` on an analysis (default 600) bounds its ngspice run. An analysis that times out, crashes, aborts or reports an error is named in the report with its status and run time, and every measure without a value says why (`n/a: timeout after 600 s`, `n/a: aborted: ...`). A run that crashes on a signal (`free(): invalid ...`) is retried once and reported as flaky.
+
 A measure whose name starts with `dbg_`, or that sets `debug: true`, is a debug probe: the report lists its value apart, and it never counts in the pass ratio, the verdict, the requirement trace, the post-layout comparison or the Monte Carlo yield.
 
 ## optimize

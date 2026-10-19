@@ -207,16 +207,38 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
 _NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
-def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim") -> tuple[str, int]:
+CRASH_RE = re.compile(r"free\(\): invalid|double free|corrupted (size|double)|malloc\(\)|segmentation fault|"
+                      r"core dumped", re.I)
+FLAKY_MARK = "hwflow: ngspice crashed"
+DEFAULT_TIMEOUT_S = 600.0
+
+
+def crashed(rc: int, out: str) -> bool:
+    """ngspice died on a signal or a heap error: a tool failure, not a design result."""
+    return rc < 0 or rc >= 128 or bool(CRASH_RE.search(out))
+
+
+def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
+                timeout: float = DEFAULT_TIMEOUT_S, retry: bool = True) -> tuple[str, int]:
+    """Run ngspice in batch mode. A crash (signal exit, heap error) is retried once; the output then starts
+    with FLAKY_MARK so the caller can log the run as flaky. Raises subprocess.TimeoutExpired."""
     workdir = workdir or Path(tempfile.mkdtemp(prefix="hwf_"))
     workdir = workdir.resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     cir = workdir / f"{name}.cir"
     cir.write_text(netlist)
-    p = subprocess.run([NGSPICE, "-b", str(cir)], capture_output=True, text=True, timeout=600, cwd=workdir)
-    out = p.stdout + "\n" + p.stderr
+
+    def once():
+        p = subprocess.run([NGSPICE, "-b", str(cir)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        return p.stdout + "\n" + p.stderr, p.returncode
+
+    out, rc = once()
+    if retry and crashed(rc, out):
+        first = next((ln.strip() for ln in out.splitlines() if CRASH_RE.search(ln)), f"exit {rc}")
+        out2, rc = once()
+        out = f"{FLAKY_MARK} ({first[:120]}, exit {rc}); retried once (flaky)\n" + out2
     (workdir / f"{name}.log").write_text(out)
-    return out, p.returncode
+    return out, rc
 
 
 def parse_measures(out: str) -> dict[str, float | None]:
@@ -259,13 +281,24 @@ ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|
                       r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
 
 
+# ngspice lines that point at the element or node behind a failed run
+DETAIL_RE = re.compile(r"trouble with|no such vector|not found|singular matrix|timestep too small", re.I)
+
+
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
                  temp=None, tag: str = "") -> dict:
+    """One ngspice run. `status` is ok, timeout, crash, aborted or error, and `reason` says why a row has no
+    value. `analysis.timeout_s` (default 600) bounds the run."""
+    import time
     net, unmodeled = build_netlist(design, analysis, nm, values, temp)
+    timeout = float(analysis.get("timeout_s", DEFAULT_TIMEOUT_S))
+    t0 = time.time()
+    timed_out = False
     try:
-        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
+        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}", timeout=timeout)
     except subprocess.TimeoutExpired:
-        out, rc = "Error: ngspice timed out (simulation aborted)", -1
+        out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+    seconds = round(time.time() - t0, 1)
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
     rows = evaluate(analysis.get("measures") or [], vals)
@@ -287,8 +320,32 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
     if not aborted and real and all(r["pass"] for r in real):
         warnings = [e for e in errors if MEAS_MSG_RE.search(e)]
         errors = [e for e in errors if e not in warnings]
-    return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
-            "aborted": bool(aborted), "warnings": warnings}
+    detail = [ln.strip() for ln in out.splitlines() if DETAIL_RE.search(ln) and "HWF" not in ln][:3]
+    body = out.split("\n", 1)[-1] if out.startswith(FLAKY_MARK) else out
+    is_crash = not timed_out and crashed(rc, body)
+    if timed_out:
+        status, reason = "timeout", f"timeout after {timeout:g} s (timeout_s)"
+    elif is_crash:
+        status, reason = "crash", f"ngspice crashed (exit {rc}) twice"
+    elif aborted:
+        status, reason = "aborted", f"aborted: {aborted[0]}"
+    elif errors or any(r["value"] is None for r in real):
+        status = "error"
+        reason = f"error: {errors[0]}" if errors else "measure gave no value"
+    else:
+        status, reason = "ok", ""
+    if detail and status != "ok":
+        reason += f" [{'; '.join(detail)}]"
+    for r in rows:
+        if r["value"] is None:
+            r["na_reason"] = reason or "measure gave no value"
+    res = {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
+           "aborted": bool(aborted) or timed_out, "warnings": warnings, "status": status, "seconds": seconds}
+    if reason:
+        res["reason"] = reason
+    if out.startswith(FLAKY_MARK):
+        res["flaky"] = out.splitlines()[0]
+    return res
 
 
 def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:

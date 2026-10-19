@@ -87,6 +87,7 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
     out = {"analyses": res, "passed": sum(r["pass"] for r in rows), "total": len(rows),
            "fails": [r for r in rows if not r["pass"]], "derating": der,
            "debug": [r for r in allrows if r.get("debug")],
+           "runs": _run_summary(res),
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
@@ -100,6 +101,12 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
             out["monte_carlo"] = prev["monte_carlo"]
     out["ok"] = out["passed"] == out["total"] and not out["errors"]
     return out
+
+
+def _run_summary(res: list[dict]) -> list[dict]:
+    """Analyses that did not finish cleanly (timeout, crash, aborted, error) or needed a retry, with run time."""
+    return [{k: a[k] for k in ("name", "status", "seconds", "reason", "flaky") if k in a}
+            for a in res if a.get("status", "ok") != "ok" or a.get("flaky")]
 
 
 def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
@@ -207,7 +214,9 @@ def stage_post(d: Design) -> dict:
     w = out / "post"
     ir = postlayout.ir_drop(d, ex, w)
     nm = postlayout.PostLayoutNodeMap(d, ex)
-    pre = spice.run_all(d, out / "sim")
+    pre = _fresh_pre_results(d)
+    if pre is None:
+        pre = spice.run_all(d, out / "sim")
     post = spice.run_all(d, w, nm, tag="_post")
     deltas = []
     for a, b in zip(pre, post):
@@ -216,12 +225,28 @@ def stage_post(d: Design) -> dict:
                 continue
             v1, v2 = r1["value"], r2["value"]
             rel = None if v1 in (None, 0) or v2 is None else (v2 - v1) / abs(v1)
-            deltas.append({"analysis": a["name"], "name": r1["name"], "pre": v1, "post": v2, "rel": rel,
-                           "pass_pre": r1["pass"], "pass_post": r2["pass"], "unit": r1["unit"]})
+            x = {"analysis": a["name"], "name": r1["name"], "pre": v1, "post": v2, "rel": rel,
+                 "pass_pre": r1["pass"], "pass_post": r2["pass"], "unit": r1["unit"]}
+            if v2 is None:
+                x["na_reason"] = r2.get("na_reason", "")
+            deltas.append(x)
     errs = [c for c in checks if c["sev"] == "error"]
     regress = [x for x in deltas if x["pass_pre"] and not x["pass_post"]]
     return {"ok": not errs and not regress and all(x["pass_post"] for x in deltas), "checks": checks,
-            "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex)}
+            "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex),
+            "runs": _run_summary(post)}
+
+
+def _fresh_pre_results(d: Design) -> list[dict] | None:
+    """Pre-layout results of this exact design from status.json, so post does not rerun them."""
+    prev = _status(d).get("sim") or {}
+    an = prev.get("analyses")
+    if not an or prev.get("design_hash") != _design_hash(d):
+        return None
+    sim = d.raw.get("sim") or {}
+    want = [a["name"] + (f" @ {t}C" if t is not None else "") for a in sim.get("analyses") or []
+            for t in (a.get("temps") or [None])]
+    return an if [a["name"] for a in an] == want else None
 
 
 def stage_fab(d: Design) -> dict:
@@ -288,7 +313,11 @@ def write_report(d: Design) -> str:
         L.append(f"- SPICE: {c['passed']}/{c['total']} measures pass")
         for f in c["fails"]:
             rng = f"{_fmt(f['min'])}..{_fmt(f['max'])}"
-            L.append(f"  - FAIL {f['analysis']}/{f['name']} = {_fmt(f['value'])} {f['unit']} (limit {rng}, req {f.get('req')})")
+            why = f"; n/a: {f['na_reason']}" if f["value"] is None and f.get("na_reason") else ""
+            L.append(f"  - FAIL {f['analysis']}/{f['name']} = {_fmt(f['value'])} {f['unit']} (limit {rng}, req {f.get('req')}{why})")
+        for x in c.get("runs") or []:
+            L.append(f"  - analysis {x['name']}: {x['status']} after {x['seconds']} s"
+                     + (f"; {x['reason']}" if x.get("reason") else "") + ("; flaky: crashed once, retried" if x.get("flaky") else ""))
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
         if c.get("debug"):
@@ -339,8 +368,13 @@ def write_report(d: Design) -> str:
         big = [x for x in c["deltas"] if x["rel"] is not None and abs(x["rel"]) > 0.01]
         L.append(f"  - post-layout SPICE: {sum(x['pass_post'] for x in c['deltas'])}/{len(c['deltas'])} pass; "
                  f"{len(big)} measures moved more than 1%")
+        for x in c.get("runs") or []:
+            na = sum(1 for y in c["deltas"] if y["analysis"] == x["name"] and y["post"] is None)
+            L.append(f"    - analysis {x['name']}: {x['status']} after {x['seconds']} s, {na} measures n/a"
+                     + (f"; {x['reason']}" if x.get("reason") else "") + ("; flaky: crashed once, retried" if x.get("flaky") else ""))
         for x in big[:8] + c["regressions"]:
-            L.append(f"    - {x['name']}: {_fmt(x['pre'])} -> {_fmt(x['post'])} {x['unit']}")
+            why = f" (n/a: {x['na_reason']})" if x["post"] is None and x.get("na_reason") else ""
+            L.append(f"    - {x['name']}: {_fmt(x['pre'])} -> {_fmt(x['post'])} {x['unit']}{why}")
         if not c["ok"]:
             verdict.append("post-layout issues")
     if "fab" in s:
