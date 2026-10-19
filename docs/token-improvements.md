@@ -69,3 +69,9 @@ The run was stopped in stage 4, because `kicad-cli` is 7.0.11 on this machine an
 Totals: about 9.9M Opus tokens and 23.9M Sonnet tokens, almost all cache reads. Peak context of a subagent is also its total cache write: it grows by appending and the cache is never rebuilt. No compaction happened (the window was 400k), so the 400k cap did not matter in this run. Context size and turn count are what to attack.
 
 To continue: install KiCad 8 or newer, set `KICAD_CLI`, restart `ui/server.py` (it then logs per-turn deltas), and send "continue".
+
+## Tally when the run was stopped in stage 7 (layout)
+
+Whole run, from the transcripts: Opus 507 turns and about 57M tokens, Sonnet 314 turns and about 42M tokens, over about 4 hours of wall time. 96% of it is cache reads. The layout agent (Sonnet) used about 7.5M tokens in about 72 turns, then was stopped because the layout stage cannot pass with KiCad 9 (`pcb drc --refill-zones` and `--save-board` do not exist there; hwflow was written against a newer KiCad). Stages reached: 1 requirements, 2 architecture, 3 parts (twice), 4 circuit (twice, after the 2xAAA decision), 5 review (twice), 7 layout (blocked). Open product questions at the end: none (rounds 1 to 5 answered).
+
+Before the next run: install a KiCad that supports `--refill-zones` on `pcb drc`, restart `ui/server.py`, and check `kicad-cli pcb drc --help`.
