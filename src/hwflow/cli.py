@@ -81,10 +81,12 @@ def stage_sch(d: Design, libs: Libs) -> dict:
 def stage_sim(d: Design, mc: int = 0) -> dict:
     w = _out(d) / "sim"
     res = spice.run_all(d, w)
-    rows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
+    allrows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
+    rows = [r for r in allrows if not r.get("debug")]  # dbg_* probes never count (backlog 19)
     der = spice.derating_audit(d, w)
     out = {"analyses": res, "passed": sum(r["pass"] for r in rows), "total": len(rows),
            "fails": [r for r in rows if not r["pass"]], "derating": der,
+           "debug": [r for r in allrows if r.get("debug")],
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
@@ -210,6 +212,8 @@ def stage_post(d: Design) -> dict:
     deltas = []
     for a, b in zip(pre, post):
         for r1, r2 in zip(a["rows"], b["rows"]):
+            if r1.get("debug"):
+                continue
             v1, v2 = r1["value"], r2["value"]
             rel = None if v1 in (None, 0) or v2 is None else (v2 - v1) / abs(v1)
             deltas.append({"analysis": a["name"], "name": r1["name"], "pre": v1, "post": v2, "rel": rel,
@@ -287,6 +291,10 @@ def write_report(d: Design) -> str:
             L.append(f"  - FAIL {f['analysis']}/{f['name']} = {_fmt(f['value'])} {f['unit']} (limit {rng}, req {f.get('req')})")
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
+        if c.get("debug"):
+            L.append(f"  - debug probes (not counted): " + ", ".join(
+                f"{r['analysis']}/{r['name']}={_fmt(r['value'])}" for r in c["debug"][:12])
+                + (f" and {len(c['debug']) - 12} more" if len(c["debug"]) > 12 else ""))
         if c.get("warnings"):
             L.append(f"  - ngspice warnings on passing analyses ({len(c['warnings'])}, not a failure): "
                      + "; ".join(c["warnings"][:3]))
@@ -397,6 +405,8 @@ def trace(d: Design) -> dict:
     results: dict[str, list] = {}
     for a in (s.get("sim") or {}).get("analyses", []):
         for r in a["rows"]:
+            if r.get("debug"):
+                continue
             for rid in str(r.get("req") or "").replace(" ", "").split(","):
                 if rid:
                     results.setdefault(rid, []).append((r["name"], r["pass"]))

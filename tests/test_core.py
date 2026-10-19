@@ -210,3 +210,29 @@ def test_measure_out_of_interval_is_a_warning_when_rows_pass(tmp_path, monkeypat
     assert _sim_verdict(c) == "ngspice errors in tran1 (Error: bad thing)"
     c = {"total": 3, "passed": 2, "fails": [{"analysis": "dc_op", "name": "v3v3"}], "errors": []}
     assert _sim_verdict(c) == "1 sim measures fail (dc_op/v3v3)"
+
+
+def _copy_example(tmp_path):
+    import shutil
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
+    return proj
+
+
+def test_debug_measures_do_not_count(tmp_path):
+    """Backlog 19: a failing dbg_* probe is listed apart and leaves pass/total, verdict and trace alone."""
+    import yaml
+
+    from hwflow.cli import stage_sim, trace, _save_status
+    proj = _copy_example(tmp_path)
+    y = yaml.safe_load((proj / "design.yaml").read_text())
+    a = next(x for x in y["sim"]["analyses"] if x["name"] == "dc_op")
+    a["measures"] += [{"name": "dbg_v3v3", "expr": "v(+3V3)", "max": -1, "req": "R1"},
+                      {"name": "probe2", "expr": "v(+3V3)", "max": -1, "debug": True}]
+    (proj / "design.yaml").write_text(yaml.safe_dump(y, sort_keys=False))
+    d = Design.load(proj)
+    r = stage_sim(d)
+    assert r["ok"] and r["passed"] == r["total"]
+    assert sorted(x["name"] for x in r["debug"]) == ["dbg_v3v3", "probe2"]
+    _save_status(d, "sim", r)
+    assert all("dbg_v3v3" not in m for row in trace(d)["rows"] for m in row["measures"])

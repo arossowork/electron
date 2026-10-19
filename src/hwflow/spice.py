@@ -238,9 +238,17 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
             ok = False
         if ok and "max" in m and v > float(m["max"]):
             ok = False
-        rows.append({"name": m["name"], "value": v, "min": m.get("min"), "max": m.get("max"),
-                     "unit": m.get("unit", ""), "pass": ok, "req": m.get("req")})
+        row = {"name": m["name"], "value": v, "min": m.get("min"), "max": m.get("max"),
+               "unit": m.get("unit", ""), "pass": ok, "req": m.get("req")}
+        if is_debug(m):
+            row["debug"] = True
+        rows.append(row)
     return rows
+
+
+def is_debug(m: dict) -> bool:
+    """A debug probe (`dbg_*` name or `debug: true`): reported apart, never counted in pass/total or verdict."""
+    return bool(m.get("debug")) or str(m.get("name", "")).startswith("dbg_")
 
 
 # ngspice reports a `meas` that finds no crossing as "Error: measure X ... out of interval"; when every
@@ -275,7 +283,8 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             r["aborted"] = True
         errors = [f"simulation aborted: {aborted[0]}"] + errors
     warnings = []
-    if not aborted and rows and all(r["pass"] for r in rows):
+    real = [r for r in rows if not r.get("debug")]
+    if not aborted and real and all(r["pass"] for r in real):
         warnings = [e for e in errors if MEAS_MSG_RE.search(e)]
         errors = [e for e in errors if e not in warnings]
     return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
@@ -326,13 +335,13 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
         with ThreadPoolExecutor(max_workers=workers) as ex:
             results = list(ex.map(lambda iv: run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}"),
                                   enumerate(samples_values)))
-        samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"]}
+        samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"] if not is_debug(m)}
         fails = 0
         for r in results:
-            if not all(row["pass"] for row in r["rows"]):
+            if not all(row["pass"] for row in r["rows"] if not row.get("debug")):
                 fails += 1
             for row in r["rows"]:
-                if row["value"] is not None:
+                if row["value"] is not None and not row.get("debug"):
                     samples[row["name"]].append(row["value"])
         stats = {}
         for k, v in samples.items():
