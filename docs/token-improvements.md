@@ -11,6 +11,7 @@ Status: `open` (not applied), `applied` (in the branch), `rejected` (with the re
 | 1 requirements, interview turn | 229 s | 329k | 12k | 9 turns |
 | 1 requirements, round 1 answers | 182 s | 329k | 0 | 3 turns |
 | 2 architecture | 1446 s | about 3.8M | about 0.39M | hw-architect alone: 32 turns, context 7k to 207k, 3.1M cache reads |
+| 3 parts | not logged yet | hw-parts ran on Sonnet: 147 turns, 23.6M cache reads, 328k cache writes | — | 4 datasheet notes written |
 
 Per-turn figures come from `projects/home-thermostat/.usage.jsonl`. The UI process that ran this had the old logging code, so its first lines are cumulative; subtract the earlier turns (`modelUsage` of a resumed session is cumulative, see `docs/token-economy.md`).
 
@@ -39,6 +40,7 @@ What drove stage 2 (transcript `subagents/agent-ad07db*.jsonl`):
 | 12 | ccusage for the 5-hour window view across runs: `npx ccusage@latest session --json` | measurement only | subscription limits count tokens | no saving by itself | open |
 | 13 | `BASH_MAX_OUTPUT_LENGTH=15000` in `headless_env` | `evals/harness.py` | no large Bash result seen so far (largest: 27k chars, an `ls -R`) | cheap cap, low value | open |
 | 14 | `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h`: check that it pays off (a 1h cache write costs more) | `headless_env` | applied without measurement | confirm with cache creation versus cache read per stage | applied, unmeasured |
+| 16 | hw-parts on `sonnet` took 147 turns (23.6M cache reads, context about 160k) against 32 turns and 3.1M for the Opus architect. Run the same stage with hw-parts on `opus`, and compare the 5-hour usage window as well as raw tokens. Whatever the model, cut turns: batch lookups (`lib sym` / `lib show` / `lib pads` for several parts in one Bash call), `maxTurns`, text-only datasheets | `.claude/agents/hw-parts.md` | stage 3 of home-thermostat; datasheet notes were written (4 files) | the tiering saves nothing if it multiplies the turns; unknown until measured | open |
 | 15 | RTK, context-mode, caveman, Serena, Repomix, claude-code-router | — | see `docs/token-economy.md`, section 4 | little or no value for this flow | rejected |
 
 ## How to compare after applying
