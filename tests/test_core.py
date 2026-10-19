@@ -311,3 +311,22 @@ def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
         rec = json.loads((tmp_path / m["failures"][0]["file"]).read_text())
         assert rec["seed"] == 1 and rec["run"] == 3 and rec["values"] and rec["status"] == "aborted"
         assert rec["log"]                                           # the ngspice log of that run
+
+
+def test_design_hash_ignores_comments_and_prose(tmp_path):
+    """Backlog 58: comments, whitespace and requirement prose do not make results stale; values do."""
+    from hwflow.cli import _design_hash
+    proj = _copy_example(tmp_path)
+    (proj / "requirements.yaml").write_text("requirements:\n  - {id: R1, text: a, evidence: x, verification: simulation}\n")
+    d = Design.load(proj)
+    h0 = _design_hash(d)
+    d.raw.setdefault("board", {})["width_mm"] = 999          # in-memory layout resize is not a design change
+    assert _design_hash(d) == h0
+    y = proj / "design.yaml"
+    y.write_text("# a new comment\n" + y.read_text().replace("components:", "components:   # parts", 1) + "\n\n")
+    (proj / "requirements.yaml").write_text("requirements:\n  - {id: R1, text: b, evidence: y z, verification: simulation}\n")
+    assert _design_hash(Design.load(proj)) == h0
+    (proj / "requirements.yaml").write_text("requirements:\n  - {id: R1, text: b, evidence: y z, verification: test}\n")
+    assert _design_hash(Design.load(proj)) != h0
+    y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
+    assert "12k" in y.read_text() and _design_hash(Design.load(proj)) != h0

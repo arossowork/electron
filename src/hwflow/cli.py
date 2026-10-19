@@ -34,12 +34,30 @@ def _status(d) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+PROSE_KEYS = ("text", "evidence", "notes", "note", "source", "rationale", "comment")
+
+
 def _design_hash(d) -> str:
+    """Hash of the parsed design, so comments, whitespace and key order do not make results stale (backlog 58).
+
+    design.yaml is parsed fresh from the file: `d.raw` is mutated in memory (layout board size). From
+    requirements.yaml only the electrical content counts; prose fields (text, evidence, notes, ...) do not."""
     import hashlib
-    h = hashlib.sha1(d.path.read_bytes())
+
+    import yaml
+    raw = yaml.safe_load(d.path.read_text()) or {}
+    h = hashlib.sha1(json.dumps(raw, sort_keys=True, default=str).encode())
     rq = d.dir / "requirements.yaml"
     if rq.exists():
-        h.update(rq.read_bytes())
+        reqs = yaml.safe_load(rq.read_text()) or {}
+
+        def strip(x):
+            if isinstance(x, dict):
+                return {k: strip(v) for k, v in x.items() if k not in PROSE_KEYS}
+            if isinstance(x, list):
+                return [strip(v) for v in x]
+            return x
+        h.update(json.dumps(strip(reqs), sort_keys=True, default=str).encode())
     return h.hexdigest()[:12]
 
 
