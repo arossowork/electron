@@ -356,3 +356,19 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
     assert [x["verdict"] for x in lines] == ["PASS", "FAIL: stale: check"]
     kept = list((proj / "build" / "history").glob("*.md"))
     assert len(kept) == 1 and "(stale)" in kept[0].read_text()
+
+
+def test_trace_flags_missing_evidence_files(tmp_path):
+    """Backlog 54: file paths cited in evidence must exist and not be empty; URLs and words are ignored."""
+    from hwflow.cli import missing_evidence, trace
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "calc.py").write_text("x = 1\n")
+    (tmp_path / "SUMMARY.md").write_text("")
+    ev = ("notes/calc.py and SUMMARY.md, notes/compliance.md; https://x.com/ds.pdf; IEC 61000-4-2; 27.81 USD; "
+          "architecture.md section 4")
+    assert missing_evidence(tmp_path, ev) == ["SUMMARY.md", "notes/compliance.md", "architecture.md"]
+    proj = _copy_example(tmp_path)
+    (proj / "requirements.yaml").write_text(
+        "requirements:\n  - {id: R1, verification: inspection, evidence: 'see notes/missing.md'}\n")
+    t = trace(Design.load(proj))
+    assert t["evidence_missing"] == ["R1"] and t["rows"][0]["evidence_missing"] == ["notes/missing.md"]

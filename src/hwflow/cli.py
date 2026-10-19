@@ -415,6 +415,9 @@ def write_report(d: Design, history: bool = False) -> str:
         for r in t["rows"]:
             if r["status"] in ("FAIL", "UNVERIFIED"):
                 L.append(f"  - {r['id']} {r['status']}: {r['text'][:90]}")
+        for r in t["rows"]:
+            if r.get("evidence_missing"):
+                L.append(f"  - {r['id']} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
         if t["failing"] or t["unverified"]:
             verdict.append("requirements not all verified")
     if stale:
@@ -487,6 +490,7 @@ def score(d: Design) -> dict:
         "parts": len([c for c in d.components.values() if not c.get("virtual")]),
         "req_total": g("trace", lambda c: c["total"]), "req_unverified": g("trace", lambda c: c["unverified"]),
         "req_failing": g("trace", lambda c: c["failing"]),
+        "req_evidence_missing": g("trace", lambda c: len(c.get("evidence_missing", []))),
     }
 
 
@@ -516,11 +520,45 @@ def trace(d: Design) -> dict:
             status = method
         else:
             status = "UNVERIFIED"
-        rows.append({"id": q["id"], "text": q.get("text", ""), "priority": q.get("priority", "must"),
-                     "status": status, "measures": [f"{n}:{'ok' if p else 'FAIL'}" for n, p in ms]})
+        row = {"id": q["id"], "text": q.get("text", ""), "priority": q.get("priority", "must"),
+               "status": status, "measures": [f"{n}:{'ok' if p else 'FAIL'}" for n, p in ms]}
+        miss = missing_evidence(d.dir, q.get("evidence"))
+        if miss:
+            row["evidence_missing"] = miss
+        rows.append(row)
     return {"rows": rows, "total": len(rows), "covered": sum(r["status"] not in ("UNVERIFIED",) for r in rows),
             "failing": sum(r["status"] == "FAIL" for r in rows),
-            "unverified": sum(r["status"] == "UNVERIFIED" for r in rows)}
+            "unverified": sum(r["status"] == "UNVERIFIED" for r in rows),
+            "evidence_missing": sorted((r["id"] for r in rows if r.get("evidence_missing")), key=_natural)}
+
+
+def _natural(s: str):
+    import re
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
+
+
+_EVIDENCE_PATH = None
+
+
+def missing_evidence(root: Path, evidence) -> list[str]:
+    """File paths cited in a free-text evidence field (notes/x.md, SUMMARY.md, calc.py, ...) that do not exist
+    under the project or are empty (backlog 54). URLs and plain words are ignored."""
+    import re
+    global _EVIDENCE_PATH
+    if _EVIDENCE_PATH is None:
+        ext = r"md|py|csv|txt|pdf|ya?ml|json|cir|lib|sp|ipynb|png|svg|kicad_\w+"
+        _EVIDENCE_PATH = re.compile(r"(?<![\w/.:-])((?:notes|build|models|lib|docs|datasheets)/[\w./-]*[\w-]"
+                                    rf"|(?:[\w.-]+/)*[\w-][\w.-]*\.(?:{ext}))(?![\w/-])")
+    text = " ".join(str(x) for x in evidence) if isinstance(evidence, list) else str(evidence or "")
+    text = re.sub(r"\w+://\S+", " ", text)
+    out = []
+    for m in _EVIDENCE_PATH.finditer(text):
+        rel = m.group(1).rstrip(".")
+        f = root / rel
+        ok = f.is_dir() and any(f.iterdir()) if f.is_dir() else (f.is_file() and f.stat().st_size > 0)
+        if not ok and rel not in out:
+            out.append(rel)
+    return out
 
 
 # ------------------------------------------------------------------ em (optional, prototype)
@@ -628,7 +666,12 @@ def main(argv=None):
         for r in t["rows"]:
             print(f"{r['id']:<5} {r['status']:<10} {r['priority']:<6} {r['text'][:70]}"
                   + (f"  [{', '.join(r['measures'])}]" if r["measures"] else ""))
-        print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified")
+        for r in t["rows"]:
+            if r.get("evidence_missing"):
+                print(f"{r['id']:<5} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
+        print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified"
+              + (f"; evidence files missing for {len(t['evidence_missing'])} ({', '.join(t['evidence_missing'])})"
+                 if t["evidence_missing"] else ""))
         _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
         return 0
     if a.cmd == "status":
