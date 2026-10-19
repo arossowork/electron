@@ -173,3 +173,15 @@ const out = renderMarkdown(process.env.MD); process.stdout.write(out);"""
     assert "<table>" in run("| a | b |\n|---|---|\n| 1 | 2 |")
     assert "<li>" in run("- one\n- two") and "<pre><code>" in run("```\nx < y\n```") and "x &lt; y" in run("```\nx < y\n```")
     assert "<img" not in run("<img src=x onerror=alert(1)>")
+
+
+def test_stage_times_and_cache_ttl():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import usage_tally as ut
+    base = ROOT / "evals/baselines/home-thermostat-2026-10-19"
+    rows = ut.stage_times(base / "run/ui_history.jsonl.gz")
+    stages = {r["stage"]: r["seconds"] for r in rows[1:]}
+    assert len(stages) == 25 and 20 * 60 < stages["Stage 2 architecture thermostat"] < 25 * 60
+    assert rows[0]["turns"] == 13
+    out = ut.cache_ttl_check(base / "metrics.json", base / "run/usage.jsonl")
+    assert round(out["metrics"]["reads_per_write"]) == 45
