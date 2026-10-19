@@ -47,12 +47,13 @@ code changed in three ways, so the baseline is not a clean checkout:
 
 1. `f7507bc`: `run_krt` resolves the work directory (the router runs with another cwd).
 2. Documentation and backlog commits only (no engine change).
-3. Uncommitted edits by the agent at the end: transient lumping of the post-layout parasitics
-   (`postlayout.py`, on by default, `board.post_tran_lump: false` turns it off), the `board.drc_rules`
-   custom DRC rules (`pcb.py`), and `docs/design-yaml.md`. They are in `run/engine-changes-during-run.patch`.
+3. Edits by the agent at the end, committed afterwards as `9dc21e4` (the same change is in
+   `run/engine-changes-during-run.patch`): the post-layout transient netlist keeps only the exact DC resistance
+   between the pads of each net, with no trace capacitance (`postlayout.py`, on by default,
+   `board.post_tran_lump: false` turns it off); the `board.drc_rules` custom DRC rules (`pcb.py`); and
+   `docs/design-yaml.md`. Tests: `tests/test_postlayout.py`.
 
-Before a replay, decide whether the replay includes these engine edits (commit them) or not. A replay
-without them hits the 600 s ngspice timeout in post-layout, as this run did before the edits.
+A replay from `9dc21e4` or later includes these edits. A replay without them hits the 600 s ngspice timeout in post-layout, as this run did before the edits.
 
 Tools: Claude Code 2.1.291, KiCad 10.0.7 (`/usr/bin/kicad-cli`), ngspice-42, uv 0.10.10, KiCadRoutingTools
 router. UI command line: `claude -p ... --model opus --setting-sources project,local --strict-mcp-config
