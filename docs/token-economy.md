@@ -58,6 +58,8 @@ All of them apply to every headless call, because the three callers share `harne
 | datasheet notes `notes/datasheets/<mpn>.md`, reviewer reads notes first | hw-parts, hw-reviewer | WebFetch once per datasheet, not once per stage and review |
 | `tokens` and `tokens_by_model` in `meta.json`, `score.json`, and aggregate `tokens_k` | harness | measure: input, output, cache read, and cache write per trial and per model (subagents included, from `modelUsage`) |
 
+`modelUsage` in the JSON result of a resumed session is cumulative (checked against the session transcripts: the second turn reported the running total of both turns, subagents included), while `usage` covers only the main thread of one call. The harness and the UI log the per-turn difference (`model_usage_delta`).
+
 Keep the flags identical on every `--resume` of a session: a changed model or tool set misses the prompt cache. A session that was started before this branch keeps its recorded system prompt. Start new trials to see the effect.
 
 ## 4. Tools and projects, and how they would apply to headless runs

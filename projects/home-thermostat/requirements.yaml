@@ -1,0 +1,146 @@
+product: "Two-zone Wi-Fi (MQTT) thermostat module for an Italian 503 wall box, powered by 1 AA cell only (no L/N for the electronics), 2 temperature probes on cables < 2 m, 2 latching relays as dry contacts switching 230 VAC thermal valve actuators, offline RTC scheduling, no screen"
+# Round 1 answered (inbox/answers.md). Values marked "pending PM round 2" are proposals.
+optimize_for:
+  - {criterion: battery_life, weight: 3}   # proposed, pending PM round 2 q4
+  - {criterion: cost, weight: 2}           # size is mostly fixed by the 503 box (R1)
+  - {criterion: size, weight: 1}
+requirements:
+  - id: R1
+    priority: must
+    text: "Fits inside a standard Italian 503 flush box (BTicino 503E: internal depth 50 mm) behind a 3-module support and plate"
+    acceptance: "Electronics envelope <= 66 x 44 x 30 mm (W x H x D behind support); each PCB outline <= 62 x 40 mm; tallest part on each board within the stack height budget"
+    verification: layout
+    evidence: "board outline and 3D height check from hwflow layout; BTicino 503E datasheet (internal depth 50 mm)"
+    source: "brief; dimensions from BTicino 503E catalogue"
+  - id: R2
+    priority: must
+    text: "Runs from one AA cell only (no mains for the electronics): >= 13 months on alkaline, >= 2 years on lithium Li-FeS2"
+    acceptance: "Average 3.3 V rail current <= 55 uA over a 24 h profile (sleep floor + 24 Wi-Fi wakes of 0.5 J + 1440 temperature measurements + relay pulses). Alkaline: 6.7 kJ / 34.2 Ms (13 months) / 3.3 V = 59 uA, so 55 uA keeps 7 % margin. Lithium: 13.1 kJ / (55 uA x 3.3 V) = 72 Ms = 2.3 yr. Each temperature measurement <= 20 uJ (1440/day x 365 x 20 uJ = 10.5 J/yr)"
+    verification: analysis
+    evidence: "power budget table in architecture.md using datasheet sleep and active currents"
+    source: "PM round 1, q1 (battery only) and q2 (1 AA, 13 months alkaline / 2 years lithium)"
+  - id: R3
+    priority: must
+    text: "Power stage holds the logic rail through Wi-Fi transmit peaks for the full cell voltage range"
+    acceptance: "Cell model Voc 1.15 V to 1.65 V, Rint 0.3 ohm. Load: 150 mA for 1 s (Wi-Fi wake) with a 350 mA, 5 ms TX pulse at its end. 3.3 V rail >= 3.0 V throughout; boost input current limited to <= 0.6 A; rail buffer capacitance >= 4.7 mF (the 3.3 mJ TX deficit needs >= 3.5 mF between 3.3 V and 3.0 V)"
+    verification: simulation
+    source: "conflicts.md C3 (resolved: 1 AA, boost with input current limit and rail buffer); PM round 1, q1"
+  - id: R4
+    priority: must
+    text: "Measures two temperatures for control"
+    acceptance: "Total error <= +/-0.5 degC from 5 to 35 degC per channel including sensor, reference resistor and ADC tolerance (Monte Carlo 3 sigma); resolution <= 0.1 degC"
+    verification: simulation
+    source: "brief (two probes); default for a room thermostat, not asked"
+  - id: R5
+    priority: must
+    text: "Probe inputs work with probe cables up to 2 m; probe cable insulation suits a box that also carries 230 V wiring"
+    acceptance: "Added error from 2 m cable (0.2 ohm/m loop = 0.4 ohm, 100 pF/m = 200 pF) <= 0.02 degC; 50 Hz hum on probe input attenuated >= 20 dB by the input filter (relaxed from 40 dB for 10 m); probe cable datasheet insulation >= 300/500 V or double insulated"
+    verification: simulation
+    source: "PM round 1, q4 (both rooms next to the box, cables < 2 m); conflicts.md C6"
+  - id: R6
+    priority: must
+    text: "Two independent dry-contact relay outputs (COM, NO) in series with the 230 VAC line to thermal valve heads or zone valves, up to 2 A each"
+    acceptance: "Each relay contact rated >= 250 VAC; >= 5 A resistive (2.5 x margin on 2 A for the PTC warm-up current of thermal heads); >= 2 A inductive (cos phi 0.4, zone valve motors); inrush >= 10 A for 20 ms; electrical life >= 100k operations (20 switchings/day x 10 yr = 73k per relay)"
+    verification: datasheet
+    evidence: "relay datasheet contact ratings"
+    source: "PM round 1, q1 (dry contacts in the actuator line) and q3 (230 V thermal heads or zone valves, <= 2 A)"
+  - id: R7
+    priority: must
+    text: "Relays draw no current while holding a state (latching)"
+    acceptance: "Coil current = 0 in both states (datasheet: bistable); driver applies >= 1.2 x must-operate voltage for >= 2 x rated pulse width at cell voltage 0.9 V"
+    verification: simulation
+    source: "conflicts.md C2"
+  - id: R8
+    priority: must
+    text: "Reinforced insulation between 230 VAC parts and all SELV/touchable parts (probes, battery, button, antenna)"
+    acceptance: "PCB creepage >= 6.0 mm and clearance >= 4.0 mm between mains and SELV copper (slot allowed); relay coil-to-contact dielectric >= 4 kV and reinforced per datasheet"
+    verification: layout
+    evidence: "hwflow DRC with mains net class clearance; relay datasheet insulation rating"
+    source: "brief (isolation); IEC 60730-1 / IEC 62368-1 reinforced, 250 V, PD2, OVC II"
+  - id: R9
+    priority: must
+    text: "Relay switching does not disturb or reset the Wi-Fi/MCU section"
+    acceptance: "Antenna keep-out >= 15 mm from relay contacts and mains copper; no mains trace on or under SELV ground plane; logic rail droop <= 100 mV during a relay pulse"
+    verification: simulation
+    source: "brief (isolation from Wi-Fi RF)"
+  - id: R10
+    priority: must
+    text: "Wi-Fi 2.4 GHz remote control and reporting over MQTT using a pre-certified radio module"
+    acceptance: "Radio module datasheet lists 802.11 b/g/n and a CE RED certificate; antenna placed at front edge of the front board"
+    verification: datasheet
+    evidence: "module datasheet and RED certificate"
+    source: "brief"
+  - id: R11
+    priority: must
+    text: "Remote commands take effect within 60 min"
+    acceptance: "Wake interval <= 60 min (24 wakes/day x 0.5 J = 4.4 kJ/yr) with the queued MQTT command (retained or persistent session) fetched on each wake; counted in the R2 budget"
+    verification: analysis
+    evidence: "power budget in architecture.md"
+    source: "PM round 1, q2; conflicts.md C1"
+  - id: R12
+    priority: must
+    text: "Works offline: schedule and temperature control run with no network"
+    acceptance: "RTC timekeeping error <= +/-2 min/month (<= 46 ppm) from 0 to 40 degC; schedule stored in non-volatile memory"
+    verification: datasheet
+    evidence: "RTC/crystal datasheet frequency tolerance and temperature drift"
+    source: "brief"
+  - id: R13
+    priority: must
+    text: "Operating environment: indoor wall box"
+    acceptance: "All parts rated for 0 to +50 degC operation (box can be 10 degC above room); 10-90 % RH non-condensing; simulations run at 0 and 50 degC"
+    verification: simulation
+    source: "default for an indoor wall box, not asked"
+  - id: R14
+    priority: must
+    text: "ESD robustness of user-touchable inputs"
+    acceptance: "Probe terminals and button protected to IEC 61000-4-2 +/-8 kV contact, +/-15 kV air"
+    verification: datasheet
+    evidence: "TVS datasheet IEC 61000-4-2 rating"
+    source: "proposed (CE EMC)"
+  - id: R15
+    priority: must
+    text: "Wiring terminals for 230 V outputs and probes"
+    acceptance: "Relay terminals: 2 x (COM, NO) screw or spring, rated >= 250 V / 6 A (3 x the 2 A load), accept 0.5-1.5 mm2; probe terminals: 2 x 2-pole, accept 0.2-1 mm2"
+    verification: datasheet
+    evidence: "terminal block datasheet"
+    source: "PM round 1, q3 (2 A load); Italian wiring uses 1.5 mm2"
+  - id: R16
+    priority: should
+    text: "Low-battery handling: alarm and drive both outputs to a safe state before the battery dies"
+    acceptance: "Energy reserve >= 2 x (two reset pulses) = 6 mJ at cell cutoff (the R3 buffer of 4.7 mF from 3.3 V to 2.5 V holds 10.9 mJ); low-battery MQTT alarm sent when loaded cell <= 1.05 V"
+    verification: simulation
+    source: "conflicts.md C2; safe state pending PM round 2"
+  - id: R17
+    priority: should
+    text: "Battery voltage reported over MQTT"
+    acceptance: "Battery voltage measurement error <= +/-30 mV, divider leakage <= 0.5 uA"
+    verification: simulation
+    source: "proposed"
+  - id: R18
+    priority: should
+    text: "Minimal local interface: no screen, one button and one LED for Wi-Fi setup and status"
+    acceptance: "LED energy only on button press or event (<= 1 uA average); button debounced and ESD protected (R14)"
+    verification: analysis
+    evidence: "power budget in architecture.md"
+    source: "brief (no screen); proposed"
+  - id: R19
+    priority: should
+    text: "Bill of materials cost target (pending PM round 2)"
+    acceptance: "BOM <= 15 USD at 1000 units, excluding enclosure and battery"
+    verification: analysis
+    evidence: "BOM cost from parts stage"
+    source: "proposed, pending PM round 2"
+  - id: R20
+    priority: should
+    text: "Designed for CE marking (LVD, RED, EMC, RoHS)"
+    acceptance: "R8 met; certified radio module (R10); all parts RoHS per datasheet"
+    verification: analysis
+    evidence: "compliance checklist in notes/compliance.md"
+    source: "proposed; EU market"
+  - id: R21
+    priority: could
+    text: "Over-the-air firmware update"
+    acceptance: "Flash >= 2 x firmware image size; OTA run only when cell >= 1.2 V"
+    verification: datasheet
+    evidence: "module flash size"
+    source: "proposed"

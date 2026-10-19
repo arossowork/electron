@@ -158,16 +158,38 @@ def _usage(out: dict) -> dict:
     return {k: u.get(k) or 0 for k in USAGE_KEYS}
 
 
-def _add_usage(meta: dict, out: dict):
-    """Token totals of a trial; on a subscription these, not cost_usd, are what the usage window counts."""
+MODEL_KEYS = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
+
+
+def model_usage_delta(prev: dict | None, cur: dict) -> dict:
+    """`modelUsage` of a resumed session is cumulative (checked against the session transcripts: the second turn
+    reported the running total of both turns, subagents included). Return this turn's share."""
+    cur = {(u.get("canonicalModel") or m): {k: u.get(k) or 0 for k in MODEL_KEYS} for m, u in (cur or {}).items()}
+    if not prev:
+        return cur
+    out = {m: {k: v[k] - (prev.get(m) or {}).get(k, 0) for k in MODEL_KEYS} for m, v in cur.items()}
+    if any(x < 0 for v in out.values() for x in v.values()):  # not cumulative after all (new session): use as is
+        return cur
+    return out
+
+
+def _add_usage(meta: dict, out: dict, chain: str | None = None):
+    """Token totals of a trial; on a subscription these, not cost_usd, are what the usage window counts.
+    `chain` names a resumed session (its modelUsage is cumulative); None for one-shot calls."""
     tok = meta.setdefault("tokens", dict.fromkeys(USAGE_KEYS, 0))
     for k, v in _usage(out).items():
         tok[k] = tok.get(k, 0) + v
     by_model = meta.setdefault("tokens_by_model", {})  # main session and subagents, per model
-    for m, u in (out.get("modelUsage") or {}).items():
-        t = by_model.setdefault(u.get("canonicalModel") or m, {})
-        for k in ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens"):
-            t[k] = t.get(k, 0) + (u.get(k) or 0)
+    prev = meta.setdefault("_model_usage_seen", {}).get(chain) if chain else None
+    cur = model_usage_delta(prev, out.get("modelUsage") or {})
+    if chain:
+        meta["_model_usage_seen"][chain] = {m: {k: (prev or {}).get(m, {}).get(k, 0) + v[k] for k in MODEL_KEYS}
+                                            for m, v in cur.items()} | {m: v for m, v in (prev or {}).items()
+                                                                        if m not in cur}
+    for m, v in cur.items():
+        t = by_model.setdefault(m, {})
+        for k in MODEL_KEYS:
+            t[k] = t.get(k, 0) + v[k]
 
 
 # ------------------------------------------------------------------ one trial
@@ -214,7 +236,7 @@ def _run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str 
         sid = r.get("session_id")
         meta["designer_calls"] += 1
         meta["cost_usd"] += r.get("total_cost_usd") or 0
-        _add_usage(meta, r)
+        _add_usage(meta, r, chain="designer")
         if r.get("is_error"):
             meta["errors"].append(str(r.get("result"))[:300])
         _save_meta(tdir, meta, sid)
@@ -252,7 +274,7 @@ def _run_trial(fx: dict, model: str, trial: int, run_dir: Path, resume_sid: str 
         sid = r.get("session_id") or sid
         meta["designer_calls"] += 1
         meta["cost_usd"] += r.get("total_cost_usd") or 0
-        _add_usage(meta, r)
+        _add_usage(meta, r, chain="designer")
         if r.get("is_error"):
             meta["errors"].append(str(r.get("result"))[:300])
         meta["seconds"] = round(prior_seconds + time.time() - t0, 1)

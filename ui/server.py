@@ -24,7 +24,8 @@ from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals"))
-from harness import LIMIT_RE, _limit_wait_seconds, _usage, designer_args, headless_env  # noqa: E402
+from harness import (LIMIT_RE, _limit_wait_seconds, _usage, designer_args, headless_env,  # noqa: E402
+                     model_usage_delta)
 PROJECTS = ROOT / "projects"
 STATIC = Path(__file__).parent / "static"
 MODEL_USAGE_KEYS = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
@@ -98,7 +99,8 @@ class Session:
                         self.emit({"kind": "tool", "text": f"{c['name']}: {str(desc)[:160]}"})
             elif d.get("type") == "result":
                 text = str(d.get("result", ""))
-                self._log_usage(d)
+                models = self._turn_models(d)
+                self._log_usage(d, models)
                 if d.get("is_error") and LIMIT_RE.search(text):
                     wait = _limit_wait_seconds(text)
                     self.emit({"kind": "status", "text": f"usage limit reached; the agent continues automatically "
@@ -107,27 +109,40 @@ class Session:
                 else:
                     self.emit({"kind": "status", "text": f"agent finished ({d.get('num_turns')} turns, "
                                                          f"{round((d.get('duration_ms') or 0) / 1000)} s, "
-                                                         f"{self._tokens_text(d)})"})
+                                                         f"{self._tokens_text(d, models)})"})
         proc.wait()
         self.emit({"kind": "files", "files": self.files()})
         q = self.questions()
         if q:
             self.emit({"kind": "questions", "questions": q})
 
-    def _log_usage(self, d: dict):
+    def _turn_models(self, d: dict) -> dict:
+        """This turn's tokens per model. modelUsage of a resumed session is cumulative, so subtract the total of
+        the earlier turns of the same session id (kept in .usage_total.json)."""
+        tp = self.dir / ".usage_total.json"
+        try:
+            seen = json.loads(tp.read_text())
+        except (OSError, ValueError):
+            seen = {}
+        prev = seen.get(d.get("session_id") or "")
+        cur = model_usage_delta(prev, d.get("modelUsage") or {})
+        total = {m: {k: (prev or {}).get(m, {}).get(k, 0) + v[k] for k in MODEL_USAGE_KEYS} for m, v in cur.items()}
+        seen[d.get("session_id") or ""] = {**(prev or {}), **total}
+        tp.write_text(json.dumps(seen))
+        return cur
+
+    def _log_usage(self, d: dict, models: dict):
         """One line per agent turn in .usage.jsonl: tokens per model, main session and subagents together."""
         rec = {"t": time.strftime("%Y-%m-%d %H:%M:%S"), "model": self.last_model, "turns": d.get("num_turns"),
                "seconds": round((d.get("duration_ms") or 0) / 1000), "usage": _usage(d),
-               "by_model": {u.get("canonicalModel") or m: {k: u.get(k) or 0 for k in MODEL_USAGE_KEYS}
-                            for m, u in (d.get("modelUsage") or {}).items()}}
+               "by_model": models}
         with open(self.dir / ".usage.jsonl", "a") as fh:
             fh.write(json.dumps(rec) + "\n")
 
-    def _tokens_text(self, d: dict) -> str:
+    def _tokens_text(self, d: dict, models: dict) -> str:
         u = _usage(d)
-        per_model = ", ".join(f"{(v.get('canonicalModel') or m).removeprefix('claude-')} "
-                              f"{round(sum(v.get(k) or 0 for k in MODEL_USAGE_KEYS) / 1e3)}k"
-                              for m, v in (d.get("modelUsage") or {}).items())
+        per_model = ", ".join(f"{m.removeprefix('claude-')} {round(sum(v.values()) / 1e3)}k"
+                              for m, v in models.items() if sum(v.values()))
         return (f"tokens: {round(u['cache_read_input_tokens'] / 1e3)}k cache read, "
                 f"{round((u['cache_creation_input_tokens'] + u['input_tokens']) / 1e3)}k new in, "
                 f"{round(u['output_tokens'] / 1e3)}k out; {per_model}")
