@@ -90,7 +90,7 @@ Every symbol pin must be in `pins` or in `nc`, otherwise `hwflow check` reports 
 |---|---|
 | R, C, L | none. The value is used. For capacitors you can add `esr` and `esl`. |
 | diode or LED | `{model: LED_GREEN}`. Ports default to anode=pin 2, cathode=pin 1, as in `Device:D` and `Device:LED`. |
-| MOSFET | `{model: NMOS_LOGIC, ports: [D, G, S]}` with pin numbers |
+| MOSFET | `{model: NMOS_LOGIC, ports: [D, G, S]}` with pin numbers. **The reference must start with `M`** (`M1`, `M2`): the first letter of the reference picks the SPICE element, so a MOSFET named `Q2` is netlisted as a bipolar transistor and ngspice aborts with an error on that line. Bipolar transistors use `Q`. |
 | BJT | `{model: NPN_GENERIC, ports: [C, B, E]}` |
 | IC | `{subckt: OPAMP_GENERIC, ports: [...pin numbers in model port order...], params: {...}}` |
 | vendor model | `{lib: models/opa344.lib, subckt: OPA344, ports: [...]}` (path is relative to the project) |
