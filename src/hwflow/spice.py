@@ -243,6 +243,10 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
     return rows
 
 
+# ngspice reports a `meas` that finds no crossing as "Error: measure X ... out of interval"; when every
+# measure of the analysis still has a passing value, that line is a warning, not a design failure
+MEAS_MSG_RE = re.compile(r"out of interval|^\s*error: measure\b|no such variable", re.I)
+
 ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
                       r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
 
@@ -270,8 +274,12 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             r["pass"] = False
             r["aborted"] = True
         errors = [f"simulation aborted: {aborted[0]}"] + errors
+    warnings = []
+    if not aborted and rows and all(r["pass"] for r in rows):
+        warnings = [e for e in errors if MEAS_MSG_RE.search(e)]
+        errors = [e for e in errors if e not in warnings]
     return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
-            "aborted": bool(aborted)}
+            "aborted": bool(aborted), "warnings": warnings}
 
 
 def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:

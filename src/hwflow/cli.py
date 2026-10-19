@@ -88,7 +88,8 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
-           "errors": [e for a in res for e in a["errors"]]}
+           "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
+           "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
     if mc:
         out["monte_carlo"] = spice.monte_carlo(d, w, runs=mc)
     else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
@@ -234,6 +235,17 @@ def stage_fab(d: Design) -> dict:
 
 # ------------------------------------------------------------------ report
 
+def _sim_verdict(c: dict) -> str:
+    """Name what failed: the failing measures, or the analyses whose ngspice run reported an error."""
+    n = c["total"] - c["passed"]
+    if n:
+        names = ", ".join(f"{f['analysis']}/{f['name']}" for f in c["fails"][:3])
+        return f"{n} sim measures fail ({names}{', ...' if n > 3 else ''})"
+    ans = sorted({e.split(": ", 1)[0] for e in c["errors"]})
+    first = c["errors"][0].split(": ", 1)[-1][:120] if c["errors"] else ""
+    return f"ngspice errors in {', '.join(ans[:4])} ({first})"
+
+
 def write_report(d: Design) -> str:
     t = trace(d)
     if t["total"]:
@@ -275,6 +287,9 @@ def write_report(d: Design) -> str:
             L.append(f"  - FAIL {f['analysis']}/{f['name']} = {_fmt(f['value'])} {f['unit']} (limit {rng}, req {f.get('req')})")
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
+        if c.get("warnings"):
+            L.append(f"  - ngspice warnings on passing analyses ({len(c['warnings'])}, not a failure): "
+                     + "; ".join(c["warnings"][:3]))
         if c["unmodeled"]:
             L.append(f"  - not simulated: {', '.join(c['unmodeled'])}")
         if c.get("generic_models"):
@@ -289,7 +304,7 @@ def write_report(d: Design) -> str:
             spread = "; ".join(f"{k} {_fmt(v['min'])}..{_fmt(v['max'])}" for k, v in m["stats"].items())
             L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})")
         if not c["ok"]:
-            verdict.append(f"{c['total'] - c['passed']} sim measures fail")
+            verdict.append(_sim_verdict(c))
     if "layout" in s:
         c = s["layout"]
         if c.get("area_search"):

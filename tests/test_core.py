@@ -184,3 +184,29 @@ def test_recoverable_singular_matrix_warning_is_not_an_abort(tmp_path, monkeypat
     monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (out, 0))
     r = spice.run_analysis(d, a, tmp_path)
     assert not r["aborted"] and all(row["pass"] for row in r["rows"])
+
+
+def _fake_out(a, extra=""):
+    return extra + "".join(f"HWF {m['name']} {((m.get('min') or 0) + (m.get('max') or 0)) / 2 / float(m.get('scale', 1))}\n"
+                           for m in a["measures"])
+
+
+def test_measure_out_of_interval_is_a_warning_when_rows_pass(tmp_path, monkeypatch):
+    """Backlog 20: 'Error: measure ... out of interval' with every measure passing is not a FAIL."""
+    from hwflow import spice
+    from hwflow.cli import _sim_verdict
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
+    msg = "Error: measure  probe  find(AT) : out of interval\n"
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (_fake_out(a, msg), 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["errors"] == [] and len(r["warnings"]) == 1 and all(x["pass"] for x in r["rows"])
+    # a failing measure keeps the message as an error, and the verdict names what failed
+    bad = msg + "".join(f"HWF {m['name']} 1e9\n" for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (bad, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["errors"] and not r["warnings"]
+    c = {"total": 3, "passed": 3, "fails": [], "errors": ["tran1: Error: bad thing"]}
+    assert _sim_verdict(c) == "ngspice errors in tran1 (Error: bad thing)"
+    c = {"total": 3, "passed": 2, "fails": [{"analysis": "dc_op", "name": "v3v3"}], "errors": []}
+    assert _sim_verdict(c) == "1 sim measures fail (dc_op/v3v3)"
