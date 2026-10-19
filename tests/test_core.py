@@ -330,3 +330,29 @@ def test_design_hash_ignores_comments_and_prose(tmp_path):
     assert _design_hash(Design.load(proj)) != h0
     y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
     assert "12k" in y.read_text() and _design_hash(Design.load(proj)) != h0
+
+
+def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch):
+    """Backlog 43: a stale stage keeps its last result, marked, and the verdict says stale.
+    Backlog 18: every build appends to build/history.jsonl and keeps the report in build/history/."""
+    import json
+
+    from hwflow import cli
+    from hwflow.libs import Libs
+    proj = _copy_example(tmp_path)
+    (proj / "requirements.yaml").unlink(missing_ok=True)
+    d = Design.load(proj)
+    cli._save_status(d, "check", cli.stage_check(d, Libs()))
+    text = cli.write_report(d, history=True)
+    assert "Verdict: PASS" in text and "(stale)" not in text
+    y = proj / "design.yaml"
+    y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
+    d = Design.load(proj)
+    monkeypatch.setattr(cli, "HISTORY_KEEP", 1)
+    text = cli.write_report(d, history=True)
+    assert "- check (stale): OK" in text and "Verdict: FAIL: stale: check" in text
+    assert cli.score(d)["check_errors"] is None                      # score stays fresh-only
+    lines = [json.loads(x) for x in (proj / "build" / "history.jsonl").read_text().splitlines()]
+    assert [x["verdict"] for x in lines] == ["PASS", "FAIL: stale: check"]
+    kept = list((proj / "build" / "history").glob("*.md"))
+    assert len(kept) == 1 and "(stale)" in kept[0].read_text()

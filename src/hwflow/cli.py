@@ -293,7 +293,10 @@ def _sim_verdict(c: dict) -> str:
     return f"ngspice errors in {', '.join(ans[:4])} ({first})"
 
 
-def write_report(d: Design) -> str:
+def write_report(d: Design, history: bool = False) -> str:
+    """Rewrite build/REPORT.md. Results of an older design stay in the report, marked (stale), and make the
+    verdict FAIL; trace and score use fresh results only. With `history`, the report is also kept in
+    build/history/ and summarized in build/history.jsonl."""
     t = trace(d)
     if t["total"]:
         _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
@@ -301,34 +304,38 @@ def write_report(d: Design) -> str:
     cur = _design_hash(d)
     stale = [k for k in ("check", "sch", "sim", "layout", "post", "fab")
              if k in s and s[k].get("design_hash") != cur]
-    for k in stale:
-        s.pop(k)  # results from an older design.yaml are not evidence for this one
     crashed = {k: s.pop(k)["exception"] for k in ("check", "sch", "sim", "layout", "post", "fab")
                if isinstance(s.get(k), dict) and "exception" in s[k]}
     L = [f"# {d.name}: build report", f"Updated {s.get('updated', '?')}. Source: design.yaml.", ""]
     verdict = []
+    st = lambda k: " (stale)" if k in stale else ""  # noqa: E731
+
+    def fail(k, msg):  # a stale stage's failure is old news; the verdict says `stale` for it instead
+        if k not in stale:
+            verdict.append(msg)
     if stale:
-        L.append(f"- stale (older design.yaml, not shown, rerun to refresh): {', '.join(stale)}")
+        L.append(f"- stale (older design.yaml; last results kept below and marked (stale), not evidence for this "
+                 f"design; rerun to refresh): {', '.join(stale)}")
     for k, e in crashed.items():
-        L.append(f"- {k}: FAIL, the stage did not run ({e[:200]})")
-        verdict.append(f"{k} did not run")
+        L.append(f"- {k}{st(k)}: FAIL, the stage did not run ({e[:200]})")
+        fail(k, f"{k} did not run")
     if "check" in s:
         c = s["check"]
-        L.append(f"- check: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
+        L.append(f"- check{st('check')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
         for x in c["findings"][:12]:
             L.append(f"  - {x['sev']}: {x['msg']}")
         if not c["ok"]:
-            verdict.append("design check errors")
+            fail("check", "design check errors")
     if "sch" in s:
         c = s["sch"]
-        L.append(f"- ERC: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
+        L.append(f"- ERC{st('sch')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
         for x in c["violations"][:10]:
             L.append(f"  - {x['sev']} {x['type']}: {x['msg']} {x['items'][:2]}")
         if not c["ok"]:
-            verdict.append("ERC errors")
+            fail("sch", "ERC errors")
     if "sim" in s:
         c = s["sim"]
-        L.append(f"- SPICE: {c['passed']}/{c['total']} measures pass")
+        L.append(f"- SPICE{st('sim')}: {c['passed']}/{c['total']} measures pass")
         for f in c["fails"]:
             rng = f"{_fmt(f['min'])}..{_fmt(f['max'])}"
             why = f"; n/a: {f['na_reason']}" if f["value"] is None and f.get("na_reason") else ""
@@ -364,12 +371,12 @@ def write_report(d: Design) -> str:
                 for x in m["failures"][:5]:
                     L.append(f"    - run {x['run']} {x['status']}: {x['reason'][:120]} -> build/{x['file']}")
         if not c["ok"]:
-            verdict.append(_sim_verdict(c))
+            fail("sim", _sim_verdict(c))
     if "layout" in s:
         c = s["layout"]
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
-        L.append(f"- layout: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
+        L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
         for v in c["placement_violations"][:5]:
@@ -377,11 +384,11 @@ def write_report(d: Design) -> str:
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
             L.append(f"  - DRC {x['type']}: {x['msg']} {x['items'][:2]}")
         if not c["ok"]:
-            verdict.append("layout/DRC errors")
+            fail("layout", "layout/DRC errors")
     if "post" in s:
         c = s["post"]
         m = c["metrics"]
-        L.append(f"- post-layout: {'OK' if c['ok'] else 'FAIL'}; board {m['area_mm2']} mm2, {m['layers']} layers, "
+        L.append(f"- post-layout{st('post')}: {'OK' if c['ok'] else 'FAIL'}; board {m['area_mm2']} mm2, {m['layers']} layers, "
                  f"{m['track_len_mm']} mm copper, {m['vias']} vias")
         for x in c["checks"]:
             if x["sev"] != "info":
@@ -399,9 +406,9 @@ def write_report(d: Design) -> str:
             why = f" (n/a: {x['na_reason']})" if x["post"] is None and x.get("na_reason") else ""
             L.append(f"    - {x['name']}: {_fmt(x['pre'])} -> {_fmt(x['post'])} {x['unit']}{why}")
         if not c["ok"]:
-            verdict.append("post-layout issues")
+            fail("post", "post-layout issues")
     if "fab" in s:
-        L.append(f"- fab outputs: {'OK' if s['fab']['ok'] else 'FAIL'} (build/fab)")
+        L.append(f"- fab outputs{st('fab')}: {'OK' if s['fab']['ok'] else 'FAIL'} (build/fab)")
     if t["total"]:
         L.append(f"- requirements: {t['covered']}/{t['total']} verified, {t['failing']} failing, "
                  f"{t['unverified']} unverified")
@@ -410,14 +417,44 @@ def write_report(d: Design) -> str:
                 L.append(f"  - {r['id']} {r['status']}: {r['text'][:90]}")
         if t["failing"] or t["unverified"]:
             verdict.append("requirements not all verified")
+    if stale:
+        verdict.append(f"stale: {', '.join(stale)}")
     cost, missing = d.cost()
     L.append(f"- BOM cost: ${cost:.2f} per board" + (f" (no price for {', '.join(missing)})" if missing else ""))
     L.insert(2, f"Verdict: {'PASS' if not verdict else 'FAIL: ' + '; '.join(verdict)}")
     L.insert(3, "")
     text = "\n".join(L) + "\n"
     (_out(d) / "REPORT.md").write_text(text)
-    _save_status(d, "score", score(d))
+    sc = score(d)
+    _save_status(d, "score", sc)
+    if history:
+        _append_history(d, text, verdict, stale, sc)
     return text
+
+
+HISTORY_KEEP = 50
+
+
+def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], sc: dict):
+    """One line per build in build/history.jsonl and the full report in build/history/<timestamp>.md (backlog 18)."""
+    out = _out(d)
+    hd = out / "history"
+    hd.mkdir(exist_ok=True)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    name, n = f"{ts}.md", 1
+    while (hd / name).exists():
+        n += 1
+        name = f"{ts}-{n}.md"
+    (hd / name).write_text(text)
+    keys = ("check_errors", "erc_errors", "sim_pass_ratio", "sim_measures", "mc_min_yield", "drc_errors", "unrouted",
+            "post_pass_ratio", "area_mm2", "vias", "cost_usd", "req_total", "req_unverified", "req_failing")
+    line = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "design_hash": _design_hash(d),
+            "verdict": "PASS" if not verdict else "FAIL: " + "; ".join(verdict), "stale": stale,
+            **{k: sc.get(k) for k in keys}, "report": f"history/{name}"}
+    with open(out / "history.jsonl", "a") as fh:
+        fh.write(json.dumps(line, default=str) + "\n")
+    for old in sorted(hd.glob("*.md"), key=lambda p: (p.stat().st_mtime, p.name))[:-HISTORY_KEEP]:
+        old.unlink()
 
 
 def _fresh_status(d) -> dict:
@@ -431,7 +468,7 @@ def score(d: Design) -> dict:
     """Deterministic scorecard used by evals."""
     s = _fresh_status(d)
     cost, missing = d.cost()
-    g = lambda k, f, dflt=None: f(s[k]) if k in s else dflt  # noqa: E731
+    g = lambda k, f, dflt=None: f(s[k]) if k in s and "exception" not in s[k] else dflt  # noqa: E731
     return {
         "check_errors": g("check", lambda c: c["errors"]),
         "erc_errors": g("sch", lambda c: c["errors"]),
@@ -644,7 +681,7 @@ def main(argv=None):
             hard = st in ("check", "sch") or "exception" in r
             if a.cmd == "build" and hard and not a.force:
                 break
-    print(write_report(d))
+    print(write_report(d, history=True))
     return rc
 
 
