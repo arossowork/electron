@@ -39,6 +39,8 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | margin_mm | 1.0 | keep parts this far from the board edge |
 | router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
 | post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
+| post_tran_lump | true | in post-layout transients, reduce each net's trace network to its pads (exact DC resistance, no trace C); AC and noise keep the full network |
+| drc_rules | [] | KiCad custom rules, one `(rule ...)` string each, written to `<project>.kicad_dru` and applied by DRC. Use for class-pair clearance and creepage, e.g. mains to SELV |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
 ## nets

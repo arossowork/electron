@@ -340,6 +340,8 @@ class PostLayoutNodeMap(NodeMap):
         # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
         kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
         use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
+        if kind == "tran" and not use_l and self.d.board.get("post_tran_lump", True):
+            return self._lumped()
         lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
         for i, e in enumerate(self.ex.elements):
             if self._is_ideal(e["net"]):
@@ -360,6 +362,56 @@ class PostLayoutNodeMap(NodeMap):
                 lines.append(f"Cpxa{i} {a} 0 {e['C'] / 2:.6g}")
                 lines.append(f"Cpxb{i} {b} 0 {e['C'] / 2:.6g}")
         # tie unrouted nets' fallback node to every pad that the fallback serves is implicit (same name)
+        return lines
+
+    def _lumped(self) -> list[str]:
+        """Transient parasitics reduced to the pads: per copper island, the trace R network is Kron-reduced
+        to its pad nodes (exact DC resistance between every pad pair). Trace C is left out: pF on nodes
+        joined by mOhm gives 1e-14 s time constants that stall long transients and change nothing at
+        transient time scales. AC and noise runs keep the full RC(L) network."""
+        lines = ["* --- post-layout parasitics --- (trace R reduced to pads, no C, for transients)"]
+        find = self.ex.uf.find
+        pad_roots = {find(pn) for pn in self.ex.pad_nodes.values()}
+        nets: dict[str, list] = {}
+        for e in self.ex.elements:
+            if self._is_ideal(e["net"]):
+                continue
+            a, b = find(e["a"]), find(e["b"])
+            if a != b:
+                nets.setdefault(e["net"], []).append((a, b, e))
+        k = 0
+        for net, elems in nets.items():
+            uf = UF()
+            for a, b, _ in elems:
+                uf.union(a, b)
+            islands: dict = {}
+            for a, b, e in elems:
+                islands.setdefault(uf.find(a), []).append((a, b, e))
+            for isl in islands.values():
+                nodes = sorted({n for a, b, _ in isl for n in (a, b)}, key=str)
+                ports = [n for n in nodes if n in pad_roots]
+                if not ports:
+                    continue
+                inner = [n for n in nodes if n not in pad_roots]
+                idx = {n: i for i, n in enumerate(ports + inner)}
+                G = np.zeros((len(idx), len(idx)))
+                for a, b, e in isl:
+                    g = 1.0 / max(e["R"], 1e-6)
+                    i, j = idx[a], idx[b]
+                    G[i, i] += g
+                    G[j, j] += g
+                    G[i, j] -= g
+                    G[j, i] -= g
+                p = len(ports)
+                if inner:
+                    G = G[:p, :p] - G[:p, p:] @ np.linalg.solve(G[p:, p:], G[p:, :p])
+                names = [self.ex.node_name(n) for n in ports]
+                for i in range(p):
+                    for j in range(i + 1, p):
+                        g = -G[i, j]
+                        if g > 1e-9 and names[i] != names[j]:
+                            lines.append(f"Rpx{k} {names[i]} {names[j]} {1.0 / g:.6g}")
+                            k += 1
         return lines
 
 

@@ -266,6 +266,13 @@ def write_project(dirpath: Path, name: str, design: Design):
         "sheets": [], "text_variables": {},
     }
     (dirpath / f"{name}.kicad_pro").write_text(json.dumps(pro, indent=2))
+    # board.drc_rules: KiCad custom rules (class-pair clearance, creepage), applied by DRC from <name>.kicad_dru
+    dru = dirpath / f"{name}.kicad_dru"
+    rules = b.get("drc_rules") or []
+    if rules:
+        dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
+    elif dru.exists():
+        dru.unlink()
 
 
 # ------------------------------------------------------------------ Specctra DSN
