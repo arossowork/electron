@@ -369,13 +369,22 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
 # --------------------------------------------------------------- Monte Carlo
 
-def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None) -> list[dict]:
-    """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`."""
+def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None,
+                fail_dir: Path | None = None) -> list[dict]:
+    """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`.
+
+    Every failing run is saved to `fail_dir` (default: `mc_failures/` next to `workdir`) with the seed, the run
+    index, the sampled values and the ngspice log, so the corner can be reproduced. Runs that did not finish
+    (timeout, crash, aborted) are left out of the min/max statistics."""
+    import json
     import os
     from concurrent.futures import ThreadPoolExecutor
     rng = random.Random(seed)
     sim = design.raw.get("sim") or {}
     workers = workers or max(1, (os.cpu_count() or 2) - 1)
+    fail_dir = Path(fail_dir or Path(workdir).parent / "mc_failures")
+    if fail_dir.exists():
+        shutil.rmtree(fail_dir)
     # draw every sample up front so results do not depend on scheduling
     samples_values = []
     for _ in range(runs):
@@ -393,10 +402,27 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
             results = list(ex.map(lambda iv: run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}"),
                                   enumerate(samples_values)))
         samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"] if not is_debug(m)}
-        fails = 0
-        for r in results:
-            if not all(row["pass"] for row in r["rows"] if not row.get("debug")):
+        fails, failures, excluded = 0, [], 0
+        for i, r in enumerate(results):
+            bad = [row["name"] for row in r["rows"] if not row.get("debug") and not row["pass"]]
+            finished = r.get("status", "ok") in ("ok", "error")
+            if bad or not finished:
                 fails += 1
+                why = r.get("reason") or "fails " + ", ".join(bad[:4])
+                name = f"{a['name']}_run{i}.json"
+                failures.append({"run": i, "status": r.get("status", "ok"), "reason": why[:200],
+                                 "file": f"{fail_dir.name}/{name}"})
+                log = Path(workdir) / "mc" / f"{a['name']}_mc{i}.log"
+                fail_dir.mkdir(parents=True, exist_ok=True)
+                (fail_dir / name).write_text(json.dumps({
+                    "analysis": a["name"], "run": i, "seed": seed, "runs": runs, "status": r.get("status"),
+                    "reason": why, "failing": bad, "values": samples_values[i],
+                    "rows": [{k: row.get(k) for k in ("name", "value", "min", "max", "pass")} for row in r["rows"]],
+                    "netlist": str(log.with_suffix(".cir")),
+                    "log": log.read_text()[-20000:] if log.exists() else ""}, indent=1, default=str))
+            if not finished:
+                excluded += 1  # values of a cut or missing waveform are not a tolerance spread
+                continue
             for row in r["rows"]:
                 if row["value"] is not None and not row.get("debug"):
                     samples[row["name"]].append(row["value"])
@@ -405,7 +431,11 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
             if v:
                 v.sort()
                 stats[k] = {"min": v[0], "max": v[-1], "p50": v[len(v) // 2]}
-        out.append({"analysis": a["name"], "runs": runs, "yield": (runs - fails) / runs, "stats": stats})
+        res = {"analysis": a["name"], "runs": runs, "yield": (runs - fails) / runs, "stats": stats}
+        if failures:
+            res["failures"] = failures
+            res["excluded_from_stats"] = excluded
+        out.append(res)
     return out
 
 

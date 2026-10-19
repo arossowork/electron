@@ -340,6 +340,11 @@ def write_report(d: Design) -> str:
         for m in c.get("monte_carlo") or []:
             spread = "; ".join(f"{k} {_fmt(v['min'])}..{_fmt(v['max'])}" for k, v in m["stats"].items())
             L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})")
+            if m.get("failures"):
+                L.append(f"  - failing runs (seed, values and log in build/mc_failures/; "
+                         f"{m.get('excluded_from_stats', 0)} unfinished runs left out of the spread):")
+                for x in m["failures"][:5]:
+                    L.append(f"    - run {x['run']} {x['status']}: {x['reason'][:120]} -> build/{x['file']}")
         if not c["ok"]:
             verdict.append(_sim_verdict(c))
     if "layout" in s:

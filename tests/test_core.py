@@ -286,3 +286,28 @@ def test_report_names_the_analysis_that_timed_out(tmp_path):
     _save_status(d, "sim", stage_sim(d))
     text = write_report(d)
     assert "analysis line_transient: timeout after" in text and "n/a: timeout after 0.001 s" in text
+
+
+def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
+    """Backlog 55: a failing run is saved with seed, values and log; an aborted run is not in the spread."""
+    import json
+    from hwflow import spice
+    d = Design.load(EX)
+    real = spice.run_analysis
+
+    def fake(design, analysis, workdir, nm=None, values=None, temp=None, tag=""):
+        r = real(design, analysis, workdir, nm, values, temp, tag)
+        if tag == "_mc3":
+            for row in r["rows"]:
+                row.update(value=2.198e6, **{"pass": False})
+            r.update(status="aborted", reason="aborted: timestep too small")
+        return r
+
+    monkeypatch.setattr(spice, "run_analysis", fake)
+    res = spice.monte_carlo(d, tmp_path / "sim", runs=6, workers=2)
+    for m in res:
+        assert m["yield"] == 5 / 6 and [f["run"] for f in m["failures"]] == [3]
+        assert all(s["max"] < 1e6 for s in m["stats"].values())     # the aborted run is not in the spread
+        rec = json.loads((tmp_path / m["failures"][0]["file"]).read_text())
+        assert rec["seed"] == 1 and rec["run"] == 3 and rec["values"] and rec["status"] == "aborted"
+        assert rec["log"]                                           # the ngspice log of that run
