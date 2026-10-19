@@ -48,3 +48,19 @@ What drove stage 2 (transcript `subagents/agent-ad07db*.jsonl`):
 1. Same brief and same answers, one run on `main` and one on `token-opt` with the changes.
 2. Compare per stage: Opus, Sonnet, and Haiku tokens from `.usage.jsonl` (restart the UI first, so it logs per-turn deltas), plus wall time and turn counts.
 3. Check the requirement count, the open conflicts, and `hwflow trace` for quality, not only tokens.
+
+## Tally of the stopped run (transcripts, tokens in thousands)
+
+The run was stopped in stage 4, because `kicad-cli` is 7.0.11 on this machine and hwflow needs 8 or newer (`sch erc` and `pcb drc` do not exist in 7). Output tokens are low by an unknown amount (the transcript keeps the first streamed record of each message).
+
+| agent | model | turns | peak context | cache read | cache write |
+|---|---|---|---|---|---|
+| hw-requirements (3 launches) | opus | 8 + 9 + 6 | 30k / 39k / 26k | 109k / 182k / 96k | 30k / 35k / 22k |
+| hw-architect (stage 2) | opus | 32 | 207k | 3,097k | 207k |
+| hw-parts (stage 3) | sonnet | 147 | 328k | 23,608k | 328k |
+| hw-circuit (stage 4, partial) | opus | 43 | 197k | 5,193k | 197k |
+| orchestrator | opus | 23 | 51k | 692k | 51k |
+
+Totals: about 9.9M Opus tokens and 23.9M Sonnet tokens, almost all cache reads. Peak context of a subagent is also its total cache write: it grows by appending and the cache is never rebuilt. No compaction happened (the window was 400k), so the 400k cap did not matter in this run. Context size and turn count are what to attack.
+
+To continue: install KiCad 8 or newer, set `KICAD_CLI`, restart `ui/server.py` (it then logs per-turn deltas), and send "continue".
