@@ -1,0 +1,47 @@
+{
+  "round": 1,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Where will the device be installed? Does the wall box have mains live AND neutral wires, or only the two wires to the boiler or valves?",
+      "options": [
+        "Live and neutral are in the box: power it from mains (recommended: instant remote control, no battery changes, about $4 more)",
+        "Battery only, even if mains is present",
+        "No neutral in the box (only switched wires): battery is required"
+      ],
+      "why": "On a battery the device must sleep and can contact Wi-Fi only about once an hour to last a year. Kept connected, it lasts about 3 weeks. Mains power removes that limit (conflicts.md C1)."
+    },
+    {
+      "id": "q2",
+      "text": "If it runs on battery: when you change a setting from your phone, how long can it take to apply?",
+      "options": [
+        "Up to 60 minutes, 1 AA lasts about 13 months alkaline or 2 years lithium (recommended)",
+        "Up to 15 minutes, a lithium AA lasts about 8 months (misses the 1-year goal)",
+        "Up to 5 minutes, a battery lasts 6 to 12 weeks"
+      ],
+      "why": "Each Wi-Fi check costs about 0.5 J, and one AA holds about 6.7 kJ usable. Temperature control and the schedule work locally in every case (conflicts.md C1)."
+    },
+    {
+      "id": "q3",
+      "text": "What will each of the two outputs switch on and off?",
+      "options": [
+        "230 V thermal valve heads or zone valves, up to 2 A each (recommended)",
+        "A boiler or a circulation pump at 230 V, up to 5 A",
+        "Only the boiler's low-voltage thermostat contact (no 230 V)",
+        "A mix, or I do not know"
+      ],
+      "why": "This sets the relay rating and whether 230 V enters the box. Without 230 V, the safety insulation and size problems become much smaller (conflicts.md C4, C5)."
+    },
+    {
+      "id": "q4",
+      "text": "Where do the two temperature probes go?",
+      "options": [
+        "One at the device, the other on a cable up to 10 m to the second room (recommended)",
+        "Both on cables up to 10 m",
+        "Both rooms are next to the box, cables shorter than 2 m",
+        "The second room needs a probe more than 10 m away"
+      ],
+      "why": "A long probe cable picks up mains hum. If it shares a conduit with 230 V wires, it must be a mains-rated cable (conflicts.md C6)."
+    }
+  ]
+}

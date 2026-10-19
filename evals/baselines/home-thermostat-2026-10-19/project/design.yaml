@@ -1,0 +1,1087 @@
+project: home_thermostat
+revision: A
+description: Two-zone Wi-Fi thermostat, 2 x AAA -> TPS610994 boost 3.3 V + 4.7 mF buffer, ESP32-C3-MINI-1, CS1238 ratiometric NTC, 2 x DRV8837 + PE014F03 bistable relays switching 230 VAC.
+# One design file holds both boards (hwflow builds one PCB per design). Groups prefixed rear_ go on the
+# rear board, front_ on the front board; J4A (socket, rear) and J4B (header, front) carry the link.
+# See notes/circuit.md "Board split" for the layout stage.
+libraries: [lib]
+# Stage 7 layout representation (notes/layout.md): hwflow writes ONE board outline, so the two boards are laid out
+# side by side in one 130 x 40 mm panel. Rear board = x 0..62, front board = x 68..130 (local = panel x - 68),
+# 6 mm routed gap between them (footprint PanelSlot_6x21.5 on Edge.Cuts, y 16.5-38; tabs at the top and bottom).
+# hwflow places every footprint on F.Cu; the front board's second assembly side is modelled with *_Back footprints
+# (pads on B.Cu, courtyard on B.CrtYd), J4B included (its pad pattern equals the J4A socket pattern, same XY).
+# Every part has a fixed placement (taken from the annealing run, then adjusted by hand), so a rebuild is reproducible.
+board:
+  {width_mm: 130, height_mm: 40, layers: 4, clearance_mm: 0.15, track_mm: 0.25, decap_max_mm: 4.0,
+   # R8 (requirements.yaml): reinforced insulation 230 V mains to SELV, IEC 60730-1 / 62368-1, PD2, OVC II
+   drc_rules: [
+     "(rule \"R8 mains-SELV clearance\" (constraint clearance (min 4.0mm)) (condition \"A.NetName == 'AC_*' && B.NetName != 'AC_*'\"))",
+     "(rule \"R8 mains-SELV creepage\" (constraint creepage (min 6.0mm)) (condition \"A.NetName == 'AC_*' && B.NetName != 'AC_*'\"))"]}
+
+nets:
+  GND: {class: ground}
+  VBAT: {class: power, current_a: 1.2, external_supply: true}      # 2 x AAA pack + (BT1, passive symbol pins); 1.10 A max input limit
+  SW: {class: switching, current_a: 1.0, width_mm: 0.4}   # 0.4 mm like VBAT: same router pass, so the two nets negotiate the U2 escape
+  +3V3: {class: power, current_a: 0.5}
+  # switched by M2 (P-FET, gate IO2): CS1238, NTC dividers, battery-sense gate and both DRV8837 (VM, VCC, nSLEEP)
+  AVDD_SW: {class: power, current_a: 0.2, external_supply: true}
+  # width_mm 0.3: own router pass (after the 0.8 mm mains and 0.4 mm power passes, before the 0.25 mm signals), so the
+  # coil tracks take the direct path to J4A over the SELV strip and never detour through the mains zone (R8)
+  COIL1_A: {class: switching, current_a: 0.1}
+  COIL1_B: {class: switching, current_a: 0.1}
+  COIL2_A: {class: switching, current_a: 0.1}
+  COIL2_B: {class: switching, current_a: 0.1}
+  RLY1_IN1: {class: signal, width_mm: 0.15}   # escape of the U4 (WSON-8) pad 6 under the ESP32 module: 0.2 mm routes where 0.25 is boxed in
+  PROBE1: {class: signal, sensitive: true}
+  PROBE2: {class: signal, sensitive: true}
+  AIN1P: {class: signal, sensitive: true}
+  AIN2P: {class: signal, sensitive: true}
+  VBAT_SENSE: {class: signal, sensitive: true}
+  XTAL32_P: {class: signal, sensitive: true}
+  XTAL32_N: {class: signal, sensitive: true}
+  # 230 VAC relay contacts (mains class, R8, review-1 M5). hwflow has no class-pair clearance: a net clearance applies
+  # to every other net, mains-to-mains included. AC_* therefore uses 2.5 mm (functional spacing between mains
+  # conductors; the project KF301 footprint has 2.3 mm pads so the terminal pad gap is 2.7 mm). The 4.0 mm clearance /
+  # 6.0 mm creepage to SELV copper cannot be a net class value without failing the 5 mm pitch terminal and varistor
+  # pads (gap 2.7 and 3.7 mm). It is enforced by zoning: mains pads and tracks only inside the mains zone, SELV copper
+  # >= 6 mm away by placement, a no-pour keepout over the zone (KO_MAINS), and a custom-rule DRC run (notes/layout.md).
+  # AC_NC1/2 = relay NC contacts (pad 12), live in the reset state, not brought out.
+  # Relay contact tracks are sized for the 2 A load (5 A relay rating, R15): 0.8 mm at 10 C rise.
+  AC_COM1: {class: mains, current_a: 2, clearance_mm: 2.5}
+  AC_OUT1: {class: mains, current_a: 2, clearance_mm: 2.5}
+  AC_NC1: {class: mains, clearance_mm: 2.5, allow_single: true}
+  AC_COM2: {class: mains, current_a: 2, clearance_mm: 2.5}
+  AC_OUT2: {class: mains, current_a: 2, clearance_mm: 2.5}
+  AC_NC2: {class: mains, clearance_mm: 2.5, allow_single: true}
+  BAT_N: {class: power, current_a: 1.2}      # pack negative, before the reverse-polarity NMOS M3
+
+components:
+  # ---------------------------------------------------------------- front board (front face): 2 x AAA pack
+  BT1:
+    value: 2xAAA holder, wire leads
+    mpn: Keystone 2469
+    price_usd: 1.18          # same as the 2468 (review-2 M2 decision); no LCSC listing; 13.0 mm above board, body 53.0 x 24.6 mm
+    datasheet: https://www.keyelco.com/userAssets/file/M65p28.pdf
+    symbol: Device:Battery   # two cells in series in one holder; pin 1 = +, pin 2 = -
+    # Wire-lead version (review-2 M2: the 2468 PCB drawing is not obtainable). Red lead = + -> pad 1 (square),
+    # black lead = - -> pad 2. Fixed to the front face with adhesive; the footprint outline (F.CrtYd 53.0 x 24.6 mm)
+    # reserves the holder area on the front side.
+    footprint: thermostat:BatteryHolder_Keystone_2469_Wire
+    pins: {"1": VBAT, "2": BAT_N}
+    spice: false             # pack model is a testbench source (sim.sources)
+    group: front_power
+    placement: {x: 71.2, y: 29.65, rot: 0, fixed: true}   # front face, bottom; body (y 17.35-41.95) overhangs the bottom edge by 1.95 mm (R1: <= 2 mm)
+  # reverse-polarity protection (review-1 M2): low-side NMOS ideal diode, gate on the pack + terminal through
+  # R16/C21. Normal pack: body diode conducts first, VGS = Vpack turns the channel on. Reversed pack: VGS < 0 and
+  # the body diode is reverse biased, so no current flows (simulated in reverse_dc). Part: AOS AO3416 (Rev 5.1):
+  # RDS(on) 21 typ / 34 max mOhm at VGS 1.8 V, 18 / 26 at 2.5 V, VGS(th) 0.4 / 0.7 / 1.1 V, VDS 20 V, VGS +/-8 V,
+  # G-S-D pins 1-2-3. Simulated with the max fit (NMOS_LOWVGS_MAX).
+  # Gate hold (stage 4, round 4): with the gate tied straight to pack +, VGS = converter VIN, which falls to
+  # 0.70 V during a TX burst at the 0 C cutoff and the 1.10 A input limit, below VGS(th) max 1.1 V: the body
+  # diode (0.62 V at 1 A) would then carry the pack current and the boost would drop out (notes/circuit.md).
+  # R16 100 k + C21 1 uF (tau 0.1 s) hold the gate at the pre-burst pack voltage through the 5 ms burst
+  # (droop 5 %). In sleep only the R20/R18 bias current (0.25 uA at 2.5 V) flows. Reversed pack: Q1 below.
+  M3:
+    placement: {x: 72.9, y: 35.9, rot: 90, fixed: true}   # R8 3D: outside KO_STACK (x 77-120, y 25.8-40), above the J1/J3 screw heads
+    value: AO3416
+    mpn: AO3416
+    lcsc: C43307
+    price_usd: 0.109         # LCSC qty 5+ 0.1094, 57,450 in stock
+    datasheet: https://aosmd.com/sites/default/files/res/datasheets/AO3416.pdf
+    symbol: Device:Q_NMOS_GSD
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": M3_G, "2": GND, "3": BAT_N}
+    spice: {lib: models/nmos_lowvgs.lib, model: NMOS_LOWVGS_MAX, ports: ["3", "1", "2"], source: fit}   # datasheet max corner (34 mOhm at 1.8 V)
+    group: front_power
+  R16: {placement: {x: 83.15, y: 22.9, rot: 270, fixed: true}, value: 100k, mpn: 0603WAF1003T5E, lcsc: C25803, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": VBAT, "2": M3_GH}, group: front_power}
+  C21: {placement: {x: 79.0, y: 24.3, rot: 0, fixed: true}, value: 1u, mpn: CL10A105KB8NNNC, lcsc: C15849, price_usd: 0.004, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": M3_GH, "2": GND}, group: front_power}
+  # R19 separates the hold capacitor from the gate (review-2 S1): Q1 then discharges only Ciss (1.3-1.65 nF)
+  # instead of C21. 100 k (S1 fix, was 10 k): C21 feeds the clamped gate with <= 28 uA, which the R18 base current
+  # from BAT_N (~0.9 uA) keeps Q1 saturated against; with 10 k (280 uA) Q1 went linear and let VBAT settle at
+  # -0.40 V (0 C, VGS(th) min). No DC current flows through R19 in normal operation (gate leakage only).
+  R19: {placement: {x: 79.0, y: 22.0, rot: 0, fixed: true}, value: 100k, mpn: 0603WAF1003T5E, lcsc: C25803, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": M3_GH, "2": M3_G}, group: front_power}
+  # Gate clamp (review-2 S1): C21 holds M3 on for about a second after the pack is pulled, so a pack put back
+  # reversed in that window would find M3 on. Q1: E to VBAT, C to the gate, B (Q1_B) biased by R20 (from the held
+  # gate M3_GH) / R18 (to BAT_N, = GND while M3 is on) at 0.327 x V(M3_GH), C23 from Q1_B to GND. A reversed pack
+  # with M3 on discharges C4 through the pack; Q1 turns on when VBAT < 0.327 x Vgate - VBE (about +0.3 V) and
+  # pulls the gate to VBAT before VIN goes negative (S1 fix, notes/circuit.md). Normal operation: VEB = 0.67 x
+  # pack <= 2.4 V (VEBO 6 V min); TX burst at the 0 C cutoff: VBE = 0.327 x 2.4 - 0.72 = +0.06 V, Q1 off.
+  # Leakage (ICEX/IBL 50 nA max each) counted in sleep_wc.
+  Q1:
+    placement: {x: 79.0, y: 18.5, rot: 270, fixed: true}
+    value: MMBT3904
+    mpn: MMBT3904
+    lcsc: C20526           # CJ MMBT3904, LCSC basic part; price/stock not re-read this session (parts search offline)
+    price_usd: 0.009
+    symbol: Transistor_BJT:MMBT3904
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": Q1_B, "2": VBAT, "3": M3_G}
+    spice: {lib: models/mmbt3904.lib, model: MMBT3904, ports: ["3", "1", "2"], source: vendor}
+    group: front_power
+  R18: {placement: {x: 82.9, y: 16.8, rot: 0, fixed: true}, value: 3.3M, mpn: 0603WAF3304T5E, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": Q1_B, "2": BAT_N}, group: front_power}
+  # S1 fix (notes/circuit.md "S1 fix: Q1 base bias from the held gate"): R20 from the held gate M3_GH to Q1_B
+  # with R18 3.3 M to BAT_N (= GND while M3 is on) biases the base at 0.327 x V(M3_GH). Q1 then pulls the gate
+  # down when VBAT falls below about 0.327 x Vgate - VBE (+0.25..+0.35 V), before VIN goes negative, instead of at
+  # VBAT = -0.6 V. Sleep cost: 10.1 M + 0.1 M from VBAT to GND, 0.25 uA at 2.5 V (+0.6 uW). Placed next to Q1 / R18
+  # (front board B.Cu, front_power).
+  R20: {placement: {x: 82.9, y: 19.0, rot: 0, fixed: true}, value: 6.8M, mpn: 0603WAF6804T5E, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": M3_GH, "2": Q1_B}, group: front_power}
+  # C23 base hold capacitor, Q1_B to GND (S1 fix: was across R18 to BAT_N). It holds the bias during the 10-15 us
+  # reversal edge and supplies the base charge. Across R18 it latched M3 back on: when M3 started to conduct, the
+  # falling BAT_N kicked the base down, Q1 let go and C21 drove the gate up (VIN -1.0 to -1.2 V, 2 A for ms).
+  C23: {placement: {x: 75.2, y: 17.0, rot: 0, fixed: true}, value: 10n, mpn: CL10B103KB8NNNC, lcsc: C57112, price_usd: 0.002, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": Q1_B, "2": GND}, group: front_power}
+  # BAT_N contact ESD (review-2 C2): 100 nF from pack - to GND, across M3 (checked in reverse_tran)
+  C22: {placement: {x: 69.9, y: 35.9, rot: 90, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": BAT_N, "2": GND}, group: front_power}
+
+  # ---------------------------------------------------------------- front board: boost 3.3 V (TPS61099 datasheet fig. 9-1)
+  U2:
+    placement: {x: 100.15, y: 24.4, rot: 90, fixed: true}
+    value: TPS610994
+    mpn: TPS610994YFFR
+    price_usd: 1.21
+    datasheet: https://www.ti.com/lit/gpn/tps61099
+    symbol: thermostat:TPS610994YFF
+    footprint: thermostat:DSBGA-6_Back
+    pins: {"A1": VBAT, "A2": GND, "B1": SW, "B2": +3V3, "C1": VBAT, "C2": GND}   # EN to VIN (always on), FB to GND (fixed 3.3 V)
+    # averaged model: input at the VIN pin (A1, the C4 node). The averaged cell includes the inductor (its average
+    # current is the input current); an ideal L1 in series with the constant-power input forms an undamped LC with
+    # C4 that oscillates on load steps (stage 4 finding, notes/models.md). IQ is inside EFFL (see model).
+    spice: {lib: models/tps610994_avg.lib, subckt: TPS610994_AVG, ports: ["A1", "B2", "A2"], source: behavioral,
+            params: {VOUT: 3.3, EFFV07: 0.80, EFFV10: 0.83, EFFV15: 0.89, EFFV25: 0.93, EFFL: 0.75, ILIMSS: 0.20, IQVIN: 0, IQVOUT: 0, VUVLO: 0.65}}
+    # EFF(VIN) from SLVSD88M Fig 6-5 up to 0.93 at 2.5 V, down mode min(EFF, VOUT/VIN) (notes/models.md);
+    # start-up limit 0.20 A below VOUT 2.5 V; average input limit = global .param tps_ilim (0.65 / 0.85 / 1.10 A)
+    theta_ja: 134
+    group: front_power
+  L1:
+    placement: {x: 91.9, y: 24.2, rot: 180, fixed: true}   # moved up 1 mm (R8 3D keep-out starts at y 25.8) and 1.85 mm left (M2)
+    value: 2.2u
+    mpn: LVH252A12-2R2M-N
+    lcsc: C285849
+    price_usd: 0.058
+    symbol: Device:L
+    footprint: thermostat:L_1008_2520Metric_Back
+    pins: {"1": VBAT, "2": SW}
+    group: front_power
+  C4: {placement: {x: 100.85, y: 21.69, rot: 180, fixed: true}, value: 10u, mpn: CL10A106KP8NNNC, lcsc: C19702, price_usd: 0.008, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 10, pins: {"1": VBAT, "2": GND}, decouples: U2, group: front_power}
+  C5: {placement: {x: 98.7, y: 27.9, rot: 90, fixed: true}, value: 10u, mpn: CL10A106KP8NNNC, lcsc: C19702, price_usd: 0.008, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 10, pins: {"1": +3V3, "2": GND}, decouples: U2, group: front_power}
+  C1:
+    value: 4.7m
+    mpn: EEU-FS1A472
+    lcsc: C407972          # LCSC stock 0 (qty-10 0.8492); in stock at DigiKey (EEU-FS1A472B, 1,500, $1.06 qty 10); price below is DigiKey
+    price_usd: 1.06
+    datasheet: https://www.lcsc.com/datasheet/C407972.pdf   # FS series; PDF not readable here; leakage 0.01CV or 3 uA (2 min, rated V) from distributor pages, see notes/datasheets/eeu-fs1a472.md
+    symbol: Device:C_Polarized
+    footprint: thermostat:CP_Radial_D12.5mm_P5.00mm_Flat   # 12.5 mm dia x 25 mm long lying flat on the front face, lead pitch 5 mm
+    placement: {x: 77, y: 7, rot: 0, fixed: true}
+    pins: {"1": +3V3, "2": GND}
+    voltage_rating_v: 10
+    derate: 0.8            # aluminium electrolytic, 80 % of rated voltage (3.3 / 10 = 33 %)
+    tolerance: 0.2         # +/-20 %
+    spice: {esr: 0.15}     # tan delta 0.19 at 120 Hz -> 0.054 ohm at 20 C; R3 budget <= 0.10 at 20 C, 0.15 at 0 C: 0.15 used (worst)
+    group: front_power
+
+  # ---------------------------------------------------------------- front board: ESP32-C3-MINI-1 (datasheet v2.2 ch. 7)
+  U1:
+    value: ESP32-C3-MINI-1-N4
+    mpn: ESP32-C3-MINI-1-N4
+    lcsc: C2838502
+    price_usd: 2.70
+    datasheet: https://documentation.espressif.com/esp32-c3-mini-1_datasheet_en.pdf
+    symbol: thermostat:ESP32-C3-MINI-1
+    footprint: thermostat:ESP32-C3-MINI-1
+    placement: {x: 123.2, y: 8.3, rot: 0, fixed: true}   # top-right corner of the front board, antenna toward the top edge
+    pins:
+      "1": GND
+      "2": GND
+      "3": +3V3
+      "5": AVDD_EN_N     # IO2 strap (must read 1): P-FET gate, 100 k pull-up
+      "6": VBAT_SENSE    # IO3 ADC1_CH3
+      "8": ESP_EN
+      "11": GND
+      "12": XTAL32_P     # IO0
+      "13": XTAL32_N     # IO1
+      "14": GND
+      "16": RLY2_IN2     # IO10
+      "18": ADC_DOUT     # IO4
+      "19": RLY1_IN1     # IO5
+      "20": RLY1_IN2     # IO6
+      "21": RLY2_IN1     # IO7
+      "22": LED_K        # IO8 strap: LED cathode, 100 k pull-up
+      "23": BTN          # IO9 BOOT strap: button
+      "26": USB_DN       # IO18
+      "27": USB_DP       # IO19
+      "30": ADC_SCLK     # IO20
+      "31": UART_TX      # IO21 TXD0, boot log, test pad TP7
+      "36": GND
+      "37": GND
+      "38": GND
+      "39": GND
+      "40": GND
+      "41": GND
+      "42": GND
+      "43": GND
+      "44": GND
+      "45": GND
+      "46": GND
+      "47": GND
+      "48": GND
+      "49": GND
+      "50": GND
+      "51": GND
+      "52": GND
+      "53": GND
+    nc: ["4", "7", "9", "10", "15", "17", "24", "25", "28", "29", "32","33", "34", "35"]
+    spice: false        # loads are testbench current sources (sim.sources)
+    group: front_mcu
+  C7: {placement: {x: 117.3, y: 7.3, rot: 270, fixed: true}, value: 10u, mpn: CL10A106KP8NNNC, lcsc: C19702, price_usd: 0.008, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 10, pins: {"1": +3V3, "2": GND}, decouples: U1, group: front_mcu}
+  C8: {placement: {x: 120.06, y: 8.6, rot: 180, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 50, pins: {"1": +3V3, "2": GND}, decouples: U1, group: front_mcu}
+  # EN supervisor (review-1 M3): the boost charges 4.7 mF in tens of ms, so the R5/C6 RC alone released EN at
+  # 1.5-2 V. U6 holds EN low until +3V3 > VIT- + 29 mV (2.886 / 2.959 / 3.003 V) and then for td 120 / 200 /
+  # 350 ms (SBVS193D); R5/C6 add about 14 ms. Push-pull output drives the top of R5, so no pull-up current
+  # flows while it holds reset. IQ 500 nA max is used in the sleep simulation (model default).
+  U6:
+    placement: {x: 95.15, y: 17.05, rot: 270, fixed: true}
+    value: TPS3839K33
+    mpn: TPS3839K33DBZR
+    lcsc: C96333           # stock 120 at LCSC (qty 10 0.6457); DigiKey 3,227
+    price_usd: 0.646
+    datasheet: https://www.ti.com/lit/gpn/tps3839   # SBVS193D: VIT- 2.857/2.93/2.974 V, hys 29 mV, IDD 150 typ / 500 nA max, td 120/200/350 ms, push-pull
+    symbol: Power_Supervisor:TPS3839DBZ
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": GND, "2": EN_RST_N, "3": +3V3}
+    spice: {lib: models/tps3839_beh.lib, subckt: TPS3839_BEH, ports: ["1", "2", "3"], source: behavioral}   # TI PSpice SBVM235 exists, not usable here
+    group: front_mcu
+  C20: {placement: {x: 95.65, y: 13.85, rot: 180, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": +3V3, "2": GND}, decouples: U6, group: front_mcu}
+  R5: {placement: {x: 114.45, y: 18.8, rot: 90, fixed: true}, value: 10k, mpn: 0603WAF1002T5E, lcsc: C25804, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": EN_RST_N, "2": ESP_EN}, group: front_mcu}
+  C6: {placement: {x: 116.25, y: 22.4, rot: 90, fixed: true}, value: 1u, mpn: CL10A105KB8NNNC, lcsc: C15849, price_usd: 0.004, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 50, pins: {"1": ESP_EN, "2": GND}, group: front_mcu}
+  Y1:
+    placement: {x: 119.5, y: 15.3, rot: 0, fixed: true}
+    value: 32.768k
+    mpn: SC-32S 32.768kHz 12.5pF 20ppm
+    lcsc: C97606
+    price_usd: 0.20
+    symbol: Device:Crystal
+    footprint: thermostat:Crystal_SMD_3215_Back
+    pins: {"1": XTAL32_P, "2": XTAL32_N}
+    spice: false
+    group: front_mcu
+  C2: {placement: {x: 118.3, y: 21.05, rot: 90, fixed: true}, value: 18p, mpn: CL10C180JB8NNNC, lcsc: C1647, price_usd: 0.012, tolerance: 0.05, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 50, pins: {"1": XTAL32_P, "2": GND}, group: front_mcu}
+  C3: {placement: {x: 120.8, y: 18.45, rot: 90, fixed: true}, value: 18p, mpn: CL10C180JB8NNNC, lcsc: C1647, price_usd: 0.012, tolerance: 0.05, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 50, pins: {"1": XTAL32_N, "2": GND}, group: front_mcu}
+
+  # ---------------------------------------------------------------- front board: switched analog supply + CS1238
+  M2:
+    placement: {x: 96.25, y: 21.4, rot: 270, fixed: true}
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.072         # LCSC C15127 qty 1-99 0.0716 (was 0.02, corrected in stage 4)
+    symbol: Transistor_FET:AO3401A
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": M2_G, "2": +3V3, "3": AVDD_SW}
+    spice: {model: PMOS_LOGIC, ports: ["3", "1", "2"]}
+    group: front_adc
+  # R9 pull-up stays on the IO2 pin (strap reads 1). Slow gate (review-1 S2): R15 10 k + C19 10 nF gate-source,
+  # tau 100 us, so AVDD_SW (3.3 uF of decoupling) charges in about 100 us instead of dumping C5/C7 into it.
+  R9: {placement: {x: 110.8, y: 4.5, rot: 180, fixed: true}, value: 100k, mpn: 0603WAF1003T5E, lcsc: C25803, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": +3V3, "2": AVDD_EN_N}, group: front_adc}
+  R15: {placement: {x: 110.35, y: 19.15, rot: 0, fixed: true}, value: 10k, mpn: 0603WAF1002T5E, lcsc: C25804, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": AVDD_EN_N, "2": M2_G}, group: front_adc}
+  C19: {placement: {x: 106.65, y: 22.2, rot: 270, fixed: true}, value: 10n, mpn: CL10B103KB8NNNC, lcsc: C57112, price_usd: 0.002, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": +3V3, "2": M2_G}, group: front_adc}
+  U3:
+    placement: {x: 111.45, y: 9.5, rot: 270, fixed: true}
+    value: CS1238
+    mpn: CS1238
+    lcsc: C81829
+    price_usd: 0.91
+    datasheet: https://www.lcsc.com/datasheet/C81829.pdf
+    symbol: thermostat:CS1238
+    footprint: thermostat:SOIC-14_Back
+    pins: {"1": AVDD_SW, "3": AVDD_SW, "4": GND, "6": AIN1P, "7": GND, "8": AIN2P, "9": GND, "11": GND,
+           "13": ADC_SCLK, "14": ADC_DOUT}
+    nc: ["2", "5", "10", "12"]     # REFOUT unused (REFIN = AVDD_SW, ratiometric); pin map confirmed against the Chipsea datasheet Rev.1.1 (notes/datasheets/cs1238.md)
+    spice: false                   # ideal ratiometric converter, evaluated by testbench B-sources
+    group: front_adc
+  C9: {placement: {x: 117.3, y: 11.2, rot: 270, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+       voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U3, group: front_adc}
+  C10: {placement: {x: 114.45, y: 15.2, rot: 90, fixed: true}, value: 1u, mpn: CL10A105KB8NNNC, lcsc: C15849, price_usd: 0.004, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U3, group: front_adc}
+  R1: {placement: {x: 107.55, y: 18.55, rot: 90, fixed: true}, value: 47k, mpn: PTFR0603B47K0P9, lcsc: C328427, price_usd: 0.117, tolerance: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": AVDD_SW, "2": PROBE1}, group: front_adc}
+  R2: {placement: {x: 91.15, y: 15.25, rot: 0, fixed: true}, value: 47k, mpn: PTFR0603B47K0P9, lcsc: C328427, price_usd: 0.117, tolerance: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": AVDD_SW, "2": PROBE2}, group: front_adc}
+  R7: {placement: {x: 106.35, y: 15.45, rot: 0, fixed: true}, value: 1k, mpn: 0603WAF1001T5E, lcsc: C21190, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": PROBE1, "2": AIN1P}, group: front_adc}
+  R8: {placement: {x: 102.75, y: 14.05, rot: 180, fixed: true}, value: 1k, mpn: 0603WAF1001T5E, lcsc: C21190, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": PROBE2, "2": AIN2P}, group: front_adc}
+  C11: {placement: {x: 100.25, y: 16.05, rot: 0, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AIN1P, "2": GND}, group: front_adc}
+  C12: {placement: {x: 105.55, y: 18.35, rot: 90, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AIN2P, "2": GND}, group: front_adc}
+
+  # ---------------------------------------------------------------- front board: battery sense (gated by AVDD_SW)
+  # 2 x AAA: 200 k top / 100 k bottom, both Yageo RT0603BR thin film 0.1 % 25 ppm (same family so the ratio tracks);
+  # tap = VBAT / 3 = 0.73-1.2 V (ADC ATTEN2). High-side switch (stage 4): M4 P-FET from VBAT, gate pulled up to
+  # VBAT by R17 1 M and pulled down by M1 when AVDD_SW is on. With M4 off, R4 holds the tap at GND, so IO3 never
+  # sees more than VDD even with a 3.6 V pack (the low-side switch left the tap at VBAT = 3.6 V > 3.3 V, R17).
+  # M4 VGS = -2.2 to -3.6 V when on (AO3401A 85 mOhm at -2.5 V, negligible against 300 k). R17 draws
+  # VBAT / 1 M = 3.6 uA only while AVDD_SW is on.
+  M4:
+    placement: {x: 75.0, y: 26.6, rot: 90, fixed: true}
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.072
+    symbol: Transistor_FET:AO3401A
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": VBAT_SW_G, "2": VBAT, "3": VBAT_TOP}
+    spice: {model: PMOS_LOGIC, ports: ["3", "1", "2"]}
+    group: front_vbat
+  R17: {placement: {x: 76.0, y: 35.6, rot: 90, fixed: true}, value: 1M, mpn: 0603WAF1004T5E, lcsc: C22935, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": VBAT, "2": VBAT_SW_G}, group: front_vbat}
+  R3: {placement: {x: 70.4, y: 39.2, rot: 0, fixed: true}, value: 200k, mpn: RT0603BRD07200KL, lcsc: C728585, price_usd: 0.048, tolerance: 0.001, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": VBAT_TOP, "2": VBAT_SENSE}, group: front_vbat}
+  R4: {placement: {x: 74.2, y: 39.2, rot: 0, fixed: true}, value: 100k, mpn: RT0603BRD07100KL, lcsc: C122538, price_usd: 0.04, tolerance: 0.001, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+       pins: {"1": VBAT_SENSE, "2": GND}, group: front_vbat}   # 0.04 is an estimate (LCSC lists 0.0326 from qty 20)
+  M1:
+    placement: {x: 75.0, y: 31.3, rot: 90, fixed: true}
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.01
+    symbol: Transistor_FET:2N7002
+    footprint: thermostat:SOT-23_Back
+    pins: {"1": AVDD_SW, "2": GND, "3": VBAT_SW_G}
+    spice: {model: NMOS_LOGIC, ports: ["3", "1", "2"]}
+    group: front_vbat
+  C13: {placement: {x: 103.61, y: 22.85, rot: 270, fixed: true}, value: 10n, mpn: CL10B103KB8NNNC, lcsc: C57112, price_usd: 0.002, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": VBAT_SENSE, "2": GND}, group: front_vbat}
+
+  # ---------------------------------------------------------------- front board: relay drivers (DRV8837 datasheet typical application)
+  U4:
+    placement: {x: 124.2, y: 15.35, rot: 270, fixed: true}
+    value: DRV8837
+    mpn: DRV8837DSGT-JSM
+    lcsc: C22447133
+    price_usd: 0.14
+    symbol: Driver_Motor:DRV8837
+    footprint: thermostat:WSON-8-1EP_2x2mm_Back
+    # VM, VCC and nSLEEP on the switched rail AVDD_SW: the bridge is unpowered in sleep (C16, notes/circuit.md)
+    pins: {"1": AVDD_SW, "2": COIL1_A, "3": COIL1_B, "4": GND, "5": RLY1_IN2, "6": RLY1_IN1, "7": AVDD_SW, "8": AVDD_SW, "9": GND}
+    spice: {lib: models/drv8837_beh.lib, subckt: DRV8837_BEH, ports: ["1", "2", "3", "4", "5", "6", "7", "8"], source: behavioral}
+    group: front_relay_drv
+  C14: {placement: {x: 126.7, y: 15.25, rot: 90, fixed: true}, value: 1u, mpn: CL10A105KB8NNNC, lcsc: C15849, price_usd: 0.004, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U4, group: front_relay_drv}
+  C15: {placement: {x: 123.85, y: 12.5, rot: 0, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U4, group: front_relay_drv}
+  U5:
+    placement: {x: 87.35, y: 17.7, rot: 180, fixed: true}
+    value: DRV8837
+    mpn: DRV8837DSGT-JSM
+    lcsc: C22447133
+    price_usd: 0.14
+    symbol: Driver_Motor:DRV8837
+    footprint: thermostat:WSON-8-1EP_2x2mm_Back
+    pins: {"1": AVDD_SW, "2": COIL2_A, "3": COIL2_B, "4": GND, "5": RLY2_IN2, "6": RLY2_IN1, "7": AVDD_SW, "8": AVDD_SW, "9": GND}
+    spice: {lib: models/drv8837_beh.lib, subckt: DRV8837_BEH, ports: ["1", "2", "3", "4", "5", "6", "7", "8"], source: behavioral}
+    group: front_relay_drv
+  C16: {placement: {x: 87.9, y: 20.95, rot: 90, fixed: true}, value: 1u, mpn: CL10A105KB8NNNC, lcsc: C15849, price_usd: 0.004, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U5, group: front_relay_drv}
+  C17: {placement: {x: 90.2, y: 18, rot: 270, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": AVDD_SW, "2": GND}, decouples: U5, group: front_relay_drv}
+
+  # ---------------------------------------------------------------- rear board: relays and 230 V terminals
+  K1:
+    value: PE014F03
+    mpn: 1415390-1
+    price_usd: 9.00
+    symbol: thermostat:Relay_TE_PE014F03
+    footprint: thermostat:Relay_TE_PE014_Bistable_Mirror
+    placement: {x: 58.5, y: 19.6, rot: 0, fixed: true}   # rear board board-x 3.5 (panel x = 62 - board x): coil column toward J4A, contacts 11/14 in the bottom row
+    pins: {"A1": COIL1_A, "A2": COIL1_B, "11": AC_COM1, "12": AC_NC1, "14": AC_OUT1}
+    spice: {lib: models/pe014f03_coil.lib, subckt: PE014F03_COIL, ports: ["A1", "A2"], source: behavioral, params: {RCOIL: 37.9}}
+    group: rear_mains
+  K2:
+    value: PE014F03
+    mpn: 1415390-1
+    price_usd: 9.00
+    symbol: thermostat:Relay_TE_PE014F03
+    footprint: thermostat:Relay_TE_PE014_Bistable_Mirror
+    placement: {x: 26.6, y: 19.6, rot: 0, fixed: true}   # same orientation as K1, left of it (contact column x 9.1-16.6): coil column A1/A2 faces J4A so COIL2 tracks never enter the mains zone (R8 4 mm)
+    pins: {"A1": COIL2_A, "A2": COIL2_B, "11": AC_COM2, "12": AC_NC2, "14": AC_OUT2}
+    spice: {lib: models/pe014f03_coil.lib, subckt: PE014F03_COIL, ports: ["A1", "A2"], source: behavioral, params: {RCOIL: 37.9}}
+    group: rear_mains
+  # DNP footprints for a 275 VAC MOV across each contact (COM-NO), review-1 S4 (inductive loads, no AC15 data)
+  # RV1/RV2: DNP, do not fit in this stack (R8 3D): a 7 mm disc is ~10 mm tall like the terminals, 1 mm under the front board.
+  RV1: {value: 275VAC DNP do not fit in this stack, mpn: TDK B72207S2271K101 (S07K275), price_usd: 0, dnp: true, symbol: Device:Varistor,
+        footprint: thermostat:RV_Disc_D7mm_W3.8mm_P5mm_Mirror, pins: {"1": AC_OUT1, "2": AC_COM1}, spice: false, group: rear_mains,
+        placement: {x: 35.5, y: 34.5, rot: 0, fixed: true}}   # right of J1, across COM1/OUT1 (varistor is not polarized: pad 1 on the net nearer to J1 pin 2)
+  RV2: {value: 275VAC DNP do not fit in this stack, mpn: TDK B72207S2271K101 (S07K275), price_usd: 0, dnp: true, symbol: Device:Varistor,
+        footprint: thermostat:RV_Disc_D7mm_W3.8mm_P5mm_Mirror, pins: {"1": AC_OUT2, "2": AC_COM2}, spice: false, group: rear_mains,
+        placement: {x: 11.5, y: 35, rot: 0, fixed: true}}   # right of J3, across COM2/OUT2
+  J1:
+    value: KF301-5.0-2P
+    mpn: KF301-5.0-2P
+    lcsc: C474881
+    price_usd: 0.10
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_KF301_5.0-2P_P5.00mm_Horizontal_Mirror
+    pins: {"1": AC_COM1, "2": AC_OUT1}
+    spice: false
+    group: rear_mains
+    placement: {x: 46, y: 35.5, rot: 0, fixed: true}   # board x 16, wire entry toward the bottom edge (body overhangs it by 0.6 mm)
+  J3:
+    value: KF301-5.0-2P
+    mpn: KF301-5.0-2P
+    lcsc: C474881
+    price_usd: 0.10
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_KF301_5.0-2P_P5.00mm_Horizontal_Mirror
+    pins: {"1": AC_COM2, "2": AC_OUT2}
+    spice: false
+    group: rear_mains
+    placement: {x: 22, y: 35.5, rot: 0, fixed: true}
+
+  # ---------------------------------------------------------------- rear board: probe terminals with ESD
+  J2:
+    value: KF250-3.5-2P
+    mpn: KF250-3.5-2P-1
+    lcsc: C475154
+    price_usd: 0.12
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_Phoenix_PT-1,5-2-3.5-H_1x02_P3.50mm_Horizontal_Mirror
+    pins: {"1": PROBE1, "2": GND}
+    spice: false
+    group: rear_selv
+    placement: {x: 38, y: 6.5, rot: 180, fixed: true}   # board x 24, probe terminals in the SELV strip at the top, wire entry toward the top edge
+  J6:
+    value: KF250-3.5-2P
+    mpn: KF250-3.5-2P-1
+    lcsc: C475154
+    price_usd: 0.12
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_Phoenix_PT-1,5-2-3.5-H_1x02_P3.50mm_Horizontal_Mirror
+    pins: {"1": PROBE2, "2": GND}
+    spice: false
+    group: rear_selv
+    placement: {x: 26, y: 6.5, rot: 180, fixed: true}
+  D2: {value: ESD5Z5CL, mpn: ESD5Z5CL, lcsc: C384854, price_usd: 0.063, symbol: Device:D_TVS, footprint: thermostat:D_SOD-523_Mirror,
+       pins: {"1": PROBE1, "2": GND}, spice: false, group: rear_selv, placement: {x: 39.8, y: 11.9, rot: 0, fixed: true}}
+  D3: {value: ESD5Z5CL, mpn: ESD5Z5CL, lcsc: C384854, price_usd: 0.063, symbol: Device:D_TVS, footprint: thermostat:D_SOD-523_Mirror,
+       pins: {"1": PROBE2, "2": GND}, spice: false, group: rear_selv, placement: {x: 27.8, y: 11.9, rot: 0, fixed: true}}
+
+  # ---------------------------------------------------------------- board-to-board link (2 x 5, 2.54 mm)
+  J4A:
+    value: A2541HWV-2x5P
+    mpn: A2541HWV-2x5P
+    lcsc: C239345
+    price_usd: 0.24
+    symbol: Connector_Generic:Conn_02x05_Odd_Even
+    footprint: thermostat:PinSocket_2x05_P2.54mm_Vertical_Mirror
+    # round 4: the pack is on the front board, so VBAT no longer crosses J4; pins 1-2 are GND (guard pins)
+    pins: {"1": GND, "2": GND, "3": COIL1_A, "4": COIL1_B, "5": COIL2_A, "6": COIL2_B, "7": GND, "8": GND, "9": PROBE1, "10": PROBE2}
+    spice: false
+    group: rear_selv
+    placement: {x: 56.5, y: 3, rot: 0, fixed: true}   # board x 5.5; J4B (front board) sits at panel x 73.5, the mirror image about the gap centre x = 65 (S4 mating rule)
+  J4B:
+    value: A2541WV-2x5P
+    mpn: A2541WV-2x5P
+    lcsc: C225520
+    price_usd: 0.09
+    symbol: Connector_Generic:Conn_02x05_Odd_Even
+    footprint: thermostat:PinHeader_2x05_P2.54mm_Vertical_BackSide   # header on the BACK of the front board, mirrored pads = J4A socket pattern
+    pins: {"1": GND, "2": GND, "3": COIL1_A, "4": COIL1_B, "5": COIL2_A, "6": COIL2_B, "7": GND, "8": GND, "9": PROBE1, "10": PROBE2}
+    spice: false
+    group: front_power
+    placement: {x: 73.5, y: 3, rot: 0, fixed: true}   # front board x 5.5 = J4A board x 5.5: pin-for-pin mating in the stacked frame
+
+  # ---------------------------------------------------------------- layout-only items (no electrical pins, not in the BOM)
+  # KO_ANT: antenna copper keep-out at U1 (rule area, all layers). KO_MAINS: no copper pour over the rear mains zone.
+  # KO_STACK: front-board keep-out over the projection of the rear J1/J3 screw terminals + 4 mm (R8 in 3D, notes/layout.md).
+  # SLOT1: routed panel gap between the rear board (x < 62) and the front board (x > 68).
+  KO_ANT:
+    value: antenna keepout
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Antenna_Stack
+    spice: false
+    pins: {"1": GND}      # dummy pad on Dwgs.User (no copper); hwflow needs a pin map
+    price_usd: 0
+    group: layout
+    placement: {x: 65, y: 22, rot: 0, fixed: true}   # dummy pad inside the panel gap; the zone polygons are in board coordinates
+  KO_MAINS:
+    value: mains no-pour keepout
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Rear_MainsPour
+    spice: false
+    pins: {"1": GND}
+    price_usd: 0
+    group: layout
+    placement: {x: 65, y: 26, rot: 0, fixed: true}
+  KO_BAND:
+    value: no-track band above the rear contact row (mains to SELV 4 mm)
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Rear_SELVBand
+    spice: false
+    pins: {"1": GND}
+    price_usd: 0
+    group: layout
+    placement: {x: 66, y: 22, rot: 0, fixed: true}
+  KO_STACK:
+    value: front board keepout over the rear 230 V terminals (3D 4 mm)
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Front_MainsStack
+    spice: false
+    pins: {"1": GND}
+    price_usd: 0
+    group: layout
+    placement: {x: 66, y: 30, rot: 0, fixed: true}
+  SLOT1:
+    value: panel gap 6x21.5
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:PanelSlot_6x21.5
+    spice: false
+    pins: {"1": GND}
+    price_usd: 0
+    group: layout
+    placement: {x: 65, y: 27.25, rot: 0, fixed: true}
+
+  # ---------------------------------------------------------------- front board: button (IO9 BOOT) and LED (IO8)
+  SW1: {value: TS-1187A-B-A-B, mpn: TS-1187A-B-A-B, lcsc: C318884, price_usd: 0.021, symbol: Switch:SW_Push,
+        footprint: Button_Switch_SMD:SW_Push_1P1T_XKB_TS-1187A, pins: {"1": BTN_SW, "2": GND}, spice: false, group: front_ui,
+        placement: {x: 110, y: 5, rot: 0, fixed: true}}
+  # D4 sits at 3.3 V permanently (R11 pull-up through R12), so its leakage is a sleep load (review-2 M1):
+  # SP0402B-ULC-01, IR 25 nA (review-2 figure; datasheet not read this session), counted in both sleep passes.
+  D4: {placement: {x: 107.05, y: 4.3, rot: 180, fixed: true}, value: SP0402B-ULC-01, mpn: SP0402B-ULC-01, lcsc: C468904, price_usd: 0.05, symbol: Device:D_TVS, footprint: thermostat:D_SOD-882_Back,
+       pins: {"1": BTN_SW, "2": GND}, spice: false, group: front_ui}   # price is an estimate: LCSC page not reachable this session; land = SOD-882 (DFN1006-2), pad 1 cathode = BTN_SW; confirm package and polarity against the part datasheet (open item)
+  R12: {placement: {x: 105.6, y: 6.9, rot: 90, fixed: true}, value: 1k, mpn: 0603WAF1001T5E, lcsc: C21190, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": BTN_SW, "2": BTN}, group: front_ui}
+  R11: {placement: {x: 104.8, y: 9.75, rot: 0, fixed: true}, value: 10k, mpn: 0603WAF1002T5E, lcsc: C25804, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": +3V3, "2": BTN}, group: front_ui}
+  C18: {placement: {x: 102.85, y: 7.75, rot: 0, fixed: true}, value: 100n, mpn: CC0603KRX7R9BB104, lcsc: C14663, price_usd: 0.003, symbol: Device:C, footprint: thermostat:C_0603_1608Metric_Back,
+        voltage_rating_v: 50, pins: {"1": BTN, "2": GND}, group: front_ui}
+  # D1: basic red 0603 LED (R19 cost lever, no function change): Hubei KENTO KT-0603R, LCSC C2286 basic part,
+  # 0.0073 USD (qty 1-999), 7.6 M in stock, 1.8-2.4 V at 20 mA. Was Wurth 150060RS75000 at 0.27.
+  D1: {value: red, mpn: KT-0603R, lcsc: C2286, price_usd: 0.0073, symbol: Device:LED, footprint: LED_SMD:LED_0603_1608Metric,
+       pins: {"1": LED_K, "2": LED_A}, spice: {model: LED_RED}, group: front_ui, placement: {x: 110, y: 12, rot: 0, fixed: true}}
+  R13: {placement: {x: 109.85, y: 14.5, rot: 180, fixed: true}, value: 680, mpn: 0603WAF6800T5E, lcsc: C23228, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": +3V3, "2": LED_A}, group: front_ui}
+  R14: {placement: {x: 105.6, y: 12.5, rot: 90, fixed: true}, value: 100k, mpn: 0603WAF1003T5E, lcsc: C25803, price_usd: 0.002, symbol: Device:R, footprint: thermostat:R_0603_1608Metric_Back,
+        pins: {"1": +3V3, "2": LED_K}, group: front_ui}
+
+  # ---------------------------------------------------------------- front board: programming pads (USB-Serial/JTAG)
+  TP1: {placement: {x: 103.3, y: 17.45, rot: 90, fixed: true}, value: 3V3, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": +3V3}, spice: false, group: front_prog, price_usd: 0}
+  TP2: {placement: {x: 100.8, y: 19.7, rot: 180, fixed: true}, value: GND, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": GND}, spice: false, group: front_prog, price_usd: 0}
+  TP3: {placement: {x: 118.3, y: 18, rot: 0, fixed: true}, value: D-, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": USB_DN}, spice: false, group: front_prog, price_usd: 0}
+  TP4: {placement: {x: 127.7, y: 18.25, rot: 0, fixed: true}, value: D+, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": USB_DP}, spice: false, group: front_prog, price_usd: 0}
+  TP5: {placement: {x: 114, y: 22.2, rot: 270, fixed: true}, value: EN, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": ESP_EN}, spice: false, group: front_prog, price_usd: 0}
+  TP6: {placement: {x: 123.15, y: 10.25, rot: 270, fixed: true}, value: IO9, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": BTN}, spice: false, group: front_prog, price_usd: 0}
+  TP7: {placement: {x: 112.2, y: 16.78, rot: 270, fixed: true}, value: TXD0, symbol: Connector:TestPoint, footprint: thermostat:TestPoint_Pad_D1.0mm_Back, pins: {"1": UART_TX}, spice: false, group: front_prog, price_usd: 0}
+
+sim:
+  options: [rshunt=1e12]
+  # Global testbench (round 4, 2 x AAA), one time schedule shared by every transient (t in s):
+  #   0.000-0.300  measurement wake at the cutoff: MCU 22 mA, AVDD_SW on (IO2 low) 5-290 ms, NTC steps, VBAT read
+  #   0.400-1.400  Wi-Fi wake at the temperature-aware cutoff (R3): 150 mA, TX 350 mA in the last 5 ms
+  #   1.450-1.470  Voc steps to the plain 2.20 V cutoff at every temperature (R7/R16 pack model)
+  #   1.480-1.660  low-battery safe state: K1 then K2 reset pulses, 41 ms + 1 ms brake, MCU awake 22 mA (R16, R9)
+  #   1.780-1.920  K1 and K2 set pulses at the same 2.20 V cutoff, MCU awake 22 mA (R7, R9)
+  #   1.950-2.000  Voc ramps to 3.60 V (fresh L92 lithium pair, down mode); 2.050-3.050 Wi-Fi wake + TX (R3)
+  #   3.100-3.150  Voc ramps to 3.20 V (fresh E92 alkaline pair); 3.200-4.200 Wi-Fi wake + TX (R3)
+  # DC values are the sleep state (all GPIO idle, no MCU load). powerup starts from 0 V (uic); reverse_dc
+  # sweeps a reversed pack; tx_ilim repeats the cutoff Wi-Fi wake at the 0.65 / 0.85 / 1.10 A input limits.
+  sources:
+    # Pack model (requirements R3/R7/R16): 2 cells in series between BT1.2 (pack -, BAT_N) and BT1.1 (pack +).
+    #   VCELL  pack open-circuit voltage schedule (DC value = sweep variable of sleep_dc / reverse_dc)
+    #   VPU    offset for the powerup passes (alter)
+    #   BCOLD  temperature-aware cutoff while cutsel = 1: Voc = max(2.20, 0.72 + 1.10 x (2 Rcell(T) + 0.07)),
+    #          rounded up to 10 mV = 2.56 V at 0 C, 2.20 V at >= 8 C (architecture 3.3 + 20 mV margin, review-2 S3;
+    #          firmware picks the row from the ESP32-C3 internal sensor minus 3 C, notes/circuit.md rule 9)
+    #   BRCELL pack resistance 2 x Rcell(T) + 0.04 ohm. Rcell = 0.40 x max(1, 2^((25 - T)/25)): 0.40 ohm at
+    #          25-50 C, 0.80 ohm at 0 C. The requirement's 0.07 ohm covers contacts, wiring AND the reverse FET;
+    #          M3 is simulated (AO3416 max fit, 0.03 ohm at VGS 2 V), so the source carries the other 0.04 ohm.
+    - {line: "VCELL cell_oc $(BT1.2) DC 3.6 PWL(0 2.20 1.95 2.20 2.00 3.60 3.10 3.60 3.15 3.20 4.4 3.20)"}
+    - {line: "VPU cell_oc cell_x DC 0"}
+    - {line: "VCUT cutsel 0 DC 0 PWL(0 1 1.45 1 1.47 0 4.4 0)"}
+    - {line: "VCOLDON coldon 0 DC 1"}
+    - {line: "BCOLD cell_y cell_x V = V(cutsel)*V(coldon)*max(0, ceil(100*(0.72 + 1.10*(0.8*max(1, pow(2, (25 - temper)/25)) + 0.07)))/100 - 2.20)"}
+    #   ins    pack insertion: 1 = pack in. Global .param ins_t (default -1 s: in from before t = 0). powerup sets
+    #          ins_t = 1 ms, so the DC operating point is a dead board and the pack is inserted at 1 ms.
+    #   remv   review-2 S1: the pack is pulled out at 4.30 s (after the alkaline Wi-Fi wake, Voc 3.20 V) and put
+    #          back REVERSED at 4.80 s (sgn = -1: terminal driven toward -Voc). Only reverse_tran runs past 4.25 s.
+    - {line: ".param ins_t=-1 revsign=1"}
+    - {line: "VREM remv 0 DC 1 PWL(0 1 4.30 1 4.30001 0 4.80 0 4.80001 1)"}
+    - {line: "VSGN sgn 0 DC 1 PWL(0 1 4.80 1 4.80001 -1)"}
+    - {line: "BINS ins 0 V = V(remv)/(1 + exp(-(time - ins_t)*2e5))"}
+    - {line: "BRCELL cell_y $(BT1.1) I = V(ins) * (revsign*V(sgn)*V(cell_y, $(BT1.2)) - V($(BT1.1), $(BT1.2))) / (0.8*max(1, pow(2, (25 - temper)/25)) + 0.04)"}
+    # DC initial guess (the boost + body-diode start-up has a slow, non-converged "transient op" branch):
+    # regulated rail, pack on, M3 channel on. Only a Newton starting point; ignored by uic runs.
+    - {line: ".nodeset v($(+3V3))=3.3 v($(VBAT))=3.6 v($(M3_G))=3.6 v($(M3_GH))=3.6 v($(BAT_N))=0 v(xu2.uv)=1 v(xu2.uvf)=1 v(xu2.n1)=3.3 v(xu2.n2)=3.3 v($(ESP_EN))=3.3 v(xu6.s)=1 v(xu6.sd)=1 v(xu6.sf)=1"}
+    # ESP32-C3 EN state: 1 when EN > 0.75 x VDD (GPIO VIH, module datasheet); the module load and IO2 are
+    # gated by it (held in reset = no active load). Floor 1.5 V so that EN = VDD = 0 reads as reset.
+    - {line: "BENOK en_ok 0 V = 1/(1 + exp(-(V($(ESP_EN)) - max(0.75*V($(+3V3)), 1.5))*50))"}
+    # R2 sleep corners (review-2 M1): wc = 0 typical (default), wc = 1 worst case at 50 C (sleep_wc). Every
+    # sleep load below has a typical value and a worst-case value; sources in notes/circuit.md "R2 sleep corners".
+    - {line: ".param wc=0"}
+    # ESP32-C3 module load on the rail: deep sleep 5.0 uA typ (datasheet table, 25 C) + XTAL32K 0.5 uA
+    # (architecture 4); worst case at 50 C 8.0 + 0.5 uA (estimate: the datasheet gives no 50 C value;
+    # architecture.md section 4 sensitivity row "module 8"). Active profile below.
+    - {line: "IESP_SLEEP $(+3V3) 0 DC {5.5u + wc*3u}"}
+    - {line: "VIESP iesp_p 0 DC 0 PWL(0 0 0.001 0 0.0011 22m 0.30 22m 0.3001 0 0.40 0 0.4001 150m 1.395 150m 1.3951 350m 1.40 350m 1.4001 0 1.48 0 1.4801 22m 1.66 22m 1.6601 0 1.78 0 1.7801 22m 1.92 22m 1.9201 0 2.05 0 2.0501 150m 3.045 150m 3.0451 350m 3.05 350m 3.0501 0 3.20 0 3.2001 150m 4.195 150m 4.1951 350m 4.20 350m 4.2001 0)"}
+    - {line: "BESP $(+3V3) 0 I = V(iesp_p) * V(en_ok)"}
+    # C1 leakage, proportional to the rail: typical 1 uA at 3.3 V (purchase spec, 25 C, PM round 4 q2), worst
+    # 3 uA (architecture.md buffer spec "<= 3 uA at 50 C"; notes/parts.md pessimistic estimate). NOT a datasheet bound:
+    # the FS series only specifies 0.01 CV = 470 uA at 10 V after 2 min. Bench: 3 samples at bring-up.
+    # Dead-board operating point (reverse_ins only, .param deadop=1): the last term of BCBUF_LEAK and BIQ2I holds
+    # +3V3 and VBAT at 0 V through 100 ohm in the operating point, released linearly by 0.5 ms (the pack goes in at
+    # 1 ms). With deadop = 0 (every other analysis) the term is zero. Without it the global .nodeset could land on a
+    # false powered solution (rail 3.4 V, BAT_N 27 V) in 2 of 50 MC runs. Kept inside existing sources so that no
+    # node or element is added to the other analyses.
+    - {line: ".param deadop=0"}
+    - {line: "BCBUF_LEAK $(+3V3) 0 I = V($(+3V3))/3.3*(1u + wc*2u) + deadop*V($(+3V3))/100*max(0, 1 - time/0.5m)"}
+    # supervisor U6 IQ is inside its model (global tps3839_iq: 150 nA typ default, 500 nA max in sleep_wc)
+    # Worst-case-only leakages (wc = 1), each at its actual bias in sleep (review-2 M1):
+    #   U2 IQ max - typ (SLVSD88M 6.5: VIN 1.1 - 0.4 uA, VOUT 1.5 - 0.6 uA; the typical IQ is inside EFFL)
+    - {line: "BIQ2I $(VBAT) 0 I = wc*0.7u*min(1, max(0, V($(VBAT))/0.7)) + deadop*V($(VBAT))/100*max(0, 1 - time/0.5m)"}
+    - {line: "BIQ2O $(+3V3) 0 I = wc*0.9u*min(1, max(0, V($(+3V3))/3))"}
+    #   M3 IGSS: AO3416 +/-10 uA max at VGS 8 V, scaled linearly to the actual VGS (= 8/9 VBAT here; linear is
+    #   an upper bound for oxide/protection leakage, which falls faster than V). Typical not specified: 0.
+    - {line: "BIGSS $(M3_G) 0 I = wc*10u*V($(M3_G))/8"}
+    #   Q1 junction leakage: MMBT3904 ICEX 50 nA + IBL 50 nA max (at VCE 30 V), not scaled down
+    - {line: "BQ1LK $(VBAT) 0 I = wc*100n*min(1, max(0, V($(VBAT))))"}
+    #   off MOSFETs, IDSS max at 55 C scaled linearly from the test VDS: AO3401A 5 uA at 30 V (M2: +3V3 to
+    #   AVDD_SW; M4: VBAT to the divider); 2N7002 1 uA at 60 V / 25 C, 500 uA at 125 C -> 4.7 uA at 50 C
+    #   (log interpolation) for M1 (VBAT_SW_G to GND through R17). Datasheet values from the AOS/CJ sheets.
+    - {line: "BM2LK $(+3V3) $(AVDD_SW) I = wc*5u*V($(+3V3), $(AVDD_SW))/30"}
+    - {line: "BM4LK $(VBAT) $(VBAT_TOP) I = wc*5u*V($(VBAT), $(VBAT_TOP))/30"}
+    - {line: "BM1LK $(VBAT_SW_G) 0 I = wc*4.7u*V($(VBAT_SW_G))/60"}
+    #   IO9 (BOOT) input leakage at 3.3 V, ESP32-C3 IIH 50 nA max (IO3 is below with IIO3_LEAK)
+    - {line: "BIO9LK $(BTN) 0 I = wc*50n*min(1, max(0, V($(BTN))/3.3))"}
+    # D4 SP0402B-ULC-01 at 3.3 V: 25 nA (review-2 figure) in both corners. D2/D3 sit at 0 V in sleep
+    # (AVDD_SW off): no sleep leakage; their 20 nA budget is applied while measuring (ITVS1/ITVS2 below).
+    - {line: "BD4LK $(BTN_SW) 0 I = 25n*min(1, max(0, V($(BTN_SW))/3.3))"}
+    # ESP32-C3 GPIO outputs (30 ohm pad resistance, estimate). IO2 turn-on edges are 100 ns (review-1 S2).
+    - {line: "VIO2 io2 0 DC 3.3 PWL(0 3.3 0.005 3.3 0.0050001 0 0.29 0 0.2901 3.3 1.48 3.3 1.4800001 0 1.66 0 1.6601 3.3 1.78 3.3 1.7800001 0 1.92 0 1.9201 3.3)"}
+    # IO2/IO8 drive high to the pad supply (+3V3), not to a fixed 3.3 V: a fixed source back-powered the rail
+    # through R9/R14 and gave a false "powered" operating point with no pack.
+    - {line: "BIO2 $(AVDD_EN_N) 0 I = -(V(io2)/3.3*V($(+3V3)) - V($(AVDD_EN_N)))/30 * V(en_ok)"}
+    - {line: "VIO5 io5 0 DC 0 PWL(0 0 1.541 0 1.54101 3.3 1.542 3.3 1.54201 0 1.80 0 1.80001 3.3 1.842 3.3 1.84201 0)"}
+    - {line: "RIO5 io5 $(RLY1_IN1) 30"}
+    - {line: "VIO6 io6 0 DC 0 PWL(0 0 1.50 0 1.50001 3.3 1.542 3.3 1.54201 0 1.841 0 1.84101 3.3 1.842 3.3 1.84201 0)"}
+    - {line: "RIO6 io6 $(RLY1_IN2) 30"}
+    - {line: "VIO7 io7 0 DC 0 PWL(0 0 1.601 0 1.60101 3.3 1.602 3.3 1.60201 0 1.86 0 1.86001 3.3 1.902 3.3 1.90201 0)"}
+    - {line: "RIO7 io7 $(RLY2_IN1) 30"}
+    - {line: "VIO10 io10 0 DC 0 PWL(0 0 1.56 0 1.56001 3.3 1.602 3.3 1.60201 0 1.901 0 1.90101 3.3 1.902 3.3 1.90201 0)"}
+    - {line: "RIO10 io10 $(RLY2_IN2) 30"}
+    - {line: "VIO8 io8 0 DC 3.3"}
+    - {line: "BIO8 $(LED_K) 0 I = -(V(io8)/3.3*V($(+3V3)) - V($(LED_K)))/30 * V(en_ok)"}
+    # GPIO input leakage on IO3 (ESP32-C3 IIL max 50 nA)
+    - {line: "IIO3_LEAK $(VBAT_SENSE) 0 50n"}
+    # NTC probes 10 k B3950 on 2 m cable (0.4 ohm loop, 200 pF). Worst sensor corners: R25 +1 % on both,
+    # B +1 % on probe 1 (worst cold), B -1 % on probe 2 (worst warm). tp1/tp2 = probe temperature in C.
+    - {line: "VTP1 tp1 0 DC 35 PWL(0 5 0.08 5 0.081 20 0.16 20 0.161 35 0.3 35)"}
+    - {line: "VTP2 tp2 0 DC 35 PWL(0 5 0.08 5 0.081 20 0.16 20 0.161 35 0.3 35)"}
+    - {line: "VCAB cab 0 DC 0 PWL(0 0 0.22 0 0.221 0.4 0.3 0.4)"}
+    # Bring-up gain calibration (lead decision, notes/datasheets/cs1238.md): a 10.00 k 0.1 % resistor at J2/J6 in
+    # place of each probe. calm = 1 for 0-45 ms (cal resistor fitted, AVDD_SW on at 5 ms), calsg = +1 for 0-25 ms
+    # (Rcal = 10.01 k), -1 for 25-45 ms (9.99 k). The probes are back from 45 ms (5 C point read at 75 ms).
+    - {line: "VCALM calm 0 DC 0 PWL(0 1 0.045 1 0.04501 0)"}
+    - {line: "VCALS calsg 0 DC 1 PWL(0 1 0.025 1 0.02501 -1)"}
+    - {line: "BNTC1 $(J2.1) 0 I = V($(J2.1)) / ((1 - V(calm))*(10.1e3*exp(3989.5*(1/(V(tp1)+273.15) - 1/298.15)) + 0.4 + V(cab)) + V(calm)*10e3*(1 + 1e-3*V(calsg)))"}
+    - {line: "BNTC2 $(J6.1) 0 I = V($(J6.1)) / ((1 - V(calm))*(10.1e3*exp(3910.5*(1/(V(tp2)+273.15) - 1/298.15)) + 0.4) + V(calm)*10e3*(1 + 1e-3*V(calsg)))"}
+    - {line: "CCAB1 $(J2.1) 0 200p"}
+    - {line: "CCAB2 $(J6.1) 0 200p"}
+    # TVS leakage budget (architecture 5.2: <= 20 nA)
+    - {line: "ITVS1 $(PROBE1) 0 20n"}
+    - {line: "ITVS2 $(PROBE2) 0 20n"}
+    # Firmware conversion with nominal values (47 k, R25 10 k, B 3950): ntct(ratio) = temperature in C.
+    # ra = AIN / REFIN (REFIN = AVDD_SW) with the CS1238 offset residual +0.2 mV after the CH_SEL 11 reading.
+    - {line: ".func ntct(x) {1/(1/298.15 + ln(47e3*max(1e-3, min(0.999, x))/(1 - max(1e-3, min(0.999, x)))/10e3)/3950) - 273.15}"}
+    - {line: "BRA1 ra1 0 V = (V($(AIN1P))+0.2e-3)/max(V($(AVDD_SW)), 0.1)"}
+    - {line: "BRA2 ra2 0 V = (V($(AIN2P))+0.2e-3)/max(V($(AVDD_SW)), 0.1)"}
+    # CS1238 gain error (datasheet 1.6 table 3): +/-0.5 % (typ, PGA 128; no PGA 1 figure, used here), drift 8 ppm/C.
+    # Sign p: gain +0.5 % and drift +8 ppm/C x |T - 25|; sign n: both negative. The calibration is done at 25 C
+    # (bring-up), so the drift term is applied to the reading only, not to the stored calibration.
+    - {line: ".param cs_gerr=0.005 cs_gdrift=8e-6"}
+    # Calibration track-and-hold of the ideal ratio with the cal resistor: window a 23.5-24.5 ms (Rcal +0.1 %),
+    # window b 43.5-44.5 ms (Rcal -0.1 %); tau 0.1 ms, hold leakage only rshunt.
+    - {line: "VTRKA trka 0 DC 0 PWL(0 0 0.0235 0 0.02351 1 0.0245 1 0.02451 0)"}
+    - {line: "VTRKB trkb 0 DC 0 PWL(0 0 0.0435 0 0.04351 1 0.0445 1 0.04451 0)"}
+    - {line: "BH1A 0 h1a I = 1e4*V(trka)*(V(ra1) - V(h1a))"}
+    - {line: "CH1A h1a 0 1"}
+    - {line: "BH1B 0 h1b I = 1e4*V(trkb)*(V(ra1) - V(h1b))"}
+    - {line: "CH1B h1b 0 1"}
+    - {line: "BH2A 0 h2a I = 1e4*V(trka)*(V(ra2) - V(h2a))"}
+    - {line: "CH2A h2a 0 1"}
+    - {line: "BH2B 0 h2b I = 1e4*V(trkb)*(V(ra2) - V(h2b))"}
+    - {line: "CH2B h2b 0 1"}
+    # Calibrated reading (firmware): ratio_cal = g_meas x ra x (10/57) / (g_cal x hold), 10/57 = true ratio of 10.00 k
+    # under the nominal 47 k. Four combinations per channel (gain p/n x Rcal +/-0.1 %); err = computed - true, C.
+    - {line: "BE1PA e1pa 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra1)*(10/57)/((1+cs_gerr)*max(V(h1a), 1e-3))) - V(tp1)"}
+    - {line: "BE1PB e1pb 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra1)*(10/57)/((1+cs_gerr)*max(V(h1b), 1e-3))) - V(tp1)"}
+    - {line: "BE1NA e1na 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra1)*(10/57)/((1-cs_gerr)*max(V(h1a), 1e-3))) - V(tp1)"}
+    - {line: "BE1NB e1nb 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra1)*(10/57)/((1-cs_gerr)*max(V(h1b), 1e-3))) - V(tp1)"}
+    - {line: "BE2PA e2pa 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra2)*(10/57)/((1+cs_gerr)*max(V(h2a), 1e-3))) - V(tp2)"}
+    - {line: "BE2PB e2pb 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra2)*(10/57)/((1+cs_gerr)*max(V(h2b), 1e-3))) - V(tp2)"}
+    - {line: "BE2NA e2na 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra2)*(10/57)/((1-cs_gerr)*max(V(h2a), 1e-3))) - V(tp2)"}
+    - {line: "BE2NB e2nb 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra2)*(10/57)/((1-cs_gerr)*max(V(h2b), 1e-3))) - V(tp2)"}
+    # err1/err2: the calibrated combination with the largest |error| (signed)
+    - {line: "BW1HI w1hi 0 V = max(max(V(e1pa), V(e1pb)), max(V(e1na), V(e1nb)))"}
+    - {line: "BW1LO w1lo 0 V = min(min(V(e1pa), V(e1pb)), min(V(e1na), V(e1nb)))"}
+    - {line: "BERR1 err1 0 V = abs(V(w1hi)) > abs(V(w1lo)) ? V(w1hi) : V(w1lo)"}
+    - {line: "BW2HI w2hi 0 V = max(max(V(e2pa), V(e2pb)), max(V(e2na), V(e2nb)))"}
+    - {line: "BW2LO w2lo 0 V = min(min(V(e2pa), V(e2pb)), min(V(e2na), V(e2nb)))"}
+    - {line: "BERR2 err2 0 V = abs(V(w2hi)) > abs(V(w2lo)) ? V(w2hi) : V(w2lo)"}
+    # Uncalibrated reading (information: shows why the calibration is needed), worst gain sign, signed
+    - {line: "BU1P u1p 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra1)) - V(tp1)"}
+    - {line: "BU1N u1n 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra1)) - V(tp1)"}
+    - {line: "BUERR1 uerr1 0 V = abs(V(u1p)) > abs(V(u1n)) ? V(u1p) : V(u1n)"}
+    - {line: "BU2P u2p 0 V = ntct((1+cs_gerr)*(1+cs_gdrift*abs(temper-25))*V(ra2)) - V(tp2)"}
+    - {line: "BU2N u2n 0 V = ntct((1-cs_gerr)*(1-cs_gdrift*abs(temper-25))*V(ra2)) - V(tp2)"}
+    - {line: "BUERR2 uerr2 0 V = abs(V(u2p)) > abs(V(u2n)) ? V(u2p) : V(u2n)"}
+    # Pack reading (R17): firmware VBAT = 3 x ADC (200 k / 100 k nominal), ADC error +10 mV (ESP32-C3 ATTEN2
+    # calibrated, worst case), compared with the pack terminal voltage BT1.1 - BT1.2.
+    - {line: "BVBERR vbat_err 0 V = 3*(V($(VBAT_SENSE)) + 0.010) - V($(BT1.1), $(BT1.2))"}
+    # Sense-circuit current drawn from the pack (R17 leakage): R17 gate pull-up + divider top (uA)
+    - {line: "BVBLEAK vbleak 0 V = ((V($(VBAT)) - V($(VBAT_SW_G)))/1e6 + (V($(VBAT_TOP)) - V($(VBAT_SENSE)))/200e3)*1e6"}
+    # ADC pin minus VDD (R17: never above VDD)
+    - {line: "BTAPD tapd 0 V = V($(VBAT_SENSE)) - V($(+3V3))"}
+    # coil voltages and hold current, both relays
+    - {line: "BVC1 vc1 0 V = V($(COIL1_A)) - V($(COIL1_B))"}
+    - {line: "BVC2 vc2 0 V = V($(COIL2_A)) - V($(COIL2_B))"}
+    - {line: "BVC1R vc1r 0 V = V($(COIL1_B)) - V($(COIL1_A))"}
+    - {line: "BVC2R vc2r 0 V = V($(COIL2_B)) - V($(COIL2_A))"}
+    - {line: "BHOLD hold 0 V = (abs(V($(COIL1_A),$(COIL1_B))) + abs(V($(COIL2_A),$(COIL2_B))))/33.9"}
+    # 50 Hz hum: 230 V through 2 pF onto probe 1 (architecture 5.2); the ADC result is averaged over 20 ms
+    # (25 samples at 1280 SPS): integrator + 20 ms delay line = boxcar average (behavioral)
+    - {line: "VHUM hum 0 DC 0 AC 325"}
+    - {line: "CHUM hum $(J2.1) 2p"}
+    - {line: "GINT 0 hint $(AIN1P) 0 1"}
+    - {line: "CINT hint 0 1"}
+    - {line: "RINT hint 0 1e3"}
+    - {line: "EBUF hb 0 hint 0 1"}
+    - {line: "RTS hb ht 1k"}
+    - {line: "TDLY ht 0 hd 0 Z0=1k TD=20m"}
+    - {line: "RTL hd 0 1k"}
+    - {line: "BAVG havg 0 V = (V(hint) - 2*V(hd))/20e-3"}
+    # review-1 S5: the firmware times the averaging window with the ESP32 40 MHz timer and weights the last
+    # sample by its fractional share (notes/circuit.md rule 6); window error bound +/-1 %: 19.8 and 20.2 ms
+    - {line: "RTSA hb hta 1k"}
+    - {line: "TDLYA hta 0 hda 0 Z0=1k TD=19.8m"}
+    - {line: "RTLA hda 0 1k"}
+    - {line: "BAVGA havga 0 V = (V(hint) - 2*V(hda))/19.8e-3"}
+    - {line: "RTSB hb htb 1k"}
+    - {line: "TDLYB htb 0 hdb 0 Z0=1k TD=20.2m"}
+    - {line: "RTLB hdb 0 1k"}
+    - {line: "BAVGB havgb 0 V = (V(hint) - 2*V(hdb))/20.2e-3"}
+  analyses:
+    - name: sleep_dc
+      # DC sweep of the pack Voc 2.20-3.60 V (cutoff to fresh lithium), sleep state
+      cmd: dc VCELL 3.65 2.15 -0.05
+      temps: [0, 50]
+      measures:
+        - {name: v3v3_sleep_2v2, meas: "find v(+3V3) at=2.2", min: 3.0, max: 3.6, unit: V, req: "R3,R13"}
+        - {name: v3v3_sleep_3v6, meas: "find v(+3V3) at=3.6", min: 3.0, max: 3.6, unit: V, req: "R3,R13"}
+        # R2 TYPICAL corner (wc = 0): pack sleep power at the 2.5 V average pack voltage. Allowance = 208 uW
+        # limit - 166.3 uW active (architecture 4: 24 Wi-Fi + 144 measurement wakes + 40 relay pulses + LED at
+        # 0.92) = 41.7 uW. Typical loads: module 5.5 uA, C1 1 uA, U6 150 nA, D4 25 nA, U2 PFM rail 3.4 V.
+        # The worst-case corner is sleep_wc.
+        - {name: r2_pack_sleep_uw, meas: "find i(VCELL) at=2.5", scale: -2.5e6, max: 41.7, unit: uW, req: R2}
+        # rail sleep floor (information; architecture design value 6.7 uA)
+        - {name: r2_rail_sleep_ua, meas: "find i(v.xu2.vx) at=2.5", scale: -1e6, unit: uA}
+        - {name: vbat_div_leak_ua, meas: "find v(vbleak) at=3.6", max: 0.5, unit: uA, req: R17}
+        - {name: r17_tap_minus_vdd_sleep, meas: "max v(tapd)", max: 0, unit: V, req: R17}
+    - name: sleep_wc
+      # R2 WORST-CASE corner (review-2 M1) and the S2 PFM rail maximum. The list run (wc = 0) only produces
+      # placeholders; the control pass sets every sleep load to its worst value (wc = 1, see sources), U6 IQ
+      # 500 nA max, and U2 VOUT at its 3.37 V maximum (PFM 3.47 V), then overwrites every row.
+      # R2 worst case is defined at 50 C; the 0 C run uses the same 50 C leakages (pessimistic).
+      cmd: dc VCELL 3.65 2.15 -0.05
+      temps: [0, 50]
+      measures:
+        # limit from R2 worst-case acceptance (PM round 5, q1): 246 uW total - 166.3 uW active = 79.9 uW
+        - {name: r2_pack_sleep_uw_wc, meas: "find i(VCELL) at=2.5", scale: -2.5e6, max: 79.9, unit: uW, req: R2}
+        - {name: r2_rail_sleep_ua_wc, meas: "find i(v.xu2.vx) at=2.5", scale: -1e6, unit: uA}
+        - {name: r2_rail_v_wc, meas: "find v(+3V3) at=2.5", unit: V}
+        # S2: rail maximum in sleep (PFM) with a fresh lithium pack, 3.6 V; ESP32-C3 absolute maximum 3.6 V
+        - {name: s2_rail_max_li_wc, meas: "find v(+3V3) at=3.6", max: 3.6, unit: V, req: "R3,R13"}
+      control:
+        - "alterparam wc=1"
+        - "alterparam tps3839_iq=500n"
+        - "alterparam tps_vscale=1.0212"
+        - "reset"
+        - "dc VCELL 3.65 2.15 -0.05"
+        - "meas dc r2_pack_sleep_uw_wc find i(VCELL) at=2.5"
+        - "meas dc r2_rail_sleep_ua_wc find i(v.xu2.vx) at=2.5"
+        - "meas dc r2_rail_v_wc find v(+3V3) at=2.5"
+        - "meas dc s2_rail_max_li_wc find v(+3V3) at=3.6"
+        - "echo HWF r2_pack_sleep_uw_wc $&r2_pack_sleep_uw_wc"
+        - "echo HWF r2_rail_sleep_ua_wc $&r2_rail_sleep_ua_wc"
+        - "echo HWF r2_rail_v_wc $&r2_rail_v_wc"
+        - "echo HWF s2_rail_max_li_wc $&s2_rail_max_li_wc"
+    - name: reverse_tran
+      # review-2 S1, rebuilt (notes/circuit.md "reverse_tran testbench"): pack Voc 3.20 V in sleep (DC operating
+      # point), pulled out at 50 ms, out for 0.5 s, put back reversed (-3.20 V, 10 us edge) at 0.55 s, run to 1.05 s.
+      # Pulling the pack in sleep leaves C4/C21 charged (VBAT 2.72 V, M3 gate 2.82 V at reversal): the worst case
+      # for M3 conduction. The old schedule (pull 0.1 s after a Wi-Fi wake, 4.3-5.3 s) left the gate at 0.50-0.61 V
+      # through a UVLO hiccup whose phase depends on the time step (VIN min -0.46 to +0.22 V at VGS(th) min).
+      # The schedule is set by "alter @src[pwl]" in this analysis only; the global sources are unchanged.
+      # Numerics: Gear integration (trapezoidal rings point to point on the Q1/M3 switching and latched a false
+      # 2.3 A reverse state); 0.5 ms max step with a VSGN breakpoint grid of 0.5 us for 100 us, 2 us to 200 us,
+      # 20 us to 2 ms and 200 us to 20 ms after the reversal. Checked against 5 us max step (within 30 mV).
+      # The list run (10 ms) only gives placeholders; every row is overwritten by the control echoes.
+      # Limits: VIN and SW >= -0.3 V (TPS610994 absolute maximum); settled reverse pack current within +/-10 uA.
+      # S1 fix (R20, C23 to GND, R18 3.3 M, R19 100 k): VIN min +0.23 V (0 C) / +0.28 V (50 C) at VGS(th) min.
+      cmd: tran 1m 0.01
+      temps: [0, 50]
+      measures:
+        - {name: s1_vbat_at_rev, meas: "find v(VBAT) at=0.005", unit: V}
+        - {name: s1_gate_at_rev, meas: "find v(VBAT) at=0.005", unit: V}
+        - {name: s1_vin_min, meas: "find v(VBAT) at=0.005", min: -0.3, unit: V}
+        - {name: s1_sw_min, meas: "find v(VBAT) at=0.005", min: -0.3, unit: V}
+        - {name: s1_irev_peak_a, meas: "find v(VBAT) at=0.005", unit: A}
+        - {name: s1_irev_settled_ua, meas: "find v(VBAT) at=0.005", scale: 1e6, min: -10, max: 10, unit: uA}
+        - {name: s1_gate_settled, meas: "find v(VBAT) at=0.005", unit: V}
+        - {name: s1_vin_min_vthmin, meas: "find v(VBAT) at=0.005", min: -0.3, unit: V}
+        - {name: s1_sw_min_vthmin, meas: "find v(VBAT) at=0.005", min: -0.3, unit: V}
+        - {name: s1_irev_peak_a_vthmin, meas: "find v(VBAT) at=0.005", unit: A}
+        - {name: s1_irev_settled_ua_vthmin, meas: "find v(VBAT) at=0.005", scale: 1e6, min: -10, max: 10, unit: uA}
+        - {name: s1_t_hi_us_vthmin, meas: "find v(VBAT) at=0.005", scale: 1e6, unit: us}
+        - {name: s1_q_uc_vthmin, meas: "find v(VBAT) at=0.005", scale: 1e6, unit: uC}
+        - {name: s1_vin_min_vthtyp, meas: "find v(VBAT) at=0.005", min: -0.3, unit: V}
+      control:
+        - "option method=gear"
+        - "alter @vcell[dc] = 3.2"
+        - "alter @vcell[pwl] = [ 0 3.2 2 3.2 ]"
+        - "alter @vcut[pwl] = [ 0 0 2 0 ]"
+        - "alter @viesp[pwl] = [ 0 0 2 0 ]"
+        - "alter @vio2[pwl] = [ 0 3.3 2 3.3 ]"
+        - "alter @vtp1[pwl] = [ 0 35 2 35 ]"
+        - "alter @vtp2[pwl] = [ 0 35 2 35 ]"
+        - "alter @vcalm[pwl] = [ 0 0 2 0 ]"
+        - "alter @vrem[pwl] = [ 0 1 0.05 1 0.05001 0 0.55 0 0.55001 1 ]"
+        - "alter @vsgn[pwl] = [ 0 1 0.55 1 0.5500005 0.9 0.550001 0.8 0.5500015 0.7 0.550002 0.6 0.5500025 0.5 0.550003 0.4 0.5500035 0.3 0.550004 0.2 0.5500045 0.1 0.550005 8.22667e-11 0.5500055 -0.1 0.550006 -0.2 0.5500065 -0.3 0.550007 -0.4 0.5500075 -0.5 0.550008 -0.6 0.5500085 -0.7 0.550009 -0.8 0.5500095 -0.9 0.55001 -1 0.5500105 -1 0.550011 -1 0.5500115 -1 0.550012 -1 0.5500125 -1 0.550013 -1 0.5500135 -1 0.550014 -1 0.5500145 -1 0.550015 -1 0.5500155 -1 0.550016 -1 0.5500165 -1 0.550017 -1 0.5500175 -1 0.550018 -1 0.5500185 -1 0.550019 -1 0.5500195 -1 0.55002 -1 0.5500205 -1 0.550021 -1 0.5500215 -1 0.550022 -1 0.5500225 -1 0.550023 -1 0.5500235 -1 0.550024 -1 0.5500245 -1 0.550025 -1 0.5500255 -1 0.550026 -1 0.5500265 -1 0.550027 -1 0.5500275 -1 0.550028 -1 0.5500285 -1 0.550029 -1 0.5500295 -1 0.55003 -1 0.5500305 -1 0.550031 -1 0.5500315 -1 0.550032 -1 0.5500325 -1 0.550033 -1 0.5500335 -1 0.550034 -1 0.5500345 -1 0.550035 -1 0.5500355 -1 0.550036 -1 0.5500365 -1 0.550037 -1 0.5500375 -1 0.550038 -1 0.5500385 -1 0.550039 -1 0.5500395 -1 0.55004 -1 0.5500405 -1 0.550041 -1 0.5500415 -1 0.550042 -1 0.5500425 -1 0.550043 -1 0.5500435 -1 0.550044 -1 0.5500445 -1 0.550045 -1 0.5500455 -1 0.550046 -1 0.5500465 -1 0.550047 -1 0.5500475 -1 0.550048 -1 0.5500485 -1 0.550049 -1 0.5500495 -1 0.55005 -1 0.5500505 -1 0.550051 -1 0.5500515 -1 0.550052 -1 0.5500525 -1 0.550053 -1 0.5500535 -1 0.550054 -1 0.5500545 -1 0.550055 -1 0.5500555 -1 0.550056 -1 0.5500565 -1 0.550057 -1 0.5500575 -1 0.550058 -1 0.5500585 -1 0.550059 -1 0.5500595 -1 0.55006 -1 0.5500605 -1 0.550061 -1 0.5500615 -1 0.550062 -1 0.5500625 -1 0.550063 -1 0.5500635 -1 0.550064 -1 0.5500645 -1 0.550065 -1 0.5500655 -1 0.550066 -1 0.5500665 -1 0.550067 -1 0.5500675 -1 0.550068 -1 0.5500685 -1 0.550069 -1 0.5500695 -1 0.55007 -1 0.5500705 -1 0.550071 -1 0.5500715 -1 0.550072 -1 0.5500725 -1 0.550073 -1 0.5500735 -1 0.550074 -1 0.5500745 -1 0.550075 -1 0.5500755 -1 0.550076 -1 0.5500765 -1 0.550077 -1 0.5500775 -1 0.550078 -1 0.5500785 -1 0.550079 -1 0.5500795 -1 0.55008 -1 0.5500805 -1 0.550081 -1 0.5500815 -1 0.550082 -1 0.5500825 -1 0.550083 -1 0.5500835 -1 0.550084 -1 0.5500845 -1 0.550085 -1 0.5500855 -1 0.550086 -1 0.5500865 -1 0.550087 -1 0.5500875 -1 0.550088 -1 0.5500885 -1 0.550089 -1 0.5500895 -1 0.55009 -1 0.5500905 -1 0.550091 -1 0.5500915 -1 0.550092 -1 0.5500925 -1 0.550093 -1 0.5500935 -1 0.550094 -1 0.5500945 -1 0.550095 -1 0.5500955 -1 0.550096 -1 0.5500965 -1 0.550097 -1 0.5500975 -1 0.550098 -1 0.5500985 -1 0.550099 -1 0.5500995 -1 0.5501 -1 0.550102 -1 0.550104 -1 0.550106 -1 0.550108 -1 0.55011 -1 0.550112 -1 0.550114 -1 0.550116 -1 0.550118 -1 0.55012 -1 0.550122 -1 0.550124 -1 0.550126 -1 0.550128 -1 0.55013 -1 0.550132 -1 0.550134 -1 0.550136 -1 0.550138 -1 0.55014 -1 0.550142 -1 0.550144 -1 0.550146 -1 0.550148 -1 0.55015 -1 0.550152 -1 0.550154 -1 0.550156 -1 0.550158 -1 0.55016 -1 0.550162 -1 0.550164 -1 0.550166 -1 0.550168 -1 0.55017 -1 0.550172 -1 0.550174 -1 0.550176 -1 0.550178 -1 0.55018 -1 0.550182 -1 0.550184 -1 0.550186 -1 0.550188 -1 0.55019 -1 0.550192 -1 0.550194 -1 0.550196 -1 0.550198 -1 0.5502 -1 0.55022 -1 0.55024 -1 0.55026 -1 0.55028 -1 0.5503 -1 0.55032 -1 0.55034 -1 0.55036 -1 0.55038 -1 0.5504 -1 0.55042 -1 0.55044 -1 0.55046 -1 0.55048 -1 0.5505 -1 0.55052 -1 0.55054 -1 0.55056 -1 0.55058 -1 0.5506 -1 0.55062 -1 0.55064 -1 0.55066 -1 0.55068 -1 0.5507 -1 0.55072 -1 0.55074 -1 0.55076 -1 0.55078 -1 0.5508 -1 0.55082 -1 0.55084 -1 0.55086 -1 0.55088 -1 0.5509 -1 0.55092 -1 0.55094 -1 0.55096 -1 0.55098 -1 0.551 -1 0.55102 -1 0.55104 -1 0.55106 -1 0.55108 -1 0.5511 -1 0.55112 -1 0.55114 -1 0.55116 -1 0.55118 -1 0.5512 -1 0.55122 -1 0.55124 -1 0.55126 -1 0.55128 -1 0.5513 -1 0.55132 -1 0.55134 -1 0.55136 -1 0.55138 -1 0.5514 -1 0.55142 -1 0.55144 -1 0.55146 -1 0.55148 -1 0.5515 -1 0.55152 -1 0.55154 -1 0.55156 -1 0.55158 -1 0.5516 -1 0.55162 -1 0.55164 -1 0.55166 -1 0.55168 -1 0.5517 -1 0.55172 -1 0.55174 -1 0.55176 -1 0.55178 -1 0.5518 -1 0.55182 -1 0.55184 -1 0.55186 -1 0.55188 -1 0.5519 -1 0.55192 -1 0.55194 -1 0.55196 -1 0.55198 -1 0.552 -1 0.5522 -1 0.5524 -1 0.5526 -1 0.5528 -1 0.553 -1 0.5532 -1 0.5534 -1 0.5536 -1 0.5538 -1 0.554 -1 0.5542 -1 0.5544 -1 0.5546 -1 0.5548 -1 0.555 -1 0.5552 -1 0.5554 -1 0.5556 -1 0.5558 -1 0.556 -1 0.5562 -1 0.5564 -1 0.5566 -1 0.5568 -1 0.557 -1 0.5572 -1 0.5574 -1 0.5576 -1 0.5578 -1 0.558 -1 0.5582 -1 0.5584 -1 0.5586 -1 0.5588 -1 0.559 -1 0.5592 -1 0.5594 -1 0.5596 -1 0.5598 -1 0.56 -1 0.5602 -1 0.5604 -1 0.5606 -1 0.5608 -1 0.561 -1 0.5612 -1 0.5614 -1 0.5616 -1 0.5618 -1 0.562 -1 0.5622 -1 0.5624 -1 0.5626 -1 0.5628 -1 0.563 -1 0.5632 -1 0.5634 -1 0.5636 -1 0.5638 -1 0.564 -1 0.5642 -1 0.5644 -1 0.5646 -1 0.5648 -1 0.565 -1 0.5652 -1 0.5654 -1 0.5656 -1 0.5658 -1 0.566 -1 0.5662 -1 0.5664 -1 0.5666 -1 0.5668 -1 0.567 -1 0.5672 -1 0.5674 -1 0.5676 -1 0.5678 -1 0.568 -1 0.5682 -1 0.5684 -1 0.5686 -1 0.5688 -1 0.569 -1 0.5692 -1 0.5694 -1 0.5696 -1 0.5698 -1 0.57 -1 ]"
+        - "tran 10u 1.05 0 0.5m"
+        - "meas tran s1_vbat_at_rev find v(VBAT) at=0.5499"
+        - "echo HWF s1_vbat_at_rev $&s1_vbat_at_rev"
+        - "meas tran s1_gate_at_rev find v(M3_G) at=0.5499"
+        - "echo HWF s1_gate_at_rev $&s1_gate_at_rev"
+        - "meas tran s1_vin_min min v(VBAT) from=0.55 to=1.05"
+        - "echo HWF s1_vin_min $&s1_vin_min"
+        - "meas tran s1_sw_min min v(SW) from=0.55 to=1.05"
+        - "echo HWF s1_sw_min $&s1_sw_min"
+        - "meas tran s1_irev_peak_a max i(VCELL) from=0.55 to=1.05"
+        - "echo HWF s1_irev_peak_a $&s1_irev_peak_a"
+        - "meas tran s1_irev_settled_ua avg i(VCELL) from=0.95 to=1.05"
+        - "echo HWF s1_irev_settled_ua $&s1_irev_settled_ua"
+        - "meas tran s1_gate_settled find v(M3_G) at=1.05"
+        - "echo HWF s1_gate_settled $&s1_gate_settled"
+        - "altermod nmos_lowvgs_max vto=0.4"
+        - "tran 10u 1.05 0 0.5m"
+        - "meas tran s1_vin_min_vthmin min v(VBAT) from=0.55 to=1.05"
+        - "echo HWF s1_vin_min_vthmin $&s1_vin_min_vthmin"
+        - "meas tran s1_sw_min_vthmin min v(SW) from=0.55 to=1.05"
+        - "echo HWF s1_sw_min_vthmin $&s1_sw_min_vthmin"
+        - "meas tran s1_irev_peak_a_vthmin max i(VCELL) from=0.55 to=1.05"
+        - "echo HWF s1_irev_peak_a_vthmin $&s1_irev_peak_a_vthmin"
+        - "meas tran s1_irev_settled_ua_vthmin avg i(VCELL) from=0.95 to=1.05"
+        - "echo HWF s1_irev_settled_ua_vthmin $&s1_irev_settled_ua_vthmin"
+        - "meas tran s1_ta when i(VCELL)=0.1 rise=1 td=0.55"
+        - "meas tran s1_tb when i(VCELL)=0.1 fall=1 td=0.55"
+        - "let s1_t_hi_us_vthmin = s1_tb - s1_ta"
+        - "echo HWF s1_t_hi_us_vthmin $&s1_t_hi_us_vthmin"
+        - "meas tran s1_q_uc_vthmin integ i(VCELL) from=0.55 to=0.551"
+        - "echo HWF s1_q_uc_vthmin $&s1_q_uc_vthmin"
+        - "altermod nmos_lowvgs_max vto=0.7"
+        - "tran 10u 1.05 0 0.5m"
+        - "meas tran s1_vin_min_vthtyp min v(VBAT) from=0.55 to=1.05"
+        - "echo HWF s1_vin_min_vthtyp $&s1_vin_min_vthtyp"
+    - name: power_tran
+      cmd: tran 50u 4.25 0 0.5m
+      temps: [0, 50]
+      measures:
+        - {name: r3_vmin_cutoff, meas: "min v(+3V3) from=0.4 to=1.45", min: 3.0, unit: V, req: "R3,R13"}
+        - {name: r3_ipack_avg_cutoff, meas: "avg i(VCELL) from=0.4001 to=1.4", scale: -1, max: 0.65, unit: A, req: R3}
+        - {name: r3_vin_tx_cutoff, meas: "min v(VBAT) from=1.394 to=1.402", min: 0.7, unit: V, req: R3}
+        - {name: r3_vmin_lithium, meas: "min v(+3V3) from=2.0 to=3.1", min: 3.0, unit: V, req: "R3,R13"}
+        - {name: r3_vmin_alkaline, meas: "min v(+3V3) from=3.15 to=4.25", min: 3.0, unit: V, req: "R3,R13"}
+        - {name: r3_vmax, meas: "max v(+3V3) from=0 to=4.25", max: 3.6, unit: V, req: R3}
+        - {name: r3_vin_min, meas: "min v(VBAT) from=0.4 to=4.25", min: 0.7, unit: V, req: "R3,R7"}
+        - {name: r16_vcoil1_min, meas: "min v(vc1r) from=1.5005 to=1.5405", min: 2.7, unit: V, req: R16}
+        - {name: r16_vcoil2_min, meas: "min v(vc2r) from=1.5605 to=1.6005", min: 2.7, unit: V, req: R16}
+        - {name: r16_pulse1_ms, meas: "trig v(vc1r) val=2.7 td=1.45 rise=1 targ v(vc1r) val=2.7 td=1.45 fall=1", scale: 1000, min: 40, unit: ms, req: R16}
+        - {name: r16_pulse2_ms, meas: "trig v(vc2r) val=2.7 td=1.45 rise=1 targ v(vc2r) val=2.7 td=1.45 fall=1", scale: 1000, min: 40, unit: ms, req: R16}
+        - {name: r16_vrail_min, meas: "min v(+3V3) from=1.48 to=1.70", min: 3.0, unit: V, req: R16}
+        - {name: r9_droop_reset_mv, meas: "pp v(+3V3) from=1.49 to=1.65", scale: 1000, max: 100, unit: mV, req: R9}
+        - {name: r7_vcoil1_min, meas: "min v(vc1) from=1.8005 to=1.8405", min: 2.7, unit: V, req: R7}
+        - {name: r7_vcoil2_min, meas: "min v(vc2) from=1.8605 to=1.9005", min: 2.7, unit: V, req: R7}
+        - {name: r7_pulse1_ms, meas: "trig v(vc1) val=2.7 td=1.75 rise=1 targ v(vc1) val=2.7 td=1.75 fall=1", scale: 1000, min: 40, unit: ms, req: R7}
+        - {name: r7_pulse2_ms, meas: "trig v(vc2) val=2.7 td=1.75 rise=1 targ v(vc2) val=2.7 td=1.75 fall=1", scale: 1000, min: 40, unit: ms, req: R7}
+        - {name: r7_vrail_min, meas: "min v(+3V3) from=1.78 to=1.95", min: 3.0, unit: V, req: R7}
+        - {name: r9_droop_set_mv, meas: "pp v(+3V3) from=1.79 to=1.91", scale: 1000, max: 100, unit: mV, req: R9}
+        - {name: r7_hold_ua, meas: "max v(hold) from=1.70 to=1.78", scale: 1e6, max: 0.1, unit: uA, req: R7}
+        - {name: r17_vbat_err_mv, meas: "find v(vbat_err) at=0.28", scale: 1000, min: -60, max: 60, unit: mV, req: R17}
+        - {name: r17_tap_minus_vdd, meas: "max v(tapd) from=0.001 to=4.25", max: 0, unit: V, req: R17}
+        # AVDD_SW turn-on (IO2 100 ns edge, slow M2 gate) precedes every relay pulse: logic rail droop (S2)
+        - {name: r9_avdd_on_droop_mv, meas: "pp v(+3V3) from=0.0049 to=0.0065", scale: 1000, max: 100, unit: mV, req: R9}
+    - name: tx_ilim
+      # R3: the cutoff Wi-Fi wake (temperature-aware Voc) at each TPS610994 average input limit corner,
+      # 0.65 (min, default) / 0.85 (typ) / 1.10 A (max). The 1.10 A pass also sets C1 to its worst effective
+      # value, 4.7 mF x 0.8 (tolerance) x 0.95 (0 C) = 3.57 mF (R3 acceptance). Control reruns overwrite
+      # the _085 and _110 values (hwflow keeps the last echoed value).
+      cmd: tran 50u 1.45 0 0.5m
+      temps: [0, 50]
+      measures:
+        - {name: r3_vin_tx_065, meas: "min v(VBAT) from=1.394 to=1.402", min: 0.7, unit: V, req: R3}
+        - {name: r3_vrail_065, meas: "min v(+3V3) from=0.4 to=1.45", min: 3.0, unit: V, req: R3}
+        - {name: r3_vin_tx_085, meas: "min v(VBAT) from=1.394 to=1.402", min: 0.7, unit: V, req: R3}
+        - {name: r3_vrail_085, meas: "min v(+3V3) from=0.4 to=1.45", min: 3.0, unit: V, req: R3}
+        - {name: r3_vin_tx_110, meas: "min v(VBAT) from=1.394 to=1.402", min: 0.7, unit: V, req: R3}
+        - {name: r3_vrail_110, meas: "min v(+3V3) from=0.4 to=1.45", min: 3.0, unit: V, req: R3}
+      control:
+        - "alterparam tps_ilim=0.85"
+        - "reset"
+        - "tran 50u 1.45 0 0.5m"
+        - "meas tran r3_vin_tx_085 min v(VBAT) from=1.394 to=1.402"
+        - "meas tran r3_vrail_085 min v(+3V3) from=0.4 to=1.45"
+        - "echo HWF r3_vin_tx_085 $&r3_vin_tx_085"
+        - "echo HWF r3_vrail_085 $&r3_vrail_085"
+        - "alterparam tps_ilim=1.10"
+        - "reset"
+        - "alter @cc1[capacitance] = 3.57e-3"
+        - "tran 50u 1.45 0 0.5m"
+        - "meas tran r3_vin_tx_110 min v(VBAT) from=1.394 to=1.402"
+        - "meas tran r3_vrail_110 min v(+3V3) from=0.4 to=1.45"
+        - "echo HWF r3_vin_tx_110 $&r3_vin_tx_110"
+        - "echo HWF r3_vrail_110 $&r3_vrail_110"
+    - name: powerup
+      # Pack insertion into a dead board (ins_t = 1 ms: the operating point has no pack, every capacitor at
+      # 0 V). EN must stay low until +3V3 >= 3.0 V (ESP32-C3 minimum). The list run (pack in from t < 0) only
+      # sets up the plot: its "meas" strings are placeholders (find at 0.7 s, so they do not error) and every
+      # value is overwritten by the control passes below, which hold the real measurements. If a control
+      # measurement fails, its echo is empty and the row fails.
+      #   pass 1: U6 typical (VIT- 2.93 V, td 200 ms), temperature-aware cutoff pack
+      #   pass 2: U6 min corner (VIT- 2.857 V -> release 2.886 V, td 120 ms), plain 2.20 V pack (slowest rise)
+      #   pass 3: U6 max corner (VIT- 2.974 V -> release 3.003 V, td 350 ms), fresh 3.60 V lithium pack
+      cmd: tran 50u 0.8 0 0.5m
+      temps: [0, 50]
+      monte_carlo: true
+      measures:
+        - {name: pu_v3v3_at_en_typ, meas: "find v(+3V3) at=0.7", min: 3.0, unit: V, req: R3}
+        - {name: pu_t_en_typ_ms, meas: "find v(+3V3) at=0.7", scale: 1000, unit: ms}
+        - {name: pu_v3v3_at_en_min, meas: "find v(+3V3) at=0.7", min: 3.0, unit: V, req: R3}
+        - {name: pu_t_en_min_ms, meas: "find v(+3V3) at=0.7", scale: 1000, min: 120, unit: ms}
+        - {name: pu_v3v3_at_en_max, meas: "find v(+3V3) at=0.7", min: 3.0, unit: V, req: R3}
+        - {name: pu_t_en_max_ms, meas: "find v(+3V3) at=0.7", scale: 1000, unit: ms}
+        - {name: pu_vmax_lithium, meas: "find v(+3V3) at=0.7", max: 3.6, unit: V, req: R3}
+      control:
+        - "alterparam ins_t=1m"
+        - "reset"
+        - "tran 50u 0.8 0 0.5m"
+        - "meas tran pu_v3v3_at_en_typ find v(+3V3) when v(en_ok)=0.5 rise=1"
+        - "meas tran pu_t_en_typ_ms when v(en_ok)=0.5 rise=1"
+        - "echo HWF pu_v3v3_at_en_typ $&pu_v3v3_at_en_typ"
+        - "echo HWF pu_t_en_typ_ms $&pu_t_en_typ_ms"
+        - "alterparam ins_t=1m"
+        - "alterparam tps3839_vit=2.857"
+        - "alterparam tps3839_td=120m"
+        - "reset"
+        - "alter @vcoldon[dc] = 0"
+        - "tran 50u 0.8 0 0.5m"
+        - "meas tran pu_v3v3_at_en_min find v(+3V3) when v(en_ok)=0.5 rise=1"
+        - "meas tran pu_t_en_min_ms when v(en_ok)=0.5 rise=1"
+        - "echo HWF pu_v3v3_at_en_min $&pu_v3v3_at_en_min"
+        - "echo HWF pu_t_en_min_ms $&pu_t_en_min_ms"
+        - "alterparam ins_t=1m"
+        - "alterparam tps3839_vit=2.974"
+        - "alterparam tps3839_td=350m"
+        - "reset"
+        - "alter @vcoldon[dc] = 0"
+        - "alter @vpu[dc] = -1.4"
+        - "tran 50u 0.8 0 0.5m"
+        - "meas tran pu_v3v3_at_en_max find v(+3V3) when v(en_ok)=0.5 rise=1"
+        - "meas tran pu_t_en_max_ms when v(en_ok)=0.5 rise=1"
+        - "meas tran pu_vmax_lithium max v(+3V3)"
+        - "echo HWF pu_v3v3_at_en_max $&pu_v3v3_at_en_max"
+        - "echo HWF pu_t_en_max_ms $&pu_t_en_max_ms"
+        - "echo HWF pu_vmax_lithium $&pu_vmax_lithium"
+    - name: reverse_ins
+      # reversed pack (review-1 M2) inserted into a dead board at 1 ms (revsign = -1: the terminal is driven
+      # toward -Voc for the whole run; Voc = 2.20 V + cold offset, and 3.60 V lithium in the control pass).
+      # Replaces the DC sweep "reverse_dc": with the global .nodeset (rail powered) the DC solver could land on
+      # a false powered solution in 2 of 50 MC runs (-22 uA, rail 3.4 V). The transient starts from the dead
+      # board, as a real insertion does. Placeholders in the list run are overwritten by the control pass.
+      cmd: tran 50u 0.3 0 0.5m
+      measures:
+        - {name: rev_i_pack_ua, meas: "avg i(VCELL) from=0.25 to=0.3", scale: 1e6, min: -10, max: 10, unit: uA}
+        - {name: rev_vin_min, meas: "min v(VBAT) from=0 to=0.3", min: -0.3, unit: V}
+        - {name: rev_rail_max, meas: "max v(+3V3) from=0 to=0.3", max: 0.1, unit: V}
+        - {name: rev_i_pack_ua_li, meas: "avg i(VCELL) from=0.25 to=0.3", scale: 1e6, min: -10, max: 10, unit: uA}
+        - {name: rev_vin_min_li, meas: "min v(VBAT) from=0 to=0.3", min: -0.3, unit: V}
+      control:
+        - "alterparam ins_t=1m"
+        - "alterparam revsign=-1"
+        - "alterparam deadop=1"
+        - "reset"
+        - "tran 50u 0.3 0 0.5m"
+        - "meas tran rev_i_pack_ua avg i(VCELL) from=0.25 to=0.3"
+        - "meas tran rev_vin_min min v(VBAT) from=0 to=0.3"
+        - "meas tran rev_rail_max max v(+3V3) from=0 to=0.3"
+        - "echo HWF rev_i_pack_ua $&rev_i_pack_ua"
+        - "echo HWF rev_vin_min $&rev_vin_min"
+        - "echo HWF rev_rail_max $&rev_rail_max"
+        - "alter @vpu[dc] = -1.4"
+        - "tran 50u 0.3 0 0.5m"
+        - "meas tran rev_i_pack_ua_li avg i(VCELL) from=0.25 to=0.3"
+        - "meas tran rev_vin_min_li min v(VBAT) from=0 to=0.3"
+        - "echo HWF rev_i_pack_ua_li $&rev_i_pack_ua_li"
+        - "echo HWF rev_vin_min_li $&rev_vin_min_li"
+    - name: ntc_tran
+      cmd: tran 20u 0.3 0 0.2m
+      temps: [0, 50]
+      measures:
+        # calibrated worst combination (gain +/-0.5 % and drift, Rcal +/-0.1 %); 5 C point after the cal phase
+        - {name: r4_ch1_5c, meas: "find v(err1) at=0.075", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r4_ch1_20c, meas: "find v(err1) at=0.155", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r4_ch1_35c, meas: "find v(err1) at=0.215", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r4_ch2_5c, meas: "find v(err2) at=0.075", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r4_ch2_20c, meas: "find v(err2) at=0.155", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r4_ch2_35c, meas: "find v(err2) at=0.215", min: -0.5, max: 0.5, unit: C, req: R4}
+        - {name: r5_ch1_35c_cable, meas: "find v(err1) at=0.28", min: -0.5, max: 0.5, unit: C, req: "R4,R5"}
+        - {name: r5_cable_err_c, expr: "abs(r5_ch1_35c_cable - r4_ch1_35c)", max: 0.02, unit: C, req: R5}
+        # information (no limit): the same chain WITHOUT the bring-up calibration, worst gain sign
+        - {name: r4u_ch1_5c, meas: "find v(uerr1) at=0.075", unit: C}
+        - {name: r4u_ch1_20c, meas: "find v(uerr1) at=0.155", unit: C}
+        - {name: r4u_ch1_35c, meas: "find v(uerr1) at=0.215", unit: C}
+        - {name: r4u_ch2_5c, meas: "find v(uerr2) at=0.075", unit: C}
+        - {name: r4u_ch2_20c, meas: "find v(uerr2) at=0.155", unit: C}
+        - {name: r4u_ch2_35c, meas: "find v(uerr2) at=0.215", unit: C}
+        # calibration holds (information): ideal ratio at 10.01 k / 9.99 k, expected 0.1755 / 0.1753
+        - {name: r4_cal_hold_a, meas: "find v(h1a) at=0.29", unit: ""}
+        - {name: r4_cal_hold_b, meas: "find v(h1b) at=0.29", unit: ""}
+    - name: hum_47hz
+      cmd: ac lin 1 47.5 47.5
+      measures:
+        - {name: r5_hum_atten_47_db, expr: "vdb(PROBE1) - vdb(havg)", min: 20, unit: dB, req: R5}
+        - {name: r5_hum_atten_47_db_w198, expr: "vdb(PROBE1) - vdb(havga)", min: 20, unit: dB, req: R5}
+        - {name: r5_hum_atten_47_db_w202, expr: "vdb(PROBE1) - vdb(havgb)", min: 20, unit: dB, req: R5}
+    - name: hum_53hz
+      cmd: ac lin 1 52.5 52.5
+      measures:
+        - {name: r5_hum_atten_53_db, expr: "vdb(PROBE1) - vdb(havg)", min: 20, unit: dB, req: R5}
+        - {name: r5_hum_atten_53_db_w198, expr: "vdb(PROBE1) - vdb(havga)", min: 20, unit: dB, req: R5}
+        - {name: r5_hum_atten_53_db_w202, expr: "vdb(PROBE1) - vdb(havgb)", min: 20, unit: dB, req: R5}
