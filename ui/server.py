@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
-import os
 import queue
 import re
 import subprocess
@@ -25,7 +24,7 @@ from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals"))
-from harness import LIMIT_RE, _limit_wait_seconds  # noqa: E402
+from harness import LIMIT_RE, _limit_wait_seconds, designer_args, headless_env  # noqa: E402
 PROJECTS = ROOT / "projects"
 STATIC = Path(__file__).parent / "static"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
@@ -71,12 +70,10 @@ class Session:
         self.last_model = model
         sid = self.session_id
         prompt = text if sid else f"/hw-design new {self.name} . {text}"
-        cmd = ["claude", "-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose",
-               "--permission-mode", "acceptEdits"]
+        cmd = ["claude", "-p", prompt, *designer_args(model), "--output-format", "stream-json", "--verbose"]
         if sid:
             cmd += ["--resume", sid]
-        env = dict(os.environ, HWFLOW_HEADLESS="1")
-        env.pop("ANTHROPIC_API_KEY", None)
+        env = headless_env()
         self.proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                      env=env)
         threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()

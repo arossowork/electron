@@ -42,7 +42,7 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
 ## Loop discipline
 
 - In headless mode, do not end your turn between stages. Go from one stage to the next in the same turn. End your turn only when you wait for product answers, when `state.md` is `done`, or when you are blocked and wrote the reason in `state.md`.
-- After each build, read `build/REPORT.md` only. Do not read `build/status.json` unless you need a detail.
+- `hwflow build` prints `build/REPORT.md` at the end of its output. Do not read the file again after a build. Do not read `build/status.json` unless you need a detail.
 - Fix the root cause. Do not widen a measure limit to make it pass. If a limit is wrong, the requirement is wrong, and the product person decides.
 - If a stage does not converge after 6 iterations, write what you tried in `state.md`, and either ask the product person or change the architecture.
 - Delegate to subagents with a self-contained brief: the project path, the stage goal, and the files to read. A subagent returns a short result, not file dumps.
