@@ -24,9 +24,10 @@ from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals"))
-from harness import LIMIT_RE, _limit_wait_seconds, designer_args, headless_env  # noqa: E402
+from harness import LIMIT_RE, _limit_wait_seconds, _usage, designer_args, headless_env  # noqa: E402
 PROJECTS = ROOT / "projects"
 STATIC = Path(__file__).parent / "static"
+MODEL_USAGE_KEYS = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
 FILES = ["build/REPORT.md", "SUMMARY.md", "requirements.yaml", "conflicts.md", "architecture.md", "state.md",
          "notes/parts.md", "design.yaml", "build/fab/pcb.svg", "build/fab/pcb_3d_top.png", "build/fab/schematic.pdf"]
@@ -97,6 +98,7 @@ class Session:
                         self.emit({"kind": "tool", "text": f"{c['name']}: {str(desc)[:160]}"})
             elif d.get("type") == "result":
                 text = str(d.get("result", ""))
+                self._log_usage(d)
                 if d.get("is_error") and LIMIT_RE.search(text):
                     wait = _limit_wait_seconds(text)
                     self.emit({"kind": "status", "text": f"usage limit reached; the agent continues automatically "
@@ -104,12 +106,31 @@ class Session:
                     threading.Timer(wait, self._retry_after_limit).start()
                 else:
                     self.emit({"kind": "status", "text": f"agent finished ({d.get('num_turns')} turns, "
-                                                         f"{round((d.get('duration_ms') or 0) / 1000)} s)"})
+                                                         f"{round((d.get('duration_ms') or 0) / 1000)} s, "
+                                                         f"{self._tokens_text(d)})"})
         proc.wait()
         self.emit({"kind": "files", "files": self.files()})
         q = self.questions()
         if q:
             self.emit({"kind": "questions", "questions": q})
+
+    def _log_usage(self, d: dict):
+        """One line per agent turn in .usage.jsonl: tokens per model, main session and subagents together."""
+        rec = {"t": time.strftime("%Y-%m-%d %H:%M:%S"), "model": self.last_model, "turns": d.get("num_turns"),
+               "seconds": round((d.get("duration_ms") or 0) / 1000), "usage": _usage(d),
+               "by_model": {u.get("canonicalModel") or m: {k: u.get(k) or 0 for k in MODEL_USAGE_KEYS}
+                            for m, u in (d.get("modelUsage") or {}).items()}}
+        with open(self.dir / ".usage.jsonl", "a") as fh:
+            fh.write(json.dumps(rec) + "\n")
+
+    def _tokens_text(self, d: dict) -> str:
+        u = _usage(d)
+        per_model = ", ".join(f"{(v.get('canonicalModel') or m).removeprefix('claude-')} "
+                              f"{round(sum(v.get(k) or 0 for k in MODEL_USAGE_KEYS) / 1e3)}k"
+                              for m, v in (d.get("modelUsage") or {}).items())
+        return (f"tokens: {round(u['cache_read_input_tokens'] / 1e3)}k cache read, "
+                f"{round((u['cache_creation_input_tokens'] + u['input_tokens']) / 1e3)}k new in, "
+                f"{round(u['output_tokens'] / 1e3)}k out; {per_model}")
 
     def _retry_after_limit(self):
         if not self.busy():
