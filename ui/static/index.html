@@ -24,12 +24,14 @@
     <ul id="projects"></ul>
   </aside>
   <section id="chat">
+    <details id="usage" hidden><summary></summary><table><thead><tr><th>agent</th><th>runs</th><th>turns</th><th>time</th><th>tokens</th><th>model</th></tr></thead><tbody></tbody></table></details>
     <div id="log"></div>
     <form id="qform" hidden></form>
     <form id="composer">
       <textarea id="msg" rows="2" placeholder="Describe the product, answer, or give direction"></textarea>
       <div class="row">
-        <button type="submit" class="primary">Send</button>
+        <button type="submit" class="primary" id="sendbtn">Send</button>
+        <button type="button" id="interrupt" hidden title="Stop the running turn and send this message">Interrupt and send</button>
         <button type="button" id="stop">Stop</button>
         <button type="button" id="build" title="Rebuild with hwflow, no LLM">Rebuild</button>
         <span id="busy"></span>
@@ -49,6 +51,7 @@
     <div class="row"><button value="cancel" formnovalidate>Cancel</button><button class="primary" value="ok">Start</button></div>
   </form>
 </dialog>
+<script src="/md.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
