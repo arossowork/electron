@@ -3,6 +3,7 @@ name: hw-layout
 description: Places and routes the board through hwflow (simulated-annealing placer, Freerouting, KiCad DRC) and fixes layout and post-layout issues; can minimize board area. Use for stage 7 of /hw-design.
 tools: Read, Write, Edit, Bash
 model: sonnet
+maxTurns: 300
 effort: medium
 ---
 

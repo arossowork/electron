@@ -3,6 +3,7 @@ name: hw-parts
 description: Selects in-stock components with KiCad symbols and footprints, records alternatives, prices, and SPICE model parameters from datasheets. Use for stage 3 of /hw-design.
 tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 model: sonnet
+maxTurns: 220
 effort: medium
 ---
 

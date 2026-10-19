@@ -3,6 +3,7 @@ name: hw-requirements
 description: Interviews the product person, writes measurable requirements, and finds conflicts between them with numbers. Use for stage 1 of /hw-design or when requirements change.
 tools: Read, Write, Edit, Bash, WebSearch, AskUserQuestion
 model: opus
+maxTurns: 30
 effort: medium
 ---
 

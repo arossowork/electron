@@ -3,6 +3,7 @@ name: hw-reviewer
 description: Independent adversarial design review of design.yaml against datasheets and good practice, for issues that ERC, DRC and SPICE cannot catch. Use for stage 5 of /hw-design and before sign-off.
 tools: Read, Bash, WebSearch, WebFetch
 model: opus
+maxTurns: 70
 effort: high
 ---
 
