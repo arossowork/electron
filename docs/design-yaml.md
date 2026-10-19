@@ -136,6 +136,8 @@ sim:
         - {name: noise_uv, plot: noise2, expr: "onoise_total*1e6", max: 50, unit: uVrms, req: R6}
 ```
 
+Each analysis that stresses the design (a hot-plug, reverse polarity, a surge, a brown-out) carries a `realism:` note, free text that `hwflow` ignores: `realism: "who: user, one cell reversed; how often: once per battery change; timing: >= 5 s between removal and insertion; limit: Q1 Idmax 2 A DC, 8 A for 10 us (datasheet p.3)"`. If no user or fault can produce the scenario, write `realism: "stress case: <why unreachable>"`. A stress case does not block the verdict and does not justify a hardware change without a product decision.
+
 Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a connector, because the post-layout run then injects at that pad. `v(NET)` and `$(NET)` inside commands are replaced with SPICE node names. `meas` is the ngspice `meas` syntax without the analysis type and the name. `expr` is an ngspice vector expression. `scale` multiplies the result before the limits apply. `req` names the requirement IDs that the measure verifies, as a comma-separated list.
 
 ## optimize

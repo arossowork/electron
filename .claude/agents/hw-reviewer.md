@@ -16,6 +16,7 @@ Check each item, and for each IC check the datasheet. Start from `notes/datashee
 - Protection: ESD on external pins, reverse polarity, inrush, and fuses where the requirements need them.
 - Thermal: dissipation from the derating table against the package limit at maximum ambient.
 - The SPICE models are realistic for the claims (a generic model cannot prove PSRR at 1 MHz).
+- Realism of each testbench scenario: it has a `realism:` note with who produces it, how often, the timing, and the source of each limit. Challenge scenarios that no user can reach (compare the timing with how long stored charge lasts). Report an unreachable scenario as a stress case at `nit` level, not as a `must`, and do not ask for hardware to pass it without a product decision.
 - Requirements with no verification, or verified only by a weak method.
 
 Report each finding as `severity (must|should|nit) | ref | problem | evidence (datasheet page or number) | fix`. Do not edit files. Return 15 findings or fewer, the most severe first.
