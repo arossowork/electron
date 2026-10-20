@@ -89,6 +89,7 @@ def _save_status(d, key, val):
     s = _status(d)
     if isinstance(val, dict) and key in ("check", "sch", "sim", "layout", "post", "fab", "optimize"):
         val["design_hash"] = _design_hash(d)
+        val["at"] = time.time()
     s[key] = val
     s["updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
     _status_path(d).write_text(json.dumps(s, indent=2, default=str))
@@ -365,10 +366,13 @@ def _lump_check(d: Design, ex, w: Path, post: list[dict]) -> dict | None:
     if not name or not d.board.get("post_tran_lump", True) or d.board.get("post_tran_l"):
         return None
     a = next((x for x in (d.raw.get("sim") or {}).get("analyses") or [] if x["name"] == name), None)
-    lumped = next((x for x in post if x["name"] == name), None)
+    temp = (a.get("temps") or [None])[0] if a else None
+    label = name + (f" @ {temp}C" if temp is not None else "")
+    lumped = next((x for x in post if x["name"] == label), None)
     if a is None or lumped is None:
         return {"analysis": name, "error": "no such analysis"}
-    full = spice.run_analysis(d, a, w, postlayout.PostLayoutNodeMap(d, ex, lump=False), tag="_post_full")
+    full = spice.run_analysis(d, a, w, postlayout.PostLayoutNodeMap(d, ex, lump=False), temp=temp,
+                              tag="_post_full" + (f"_T{temp}" if temp is not None else ""))
     worst, rows = 0.0, []
     for r1, r2 in zip(lumped["rows"], full["rows"]):
         if r1["value"] is None or r2["value"] is None:
@@ -376,7 +380,7 @@ def _lump_check(d: Design, ex, w: Path, post: list[dict]) -> dict | None:
         rel = abs(r1["value"] - r2["value"]) / max(abs(r2["value"]), 1e-12)
         rows.append({"name": r1["name"], "lumped": r1["value"], "full": r2["value"], "rel": rel})
         worst = max(worst, rel)
-    return {"analysis": name, "status": full["status"], "seconds_full": full["seconds"],
+    return {"analysis": label, "status": full["status"], "seconds_full": full["seconds"],
             "seconds_lumped": lumped.get("seconds"), "max_rel": worst, "rows": rows}
 
 
@@ -427,8 +431,7 @@ def write_report(d: Design, history: bool = False) -> str:
         _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
     s = _status(d)
     cur = _design_hash(d)
-    stale = [k for k in ("check", "sch", "sim", "layout", "post", "fab")
-             if k in s and s[k].get("design_hash") != cur]
+    stale = _stale_stages(s, cur)
     crashed = {k: s.pop(k)["exception"] for k in ("check", "sch", "sim", "layout", "post", "fab")
                if isinstance(s.get(k), dict) and "exception" in s[k]}
     L = [f"# {d.name}: build report", f"Updated {s.get('updated', '?')}. Source: design.yaml.", ""]
@@ -604,11 +607,28 @@ def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], 
         old.unlink()
 
 
+# a stage result is also stale when a stage it reads from ran after it (post and fab read the routed board)
+STAGE_DEPS = {"post": ("layout",), "fab": ("layout", "sch")}
+
+
+def _stale_stages(s: dict, cur: str) -> list[str]:
+    out = []
+    for k in ("check", "sch", "sim", "layout", "post", "fab"):
+        v = s.get(k)
+        if not isinstance(v, dict):
+            continue
+        if v.get("design_hash") != cur or any(
+                isinstance(s.get(dep), dict) and s[dep].get("at", 0) > v.get("at", 0) for dep in STAGE_DEPS.get(k, ())):
+            out.append(k)
+    return out
+
+
 def _fresh_status(d) -> dict:
     s = _status(d)
     cur = _design_hash(d)
-    return {k: v for k, v in s.items()
-            if not (isinstance(v, dict) and "design_hash" in v and v["design_hash"] != cur)}
+    stale = set(_stale_stages(s, cur))
+    return {k: v for k, v in s.items() if k not in stale
+            and not (isinstance(v, dict) and "design_hash" in v and v["design_hash"] != cur)}
 
 
 def score(d: Design) -> dict:
@@ -767,6 +787,8 @@ def _brief(old: str, new: str) -> str:
 def _can_skip(d: Design, st: str, prev, inputs: str, a) -> bool:
     """A stage is skipped when it passed last time with the same inputs and its outputs are still there."""
     if not isinstance(prev, dict) or not prev.get("ok") or "exception" in prev or prev.get("inputs_hash") != inputs:
+        return False
+    if st in _stale_stages(_status(d), _design_hash(d)):  # e.g. post older than the board it was run on
         return False
     out = _out(d)
     need = {"sch": out / f"{d.name}.kicad_sch", "layout": out / f"{d.name}.kicad_pcb", "fab": out / "fab"}.get(st)

@@ -502,3 +502,25 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
     assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
     assert (cli._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
     assert "kept attempt 3 of 3" in cli._auto_summary(r)
+
+
+def test_post_is_stale_when_layout_ran_after_it(tmp_path):
+    """Backlog 43: a post-layout result from an older board is marked stale even if design.yaml did not change."""
+    import time
+
+    from hwflow import cli
+    proj = _copy_example(tmp_path)
+    (proj / "requirements.yaml").unlink(missing_ok=True)
+    d = Design.load(proj)
+    post = {"ok": True, "checks": [], "ir_drop": [], "deltas": [], "regressions": [],
+            "metrics": {"area_mm2": 1, "layers": 2, "track_len_mm": 1, "vias": 0}}
+    cli._save_status(d, "post", post)
+    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == []
+    time.sleep(0.01)
+    cli._save_status(d, "layout", {"ok": True, "board_mm": [50, 40], "router": "", "segments": 0, "vias": 0,
+                                   "drc_errors": 0, "drc_warnings": 0, "unrouted": 0, "drc": [],
+                                   "placement_violations": []})
+    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == ["post"]
+    text = cli.write_report(d)
+    assert "- post-layout (stale)" in text and "stale: post" in text and "post_pass_ratio" in cli.score(d)
+    assert cli.score(d)["post_pass_ratio"] is None
