@@ -60,8 +60,9 @@ def _courtyard(fp: list, layer: str) -> list[tuple[float, float]]:
     return pts
 
 
-def _rule_areas(tree: list) -> list[dict]:
-    """Every keep-out zone that forbids footprints: board level and inside footprints (stored in board coordinates)."""
+def _rule_areas(tree: list, kinds: tuple = ("footprints", "pads")) -> list[dict]:
+    """Every keep-out zone that forbids one of `kinds` (default footprints or pads): board level and inside footprints
+    (stored in board coordinates)."""
     out = []
 
     def scan(parent, owner):
@@ -69,7 +70,7 @@ def _rule_areas(tree: list) -> list[dict]:
             ko = sexpr.find(z, "keepout")
             if not ko:
                 continue
-            forbids = {k for k in ("footprints", "pads") if (sexpr.find(ko, k) or [0, 0])[1] == "not_allowed"}
+            forbids = {k for k in kinds if (sexpr.find(ko, k) or [0, 0])[1] == "not_allowed"}
             if not forbids:
                 continue
             lay = sexpr.find(z, "layers") or sexpr.find(z, "layer") or []
@@ -183,3 +184,18 @@ def merge(found: list[dict], extra: list[dict]) -> list[dict]:
     """`found` plus the `extra` violations whose footprint KiCad did not already report as not allowed."""
     seen = {tuple(map(_key, v["items"])) for v in found if v["type"] == "items_not_allowed"}
     return found + [v for v in extra if tuple(map(_key, v["items"])) not in seen]
+
+
+def placement_areas(design, libs) -> list[dict]:
+    """Rule areas of the design's footprints (the KO_* keep-out parts, stored in board coordinates) for the placer:
+    `{name, owner (ref), forbids (footprints/pads/tracks), layers, box (x0, y0, x1, y1)}`. A polygon that is not a
+    rectangle is replaced by its bounding box (a bound, never smaller). Board-level areas are not in the library, so
+    they are not seen here."""
+    out = []
+    for c in design.components.values():
+        if c.get("virtual"):
+            continue
+        for a in _rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
+            out.append({"name": a["name"], "owner": c.ref, "forbids": a["forbids"], "layers": a["layers"],
+                        "box": a["poly"].bounds})
+    return out
