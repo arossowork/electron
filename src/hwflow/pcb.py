@@ -435,7 +435,8 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     workdir = Path(workdir).resolve()  # the router runs with cwd=KRT_DIR, so relative paths would not be found
     src = workdir / f"{name}_unrouted.kicad_pcb"
     write_board(src, build_board(design, libs, parts))
-    pro = workdir / f"{name}.kicad_pro"
+    write_project(workdir, name, design)  # the rules DRC will use: net classes (.kicad_pro) and .kicad_dru
+    rule_files = [workdir / f"{name}.kicad_pro", workdir / f"{name}.kicad_dru"]
     classes = net_classes(design)
     gnds = design.ground_nets() if b["gnd_pour"] else set()
     groups: dict[float, list[str]] = {}
@@ -454,8 +455,12 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
         return p.stdout + p.stderr, p.returncode
 
     for i, (w, nets) in enumerate(sorted(groups.items(), reverse=True)):
-        if pro.exists():
-            shutil.copy(pro, cur.with_suffix(".kicad_pro"))
+        for f in rule_files:  # the router reads net-class clearances and custom rules from the input's siblings
+            if f.exists():
+                if f.with_name(cur.stem + f.suffix) != f:
+                    shutil.copy(f, f.with_name(cur.stem + f.suffix))
+            else:
+                f.with_name(cur.stem + f.suffix).unlink(missing_ok=True)
         base = [sys.executable, str(route_py), str(cur), None, "--nets", *nets, "--track-width", str(w), *common]
         if i:
             base.append("--keep-input-copper")
