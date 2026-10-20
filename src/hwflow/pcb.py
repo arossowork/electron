@@ -559,6 +559,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         if net not in gnds and (nets is None or net in nets):
             groups.setdefault(cl["width"], []).append(net)
     env = dict(os.environ, KICAD_CLI=_kicad_cli())
+    # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
+    # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
+    env.setdefault("KICAD_RIP_PREEXISTING", "0")
     common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
               "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
               "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
