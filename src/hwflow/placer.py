@@ -6,6 +6,8 @@ import math
 import random
 from dataclasses import dataclass
 
+import numpy as np
+
 from .design import Design
 
 
@@ -102,15 +104,24 @@ def _overlap(a, b) -> float:
     return w * h if w > 0 and h > 0 else 0.0
 
 
+CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
+
+
+REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
+
+
 class Placer:
     def __init__(self, design: Design, parts: dict[str, Part], width: float, height: float, seed: int = 1,
-                 weights: dict | None = None):
+                 weights: dict | None = None, keepouts: list | None = None):
         self.d, self.parts, self.W, self.H = design, parts, width, height
         self.rng = random.Random(seed)
-        self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0}
+        self.keepouts = keepouts or []  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
+        self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
+                   "congestion": 1.0}
         self.wt.update(weights or {})
         gnds = design.ground_nets()
         self.nets = []
+        self._net_rudy = []
         for net, conns in design.nets().items():
             conns = [(r, p) for r, p in conns if r in parts and p in parts[r].pads]
             if len(conns) < 2:
@@ -120,6 +131,7 @@ class Placer:
             if info.get("class") == "power":
                 w *= 1.3
             self.nets.append((w, conns))
+            self._net_rudy.append(not (net in gnds and design.board["gnd_pour"]))  # a pour needs no tracks
         # decoupling pairs: (cap ref, cap pad, ic ref, ic pad) on the shared supply net
         self.decap = []
         for p in parts.values():
@@ -132,58 +144,320 @@ class Placer:
                     for ipin, inet in ic.pins.items():
                         if inet == net and ipin in parts[ic.ref].pads:
                             self.decap.append((p.ref, cpin, ic.ref, ipin))
+        # indexes for the incremental cost
+        self.order = {r: i for i, r in enumerate(parts)}
+        self.part_nets = {r: [] for r in parts}
+        for k, (_, conns) in enumerate(self.nets):
+            for r in {r for r, _ in conns}:
+                self.part_nets[r].append(k)
+        self.part_decs = {r: [] for r in parts}
+        for k, (cr, _, ir, _) in enumerate(self.decap):
+            self.part_decs[cr].append(k)
+            self.part_decs[ir].append(k)
+        self.group_members: dict[str, list] = {}
+        for p in parts.values():
+            if p.group:
+                self.group_members.setdefault(p.group, []).append(p)
+        self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
+
+    # ---- congestion (RUDY) ------------------------------------------------------------------------------------
+
+    def _init_grid(self):
+        b = self.d.board
+        self.cell = 1.0
+        self.nx, self.ny = max(1, math.ceil(self.W / self.cell)), max(1, math.ceil(self.H / self.cell))
+        pitch = float(b["track_mm"]) + float(b["clearance_mm"])
+        # mm of wire a cell can carry: layers x cell area / pitch, derated for vias, pads and routing inefficiency
+        per_cell = max(1, int(b.get("layers", 2))) * self.cell * self.cell / pitch * CONG_UTIL
+        self.cap = np.full((self.nx, self.ny), per_cell)
+        for x0, y0, x1, y1, frac in self.keepouts:  # frac of the capacity left inside the area (0 = no tracks)
+            i0, i1 = max(0, int(x0 // self.cell)), min(self.nx, math.ceil(x1 / self.cell))
+            j0, j1 = max(0, int(y0 // self.cell)), min(self.ny, math.ceil(y1 / self.cell))
+            self.cap[i0:i1, j0:j1] *= frac
+        self.grid = np.zeros((self.nx, self.ny))
+
+    def _rudy(self, xs, ys):
+        """(i0, j0, demand array) of a net: HPWL spread uniformly over its bounding box, in mm of wire per cell."""
+        c = self.cell
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        hp = (x1 - x0) + (y1 - y0)
+        if x1 - x0 < c:
+            x0, x1 = (x0 + x1) / 2 - c / 2, (x0 + x1) / 2 + c / 2
+        if y1 - y0 < c:
+            y0, y1 = (y0 + y1) / 2 - c / 2, (y0 + y1) / 2 + c / 2
+        dens = hp / ((x1 - x0) * (y1 - y0))
+        i0 = min(self.nx - 1, max(0, int(x0 // c)))
+        i1 = min(self.nx, max(i0 + 1, math.ceil(x1 / c)))
+        j0 = min(self.ny - 1, max(0, int(y0 // c)))
+        j1 = min(self.ny, max(j0 + 1, math.ceil(y1 / c)))
+        ex, ey = np.arange(i0, i1 + 1) * c, np.arange(j0, j1 + 1) * c
+        ox = np.clip(np.minimum(ex[1:], x1) - np.maximum(ex[:-1], x0), 0, None)
+        oy = np.clip(np.minimum(ey[1:], y1) - np.maximum(ey[:-1], y0), 0, None)
+        return i0, j0, dens * np.outer(ox, oy)
+
+    def _grid_add(self, i0, j0, dem, sign):
+        sl = (slice(i0, i0 + dem.shape[0]), slice(j0, j0 + dem.shape[1]))
+        g, cp = self.grid[sl], self.cap[sl]
+        o = np.maximum(g - cp, 0).ravel()
+        before = o @ o
+        g += sign * dem
+        o = np.maximum(g - cp, 0).ravel()
+        self.t_cong += o @ o - before
+
+    def congestion(self) -> float:
+        """Sum over cells of (wire demand above capacity)^2, from scratch."""
+        grid = np.zeros((self.nx, self.ny))
+        for k, (w, conns) in enumerate(self.nets):
+            if self._net_rudy[k]:
+                xs, ys = zip(*(self.parts[r].pad(p) for r, p in conns))
+                i0, j0, dem = self._rudy(xs, ys)
+                grid[i0:i0 + dem.shape[0], j0:j0 + dem.shape[1]] += dem
+        return float(np.square(np.clip(grid - self.cap, 0, None)).sum())
+
+    def max_overflow(self) -> float:
+        """Largest per-cell wire demand above capacity (mm of wire), from scratch."""
+        self.cost()
+        return float(np.clip(self.grid - self.cap, 0, None).max())
+
+    # ---- cost -------------------------------------------------------------------------------------------------
+
+    def _net_len(self, k):
+        P = self.parts
+        xs, ys = zip(*(P[r].pad(p) for r, p in self.nets[k][1]))
+        return self.nets[k][0] * ((max(xs) - min(xs)) + (max(ys) - min(ys))), xs, ys
+
+    def _part_cost(self, r):
+        """bounds + edge terms of one part (unweighted pair: (bounds, edge))."""
+        p = self.parts[r]
+        m = self.d.board["margin_mm"]
+        x0, y0, x1, y1 = p.box()
+        bnd = max(0, m - x0) + max(0, m - y0) + max(0, x1 - self.W + m) + max(0, y1 - self.H + m)
+        edge = 0.0
+        if p.edge:
+            edge = abs({"left": x0 - m, "right": self.W - m - x1, "top": y0 - m, "bottom": self.H - m - y1}[p.edge])
+        return bnd, edge
+
+    def _decap_len(self, k):
+        cr, cp, ir, ip = self.decap[k]
+        ax, ay = self.parts[cr].pad(cp)
+        bx, by = self.parts[ir].pad(ip)
+        return math.hypot(ax - bx, ay - by)
+
+    def _group_cost(self, g):
+        grp = self.group_members[g]
+        mx = sum(p.x for p in grp) / len(grp)
+        my = sum(p.y for p in grp) / len(grp)
+        return sum(abs(p.x - mx) + abs(p.y - my) for p in grp)
+
+    def _buckets(self, r):
+        p = self.parts[r]
+        bs = [b for b in (p.side_box("front"), p.side_box("back")) if b]
+        if not bs:
+            return ()
+        B = self.bucket
+        x0, y0 = min(b[0] for b in bs), min(b[1] for b in bs)
+        x1, y1 = max(b[2] for b in bs), max(b[3] for b in bs)
+        return [(i, j) for i in range(int(x0 // B), int(x1 // B) + 1) for j in range(int(y0 // B), int(y1 // B) + 1)]
+
+    def _init_state(self):
+        """Build every cached cost term from the current positions. Totals are unweighted sums per term."""
+        P = self.parts
+        self._init_grid()
+        self.t_cong = 0.0
+        self.net_len, self.net_dem = [0.0] * len(self.nets), [None] * len(self.nets)
+        for k in range(len(self.nets)):
+            self.net_len[k], xs, ys = self._net_len(k)
+            if self._net_rudy[k]:
+                self.net_dem[k] = self._rudy(xs, ys)
+                self._grid_add(*self.net_dem[k], 1)
+        self.t_wire = sum(self.net_len)
+        self.part_bnd, self.part_edge = {}, {}
+        for r in P:
+            self.part_bnd[r], self.part_edge[r] = self._part_cost(r)
+        self.t_bnd, self.t_edge = sum(self.part_bnd.values()), sum(self.part_edge.values())
+        self.dec_len = [self._decap_len(k) for k in range(len(self.decap))]
+        self.t_dec = sum(self.dec_len)
+        self.grp_cost = {g: self._group_cost(g) for g in self.group_members}
+        self.t_grp = sum(self.grp_cost.values())
+        self.pairs, self.adj, self.t_ov = {}, {r: set() for r in P}, 0.0
+        self.buckets, self.part_buckets = {}, {}
+        for r in P:
+            self.part_buckets[r] = self._buckets(r)
+            for bk in self.part_buckets[r]:
+                self.buckets.setdefault(bk, set()).add(r)
+        for r in P:
+            self._pair_scan(r, None)
+
+    def _pair_scan(self, r, log, skip=()):
+        for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
+            if q == r or q in skip:
+                continue
+            v = _side_overlap(self.parts[r], self.parts[q])
+            if v > 0:
+                key = (r, q) if self.order[r] < self.order[q] else (q, r)
+                if key not in self.pairs:
+                    self.pairs[key] = v
+                    self.adj[r].add(key)
+                    self.adj[q].add(key)
+                    self.t_ov += v
+                    if log is not None:
+                        log.append(("pair_add", key, v))
+
+    def _update(self, moved):
+        """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
+        log = []
+        saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp)
+        nets, decs, groups = set(), set(), set()
+        for r in moved:
+            nets.update(self.part_nets[r])
+            decs.update(self.part_decs[r])
+            if self.parts[r].group:
+                groups.add(self.parts[r].group)
+        for k in nets:
+            old_len, old_dem = self.net_len[k], self.net_dem[k]
+            self.net_len[k], xs, ys = self._net_len(k)
+            self.t_wire += self.net_len[k] - old_len
+            if self._net_rudy[k]:
+                new_dem = self._rudy(xs, ys)
+                if new_dem[:2] != old_dem[:2] or not np.array_equal(new_dem[2], old_dem[2]):
+                    self._grid_add(*old_dem, -1)
+                    self._grid_add(*new_dem, 1)
+                    self.net_dem[k] = new_dem
+            log.append(("net", k, old_len, old_dem))
+        for r in moved:
+            ob, oe = self.part_bnd[r], self.part_edge[r]
+            self.part_bnd[r], self.part_edge[r] = self._part_cost(r)
+            self.t_bnd += self.part_bnd[r] - ob
+            self.t_edge += self.part_edge[r] - oe
+            log.append(("part", r, ob, oe))
+        for k in decs:
+            old = self.dec_len[k]
+            self.dec_len[k] = self._decap_len(k)
+            self.t_dec += self.dec_len[k] - old
+            log.append(("dec", k, old))
+        for g in groups:
+            old = self.grp_cost[g]
+            self.grp_cost[g] = self._group_cost(g)
+            self.t_grp += self.grp_cost[g] - old
+            log.append(("grp", g, old))
+        for r in moved:  # drop the old pairs and buckets, then rescan
+            for key in list(self.adj[r]):
+                v = self.pairs.pop(key)
+                self.adj[key[0]].discard(key)
+                self.adj[key[1]].discard(key)
+                self.t_ov -= v
+                log.append(("pair_del", key, v))
+            old_b = self.part_buckets[r]
+            for bk in old_b:
+                self.buckets[bk].discard(r)
+            self.part_buckets[r] = self._buckets(r)
+            for bk in self.part_buckets[r]:
+                self.buckets.setdefault(bk, set()).add(r)
+            log.append(("bucket", r, old_b))
+        done = set()
+        for r in moved:
+            done.add(r)
+            self._pair_scan(r, log, skip=done)
+        self._log, self._saved = log, saved
+        return self._total()
+
+    def _undo(self):
+        for e in reversed(self._log):
+            kind = e[0]
+            if kind == "net":
+                _, k, ol, od = e
+                if self._net_rudy[k] and self.net_dem[k] is not od:
+                    self._grid_add(*self.net_dem[k], -1)
+                    self._grid_add(*od, 1)
+                self.net_len[k], self.net_dem[k] = ol, od
+            elif kind == "part":
+                self.part_bnd[e[1]], self.part_edge[e[1]] = e[2], e[3]
+            elif kind == "dec":
+                self.dec_len[e[1]] = e[2]
+            elif kind == "grp":
+                self.grp_cost[e[1]] = e[2]
+            elif kind == "pair_add":
+                key = e[1]
+                del self.pairs[key]
+                self.adj[key[0]].discard(key)
+                self.adj[key[1]].discard(key)
+            elif kind == "pair_del":
+                key = e[1]
+                self.pairs[key] = e[2]
+                self.adj[key[0]].add(key)
+                self.adj[key[1]].add(key)
+            elif kind == "bucket":
+                r = e[1]
+                for bk in self.part_buckets[r]:
+                    self.buckets[bk].discard(r)
+                self.part_buckets[r] = e[2]
+                for bk in e[2]:
+                    self.buckets.setdefault(bk, set()).add(r)
+        (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp) = self._saved
+
+    def _total(self) -> float:
+        w = self.wt
+        return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
+                + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
+                + w["congestion"] * self.t_cong)
 
     def cost(self) -> float:
+        """Cost of the current placement; rebuilds the incremental state from scratch."""
+        self._init_state()
+        return self._total()
+
+    def cost_full(self) -> float:
+        """Reference cost, recomputed without the grid, caches or incremental updates (O(n^2) overlap loop)."""
         P = self.parts
         c = 0.0
         for w, conns in self.nets:
             xs, ys = zip(*(P[r].pad(p) for r, p in conns))
             c += self.wt["wire"] * w * ((max(xs) - min(xs)) + (max(ys) - min(ys)))
-        boxes = {r: p.box() for r, p in P.items()}
         refs = list(P)
         for i, a in enumerate(refs):
-            ba = boxes[a]
             for b in refs[i + 1:]:
                 c += self.wt["overlap"] * _side_overlap(P[a], P[b])
-            m = self.d.board["margin_mm"]
-            x0, y0, x1, y1 = ba
-            c += self.wt["bounds"] * (max(0, m - x0) + max(0, m - y0) + max(0, x1 - self.W + m) + max(0, y1 - self.H + m))
-            e = P[a].edge
-            if e:
-                dist = {"left": x0 - m, "right": self.W - m - x1, "top": y0 - m, "bottom": self.H - m - y1}[e]
-                c += self.wt["edge"] * abs(dist)
+            bnd, edge = self._part_cost(a)
+            c += self.wt["bounds"] * bnd + self.wt["edge"] * edge
         for cr, cp, ir, ip in self.decap:
             ax, ay = P[cr].pad(cp)
             bx, by = P[ir].pad(ip)
             c += self.wt["decouple"] * math.hypot(ax - bx, ay - by)
-        groups: dict[str, list] = {}
-        for p in P.values():
-            if p.group:
-                groups.setdefault(p.group, []).append(p)
-        for g in groups.values():
+        for g in self.group_members.values():
             mx = sum(p.x for p in g) / len(g)
             my = sum(p.y for p in g) / len(g)
             c += self.wt["group"] * sum(abs(p.x - mx) + abs(p.y - my) for p in g)
-        return c
+        return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
-        P = self.parts
-        movable = [p for p in P.values() if not p.fixed]
+        movable = [p for p in self.parts.values() if not p.fixed]
         for p in movable:
             p.x = self.rng.uniform(self.W * 0.2, self.W * 0.8)
             p.y = self.rng.uniform(self.H * 0.2, self.H * 0.8)
         if not movable:
             return self.cost()
+        self._anneal(movable, iters, max(self.W, self.H) * 2, 0.01)
+        return self._finish(movable)
+
+    def refine(self, iters: int, t0: float = 0.6) -> float:
+        """Short low-temperature anneal from the current placement (weights as the last run left them)."""
+        movable = [p for p in self.parts.values() if not p.fixed]
+        if not movable or iters <= 0:
+            return self.cost()
+        self._anneal(movable, iters, t0, 0.01, ramp=False)
+        return self._finish(movable)
+
+    def _anneal(self, movable, iters, t0, t1, ramp=True):
         cur = self.cost()
         best, best_state = cur, self._state()
-        t0, t1 = max(self.W, self.H) * 2, 0.01
         base_ov, base_b = self.wt["overlap"], self.wt["bounds"]
         for i in range(iters):
             t = t0 * (t1 / t0) ** (i / iters)
             if i % 500 == 0:
-                ramp = 1 + 20 * i / iters
-                self.wt["overlap"], self.wt["bounds"] = base_ov * ramp, base_b * ramp
-                cur = self.cost()
+                if ramp:
+                    f = 1 + 20 * i / iters
+                    self.wt["overlap"], self.wt["bounds"] = base_ov * f, base_b * f
+                cur = self.cost()  # also resets the incremental drift
                 best, best_state = cur, self._state()  # weights changed: costs are not comparable
             p = self.rng.choice(movable)
             old = (p.x, p.y, p.r)
@@ -199,7 +473,7 @@ class Placer:
                 other = self.rng.choice(movable)
                 oold = (other.x, other.y)
                 p.x, p.y, other.x, other.y = other.x, other.y, p.x, p.y
-            new = self.cost()
+            new = self._update([p.ref, other.ref] if other else [p.ref])
             if new <= cur or self.rng.random() < math.exp(-(new - cur) / max(t, 1e-9)):
                 cur = new
                 if cur < best:
@@ -208,7 +482,10 @@ class Placer:
                 p.x, p.y, p.r = old
                 if other:
                     other.x, other.y = oold
+                self._undo()
         self._restore(best_state)
+
+    def _finish(self, movable):
         self.legalize()
         for p in movable:  # snap to 0.05 mm grid
             p.x, p.y = round(p.x / 0.05) * 0.05, round(p.y / 0.05) * 0.05
@@ -221,8 +498,26 @@ class Placer:
         m = self.d.board["margin_mm"]
         for _ in range(rounds):
             moved = False
+            boxes = {p.ref: {s: p.side_box(s) for s in ("front", "back")} for p in P}
+            grid: dict = {}
+            B = self.bucket
+            for i, a in enumerate(P):  # spatial hash, boxes grown by 1 mm for the moves made during the round
+                for bx in boxes[a.ref].values():
+                    if bx:
+                        for gi in range(int((bx[0] - 1) // B), int((bx[2] + 1) // B) + 1):
+                            for gj in range(int((bx[1] - 1) // B), int((bx[3] + 1) // B) + 1):
+                                grid.setdefault((gi, gj), set()).add(i)
             for i, a in enumerate(P):
-                for b in P[i + 1:]:
+                near = set()
+                for bx in boxes[a.ref].values():
+                    if bx:
+                        for gi in range(int((bx[0] - 1) // B), int((bx[2] + 1) // B) + 1):
+                            for gj in range(int((bx[1] - 1) // B), int((bx[3] + 1) // B) + 1):
+                                near |= grid.get((gi, gj), set())
+                for j in sorted(near):
+                    if j <= i:
+                        continue
+                    b = P[j]
                     pair = None
                     for side in ("front", "back"):  # only courtyards on the same side collide
                         ba, bb = a.side_box(side), b.side_box(side)
@@ -295,10 +590,14 @@ class Placer:
             self.parts[r].x, self.parts[r].y, self.parts[r].r = x, y, a
 
 
-def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1):
-    """Best of several seeds (seed0 .. seed0 + seeds - 1). Returns (parts, cost, violations)."""
+def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1,
+          refine: float = REFINE):
+    """Best of several seeds (seed0 .. seed0 + seeds - 1), then a short low-temperature refine pass of
+    `refine * iters` moves on the best one (taken out of the seeds' budget). Returns (parts, cost, violations)."""
     b = design.board
     best = None
+    extra = int(iters * refine)  # the refine pass is paid for by shortening the seeds, so total moves stay the same
+    iters -= extra // seeds
     for seed in range(seed0, seed0 + seeds):
         parts = build_parts(design, libs)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
@@ -306,5 +605,14 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         v = pl.violations()
         key = (len(v), cost)
         if best is None or key < best[0]:
-            best = (key, parts, cost, v)
-    return best[1], best[2], best[3]
+            best = (key, parts, cost, v, pl)
+    key, parts, cost, v, pl = best
+    if refine > 0 and any(not p.fixed for p in parts.values()):
+        before = pl._state()
+        cost2 = pl.refine(extra)
+        v2 = pl.violations()
+        if (len(v2), cost2) <= key:
+            cost, v = cost2, v2
+        else:
+            pl._restore(before)
+    return parts, cost, v
