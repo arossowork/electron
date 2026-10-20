@@ -90,7 +90,7 @@ A tool helps a headless run only if it works without a person: a CLI flag, an en
 
 ## hwflow flags
 
-Engine behaviour added for the backlog (group 1 and 2). Each one cuts report noise or a rebuild that an agent turn would otherwise pay for.
+Engine behaviour added for the backlog (groups 1 to 3). Each one cuts report noise or a rebuild that an agent turn would otherwise pay for.
 
 | flag or behaviour | what it does | backlog |
 |---|---|---|
@@ -109,5 +109,6 @@ Engine behaviour added for the backlog (group 1 and 2). Each one cuts report noi
 | design hash | parsed `design.yaml` (comments, whitespace and the in-memory layout resize do not count) and `requirements.yaml` without prose fields | 58 |
 | evidence check | `trace` and the report list requirement evidence files that are missing or empty (`req_evidence_missing` in the score; verdict unchanged) | 54 |
 | `package:`, `package_pads`, `package_pitch_mm` | `check` compares the datasheet package with the footprint (name: warning; pad count, pitch: error); a `Q` with a MOS model or an `M` with a BJT model is a check error | 56, 17 |
+| `board.isolation` | net group (glob or class), clearance and creepage, `req`: generated KiCad rules in the layout-stage DRC; the layout line gives the measured distance with its limit and the violations; `trace` verifies the `req` from it. Replaces the hand-run `kicad-cli` check with a `.kicad_dru` in `.scratch/` | 38 |
 | distances | post-layout reports the clearance of each `board.drc_rules` net group to every other net and the tightest decap paths, with limits | 39 |
 | lumping scope | the report states what lumped post-layout transients check; nets with `class: fast`, `edge_ns` or `post_full` keep the full network; `board.post_lump_check: <analysis>` compares lumped and full on one analysis | 26, 47 |

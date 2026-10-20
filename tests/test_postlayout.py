@@ -104,3 +104,55 @@ def test_fast_nets_keep_their_full_network_in_transients():
     assert [sorted(ln.split()[1:3]) for ln in lines if ln.startswith("Rpx")] == [["x_r1_1", "x_u1_2"]]
     info.clear()
     assert not any(ln.startswith(("Rfx", "Cfx")) for ln in nm.extra({"cmd": "tran 1n 1u"}))
+
+
+def test_isolation_rules_come_from_design_data(tmp_path):
+    """Backlog 38: board.isolation (net group, clearance, creepage, req) becomes KiCad DRC rules in the .kicad_dru,
+    the measured distance of the group is reported next to its limit, and the requirement is verified by trace."""
+    import json
+
+    import yaml
+
+    from hwflow.cli import _design_hash, isolation_distances, trace
+    from hwflow.design import Design
+    from hwflow.pcb import isolation_groups, write_project
+    raw = {"project": "iso", "board": {"layers": 2, "isolation": [
+        {"name": "mains", "class": "mains", "nets": "HV_*", "clearance_mm": 4.0, "creepage_mm": 6.0, "req": "R8"}]},
+        "nets": {"AC_L": {"class": "mains"}, "AC_N": {"class": "mains"}},
+        "components": {"J1": {"pins": {"1": "AC_L", "2": "AC_N", "3": "HV_X"}}, "U1": {"pins": {"1": "VCC"}}}}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    (g,) = isolation_groups(d)
+    assert g["members"] == ["AC_L", "AC_N", "HV_X"]
+    cond = "(A.NetName == 'AC_L' || A.NetName == 'AC_N' || A.NetName == 'HV_X') && B.NetName != 'AC_L' && " \
+           "B.NetName != 'AC_N' && B.NetName != 'HV_X'"
+    assert g["kicad"] == [f'(rule "mains clearance" (constraint clearance (min 4mm)) (condition "{cond}"))',
+                          f'(rule "mains creepage" (constraint creepage (min 6mm)) (condition "{cond}"))']
+    write_project(tmp_path, "iso", d)
+    assert (tmp_path / "iso.kicad_dru").read_text() == "(version 1)\n" + "\n".join(g["kicad"]) + "\n"
+    # measured distance: AC_N track 2.25 mm from VCC (limit 4.0), one DRC creepage error on the group
+    segs = [{"net": "AC_L", "layer": "F.Cu", "x1": 0, "y1": 0, "x2": 10, "y2": 0, "w": 1.0},
+            {"net": "AC_N", "layer": "F.Cu", "x1": 0, "y1": 2, "x2": 10, "y2": 2, "w": 1.0},
+            {"net": "VCC", "layer": "F.Cu", "x1": 0, "y1": 5, "x2": 10, "y2": 5, "w": 0.5}]
+    ex = SimpleNamespace(d=d, path=None, board={"segments": segs, "vias": [], "footprints": {}})
+    import hwflow.postlayout as pl
+    orig, pl.Extraction = pl.Extraction, lambda design, board: ex
+    try:
+        drc = [{"sev": "error", "type": "creepage", "msg": "Creepage violation", "items": ["Track [AC_N] on F.Cu"]},
+               {"sev": "error", "type": "clearance", "msg": "x", "items": ["Track [VCC] on F.Cu", "Pad [SIG]"]}]
+        (r,) = isolation_distances(d, tmp_path / "iso.kicad_pcb", drc)
+    finally:
+        pl.Extraction = orig
+    assert r["mm"] == pytest.approx(2.25) and r["limit"] == 4.0 and r["creepage_mm"] == 6.0 and r["req"] == "R8"
+    assert (r["drc_clearance"], r["drc_creepage"], r["ok"]) == (0, 1, False)
+    (tmp_path / "requirements.yaml").write_text(yaml.safe_dump({"requirements": [
+        {"id": "R8", "text": "mains isolation", "verification": "layout"}]}))
+    (tmp_path / "build").mkdir()
+    (tmp_path / "build" / "status.json").write_text(json.dumps({"layout": {
+        "ok": False, "isolation": [r], "design_hash": _design_hash(d)}}))
+    (row,) = trace(d)["rows"]
+    assert row["status"] == "FAIL" and row["measures"] == ["isolation mains 2.25/4.0 mm:FAIL"]
+    # a design without board.isolation writes the same .kicad_dru as before (only board.drc_rules)
+    d.raw["board"] = {"drc_rules": ["(rule \"x\" (constraint clearance (min 1mm)))"]}
+    write_project(tmp_path, "iso", d)
+    assert (tmp_path / "iso.kicad_dru").read_text() == "(version 1)\n(rule \"x\" (constraint clearance (min 1mm)))\n"

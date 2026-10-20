@@ -237,14 +237,39 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     if not pre:
         tracks, vias, summary, _ = _route_once(d, libs, parts, passes)
     pcb.write_board(board, pcb.build_board(d, libs, parts, tracks, vias))
+    pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for this DRC
     drc = kicad.drc(board, refill=True, parity=True)
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
-    return {"ok": not errs and not viol, "board_mm": [d.board["width_mm"], d.board["height_mm"]],
+    iso = isolation_distances(d, board, drc)
+    return {"ok": not errs and not viol and all(r["ok"] for r in iso), "isolation": iso,
+            "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40],
             "seconds": round(time.time() - t0, 1)}
+
+
+def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
+    """Measured minimum copper distance of every isolation group (board.isolation, clearance rules in
+    board.drc_rules) to all other nets, next to its limit, and the DRC clearance and creepage violations that
+    touch the group (backlog 38, 39). A row with `req` verifies that requirement in `trace`."""
+    import fnmatch
+    import re
+    if not postlayout.clearance_rules(d):
+        return []
+    rows = postlayout.group_clearances(d, postlayout.Extraction(d, board))
+    rules = {r["rule"]: r for r in postlayout.clearance_rules(d)}
+    for row in rows:
+        r = rules.get(row["rule"], {})
+        inside = (lambda n: n in r["members"]) if r.get("members") else (
+            lambda n: fnmatch.fnmatchcase(n, row["pattern"]))  # noqa: E731
+        hits = [x for x in drc if x["sev"] == "error" and x["type"] in ("clearance", "creepage")
+                and any(inside(n) for it in x["items"] for n in re.findall(r"\[([^\]]+)\]", str(it)))]
+        row["drc_clearance"] = sum(x["type"] == "clearance" for x in hits)
+        row["drc_creepage"] = sum(x["type"] == "creepage" for x in hits)
+        row["ok"] = row["ok"] and not hits
+    return rows
 
 
 def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, seeds: int = 4, iters: int = 30000,
@@ -511,6 +536,12 @@ def write_report(d: Design, history: bool = False) -> str:
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
+        for r in c.get("isolation") or []:
+            creep = (f"; creepage {r['creepage_mm']} mm by DRC: {r['drc_creepage']} violations"
+                     if r.get("creepage_mm") is not None else "")
+            L.append(f"  - isolation {r['rule']}{' (' + r['req'] + ')' if r.get('req') else ''}: copper to other nets "
+                     f"{r['mm']:.2f} mm in plan (limit {r['limit']} mm; DRC clearance {r['drc_clearance']} violations"
+                     f"{creep}; closest {r['between']}){'' if r['ok'] else ' FAIL'}")
         for v in c["placement_violations"][:5]:
             L.append(f"  - placement: {v}")
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
@@ -526,7 +557,7 @@ def write_report(d: Design, history: bool = False) -> str:
             if x["sev"] != "info":
                 L.append(f"  - {x['sev']} {x['code']}: {x['msg']}")
         dist = c.get("distances") or {}
-        for r in dist.get("clearance", []):
+        for r in [] if (s.get("layout") or {}).get("isolation") else dist.get("clearance", []):
             L.append(f"  - clearance {r['pattern']} to other nets: {r['mm']:.2f} mm (limit {r['limit']} mm, "
                      f"{r['rule']}; closest {r['between']}){'' if r['ok'] else ' FAIL'}")
         if dist.get("decap"):
@@ -672,6 +703,10 @@ def trace(d: Design) -> dict:
             for rid in str(r.get("req") or "").replace(" ", "").split(","):
                 if rid:
                     results.setdefault(rid, []).append((r["name"], r["pass"]))
+    for r in (s.get("layout") or {}).get("isolation") or []:   # board.isolation with req: (backlog 38)
+        for rid in str(r.get("req") or "").replace(" ", "").split(","):
+            if rid:
+                results.setdefault(rid, []).append((f"isolation {r['rule']} {r['mm']:.2f}/{r['limit']} mm", r["ok"]))
     post = {x["name"]: x["pass_post"] for x in (s.get("post") or {}).get("deltas", [])}
     rows = []
     for q in reqs:

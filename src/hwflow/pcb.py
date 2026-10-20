@@ -235,6 +235,35 @@ def write_board(path: Path, tree: list):
     path.write_text(sexpr.dumps(tree) + "\n")
 
 
+def isolation_groups(design: Design) -> list[dict]:
+    """board.isolation (backlog 38): each entry names a net group (`nets:` glob or list of globs, and/or `class:`)
+    that keeps `clearance_mm` and `creepage_mm` to every other net. Returns the member nets and the KiCad custom
+    rules (clearance, creepage) written to the .kicad_dru, so DRC enforces them in the layout stage."""
+    import fnmatch
+    out = []
+    nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
+    for i, g in enumerate(design.board.get("isolation") or []):
+        pats = g.get("nets") or []
+        pats = [pats] if isinstance(pats, str) else list(pats)
+        cls = g.get("class")
+        members = [n for n in nets if any(fnmatch.fnmatchcase(n, p) for p in pats)
+                   or (cls and design.net_info(n).get("class") == cls)]
+        name = str(g.get("name") or g.get("req") or f"isolation{i + 1}")
+        row = {"name": name, "members": members, "req": g.get("req"), "kicad": [],
+               "clearance_mm": g.get("clearance_mm"), "creepage_mm": g.get("creepage_mm")}
+        out.append(row)
+        if not members:
+            continue
+        a = " || ".join(f"A.NetName == '{n}'" for n in members)
+        cond = (f"({a})" if len(members) > 1 else a) + " && " + " && ".join(f"B.NetName != '{n}'" for n in members)
+        for kind in ("clearance", "creepage"):
+            v = g.get(f"{kind}_mm")
+            if v is not None:
+                row["kicad"].append(f'(rule "{name} {kind}" (constraint {kind} (min {float(v):g}mm)) '
+                                    f'(condition "{cond}"))')
+    return out
+
+
 def write_project(dirpath: Path, name: str, design: Design):
     """Minimal .kicad_pro with net classes so DRC uses our widths and clearances."""
     import json
@@ -266,9 +295,10 @@ def write_project(dirpath: Path, name: str, design: Design):
         "sheets": [], "text_variables": {},
     }
     (dirpath / f"{name}.kicad_pro").write_text(json.dumps(pro, indent=2))
-    # board.drc_rules: KiCad custom rules (class-pair clearance, creepage), applied by DRC from <name>.kicad_dru
+    # board.drc_rules: KiCad custom rules (class-pair clearance, creepage), applied by DRC from <name>.kicad_dru;
+    # board.isolation: the same rules generated from data (backlog 38)
     dru = dirpath / f"{name}.kicad_dru"
-    rules = b.get("drc_rules") or []
+    rules = list(b.get("drc_rules") or []) + [r for g in isolation_groups(design) for r in g["kicad"]]
     if rules:
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
     elif dru.exists():
@@ -544,7 +574,8 @@ def read_board(path: Path) -> dict:
                 w, h = h, w
             pads.append({"number": str(p[1]), "x": fx + dx + off[0], "y": fy + dy + off[1], "w": w, "h": h,
                          "net": netname(n),
-                         "kind": str(p[2]), "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
+                         "kind": str(p[2]), "shape": "custom" if hull else str(p[3]) if len(p) > 3 else "rect",
+                         "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}
     segs = []
     for s in sexpr.find_all(t, "segment"):

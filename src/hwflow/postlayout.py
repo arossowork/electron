@@ -586,6 +586,13 @@ def clearance_rules(design: Design) -> list[dict]:
         if c and m and m.group(1) == m.group(2):
             n = _RULE_NAME.search(r)
             out.append({"rule": n.group(1) if n else r[:40], "pattern": m.group(1), "min_mm": float(c.group(1))})
+    from .pcb import isolation_groups
+    if hasattr(design, "nets"):
+        for g in isolation_groups(design):
+            lim = g["clearance_mm"] if g["clearance_mm"] is not None else g["creepage_mm"]
+            if g["members"] and lim is not None:
+                out.append({"rule": g["name"], "pattern": ",".join(g["members"]), "members": set(g["members"]),
+                            "min_mm": float(lim), "creepage_mm": g["creepage_mm"], "req": g["req"]})
     return out
 
 
@@ -606,6 +613,12 @@ def _copper_items(ex: Extraction) -> list[tuple]:
                 continue
             cu = layers if "*.Cu" in p["layers"] else [l for l in p["layers"] if l.endswith(".Cu")]
             x0, x1, y0, y1 = p["x"] - p["w"] / 2, p["x"] + p["w"] / 2, p["y"] - p["h"] / 2, p["y"] + p["h"] / 2
+            if p.get("shape") in ("circle", "oval"):   # round pads as a disc or capsule, not their bounding box
+                r = min(p["w"], p["h"]) / 2
+                ax, ay = max(p["w"] / 2 - r, 0), max(p["h"] / 2 - r, 0)
+                for L in cu:
+                    items.append((p["net"], L, p["x"] - ax, p["y"] - ay, p["x"] + ax, p["y"] + ay, r))
+                continue
             for L in cu:
                 for e in ((x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)):
                     items.append((p["net"], L, *e, 0.0))
@@ -649,9 +662,11 @@ def group_clearances(design: Design, ex: Extraction) -> list[dict]:
     out = []
     for r in rules:
         best = None
+        mem = r.get("members")
+        inside = (lambda n: n in mem) if mem else (lambda n: fnmatch.fnmatchcase(n, r["pattern"]))  # noqa: E731
         for layer in sorted({it[1] for it in items}):
-            A = [it for it in items if it[1] == layer and fnmatch.fnmatchcase(it[0], r["pattern"])]
-            B = [it for it in items if it[1] == layer and not fnmatch.fnmatchcase(it[0], r["pattern"])]
+            A = [it for it in items if it[1] == layer and inside(it[0])]
+            B = [it for it in items if it[1] == layer and not inside(it[0])]
             if not A or not B:
                 continue
             Ag, Bg = np.array([it[2:6] for it in A]), np.array([it[2:6] for it in B])
@@ -663,7 +678,8 @@ def group_clearances(design: Design, ex: Extraction) -> list[dict]:
                     best = (float(d[k]), A[i + k[0]][0], B[k[1]][0], layer)
         if best:
             out.append({"rule": r["rule"], "pattern": r["pattern"], "limit": r["min_mm"], "mm": round(max(best[0], 0), 3),
-                        "between": f"{best[1]} / {best[2]} on {best[3]}", "ok": best[0] >= r["min_mm"] - 1e-6})
+                        "between": f"{best[1]} / {best[2]} on {best[3]}", "ok": best[0] >= r["min_mm"] - 1e-6,
+                        **({"creepage_mm": r["creepage_mm"], "req": r["req"]} if mem else {})})
     return out
 
 
