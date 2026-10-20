@@ -52,6 +52,25 @@ What blocks the rest:
 | L12 post-layout terms in the placer | 477133f | one fixture per term in `tests/test_placer.py` | no placer time change (1.4 s / 3000 moves); post-layout warnings not yet measured on a routed hard design |
 | L14 keep-out check | 694aaf7, 194c57a | `tests/test_keepout.py` | on by default (user decision): thermostat now reports BT1 and U2 |
 
+## L13 scale
+
+`repair` skips a board with more than `MAX_ERRORS` (40, `HWFLOW_REPAIR_MAX_ERRORS`) errors and stops after `BUDGET_S`
+(120 s, `HWFLOW_REPAIR_BUDGET_S`), so a hopeless attempt hands its time to the next attempt instead of spending
+500 s in repair (synth60). The router stays the limit on dense 2-layer boards (see above).
+
+## Final gate (second goal)
+
+Baseline copy, full `hwflow build --auto`, then a `--reuse --force` rebuild, keep-out strict on (default):
+- SPICE 163/163 pre-layout, 21/21 requirements, 0 unrouted, boards identical after UUID normalization.
+- Layout FAIL only on the two `items_not_allowed` (BT1, U2) that L14 now reports (accepted by the user).
+- Post-layout `reverse_tran @ 0C` crashed ngspice (`free(): invalid next size`, exit -6) in both runs. This is not a
+  design or extraction regression: the post netlist differs from the 7d5bb7e one only in one parasitic
+  (2.055 vs 2.077 mOhm). ngspice-42 corrupts its heap on this netlist (three `tran` runs with `alter`/`altermod` in
+  one `.control` block; the pre-layout netlist never crashes), and whether glibc aborts depends on the heap layout,
+  which the length of the file argument shifts: the same file crashes as `r.cir` (name lengths 1 to 19, 40, 100) and
+  runs as `reverse_tran_post_T0.cir` (lengths 20, 24, 30, 80). The old retry reused the same path and crashed the same
+  way. `run_ngspice` now retries under names of other lengths and marks the result flaky.
+
 ## Regression gate (first goal)
 
 Commit `7d5bb7e`, two `hwflow build <copy> --auto` of the baseline from scratch (108 s and 124 s each, full build

@@ -268,14 +268,23 @@ def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
     cir = workdir / f"{name}.cir"
     cir.write_text(netlist)
 
-    def once():
-        p = subprocess.run([NGSPICE, "-b", str(cir)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+    def once(path):
+        p = subprocess.run([NGSPICE, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
         return p.stdout + "\n" + p.stderr, p.returncode
 
-    out, rc = once()
+    out, rc = once(cir)
     if retry and crashed(rc, out):
         first = next((ln.strip() for ln in out.splitlines() if CRASH_RE.search(ln)), f"exit {rc}")
-        out2, rc = once()
+        # ngspice-42 corrupts its heap on some netlists with several analyses in one .control block; whether glibc
+        # aborts depends on the heap layout, which the length of the file argument shifts (same netlist: crashes as
+        # r.cir, runs as reverse_tran_post_T0.cir). The retry runs copies under names of other lengths, relative to cwd.
+        for pad in (5, 11, 23, 41):
+            alt = workdir / f"{name}.{'r' * pad}.cir"
+            alt.write_text(netlist)
+            out2, rc = once(alt.name)
+            alt.unlink(missing_ok=True)
+            if not crashed(rc, out2):
+                break
         out = f"{FLAKY_MARK} ({first[:120]}, exit {rc}); retried once (flaky)\n" + out2
     (workdir / f"{name}.log").write_text(out)
     return out, rc
