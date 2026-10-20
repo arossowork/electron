@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Build the image here, import it into the VPS's k3s, apply the manifests and the nginx route.
-# Usage: docker/k8s/deploy.sh [ssh-host]   (default $VPS_HOST, e.g. root@<server> exported in ~/.zshrc)
+# Usage: docker/k8s/deploy.sh [ssh-host]   (default: VPS_HOST=root@<server> in docker/.env, which git ignores)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-HOST="${1:-${VPS_HOST:?pass the ssh host or set VPS_HOST}}"
+[ -f docker/.env ] && VPS_HOST="${VPS_HOST:-$(sed -n 's/^VPS_HOST=//p' docker/.env)}"
+HOST="${1:-${VPS_HOST:?pass the ssh host or set VPS_HOST in docker/.env}}"
 TAG="$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ':!projects' || echo -dirty)"
 docker build -f docker/Dockerfile -t "hwflow:$TAG" .
 echo "uploading hwflow:$TAG"

@@ -60,8 +60,9 @@ Each `claude` session adds about 0.3 to 0.5 GB.
 `docker/k8s/` deploys the same image to a single-node k3s (the Hetzner VPS) behind the host nginx and ngrok:
 
 ```
+echo 'VPS_HOST=root@<vps>' >> docker/.env                     # once: the ssh target (git ignores docker/.env)
 ssh root@<vps> kubectl apply -f - < docker/k8s/cluster.yaml   # once: priority classes
-docker/k8s/deploy.sh [root@<vps>]                              # build here, import into k3s, apply, nginx route
+docker/k8s/deploy.sh                                           # build here, import into k3s, apply, nginx route
 ```
 
 - `hwflow.yaml`: namespace `hwflow`, volumes for projects, eval runs, the Claude login and the cache, and a
