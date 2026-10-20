@@ -1,10 +1,10 @@
 """Local web UI for the /hw-design agent.
 
-Runs on 127.0.0.1 only. Each chat message starts `claude -p ... --resume <session>` with
+Runs on 127.0.0.1 by default (--host 0.0.0.0 in a container). Each chat message starts `claude -p ... --resume <session>` with
 stream-json output, so the agent uses the logged-in Claude subscription. Events stream to the
 browser over Server-Sent Events.
 
-  uv run python ui/server.py [--port 8765]
+  uv run python ui/server.py [--port 8765] [--host 127.0.0.1]
 """
 
 from __future__ import annotations
@@ -516,9 +516,11 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 inside a container; the UI has no login, so publish "
+                    "the port on the host's loopback only")
     a = ap.parse_args()
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
-    print(f"hwflow UI on http://127.0.0.1:{a.port}")
+    srv = ThreadingHTTPServer((a.host, a.port), Handler)
+    print(f"hwflow UI on http://{a.host}:{a.port}")
     srv.serve_forever()
 
 
