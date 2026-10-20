@@ -1,0 +1,11 @@
+.git
+.venv
+**/__pycache__
+**/.pytest_cache
+**/build
+tools
+projects
+evals/runs
+.claude/worktrees
+*.kicad_prl
+fp-info-cache

@@ -9,3 +9,4 @@ evals/runs/
 fp-info-cache
 tools/KiCadRoutingTools/
 .claude/worktrees/
+docker/.env

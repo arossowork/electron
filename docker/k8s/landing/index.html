@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apps</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #ffffff; --text: #14161a; --muted: #5b6270; --border: #dde1e7; --accent: #2f6fde; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e1116; --card: #171b22; --text: #e8eaee; --muted: #9aa3b2; --border: #2a303b; --accent: #6b9dff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; place-items: center; padding: 16px; }
+  main { width: 100%; max-width: 560px; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 16px; }
+  a.app { display: flex; align-items: center; gap: 16px; padding: 16px; margin-bottom: 12px; text-decoration: none;
+          color: inherit; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  a.app:hover, a.app:focus-visible { border-color: var(--accent); outline: none; }
+  .icon { font-size: 28px; width: 44px; text-align: center; }
+  .name { font-weight: 600; }
+  .desc { color: var(--muted); font-size: 0.9rem; }
+  .lock { margin-left: auto; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Apps</h1>
+  <a class="app" href="/singing/">
+    <span class="icon" aria-hidden="true">🎤</span>
+    <span><span class="name">Karaoke Coach</span><br><span class="desc">Singing practice with live pitch feedback</span></span>
+    <span class="lock">account</span>
+  </a>
+  <a class="app" href="/hwflow/">
+    <span class="icon" aria-hidden="true">🔌</span>
+    <span><span class="name">hwflow</span><br><span class="desc">Electronics design agent</span></span>
+    <span class="lock">admin login</span>
+  </a>
+</main>
+</body>
+</html>
