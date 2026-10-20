@@ -47,6 +47,8 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | drc_rules | [] | KiCad custom rules, one `(rule ...)` string each, written to `<project>.kicad_dru` and applied by DRC. Use for class-pair clearance and creepage, e.g. mains to SELV |
 | isolation | [] | net groups that keep a distance to every other net, as data (backlog 38): `{name, nets: <glob or list>, class: <net class>, clearance_mm, creepage_mm, req}`. hwflow writes one KiCad clearance and one creepage rule per group into the `.kicad_dru` (next to `drc_rules`), runs them in the layout-stage DRC, reports the measured copper distance in plan with the limit and the DRC violations, and a group with `req: R8` verifies that requirement in `trace`. Example: `isolation: [{name: mains-SELV, class: mains, clearance_mm: 4.0, creepage_mm: 6.0, req: R8}]`. The plan distance does not see a stacked second board (see docs/design-note-stack-keepouts-boards.md) |
 | si_pdn_z_ohm | 1.0 | signal-integrity screen: the largest impedance of a decap loop at the knee frequency 0.35/t_r of its IC (see `edge_ns` under nets) |
+| thermal_clearance_mm | 5 | placer: parts that dissipate more than 50 mW (from `build/status.json` derating, when a build has run) keep this distance from temperature-sensing parts |
+| antenna_clearance_mm | 10 | placer: antenna parts keep this distance from relays (`K*` refs, `Relay*` symbols) and from the pads of `isolation` / mains groups |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
 Route cache: the layout stage stores the routed and repaired copper in `build/routecache/<key>.json`; the key hashes the unrouted board (placement, footprints, nets, outline), the rules files, the `board:` settings, the router version and the repair code. The same key skips the router and the repair (the full DRC still runs), so `layout --reuse` and a repeated build give the same copper. Delete `build/routecache/` to force a new route. `layout --auto` runs its attempts in parallel (`--workers N`, default cpu count - 1) and stops when the remaining errors are on parts with `fixed: true`.
@@ -90,6 +92,7 @@ components:
     voltage_rating_v: 16                    # capacitors: derating check (50% by default)
     power_rating_w: 0.1                     # resistors: default from package size
     thermal_vias: {pad: "2", count: 6}     # via grid inside a thermal pad, to the opposite-layer pour
+    role: temp_sensor                       # optional: temp_sensor | antenna | none. Placement roles; inferred from the symbol (Sensor_Temperature:*, Device:Thermistor*; RF_Module:*, footprint with Antenna) when absent, none turns the inference off
     theta_ja: 250                           # junction temperature estimate
     tj_max_c: 125
     spice: {...}                            # how to simulate it, see below

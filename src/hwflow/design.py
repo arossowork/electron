@@ -248,6 +248,8 @@ def check(design: Design, libs=None) -> list[dict]:
                 parse_value(c.get("value"))
             except ValueError:
                 add("error", "bad-value", f"{c.ref} value {c.get('value')!r} is not numeric")
+        if c.get("role") not in (None, "temp_sensor", "antenna", "none"):
+            add("error", "bad-role", f"{c.ref} role {c.get('role')!r} is not temp_sensor, antenna or none")
         if not c.pins:
             add("error", "no-pins", f"{c.ref} has no pin-to-net map")
         from .spice import element_mismatch

@@ -144,7 +144,7 @@ class Placer:
         self.rng = random.Random(seed)
         self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
         self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
-                   "congestion": 1.0, "keepout": 400.0, "isolation": 400.0}
+                   "congestion": 1.0, "keepout": 400.0, "isolation": 400.0, "separation": 4.0, "thermal": 4.0, "antenna": 4.0}
         self.wt.update(weights or {})
         gnds = design.ground_nets()
         self.nets = []
@@ -159,18 +159,23 @@ class Placer:
                 w *= 1.3
             self.nets.append((w, conns))
             self._net_rudy.append(not (net in gnds and design.board["gnd_pour"]))  # a pour needs no tracks
-        # decoupling pairs: (cap ref, cap pad, ic ref, ic pad) on the shared supply net
+        # decoupling pairs: (cap ref, cap pad, ic ref, ic pad, cap ground pad, ic ground pads) on the shared supply
+        # net; the loop is the supply distance plus the distance from the cap's ground pad to the nearest IC ground pad
         self.decap = []
         for p in parts.values():
             if p.decouples and p.decouples in parts:
                 cap = design.components[p.ref]
                 ic = design.components[p.decouples]
+                cg = next((c for c, n in cap.pins.items() if n in gnds and c in p.pads), None)
+                ig = [i for i, n in ic.pins.items() if n in gnds and i in parts[ic.ref].pads]
+                first = True
                 for cpin, net in cap.pins.items():
                     if net in gnds:
                         continue
                     for ipin, inet in ic.pins.items():
                         if inet == net and ipin in parts[ic.ref].pads:
-                            self.decap.append((p.ref, cpin, ic.ref, ipin))
+                            self.decap.append((p.ref, cpin, ic.ref, ipin, cg if first and ig else None, ig))
+                            first = False
         # indexes for the incremental cost
         self.order = {r: i for i, r in enumerate(parts)}
         self.part_nets = {r: [] for r in parts}
@@ -178,7 +183,7 @@ class Placer:
             for r in {r for r, _ in conns}:
                 self.part_nets[r].append(k)
         self.part_decs = {r: [] for r in parts}
-        for k, (cr, _, ir, _) in enumerate(self.decap):
+        for k, (cr, _, ir, *_) in enumerate(self.decap):
             self.part_decs[cr].append(k)
             self.part_decs[ir].append(k)
         self.group_members: dict[str, list] = {}
@@ -187,6 +192,100 @@ class Placer:
                 self.group_members.setdefault(p.group, []).append(p)
         self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
         self._init_rules(getattr(parts, "areas", ()))
+        self._init_seps()
+
+    # ---- separation terms (L12): aggressor/sensitive, heat/sensor, antenna/relay+mains --------------------------
+
+    SEP_MM = 3.0       # aggressor pad to sensitive pad
+    HOT_W = 0.05       # a part above this dissipation is a heat source
+
+    def _roles(self):
+        """ref -> 'temp_sensor' | 'antenna' | None. `role` wins; `role: none` switches the inference off."""
+        out = {}
+        for r in self.parts:
+            c = self.d.components[r]
+            role = c.get("role")
+            if role in ("temp_sensor", "antenna"):
+                out[r] = role
+            elif role == "none":
+                continue
+            else:
+                sym, fp = str(c.get("symbol") or ""), str(c.get("footprint") or "")
+                if sym.startswith("Sensor_Temperature:") or sym.startswith("Device:Thermistor"):
+                    out[r] = "temp_sensor"
+                elif sym.startswith("RF_Module:") or "antenna" in fp.lower():
+                    out[r] = "antenna"
+        return out
+
+    def _hot_parts(self):
+        """Refs that dissipate above HOT_W, from the derating table of build/status.json (none when no sim ran)."""
+        import json
+        try:
+            st = json.loads((self.d.dir / "build" / "status.json").read_text())
+            rows = (st.get("sim") or {}).get("derating") or []
+            return {x["ref"] for x in rows if abs(x.get("p_w") or 0) > self.HOT_W and x["ref"] in self.parts}
+        except Exception:  # noqa: BLE001 - no build yet: the term is skipped
+            return set()
+
+    def _init_seps(self):
+        """self.seps: (ref a, pads a or None, ref b, pads b or None, need mm, weight key). With pads the distance is
+        the smallest pad to pad distance, else the gap between the two courtyards."""
+        d, P = self.d, self.parts
+        self.seps = []
+        nets = d.nets()
+        agg, vic = {}, {}
+        for n, conns in nets.items():
+            info = d.net_info(n)
+            for r, p in conns:
+                if r not in P or p not in P[r].pads:
+                    continue
+                if info.get("class") in ("clock", "switching", "high_speed"):
+                    agg.setdefault(r, []).append(p)
+                if info.get("sensitive"):
+                    vic.setdefault(r, []).append(p)
+        gn = d.ground_nets()
+        shared = {r: {n for n, conns in nets.items() if n not in gn and any(x == r for x, _ in conns)} for r in set(agg) | set(vic)}
+        for a, pa in agg.items():
+            for b, pb in vic.items():
+                if a != b and not (shared[a] & shared[b]):  # parts wired to each other are meant to sit together
+                    self.seps.append((a, pa, b, pb, self.SEP_MM, "separation"))
+        roles = self._roles()
+        sensors = [r for r, v in roles.items() if v == "temp_sensor"]
+        antennas = [r for r, v in roles.items() if v == "antenna"]
+        tc = float(d.board.get("thermal_clearance_mm", 5))
+        for h in self._hot_parts():
+            for s_ in sensors:
+                if h != s_:
+                    self.seps.append((h, None, s_, None, tc, "thermal"))
+        if antennas:
+            from . import pcb
+            mains = {n for g in pcb.isolation_needs(d) for n in g["members"]}
+            noisy = {r for r, c in d.components.items() if r in P and (
+                (c.kind == "K" and r[:1] == "K") or str(c.get("symbol") or "").split(":")[-1].startswith("Relay")
+                or str(c.get("symbol") or "").startswith("Relay"))}
+            noisy |= {r for n in mains for r, p in nets.get(n, []) if r in P}
+            ac = float(d.board.get("antenna_clearance_mm", 10))
+            for a in antennas:
+                for b in sorted(noisy):
+                    if a != b:
+                        self.seps.append((a, None, b, None, ac, "antenna"))
+        self.part_seps = {r: [] for r in P}
+        for k, e in enumerate(self.seps):
+            self.part_seps[e[0]].append(k)
+            self.part_seps[e[2]].append(k)
+
+    def _sep_val(self, k):
+        """Weighted shortfall (mm) of separation k below its distance."""
+        a, pa, b, pb, need, key = self.seps[k]
+        P = self.parts
+        if pa is not None:
+            pts_a = [P[a].pad(n) for n in pa]
+            pts_b = [P[b].pad(n) for n in pb]
+            gap = min(math.hypot(x0 - x1, y0 - y1) for x0, y0 in pts_a for x1, y1 in pts_b)
+        else:
+            A, B = P[a].box(), P[b].box()
+            gap = math.hypot(max(0.0, A[0] - B[2], B[0] - A[2]), max(0.0, A[1] - B[3], B[1] - A[3]))
+        return self.wt[key] * max(0.0, need - gap)
 
     def _init_rules(self, areas):
         """Keep-out areas (courtyards and pads forbidden, tracks removed from the congestion capacity) and the pad
@@ -368,10 +467,16 @@ class Placer:
                                 log.append(("iso_add", key, v))
 
     def _decap_len(self, k):
-        cr, cp, ir, ip = self.decap[k]
-        ax, ay = self.parts[cr].pad(cp)
-        bx, by = self.parts[ir].pad(ip)
-        return math.hypot(ax - bx, ay - by)
+        """Supply distance plus, for the first pair of a cap, the ground return distance."""
+        cr, cp, ir, ip, cg, ig = self.decap[k]
+        P = self.parts
+        ax, ay = P[cr].pad(cp)
+        bx, by = P[ir].pad(ip)
+        L = math.hypot(ax - bx, ay - by)
+        if cg is not None:
+            gx, gy = P[cr].pad(cg)
+            L += min(math.hypot(gx - x, gy - y) for x, y in (P[ir].pad(n) for n in ig))
+        return L
 
     def _group_cost(self, g):
         grp = self.group_members[g]
@@ -407,6 +512,8 @@ class Placer:
         self.t_bnd, self.t_edge = sum(self.part_bnd.values()), sum(self.part_edge.values())
         self.dec_len = [self._decap_len(k) for k in range(len(self.decap))]
         self.t_dec = sum(self.dec_len)
+        self.sep_val = [self._sep_val(k) for k in range(len(self.seps))]
+        self.t_sep = sum(self.sep_val)
         self.grp_cost = {g: self._group_cost(g) for g in self.group_members}
         self.t_grp = sum(self.grp_cost.values())
         self.part_ko = {r: self._ko_cost(r) for r in P}
@@ -442,11 +549,12 @@ class Placer:
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
         saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-                 self.t_iso)
-        nets, decs, groups = set(), set(), set()
+                 self.t_iso, self.t_sep)
+        nets, decs, groups, seps = set(), set(), set(), set()
         for r in moved:
             nets.update(self.part_nets[r])
             decs.update(self.part_decs[r])
+            seps.update(self.part_seps[r])
             if self.parts[r].group:
                 groups.add(self.parts[r].group)
         for k in nets:
@@ -476,6 +584,11 @@ class Placer:
             self.dec_len[k] = self._decap_len(k)
             self.t_dec += self.dec_len[k] - old
             log.append(("dec", k, old))
+        for k in seps:
+            old = self.sep_val[k]
+            self.sep_val[k] = self._sep_val(k)
+            self.t_sep += self.sep_val[k] - old
+            log.append(("sep", k, old))
         for g in groups:
             old = self.grp_cost[g]
             self.grp_cost[g] = self._group_cost(g)
@@ -537,6 +650,8 @@ class Placer:
                 self.iso_adj[key[1][0]].add(key)
             elif kind == "dec":
                 self.dec_len[e[1]] = e[2]
+            elif kind == "sep":
+                self.sep_val[e[1]] = e[2]
             elif kind == "grp":
                 self.grp_cost[e[1]] = e[2]
             elif kind == "pair_add":
@@ -557,13 +672,14 @@ class Placer:
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
         (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-         self.t_iso) = self._saved
+         self.t_iso, self.t_sep) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
-                + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso)
+                + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso
+                + self.t_sep)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -583,10 +699,10 @@ class Placer:
                 c += self.wt["overlap"] * _side_overlap(P[a], P[b])
             bnd, edge = self._part_cost(a)
             c += self.wt["bounds"] * bnd + self.wt["edge"] * edge
-        for cr, cp, ir, ip in self.decap:
-            ax, ay = P[cr].pad(cp)
-            bx, by = P[ir].pad(ip)
-            c += self.wt["decouple"] * math.hypot(ax - bx, ay - by)
+        for k in range(len(self.decap)):
+            c += self.wt["decouple"] * self._decap_len(k)
+        for k in range(len(self.seps)):
+            c += self._sep_val(k)
         for g in self.group_members.values():
             mx = sum(p.x for p in g) / len(g)
             my = sum(p.y for p in g) / len(g)

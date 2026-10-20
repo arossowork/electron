@@ -418,6 +418,14 @@ def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
 _AUTO: dict = {}  # what the attempts of layout_auto need; set before the workers start (fork copies it)
 
 
+def _post_warnings(d: Design, w: Path) -> int:
+    """Number of post-layout layout-check warnings on the board in `w`; 0 when the board cannot be read."""
+    try:
+        return sum(x["sev"] == "warn" for x in postlayout.layout_checks(d, postlayout.Extraction(d, w / f"{d.name}.kicad_pcb")))
+    except Exception:  # noqa: BLE001 - a ranking hint, never a failure
+        return 0
+
+
 def _auto_attempt(k: int) -> dict:
     """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/. Runs in a worker process,
     so the design it mutates (board size) is that worker's own copy."""
@@ -446,6 +454,7 @@ def _auto_attempt(k: int) -> dict:
                          workdir=w)
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
+    r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
     how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
@@ -536,7 +545,8 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
             continue
         log.append(res["line"])
         r = res["r"]
-        key = (not r["ok"], r["drc_errors"] + r["unrouted"], len(r["placement_violations"]), r["vias"], k)
+        key = (not r["ok"], r["drc_errors"] + r["unrouted"], r.get("post_warnings", 0),
+               len(r["placement_violations"]), r["vias"], k)
         if best is None or key < best[0]:
             best = (key, k + 1, r)
         for suf in (".kicad_pcb", ".json"):
