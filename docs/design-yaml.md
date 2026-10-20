@@ -15,6 +15,7 @@ sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
 libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
+approval: {cost_pct: 5, size_mm: 0.5}   # optional tolerances of the approval check (see below)
 ```
 
 ## libraries
@@ -166,3 +167,20 @@ optimize:
 ```
 
 Every measure with limits stays a hard constraint. `margin` (default 0.1) keeps each measure that fraction of its limit span away from the limits, so the optimum is not on the edge. Objectives are normalized to the starting design and summed with the weights. A choice is a patch that is merged into the component.
+
+## approval
+
+Layers, board size and BOM cost are product decisions (backlog 44). `hwflow approve <proj> [--note "round 3 q1"]` records them as accepted by the product person in `build/approved.json` (layers, width and height from design.yaml, BOM cost, date, design hash, note). From then on `hwflow check` (and the check stage of `build`) compares the design with that baseline:
+
+| change | flagged when |
+|---|---|
+| layers | any change of `board.layers` |
+| size | `board.width_mm` or `board.height_mm` moves more than `approval.size_mm` (default 0.5 mm), either way |
+| cost | the BOM cost rises more than `approval.cost_pct` (default 5 %) |
+
+A flagged change is an **error** (the build stops at check) unless the product person knows about it, then it is a **warning**:
+
+- a line `change: layers` (or `size`, `cost`) in `conflicts.md`, with the numbers, or
+- a question in `inbox/questions*.json` with `"change": "layers"`; the warning says whether `inbox/answers.md` already holds the answer of that round.
+
+After the answer, run `hwflow approve <proj>` so the new state becomes the baseline and the warning goes. Without `build/approved.json` check only prints an info line. `build/approved.json` is written by hwflow only; the design agents run `approve` only after an answered question.
