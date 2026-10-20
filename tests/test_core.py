@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import pytest
 
@@ -447,3 +448,24 @@ def test_monte_carlo_runs_once_per_design(tmp_path, capsys):
     assert "Monte Carlo 4 runs reused" in capsys.readouterr().out
     main(["sim", str(proj), "--mc", "5"])
     assert "reused" not in capsys.readouterr().out
+
+
+def test_router_retries_a_class_in_another_net_order(tmp_path):
+    """Backlog 40: a width class that leaves a net unrouted is routed again in another order; the best is kept."""
+    import json
+    from hwflow.pcb import route_class
+    calls = []
+
+    def run(args):
+        calls.append(args)
+        out = Path(args[args.index("--nets") - 1])
+        out.write_text("board")
+        failed = 1 if len(calls) < 3 else 0
+        return f"JSON_SUMMARY_MIN:{json.dumps({'failed': failed})}\n", 0
+
+    best, tried, _ = route_class(["py", "route.py", "in.kicad_pcb", None, "--nets", "A", "B"], tmp_path / "x_krt0", 3, run)
+    assert len(calls) == 3 and best[2] == 0 and best[0].name == "x_krt0_r2.kicad_pcb"
+    assert calls[1][-2:] == ["--ordering", "inside_out"] and tried[0] == ("default order", "1 unrouted")
+    calls.clear()
+    best, tried, _ = route_class(["py", "r", "in", None, "--nets", "A"], tmp_path / "y", 0, run)
+    assert len(calls) == 1 and best[2] == 1                      # router_retries: 0 keeps one attempt

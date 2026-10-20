@@ -416,30 +416,71 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
               "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
               "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
-    cur, log, last = src, [], {}
+    cur, log, last, retried = src, [], {}, []
+    retries = int(b.get("router_retries", 3))
+
+    def run(args):
+        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
+        return p.stdout + p.stderr, p.returncode
+
     for i, (w, nets) in enumerate(sorted(groups.items(), reverse=True)):
-        out = workdir / f"{name}_krt{i}.kicad_pcb"
         if pro.exists():
             shutil.copy(pro, cur.with_suffix(".kicad_pro"))
-        cmd = [sys.executable, str(route_py), str(cur), str(out), "--nets", *nets, "--track-width", str(w), *common]
+        base = [sys.executable, str(route_py), str(cur), None, "--nets", *nets, "--track-width", str(w), *common]
         if i:
-            cmd.append("--keep-input-copper")
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
-        log.append(p.stdout + p.stderr)
-        for ln in (p.stdout + p.stderr).splitlines():
-            if ln.startswith("JSON_SUMMARY_MIN:"):
-                last[w] = _json.loads(ln.split(":", 1)[1])
-        if not out.exists():
+            base.append("--keep-input-copper")
+        best, tried, logs = route_class(base, workdir / f"{name}_krt{i}", retries, run)
+        log += logs
+        if best is None:
             (workdir / "krt.log").write_text("\n".join(log))
-            raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm (exit {p.returncode}); see krt.log")
-        cur = out
+            raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm; see krt.log")
+        cur, last[w] = best[0], best[1]
+        if len(tried) > 1:
+            retried.append(f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried))
     (workdir / "krt.log").write_text("\n".join(log))
     routed = read_board(cur)
     tracks = [dict(s) for s in routed["segments"] if s["net"]]
     vias = [dict(v) for v in routed["vias"] if v["net"]]
-    unrouted = sum(int(v.get("failed", 0)) + int(v.get("multipoint_deficit", 0)) + len(v.get("open_single") or [])
-                   for v in last.values())
-    return tracks, vias, f"{unrouted} unrouted, krt {len(groups)} pass(es)", unrouted
+    unrouted = sum(krt_unrouted(v) for v in last.values())
+    extra = f"; retried in another net order ({'; '.join(retried)})" if retried else ""
+    return tracks, vias, f"{unrouted} unrouted, krt {len(groups)} pass(es){extra}", unrouted
+
+
+# net orders tried, in turn, when a width class leaves nets unrouted (backlog 40)
+KRT_VARIANTS = [[], ["--ordering", "inside_out"], ["--mps-reverse-rounds"], ["--direction", "backward"],
+                ["--ordering", "original"]]
+
+
+def krt_unrouted(summary: dict) -> int:
+    return int(summary.get("failed", 0)) + int(summary.get("multipoint_deficit", 0)) + len(summary.get("open_single") or [])
+
+
+def route_class(base: list, stem: Path, retries: int, run) -> tuple:
+    """Route one width class; while nets stay unrouted, retry in another net order (up to `retries` times).
+    Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
+    import json as _json
+    best, tried, logs = None, [], []
+    for j, extra in enumerate(KRT_VARIANTS[:1 + max(retries, 0)]):
+        out = stem.with_name(stem.name + (f"_r{j}" if j else "") + ".kicad_pcb")
+        args = [str(out) if a is None else a for a in base] + extra  # None marks the output board
+        out.unlink(missing_ok=True)
+        text, rc = run(args)
+        logs.append(text)
+        summ = {}
+        for ln in text.splitlines():
+            if ln.startswith("JSON_SUMMARY_MIN:"):
+                summ = _json.loads(ln.split(":", 1)[1])
+        label = " ".join(extra) or "default order"
+        if not out.exists():
+            tried.append((label, f"failed (exit {rc})"))
+            continue
+        n = krt_unrouted(summ)
+        tried.append((label, f"{n} unrouted"))
+        if best is None or n < best[2]:
+            best = (out, summ, n)
+        if n == 0:
+            break
+    return best, tried, logs
 
 
 def import_ses(ses: Path, design: Design) -> tuple[list, list]:
