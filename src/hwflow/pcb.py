@@ -142,6 +142,13 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
                 pass
             mp = str(item[1]).replace("${KICAD9_3DMODEL_DIR}", "${KICAD10_3DMODEL_DIR}")
             item[1] = Q(mp)
+        elif head == "zone":
+            # .kicad_mod zones are in footprint coordinates, .kicad_pcb zones in board coordinates
+            item = copy.deepcopy(item)
+            for poly in (x for x in item if isinstance(x, list) and x and x[0] == "polygon"):
+                for xy in (p for p in sexpr.find(poly, "pts")[1:] if isinstance(p, list) and p[0] == "xy"):
+                    dx, dy = rot(float(xy[1]), float(xy[2]), part.r)
+                    xy[1], xy[2] = round(part.x + dx, 4), round(part.y + dy, 4)
         elif head not in ("pad", "property", "fp_text"):
             item = copy.deepcopy(item)
         _quote_tokens(item)

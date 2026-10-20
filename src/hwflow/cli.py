@@ -325,25 +325,27 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pj = out / "placement.json"
     t0 = time.time()
     weights = (d.raw.get("placement") or {}).get("weights")
+    declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
     pre = None
     if d.board.get("optimize_area") and not reuse:
         pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out)
     if pre:
         _, _, parts, cost, viol, tracks, vias, summary = pre
-    elif reuse and pj.exists():
+    elif reuse and pj.exists() and _saved_board(pj) in (None, declared):
         _apply_layout_size(d)
         parts = placer.build_parts(d, libs)
         saved = json.loads(pj.read_text())
         for r, p in parts.items():
-            if r in saved:
+            if r in saved and not p.fixed:  # a fixed part keeps the position the design gives it now
                 p.x, p.y, p.r = saved[r]
         pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
         pl.legalize()
         viol, cost = pl.violations(), pl.cost()
     else:
         parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
-    pj.write_text(json.dumps({r: [p.x, p.y, p.r] for r, p in parts.items()}, indent=1))
+    pj.write_text(json.dumps({"__design_board__": list(declared), **{r: [p.x, p.y, p.r] for r, p in parts.items()}},
+                             indent=1))
     name = d.name
     board = out / f"{name}.kicad_pcb"
 
@@ -597,6 +599,15 @@ def _auto_summary(r: dict) -> str:
     return (f"[layout --auto] {'OK' if r['ok'] else 'FAIL'}: kept attempt {a.get('kept')} of {len(a.get('attempts', []))} "
             f"in {r['seconds']} s{' (' + a['stopped'] + ')' if a.get('stopped') else ''}; board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors / {r['drc_warnings']} warnings, {r['vias']} vias, {r['segments']} segments")
+
+
+def _saved_board(pj: Path):
+    """The board size the design declared when `placement.json` was written (None in files written before it was
+    stored). `--reuse` ignores a placement made for another declared size."""
+    try:
+        return json.loads(pj.read_text()).get("__design_board__")
+    except (OSError, ValueError):
+        return None
 
 
 def _apply_layout_size(d: Design):

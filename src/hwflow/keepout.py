@@ -188,7 +188,7 @@ def merge(found: list[dict], extra: list[dict]) -> list[dict]:
 
 
 def placement_areas(design, libs) -> list[dict]:
-    """Rule areas of the design's footprints (the KO_* keep-out parts, stored in board coordinates) for the placer:
+    """Rule areas of the design's placed footprints (moved from footprint to board coordinates) for the placer:
     `{name, owner (ref), forbids (footprints/pads/tracks), layers, box (x0, y0, x1, y1)}`. A polygon that is not a
     rectangle is replaced by its bounding box (a bound, never smaller). Board-level areas are not in the library, so
     they are not seen here."""
@@ -196,13 +196,19 @@ def placement_areas(design, libs) -> list[dict]:
     for c in design.components.values():
         if c.get("virtual"):
             continue
+        pl = c.get("placement") or {}
         for a in _rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
+            # library zones are in footprint coordinates (pcb.py writes them moved to the part); only a part with a
+            # set position gives a fixed area for the placer
+            if "x" not in pl or "y" not in pl:
+                continue
+            pts = [rot(x, y, float(pl.get("rot", 0))) for x, y in a["poly"].exterior.coords]
+            xs, ys = [float(pl["x"]) + x for x, _ in pts], [float(pl["y"]) + y for _, y in pts]
             out.append({"name": a["name"], "owner": c.ref, "forbids": a["forbids"], "layers": a["layers"],
-                        "box": a["poly"].bounds})
+                        "box": (min(xs), min(ys), max(xs), max(ys))})
         cut = _courtyard(libs.footprint_tree(c.get("footprint")), "Edge.Cuts")  # a cutout (panel slot) of a fixed part
         pl = c.get("placement") or {}
         if cut and "x" in pl and "y" in pl:
-            from .placer import rot
             pts = [rot(x, y, float(pl.get("rot", 0))) for x, y in cut]
             xs, ys = [float(pl["x"]) + x for x, _ in pts], [float(pl["y"]) + y for _, y in pts]
             out.append({"name": f"{c.ref} cutout", "owner": c.ref, "forbids": {"footprints"},

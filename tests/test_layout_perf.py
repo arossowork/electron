@@ -4,6 +4,8 @@ import concurrent.futures as cf
 import json
 import time
 
+import pytest
+
 from hwflow import cli, kicad, pcb, repair
 from hwflow.design import Design
 from hwflow.libs import Libs
@@ -147,6 +149,24 @@ def test_early_stop_on_fixed_parts(tmp_path, monkeypatch):
     assert started == [0, 1, 2] and r["auto"]["kept"] == 1  # 2 is the best of 1 and 2 (same errors, same vias)
     assert r["auto"]["stopped"] == "stopped: remaining errors are on fixed parts: BT1, U2"
     assert "stopped: remaining errors are on fixed parts: BT1, U2" in cli._auto_summary(r)
+
+
+def test_reuse_ignores_a_placement_for_another_board_size(tmp_path, monkeypatch):
+    d, libs = _design(tmp_path)
+    out = tmp_path / "build"
+    out.mkdir(exist_ok=True)
+    pj = out / "placement.json"
+    pj.write_text(json.dumps({"__design_board__": [74, 46], "R1": [1, 1, 0]}))
+    assert cli._saved_board(pj) == [74, 46]
+
+    class Placed(Exception):
+        pass
+
+    monkeypatch.setattr(cli.placer, "place", lambda *a, **k: (_ for _ in ()).throw(Placed()))
+    with pytest.raises(Placed):  # the design declares another size: place again instead of reusing
+        cli.stage_layout(d, libs, reuse=True)
+    pj.write_text(json.dumps({"R1": [1, 1, 0]}))
+    assert cli._saved_board(pj) is None  # a file from before the field: reused as before
 
 
 def test_hopeless_first_attempt_starts_no_pool(tmp_path, monkeypatch):
