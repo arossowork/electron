@@ -73,9 +73,9 @@ def test_merge_does_not_duplicate_what_kicad_reported(tmp_path):
 
 def test_flag(monkeypatch):
     monkeypatch.delenv("HWFLOW_KEEPOUT_STRICT", raising=False)
-    assert not keepout.enabled() and keepout.enabled(True)
-    monkeypatch.setenv("HWFLOW_KEEPOUT_STRICT", "1")
     assert keepout.enabled() and not keepout.enabled(False)
+    monkeypatch.setenv("HWFLOW_KEEPOUT_STRICT", "0")
+    assert not keepout.enabled() and keepout.enabled(True)
 
 
 @pytest.mark.skipif(not any(Path(c).exists() for c in kicad._CLI if c), reason="kicad-cli not installed")
@@ -89,7 +89,7 @@ def test_strict_drc_reports_it_with_fp_lib_table(tmp_path, monkeypatch):
         f'(fp_lib_table (version 7) (lib (name "kolib")(type "KiCad")(uri "{pretty}")(options "")(descr "")))\n')
     b = tmp_path / "b.kicad_pcb"
     b.write_text(board(KO_FP, part("INSIDE", 30, 20)))
-    off = [v for v in kicad.drc(b, refill=False) if v["type"] == "items_not_allowed"]
+    off = [v for v in kicad.drc(b, refill=False, keepout_strict=False) if v["type"] == "items_not_allowed"]
     on = [v for v in kicad.drc(b, refill=False, keepout_strict=True) if v["type"] == "items_not_allowed"]
     assert sorted(v["items"][0].split(" [")[0] for v in on) == ["Footprint INSIDE", "Pad 1"]
     assert len(off) <= len(on)  # KiCad 10.0.7 gives [] here; a fixed KiCad gives the same one

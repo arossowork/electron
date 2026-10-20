@@ -109,7 +109,7 @@ def drc_fast(pcb: Path, refill=True) -> list[dict]:
 
 def drc(pcb: Path, refill=True, parity=False, keepout_strict: bool | None = None) -> list[dict]:
     """`keepout_strict` adds the footprint keep-out errors KiCad drops when `fp-lib-table` resolves the keep-out
-    footprint (see keepout.py). None reads HWFLOW_KEEPOUT_STRICT; off by default."""
+    footprint (see keepout.py). None reads HWFLOW_KEEPOUT_STRICT; on by default."""
     out = pcb.with_suffix(".drc.json")
     args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", str(out)]
     if refill:

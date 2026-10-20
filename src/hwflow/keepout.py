@@ -7,7 +7,8 @@ one test in Python: the courtyard of every footprint (F.CrtYd or B.CrtYd, in boa
 area that forbids footprints, on the layers the footprint sits on. Pads over areas that forbid pads are checked too (KiCad drops
 those the same way). Tracks and vias are not repeated: KiCad reports them in both modes (tested for tracks).
 
-It is off by default. `kicad.drc(..., keepout_strict=True)` or `HWFLOW_KEEPOUT_STRICT=1` turns it on.
+It is on by default (user decision, 2026-10-20). `kicad.drc(..., keepout_strict=False)` or `HWFLOW_KEEPOUT_STRICT=0`
+turns it off.
 """
 
 from __future__ import annotations
@@ -22,10 +23,10 @@ from .placer import rot
 
 
 def enabled(flag: bool | None = None) -> bool:
-    """The explicit flag wins; None reads HWFLOW_KEEPOUT_STRICT (1, true, yes, on)."""
+    """The explicit flag wins; None reads HWFLOW_KEEPOUT_STRICT (0, false, no, off turn it off; default on)."""
     if flag is not None:
         return bool(flag)
-    return os.environ.get("HWFLOW_KEEPOUT_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+    return os.environ.get("HWFLOW_KEEPOUT_STRICT", "").strip().lower() not in ("0", "false", "no", "off")
 
 
 def _pts(node) -> list[tuple[float, float]]:
