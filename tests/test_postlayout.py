@@ -39,3 +39,24 @@ def test_lumped_skips_islands_without_pads():
     elements = [{"net": "N", "a": p1, "b": p2, "R": 0.01, "C": 1e-13}]
     lines = PostLayoutNodeMap._lumped(_stub(elements, [a]))
     assert lines == [lines[0]]
+
+
+def test_group_clearance_reports_the_closest_copper():
+    """Backlog 39: the clearance between a net group and every other net is reported as a number with its limit."""
+    from hwflow.postlayout import _seg_dist, group_clearances
+    import numpy as np
+    assert _seg_dist(np.array([[0, 0, 1, 1.0]]), np.array([[0, 1, 1, 0.0]]))[0, 0] == 0          # crossing
+    assert _seg_dist(np.array([[0, 0, 1, 0.0]]), np.array([[2, 3, 2, 5.0]]))[0, 0] == pytest.approx(10 ** 0.5)
+    rule = ("(rule \"mains\" (constraint clearance (min 4.0mm)) "
+            "(condition \"A.NetName == 'AC_*' && B.NetName != 'AC_*'\"))")
+    board = {"layers": 2, "via_dia_mm": 0.6, "drc_rules": [rule]}
+    d = SimpleNamespace(board=board)
+    segs = [{"net": "AC_L", "layer": "F.Cu", "x1": 0, "y1": 0, "x2": 10, "y2": 0, "w": 1.0},
+            {"net": "AC_N", "layer": "F.Cu", "x1": 0, "y1": 2, "x2": 10, "y2": 2, "w": 1.0},   # same group: ignored
+            {"net": "VCC", "layer": "F.Cu", "x1": 0, "y1": 5, "x2": 10, "y2": 5, "w": 0.5},
+            {"net": "GND", "layer": "B.Cu", "x1": 0, "y1": 0.5, "x2": 10, "y2": 0.5, "w": 0.5}]  # other layer
+    pad = {"number": "1", "net": "SIG", "x": 20, "y": 0, "w": 2, "h": 2, "layers": ["F.Cu"]}
+    ex = SimpleNamespace(d=d, path=None, board={"segments": segs, "vias": [], "footprints": {"U1": {"pads": [pad]}}})
+    (r,) = group_clearances(d, ex)
+    assert r["mm"] == pytest.approx(2.25) and r["limit"] == 4.0 and not r["ok"]
+    assert r["between"] == "AC_N / VCC on F.Cu"

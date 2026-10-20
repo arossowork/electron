@@ -252,7 +252,8 @@ def stage_post(d: Design) -> dict:
     regress = [x for x in deltas if x["pass_pre"] and not x["pass_post"]]
     return {"ok": not errs and not regress and all(x["pass_post"] for x in deltas), "checks": checks,
             "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex),
-            "runs": _run_summary(post)}
+            "runs": _run_summary(post),
+            "distances": {"decap": postlayout.decap_paths(d, ex), "clearance": postlayout.group_clearances(d, ex)}}
 
 
 def _fresh_pre_results(d: Design) -> list[dict] | None:
@@ -393,6 +394,14 @@ def write_report(d: Design, history: bool = False) -> str:
         for x in c["checks"]:
             if x["sev"] != "info":
                 L.append(f"  - {x['sev']} {x['code']}: {x['msg']}")
+        dist = c.get("distances") or {}
+        for r in dist.get("clearance", []):
+            L.append(f"  - clearance {r['pattern']} to other nets: {r['mm']:.2f} mm (limit {r['limit']} mm, "
+                     f"{r['rule']}; closest {r['between']}){'' if r['ok'] else ' FAIL'}")
+        if dist.get("decap"):
+            worst = sorted(dist["decap"], key=lambda r: r["limit"] - r["mm"])[:4]
+            L.append("  - decap path, tightest: " + "; ".join(
+                f"{r['cap']}->{r['ic']} {r['net']} {r['mm']:.1f} mm (limit {r['limit']})" for r in worst))
         for r in c["ir_drop"]:
             L.append(f"  - IR drop {r['net']}: {r['drop_mv']:.2f} mV (worst at {r['worst_pin']})")
         big = [x for x in c["deltas"] if x["rel"] is not None and abs(x["rel"]) > 0.01]

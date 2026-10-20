@@ -455,29 +455,12 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                     add("warn", "via-in-pad", f"via on {v['net']} {'inside' if inside else 'touching'} pad "
                                               f"{ref}.{p['number']}: needs filled and capped vias (IPC-4761 VII)")
     # decoupling distance
-    for c in design.components.values():
-        ic = c.get("decouples")
-        if not ic or ic not in design.components:
-            continue
-        lim = float(c.get("decap_max_mm", b.get("decap_max_mm", 4.0)))
-        for cpin, net in c.pins.items():
-            if net in ex.grounds:
-                continue
-            best = None
-            for ipin, inet in design.components[ic].pins.items():
-                if inet != net:
-                    continue
-                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((ic, ipin))
-                if pa and pb:
-                    d = ex.path_len(pa, pb)
-                    if d is not None:
-                        best = d if best is None else min(best, d)
-            if best is None:
-                continue
-            if best > lim:
-                add("warn", "decap-distance", f"{c.ref} is {best:.1f} mm of copper from {ic} on {net} (limit {lim} mm)")
-            else:
-                add("info", "decap-distance", f"{c.ref} -> {ic} on {net}: {best:.1f} mm")
+    for r in decap_paths(design, ex):
+        if r["mm"] > r["limit"]:
+            add("warn", "decap-distance", f"{r['cap']} is {r['mm']:.1f} mm of copper from {r['ic']} on {r['net']} "
+                                          f"(limit {r['limit']} mm)")
+        else:
+            add("info", "decap-distance", f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm")
     # impedance
     for net in design.nets():
         z = design.net_info(net).get("impedance_ohm")
@@ -515,6 +498,129 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
             elif tot > 15:
                 add("info", "return-path", f"{net}: {tot:.1f} mm routed on B.Cu ground layer")
     return f
+
+
+def decap_paths(design: Design, ex: Extraction) -> list[dict]:
+    """Shortest copper path from each decoupling capacitor to its IC, per supply net (decouples: <IC>)."""
+    b = design.board
+    rows = []
+    for c in design.components.values():
+        ic = c.get("decouples")
+        if not ic or ic not in design.components:
+            continue
+        lim = float(c.get("decap_max_mm", b.get("decap_max_mm", 4.0)))
+        for cpin, net in c.pins.items():
+            if net in ex.grounds:
+                continue
+            best = None
+            for ipin, inet in design.components[ic].pins.items():
+                if inet != net:
+                    continue
+                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((ic, ipin))
+                if pa and pb:
+                    d = ex.path_len(pa, pb)
+                    if d is not None:
+                        best = d if best is None else min(best, d)
+            if best is not None:
+                rows.append({"cap": c.ref, "ic": ic, "net": net, "mm": round(best, 2), "limit": lim})
+    return rows
+
+
+# --------------------------------------------------------------- clearance between net groups
+
+_RULE_NAME = re.compile(r'\(rule\s+"([^"]+)"')
+_RULE_CLR = re.compile(r"\(constraint\s+clearance\s+\(min\s+([\d.]+)\s*mm\)")
+_RULE_COND = re.compile(r"A\.NetName\s*==\s*'([^']+)'\s*&&\s*B\.NetName\s*!=\s*'([^']+)'")
+
+
+def clearance_rules(design: Design) -> list[dict]:
+    """Group clearance rules from board.drc_rules of the form
+    (rule "name" (constraint clearance (min X mm)) (condition "A.NetName == 'P' && B.NetName != 'P'"))."""
+    out = []
+    for r in design.board.get("drc_rules") or []:
+        c, m = _RULE_CLR.search(r), _RULE_COND.search(r)
+        if c and m and m.group(1) == m.group(2):
+            n = _RULE_NAME.search(r)
+            out.append({"rule": n.group(1) if n else r[:40], "pattern": m.group(1), "min_mm": float(c.group(1))})
+    return out
+
+
+def _copper_items(ex: Extraction) -> list[tuple]:
+    """Copper as (net, layer, x1, y1, x2, y2, radius): traces as capsules, pads and zone fills as edges, vias as discs."""
+    b = ex.d.board
+    layers = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] if b["layers"] == 4 else ["F.Cu", "B.Cu"]
+    items = []
+    for s in ex.board["segments"]:
+        if s["net"]:
+            items.append((s["net"], s["layer"], s["x1"], s["y1"], s["x2"], s["y2"], s["w"] / 2))
+    for v in ex.board["vias"]:
+        for L in layers:
+            items.append((v["net"], L, v["x"], v["y"], v["x"], v["y"], b["via_dia_mm"] / 2))
+    for fp in ex.board["footprints"].values():
+        for p in fp["pads"]:
+            if not p["net"]:
+                continue
+            cu = layers if "*.Cu" in p["layers"] else [l for l in p["layers"] if l.endswith(".Cu")]
+            x0, x1, y0, y1 = p["x"] - p["w"] / 2, p["x"] + p["w"] / 2, p["y"] - p["h"] / 2, p["y"] + p["h"] / 2
+            for L in cu:
+                for e in ((x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)):
+                    items.append((p["net"], L, *e, 0.0))
+    if ex.path:
+        for z in _zone_fills(ex.path):
+            pts = z["pts"].T
+            for (xa, ya), (xb, yb) in zip(pts, np.roll(pts, -1, axis=0)):
+                items.append((z["net"], z["layer"], xa, ya, xb, yb, 0.0))
+    return items
+
+
+def _seg_dist(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """Pairwise distance between 2-D segments A (n,4) and B (m,4) -> (n,m); 0 where they cross."""
+    def pt_seg(px, py, s):
+        x1, y1, x2, y2 = (s[..., i] for i in range(4))
+        dx, dy = x2 - x1, y2 - y1
+        L2 = dx * dx + dy * dy
+        t = np.where(L2 > 0, ((px - x1) * dx + (py - y1) * dy) / np.where(L2 > 0, L2, 1), 0).clip(0, 1)
+        return np.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+    a, b = A[:, None, :], B[None, :, :]
+    d = np.minimum.reduce([pt_seg(a[..., 0], a[..., 1], b), pt_seg(a[..., 2], a[..., 3], b),
+                           pt_seg(b[..., 0], b[..., 1], a), pt_seg(b[..., 2], b[..., 3], a)])
+
+    def orient(px, py, qx, qy, rx, ry):
+        return np.sign((qx - px) * (ry - py) - (qy - py) * (rx - px))
+    o1 = orient(a[..., 0], a[..., 1], a[..., 2], a[..., 3], b[..., 0], b[..., 1])
+    o2 = orient(a[..., 0], a[..., 1], a[..., 2], a[..., 3], b[..., 2], b[..., 3])
+    o3 = orient(b[..., 0], b[..., 1], b[..., 2], b[..., 3], a[..., 0], a[..., 1])
+    o4 = orient(b[..., 0], b[..., 1], b[..., 2], b[..., 3], a[..., 2], a[..., 3])
+    return np.where((o1 * o2 < 0) & (o3 * o4 < 0), 0.0, d)
+
+
+def group_clearances(design: Design, ex: Extraction) -> list[dict]:
+    """Smallest copper-to-copper distance between the nets of each clearance rule and every other net, per rule
+    (backlog 39): the number a creepage or isolation requirement depends on, next to its limit."""
+    import fnmatch
+    rules = clearance_rules(design)
+    if not rules:
+        return []
+    items = _copper_items(ex)
+    out = []
+    for r in rules:
+        best = None
+        for layer in sorted({it[1] for it in items}):
+            A = [it for it in items if it[1] == layer and fnmatch.fnmatchcase(it[0], r["pattern"])]
+            B = [it for it in items if it[1] == layer and not fnmatch.fnmatchcase(it[0], r["pattern"])]
+            if not A or not B:
+                continue
+            Ag, Bg = np.array([it[2:6] for it in A]), np.array([it[2:6] for it in B])
+            ra, rb = np.array([it[6] for it in A]), np.array([it[6] for it in B])
+            for i in range(0, len(A), 256):
+                d = _seg_dist(Ag[i:i + 256], Bg) - ra[i:i + 256, None] - rb[None, :]
+                k = np.unravel_index(np.argmin(d), d.shape)
+                if best is None or d[k] < best[0]:
+                    best = (float(d[k]), A[i + k[0]][0], B[k[1]][0], layer)
+        if best:
+            out.append({"rule": r["rule"], "pattern": r["pattern"], "limit": r["min_mm"], "mm": round(max(best[0], 0), 3),
+                        "between": f"{best[1]} / {best[2]} on {best[3]}", "ok": best[0] >= r["min_mm"] - 1e-6})
+    return out
 
 
 def _parallel(ex: Extraction, n1: str, n2: str):
