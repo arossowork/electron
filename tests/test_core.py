@@ -417,3 +417,33 @@ def test_measure_on_missing_node_says_so(tmp_path):
     r = spice.run_analysis(d, a, tmp_path)
     ghost = next(x for x in r["rows"] if x["name"] == "ghost")
     assert r["status"] == "error" and not ghost["pass"] and "node not in the netlist: x_bt1_2" in ghost["na_reason"]
+
+
+def test_build_skips_unchanged_stages_and_brief_prints_changes(tmp_path, capsys):
+    """Backlog 27: a stage that passed with the same inputs is skipped. Backlog 8: --brief prints only changes."""
+    from hwflow.cli import main
+    proj = _copy_example(tmp_path)
+    main(["build", str(proj), "--until", "sim"])
+    capsys.readouterr()
+    main(["build", str(proj), "--until", "sim", "--brief"])
+    out = capsys.readouterr().out
+    assert out.count("skipped: passed last time with the same inputs") == 3
+    assert "no change since the last report" in out and "- SPICE" not in out
+    y = proj / "design.yaml"
+    y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
+    main(["build", str(proj), "--until", "sim", "--brief"])
+    out = capsys.readouterr().out
+    assert "skipped" not in out and "changed since the last report" in out
+    main(["build", str(proj), "--until", "sim", "--rebuild"])
+    assert "skipped" not in capsys.readouterr().out
+
+
+def test_monte_carlo_runs_once_per_design(tmp_path, capsys):
+    from hwflow.cli import main
+    proj = _copy_example(tmp_path)
+    main(["sim", str(proj), "--mc", "4"])
+    assert "reused" not in capsys.readouterr().out
+    main(["sim", str(proj), "--mc", "4"])
+    assert "Monte Carlo 4 runs reused" in capsys.readouterr().out
+    main(["sim", str(proj), "--mc", "5"])
+    assert "reused" not in capsys.readouterr().out

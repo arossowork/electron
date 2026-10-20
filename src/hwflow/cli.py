@@ -61,6 +61,30 @@ def _design_hash(d) -> str:
     return h.hexdigest()[:12]
 
 
+def _inputs_hash(d) -> str:
+    """Everything a build stage reads besides design.yaml: model files, project libraries and the hwflow code.
+    Two builds with the same inputs give the same results, so `build` skips a stage whose inputs did not change
+    (backlog 27)."""
+    import hashlib
+
+    from .libs import project_lib_dirs
+    h = hashlib.sha1(_design_hash(d).encode())
+    files = [d.dir / f for f in (d.raw.get("sim") or {}).get("includes") or []]
+    files += [d.dir / c.get("spice")["lib"] for c in d.components.values()
+              if isinstance(c.get("spice"), dict) and c.get("spice").get("lib")]
+    for f in sorted(set(files)):
+        h.update(str(f).encode() + (f.read_bytes() if f.is_file() else b"-"))
+    for root in project_lib_dirs(d):
+        for f in sorted(root.rglob("*")):
+            if f.is_file():
+                st = f.stat()
+                h.update(f"{f.relative_to(root)}:{st.st_size}:{st.st_mtime_ns}".encode())
+    for f in sorted(Path(__file__).parent.rglob("*")):
+        if f.suffix in (".py", ".lib") and f.is_file():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
 def _save_status(d, key, val):
     s = _status(d)
     if isinstance(val, dict) and key in ("check", "sch", "sim", "layout", "post", "fab", "optimize"):
@@ -111,12 +135,17 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
            "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
-    if mc:
-        out["monte_carlo"] = spice.monte_carlo(d, w, runs=mc)
+    prev = _status(d).get("sim") or {}
+    if mc and prev.get("monte_carlo") and prev.get("inputs_hash") == _inputs_hash(d) and prev.get("mc_runs") == mc:
+        out["monte_carlo"], out["mc_runs"] = prev["monte_carlo"], mc  # Monte Carlo once per design (backlog 27)
+        print(f"[sim] Monte Carlo {mc} runs reused: inputs unchanged since the last run")
+    elif mc:
+        out["monte_carlo"], out["mc_runs"] = spice.monte_carlo(d, w, runs=mc), mc
     else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
-        prev = _status(d).get("sim") or {}
         if prev.get("monte_carlo") and prev.get("design_hash") == _design_hash(d):
             out["monte_carlo"] = prev["monte_carlo"]
+            if prev.get("mc_runs"):
+                out["mc_runs"] = prev["mc_runs"]
     out["ok"] = out["passed"] == out["total"] and not out["errors"]
     return out
 
@@ -607,19 +636,61 @@ def cmd_em(a, argv) -> int:
 
 # ------------------------------------------------------------------ main
 
+def _brief(old: str, new: str) -> str:
+    """Only what changed against the previous REPORT.md, plus the verdict (backlog 8)."""
+    skip = ("Updated ", "# ")
+    o = [ln for ln in old.splitlines() if ln.strip() and not ln.startswith(skip)]
+    n = [ln for ln in new.splitlines() if ln.strip() and not ln.startswith(skip)]
+    verdict = next((ln for ln in n if ln.startswith("Verdict")), "Verdict: ?")
+    os_, ns_ = set(o), set(n)
+    added = [ln for ln in n if ln not in os_ and not ln.startswith("Verdict")]
+    gone = [ln for ln in o if ln not in ns_ and not ln.startswith("Verdict")]
+    if not old:
+        return new
+    L = [verdict]
+    if added or gone:
+        L.append("changed since the last report (+ new, - gone):")
+        L += [f"+ {ln.strip()}" for ln in added[:40]] + ([f"+ ... {len(added) - 40} more"] if len(added) > 40 else [])
+        L += [f"- {ln.strip()}" for ln in gone[:20]] + ([f"- ... {len(gone) - 20} more"] if len(gone) > 20 else [])
+    else:
+        L.append("no change since the last report")
+    L.append(f"({len(n) - len(added)} lines unchanged; full report in build/REPORT.md)")
+    return "\n".join(L) + "\n"
+
+
+def _can_skip(d: Design, st: str, prev, inputs: str, a) -> bool:
+    """A stage is skipped when it passed last time with the same inputs and its outputs are still there."""
+    if not isinstance(prev, dict) or not prev.get("ok") or "exception" in prev or prev.get("inputs_hash") != inputs:
+        return False
+    out = _out(d)
+    need = {"sch": out / f"{d.name}.kicad_sch", "layout": out / f"{d.name}.kicad_pcb", "fab": out / "fab"}.get(st)
+    if need is not None and not need.exists():
+        return False
+    if st == "sim" and getattr(a, "mc", 0) and prev.get("mc_runs") != a.mc:
+        return False
+    return True
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="hwflow", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    brief = "print only the report lines that changed since the last report, and the verdict"
     for name in ("check", "sch", "post", "fab", "report", "status"):
-        sub.add_parser(name).add_argument("project")
+        p = sub.add_parser(name); p.add_argument("project")
+        if name not in ("report", "status"):
+            p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("sim"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
+    p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("layout"); p.add_argument("project"); p.add_argument("--reuse", action="store_true")
+    p.add_argument("--brief", action="store_true", help=brief)
     p.add_argument("--seeds", type=int, default=4); p.add_argument("--iters", type=int, default=30000)
     p.add_argument("--passes", type=int, default=30)
     p = sub.add_parser("build"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--until", choices=["check", "sch", "sim", "layout", "post", "fab"], default="fab")
     p.add_argument("--reuse", action="store_true"); p.add_argument("--force", action="store_true",
                                                                    help="continue past failing stages")
+    p.add_argument("--rebuild", action="store_true", help="run every stage even when its inputs are unchanged")
+    p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
@@ -707,8 +778,16 @@ def main(argv=None):
     else:
         stages = [a.cmd]
     rc = 0
+    prev_report = (_out(d) / "REPORT.md").read_text() if (_out(d) / "REPORT.md").exists() else ""
+    inputs = _inputs_hash(d)
+    ran = False
     for st in stages:
         t0 = time.time()
+        # once a stage runs, every later stage runs too: its inputs include the earlier stage's outputs
+        if a.cmd == "build" and not a.rebuild and not ran and _can_skip(d, st, _status(d).get(st), inputs, a):
+            print(f"[{st}] skipped: passed last time with the same inputs ({inputs}); --rebuild to run it")
+            continue
+        ran = True
         try:
             if st == "check":
                 r = stage_check(d, libs)
@@ -725,6 +804,7 @@ def main(argv=None):
                 r = stage_fab(d)
         except Exception as e:  # noqa: BLE001
             r = {"ok": False, "exception": f"{type(e).__name__}: {e}"}
+        r["inputs_hash"] = inputs
         _save_status(d, st, r)
         print(f"[{st}] {'OK' if r.get('ok') else 'FAIL'} ({time.time() - t0:.1f}s)" +
               (f" {r['exception']}" if "exception" in r else ""))
@@ -733,7 +813,8 @@ def main(argv=None):
             hard = st in ("check", "sch") or "exception" in r
             if a.cmd == "build" and hard and not a.force:
                 break
-    print(write_report(d, history=True))
+    text = write_report(d, history=True)
+    print(_brief(prev_report, text) if getattr(a, "brief", False) else text)
     return rc
 
 
