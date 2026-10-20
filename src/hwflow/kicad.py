@@ -65,6 +65,43 @@ def erc(sch: Path) -> list[dict]:
     return _violations(json.loads(out.read_text()))
 
 
+def _without_creepage(dru: str) -> str:
+    """The .kicad_dru text without its creepage rules (the balanced `(rule ...)` blocks with a creepage constraint)."""
+    out, i = [], 0
+    while True:
+        j = dru.find("(rule", i)
+        if j < 0:
+            break
+        depth, k = 0, j
+        while k < len(dru):
+            depth += (dru[k] == "(") - (dru[k] == ")")
+            k += 1
+            if depth == 0:
+                break
+        out.append(dru[i:j])
+        if "constraint creepage" not in dru[j:k]:
+            out.append(dru[j:k])
+        i = k
+    return "".join(out) + dru[i:]
+
+
+def drc_fast(pcb: Path, refill=True) -> list[dict]:
+    """DRC without the creepage rules of the sibling .kicad_dru: 2-3 s against 15 s on a board with a creepage rule,
+    because KiCad evaluates creepage over every item pair. A pre-check for a repair loop; creepage is left to the
+    full `drc` of the candidate that is kept. It runs on a copy, so the board and its siblings stay as they are."""
+    import shutil
+    import tempfile
+    pcb = Path(pcb)
+    with tempfile.TemporaryDirectory(prefix="drcfast_", dir=pcb.parent) as td:
+        tmp = Path(td) / pcb.name
+        shutil.copy(pcb, tmp)
+        if pcb.with_suffix(".kicad_pro").exists():
+            shutil.copy(pcb.with_suffix(".kicad_pro"), tmp.with_suffix(".kicad_pro"))
+        if pcb.with_suffix(".kicad_dru").exists():
+            tmp.with_suffix(".kicad_dru").write_text(_without_creepage(pcb.with_suffix(".kicad_dru").read_text()))
+        return [v for v in drc(tmp, refill=refill) if v["type"] != "creepage"]
+
+
 def drc(pcb: Path, refill=True, parity=False) -> list[dict]:
     out = pcb.with_suffix(".drc.json")
     args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", str(out)]
