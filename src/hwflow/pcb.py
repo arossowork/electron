@@ -294,6 +294,43 @@ def isolation_groups(design: Design) -> list[dict]:
     return out
 
 
+def isolation_router_rules(design: Design) -> list[dict]:
+    """Creepage as a clearance the router honours (L11). KiCadRoutingTools reads no net-name condition on a
+    clearance rule; it reads a track-to-track rule scoped to a net class, `A.Type=='track' && B.Type=='track' &&
+    A.NetClass=='C' && B.NetClass!='C'` (member against non-member only, so a group keeps its own spacing). Every
+    creepage requirement between a net group and all other nets becomes such a rule at the creepage value, with a
+    class `iso_<name>` that holds the group nets. Sources: `board.isolation` entries with `creepage_mm`, and
+    `board.drc_rules` creepage rules shaped `A.NetName == 'P' && B.NetName != 'P'` (P a glob). Returns
+    [{class, members, rule}]. Other condition shapes stay with KiCad DRC and the repair loop."""
+    import fnmatch
+    import re
+    nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
+    out, seen = [], set()
+
+    def add(name, members, mm):
+        cname = "iso_" + re.sub(r"\W+", "_", name).strip("_")
+        if not members or cname in seen:
+            return
+        seen.add(cname)
+        cond = f"A.Type == 'track' && B.Type == 'track' && A.NetClass == '{cname}' && B.NetClass != '{cname}'"
+        out.append({"class": cname, "members": members, "mm": mm,
+                    "rule": f'(rule "{name} (router clearance)" (constraint clearance (min {mm:g}mm)) '
+                            f'(condition "{cond}"))'})
+
+    for g in isolation_groups(design):
+        if g["creepage_mm"] is not None:
+            add(g["name"], g["members"], float(g["creepage_mm"]))
+    pat = re.compile(r"A\.NetName\s*==\s*'([^']+)'\s*&&\s*B\.NetName\s*!=\s*'([^']+)'")
+    for r in design.board.get("drc_rules") or []:
+        nm = re.search(r'\(rule\s+"([^"]+)"', r)
+        mm = re.search(r"\(constraint\s+creepage\s*\(min\s+([0-9.]+)\s*mm\)", r)
+        cond = re.search(r'\(condition\s+"([^"]*)"', r)
+        m = pat.fullmatch(cond.group(1).strip()) if cond else None
+        if nm and mm and m and m.group(1) == m.group(2):
+            add(nm.group(1), [n for n in nets if fnmatch.fnmatchcase(n, m.group(1))], float(mm.group(1)))
+    return out
+
+
 def write_project(dirpath: Path, name: str, design: Design):
     """Minimal .kicad_pro with net classes so DRC uses our widths and clearances."""
     import json
@@ -313,6 +350,10 @@ def write_project(dirpath: Path, name: str, design: Design):
         for n, v in classes.items():
             if (v["width"], v["clearance"]) == (w, cl):
                 assignments.append({"netclass": cname, "pattern": n})
+    iso = isolation_router_rules(design)
+    for x in iso:  # membership only (no size fields): the aggregate class keeps the width and clearance of the net's own class
+        nc.append({"name": x["class"], "priority": 100})
+        assignments += [{"netclass": x["class"], "pattern": n} for n in x["members"]]
     pro = {
         "board": {"design_settings": {"rules": {"min_clearance": min(b["clearance_mm"], 0.15),
                                                 "min_track_width": 0.15, "min_via_diameter": 0.45,
@@ -329,6 +370,7 @@ def write_project(dirpath: Path, name: str, design: Design):
     # board.isolation: the same rules generated from data (backlog 38)
     dru = dirpath / f"{name}.kicad_dru"
     rules = list(b.get("drc_rules") or []) + [r for g in isolation_groups(design) for r in g["kicad"]]
+    rules += [x["rule"] for x in iso]
     if rules:
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
     elif dru.exists():

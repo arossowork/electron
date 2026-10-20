@@ -129,7 +129,9 @@ def test_isolation_rules_come_from_design_data(tmp_path):
     assert g["kicad"] == [f'(rule "mains clearance" (constraint clearance (min 4mm)) (condition "{cond}"))',
                           f'(rule "mains creepage" (constraint creepage (min 6mm)) (condition "{cond}"))']
     write_project(tmp_path, "iso", d)
-    assert (tmp_path / "iso.kicad_dru").read_text() == "(version 1)\n" + "\n".join(g["kicad"]) + "\n"
+    dru = (tmp_path / "iso.kicad_dru").read_text()
+    assert dru.startswith("(version 1)\n" + "\n".join(g["kicad"]) + "\n")
+    assert dru.count("(constraint clearance (min 6mm))") == 1  # L11: creepage as a track clearance for the router
     # measured distance: AC_N track 2.25 mm from VCC (limit 4.0), one DRC creepage error on the group
     segs = [{"net": "AC_L", "layer": "F.Cu", "x1": 0, "y1": 0, "x2": 10, "y2": 0, "w": 1.0},
             {"net": "AC_N", "layer": "F.Cu", "x1": 0, "y1": 2, "x2": 10, "y2": 2, "w": 1.0},
