@@ -2,7 +2,7 @@
 
 This document is about the `claude -p` sessions that hwflow starts, not about interactive use. The three callers are `evals/harness.py`, `ui/server.py`, and `scripts/hw-run.sh`. On the subscription, the usage window counts tokens, so `cost_usd` is only a proxy.
 
-The status is a branch `token-opt` with the changes below. Only short smoke calls (Haiku, a few seconds) were run. No eval run or hwflow build has been run against these changes yet.
+The status is branch `backlog-impl` (on top of `token-opt`). The baseline run (`evals/baselines/home-thermostat-2026-10-19/`) cost 222.8 M tokens, 97.7 % cache reads. The backlog items and their expected effect per agent are in `docs/backlog-result.md`. No eval run has been done on the new code yet; the user replays the baseline brief.
 
 ## 1. Where the tokens go in a headless run
 
@@ -50,7 +50,7 @@ All of them apply to every headless call, because the three callers share `harne
 | `--setting-sources project,local --strict-mcp-config --tools Bash,Read,Write,Edit,Agent,Skill,WebSearch,WebFetch` | `designer_args` | fixed prefix 18.5k to 9.3k tokens on every request; no user hooks. User settings have no allow rules, and `--permission-mode acceptEdits` was already set, so permissions do not change |
 | `CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000` (override: `HWFLOW_AUTOCOMPACT_WINDOW`) | `headless_env` | the env var takes precedence over every settings file and works for any model. `/context` confirmed a 400k window |
 | `"autoCompactWindow": 400000` | `.claude/settings.json` | the same for interactive sessions in the repo, for every model (the user setting covered only Opus 5.5) |
-| `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h` | `headless_env` | a subagent idle through a long build (routing, `--mc 100`) does not rewrite its whole context after 5 minutes. Trade-off: a 1h cache write is priced higher than a 5 min write, so measure it |
+| `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h` | `headless_env` | measured on the baseline (`docs/cache-ttl-note.md`): 45 cache reads per written token; 1h and 5 min cost the same within 0.1 % (29 gaps over 5 min repay the higher write price). Not a token lever; the number of turns is |
 | drop the parent session's `CLAUDE_EFFORT`, `CLAUDE_CODE_*SESSION*`, and messaging variables | `headless_env`, `hw-run.sh` | a harness started from inside Claude Code no longer forces its effort on the agents |
 | subagent `model`/`effort` tiers | `.claude/agents/*.md` | section 2 |
 | PM `--effort low` | `_claude_once` | cheaper answers |
@@ -114,3 +114,18 @@ Engine behaviour added for the backlog (groups 1 to 3). Each one cuts report noi
 | SI screen (`si` findings) | for nets with `edge_ns`: delay of the longest copper path against t_r/6, vias and branch points, length without a reference plane, decap loop inductance at 0.35/t_r against `board.si_pdn_z_ohm`. No SPICE, about 1 s on the baseline board | 48 |
 | distances | post-layout reports the clearance of each `board.drc_rules` net group to every other net and the tightest decap paths, with limits | 39 |
 | lumping scope | the report states what lumped post-layout transients check; nets with `class: fast`, `edge_ns` or `post_full` keep the full network; `board.post_lump_check: <analysis>` compares lumped and full on one analysis | 26, 47 |
+
+## Agent prompts and UI (backlog groups 4 to 6)
+
+| behaviour | where | backlog |
+|---|---|---|
+| datasheets read as text (`pdftotext`), one fetch per datasheet, facts in `notes/datasheets/<mpn>.md`; about 5 searches per stage; lookups batched in one Bash call | hw-architect, hw-parts, hw-reviewer | 1, 2, 3, 16, 30 |
+| hw-requirements asks everything it can in round 1 | hw-requirements | 29 |
+| realism check for every testbench scenario | hw-circuit, hw-reviewer | 24 |
+| a decision for the product person goes to `inbox/questions.json` with options; compact briefs to subagents; parallel `hw-parts` per block group; delta review mode after a late change | SKILL.md | 37, 9, 28, 57 |
+| the agent waits inside its turn for builds it started (blocking call with timeout) | SKILL.md, agents | 50 |
+| `maxTurns` per agent | `.claude/agents/*.md` | 4 |
+| UI: Markdown rendering, grouped tool events, history paging, message queue and interrupt while the agent works, live usage per subagent (needs `parent_tool_use_id` in the stream, untested on a real one), questions count, status from the process exit | `ui/` | 32 to 36, 51 |
+| `scripts/usage_tally.py`: tokens by agent, `--compare`, `--history` for wall time per stage, `--cache-ttl` for write against read | scripts | 12, 14 |
+
+Section 5 ranks the remaining levers: items 5, 6, 7, 11 and 31 (model, effort, session split) wait for an eval run by the user.
