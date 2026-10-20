@@ -505,6 +505,9 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                                           f"(limit {r['limit']} mm)")
         else:
             add("info", "decap-distance", f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm")
+    # signal integrity without SPICE, for nets with a declared edge rate (backlog 48)
+    for r in si_screen(design, ex):
+        add(r["sev"], "si", r["msg"])
     # impedance
     for net in design.nets():
         z = design.net_info(net).get("impedance_ohm")
@@ -542,6 +545,145 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
             elif tot > 15:
                 add("info", "return-path", f"{net}: {tot:.1f} mm routed on B.Cu ground layer")
     return f
+
+
+def _ref_layers(layer: str, n_layers: int) -> list[str]:
+    """Copper layers next to `layer` that carry its return current."""
+    if n_layers == 4:
+        return {"F.Cu": ["In1.Cu"], "In1.Cu": ["F.Cu", "In2.Cu"], "In2.Cu": ["In1.Cu", "B.Cu"],
+                "B.Cu": ["In2.Cu"]}.get(layer, [])
+    return {"F.Cu": ["B.Cu"], "B.Cu": ["F.Cu"]}.get(layer, [])
+
+
+def _inside(px: np.ndarray, py: np.ndarray, poly: np.ndarray) -> np.ndarray:
+    """Even-odd point in polygon (KiCad's fractured fills: slits cancel out)."""
+    x, y = poly[0], poly[1]
+    x2, y2 = np.roll(x, -1), np.roll(y, -1)
+    X, Y = px[:, None], py[:, None]
+    cross = ((y > Y) != (y2 > Y)) & (X < (x2 - x) * (Y - y) / np.where(y2 != y, y2 - y, 1e-12) + x)
+    return (cross.sum(1) % 2) == 1
+
+
+def _path(ex: Extraction, a, b) -> tuple[float, float, int] | None:
+    """Shortest copper path a -> b: (mm, series inductance in H from the extraction, vias)."""
+    a, b = ex.uf.find(a), ex.uf.find(b)
+    best = {a: 0.0}
+    pq = [(0.0, 0.0, 0, str(a), a)]
+    while pq:
+        d, L, nv, _, n = heapq.heappop(pq)
+        if n == b:
+            return d, L, nv
+        if d > best.get(n, 1e18):
+            continue
+        for m, e in ex.adj.get(n, []):
+            nd = d + e["len"] + (0 if e["len"] else 1e-6)
+            if nd < best.get(m, 1e18):
+                best[m] = nd
+                heapq.heappush(pq, (nd, L + e.get("L", 0), nv + (0 if e["len"] else 1), str(m), m))
+    return None
+
+
+def si_screen(design: Design, ex: Extraction, fills: list | None = None) -> list[dict]:
+    """Signal-integrity screen without SPICE (backlog 48), for nets with `edge_ns` (rise time) in nets:.
+
+    - electrical length: the longest pad-to-pad copper path, with the delay of the extracted lines, against the
+      rise-time rule (a line is electrically long when its delay is above t_r/6; it then needs a termination
+      or a full transient);
+    - vias and branch points (stubs) on the net;
+    - gaps in the reference plane: trace length whose adjacent copper layer has no pour under it;
+    - decoupling loops: for an IC with an edge-rate net (or `edge_ns` on the component), the inductance of the
+      decap path from the extraction, as impedance at the knee frequency 0.35/t_r, against `board.si_pdn_z_ohm`
+      (default 1 ohm; the C5 case: 10.6 mm of copper is about 10 nH).
+    Returns rows {net, sev, msg, ...}."""
+    b = design.board
+    edge = {n: float(design.net_info(n)["edge_ns"]) for n in design.nets()
+            if design.net_info(n).get("edge_ns") is not None}
+    ic_edge = {}
+    for ref, c in design.components.items():
+        es = [edge[n] for n in c.pins.values() if n in edge]
+        if c.get("edge_ns") is not None:
+            es.append(float(c.get("edge_ns")))
+        if es:
+            ic_edge[ref] = min(es)
+    if not edge and not ic_edge:
+        return []
+    if fills is None:
+        fills = _zone_fills(ex.path) if getattr(ex, "path", None) else []
+    rows = []
+    for net, tr in sorted(edge.items()):
+        els = [e for e in ex.elements if e["net"] == net and e["len"] > 0]
+        if not els:
+            continue
+        mm = sum(e["len"] for e in els)
+        td_mm = sum(math.sqrt(e["L"] * e["C"]) for e in els) / mm            # s per mm of this net's lines
+        pads = [ex.pad_nodes[(r, p)] for r, p in design.nets().get(net, []) if (r, p) in ex.pad_nodes]
+        longest = 0.0
+        for i, pa in enumerate(pads):
+            for pb in pads[i + 1:]:
+                q = _path(ex, pa, pb)
+                if q:
+                    longest = max(longest, q[0])
+        delay_ns = longest * td_mm * 1e9
+        vias = sum(1 for v in ex.board["vias"] if v["net"] == net)
+        deg: dict = {}
+        for e in els:
+            for n in (ex.uf.find(e["a"]), ex.uf.find(e["b"])):
+                deg[n] = deg.get(n, 0) + 1
+        stubs = sum(1 for n, k in deg.items() if k >= 3 and n[0] != "pad")
+        long_ = delay_ns > tr / 6
+        rows.append({"net": net, "check": "length", "sev": "warn" if long_ else "info", "edge_ns": tr,
+                     "mm": round(longest, 2), "delay_ns": round(delay_ns, 4), "vias": vias, "stubs": stubs,
+                     "msg": f"{net}: {longest:.1f} mm longest path, delay {delay_ns * 1e3:.0f} ps against t_r/6 = "
+                            f"{tr / 6 * 1e3:.0f} ps ({'electrically long: terminate it or run the full transient' if long_ else 'short'}); "
+                            f"{vias} vias, {stubs} branch points"})
+        # reference plane under the trace
+        gap = {}
+        clr = float(b.get("clearance_mm", 0.2))
+        holes = [(v["x"], v["y"], b.get("via_dia_mm", 0.6) / 2 + 2 * clr) for v in ex.board["vias"] if v["net"] == net]
+        holes += [(p["x"], p["y"], max(p["w"], p["h"]) / 2 + 2 * clr) for fp in ex.board.get("footprints", {}).values()
+                  for p in fp["pads"] if p["net"] == net and p["kind"] == "thru_hole"]   # own antipads: not gaps
+        for sgm in [x for x in ex.segs if x["net"] == net and x.get("len", 0) > 0]:
+            refs = _ref_layers(sgm["layer"], b["layers"])
+            polys = [z["pts"] for z in fills if z["layer"] in refs and z["net"] != net]
+            n = max(int(sgm["len"] / 0.25), 1)
+            t = (np.arange(n) + 0.5) / n
+            px, py = sgm["x1"] + t * (sgm["x2"] - sgm["x1"]), sgm["y1"] + t * (sgm["y2"] - sgm["y1"])
+            ok = np.zeros(n, bool)
+            for hx, hy, hr in holes:
+                ok |= np.hypot(px - hx, py - hy) <= hr
+            for poly in polys:
+                ok |= _inside(px, py, poly)
+            if (~ok).any():
+                gap[sgm["layer"]] = gap.get(sgm["layer"], 0.0) + float((~ok).sum()) / n * sgm["len"]
+        for layer, g in sorted(gap.items()):
+            if g >= 0.5:
+                rows.append({"net": net, "check": "plane-gap", "sev": "warn", "layer": layer, "mm": round(g, 2),
+                             "msg": f"{net}: {g:.1f} mm on {layer} without a reference plane on "
+                                    f"{'/'.join(_ref_layers(layer, b['layers']))} (return path detour)"})
+    zmax = float(b.get("si_pdn_z_ohm", 1.0))
+    for r in decap_paths(design, ex):
+        tr = ic_edge.get(r["ic"])
+        if tr is None:
+            continue
+        c = design.components[r["cap"]]
+        L = None
+        for cpin, net in c.pins.items():
+            if net != r["net"]:
+                continue
+            for ipin, inet in design.components[r["ic"]].pins.items():
+                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((r["ic"], ipin))
+                if inet == net and pa and pb:
+                    q = _path(ex, pa, pb)
+                    if q and (L is None or q[1] < L):
+                        L = q[1]
+        if L is None:
+            continue
+        x = 2 * math.pi * 0.35 / (tr * 1e-9) * L
+        rows.append({"net": r["net"], "check": "decap-loop", "sev": "warn" if x > zmax else "info",
+                     "cap": r["cap"], "ic": r["ic"], "nH": round(L * 1e9, 2), "z_ohm": round(x, 3),
+                     "msg": f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm, {L * 1e9:.1f} nH, "
+                            f"{x:.2f} ohm at {0.35 / tr * 1e3:.0f} MHz (t_r {tr} ns; limit {zmax} ohm)"})
+    return rows
 
 
 def decap_paths(design: Design, ex: Extraction) -> list[dict]:

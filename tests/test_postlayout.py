@@ -156,3 +156,58 @@ def test_isolation_rules_come_from_design_data(tmp_path):
     d.raw["board"] = {"drc_rules": ["(rule \"x\" (constraint clearance (min 1mm)))"]}
     write_project(tmp_path, "iso", d)
     assert (tmp_path / "iso.kicad_dru").read_text() == "(version 1)\n(rule \"x\" (constraint clearance (min 1mm)))\n"
+
+
+def test_si_screen_flags_long_lines_plane_gaps_and_decap_loops():
+    """Backlog 48: for nets with edge_ns, the delay of the longest copper path against t_r/6, vias and branch points,
+    trace length without a reference plane, and the decap loop inductance at 0.35/t_r against si_pdn_z_ohm."""
+    from pathlib import Path
+
+    import numpy as np
+
+    from hwflow.design import Component, Design
+    from hwflow.postlayout import si_screen
+    raw = {"board": {"layers": 4}, "nets": {"CLK": {"edge_ns": 0.5}, "GND": {"class": "ground"}},
+           "components": {"U1": {"pins": {"1": "CLK", "2": "VCC", "3": "GND"}}, "R1": {"pins": {"1": "CLK"}},
+                          "J1": {"pins": {"1": "CLK"}}, "C1": {"pins": {"1": "VCC", "2": "GND"}, "decouples": "U1"}}}
+    d = Design(path=Path("x/design.yaml"), raw=raw)
+    d.components = {r: Component(r, c) for r, c in raw["components"].items()}
+    uf, elements, segs = UF(), [], []
+    td, z0 = 6.7e-12, 50.0                                       # s/mm and ohm of a microstrip on FR-4
+
+    def trace(net, a, b, x1, y1, x2, y2, l_h=None):
+        n = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        L = l_h if l_h is not None else td * n * z0
+        elements.append({"net": net, "a": a, "b": b, "R": 0.01, "L": L, "C": (td * n) ** 2 / L, "len": n})
+        segs.append({"net": net, "layer": "F.Cu", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "w": 0.2, "len": n})
+    u1, r1, j1, t = ("pad", "U1", "1"), ("pad", "R1", "1"), ("pad", "J1", "1"), ("p", 50.0, 0.0, "F.Cu")
+    trace("CLK", u1, t, 0, 0, 50, 0)
+    trace("CLK", t, r1, 50, 0, 100, 0)
+    trace("CLK", t, j1, 50, 0, 50, 5)                            # a 5 mm stub at the T
+    c1, u2 = ("pad", "C1", "1"), ("pad", "U1", "2")
+    trace("VCC", c1, u2, 0, 10, 10, 10, l_h=10e-9)               # 10 mm, 10 nH (the C5 case)
+    adj = {}
+    for e in elements:
+        ra, rb = uf.find(e["a"]), uf.find(e["b"])
+        adj.setdefault(ra, []).append((rb, e)), adj.setdefault(rb, []).append((ra, e))
+    pads = {(p[1], p[2]): p for p in (u1, r1, j1, c1, u2)}
+
+    def path_len(a, b):
+        return 10.0 if {a, b} == {c1, u2} else None
+    ex = SimpleNamespace(elements=elements, segs=segs, uf=uf, adj=adj, pad_nodes=pads, grounds={"GND"},
+                         board={"vias": [{"net": "CLK", "x": 70, "y": 0}]}, path=None, path_len=path_len)
+    plane = [{"net": "GND", "layer": "In1.Cu", "pts": np.array([[-1, 60, 60, -1], [-10, -10, 20, 20.0]])}]
+    rows = {r["check"]: r for r in si_screen(d, ex, fills=plane)}
+    ln = rows["length"]
+    assert ln["sev"] == "warn" and ln["mm"] == pytest.approx(100) and ln["delay_ns"] == pytest.approx(0.67)
+    assert (ln["vias"], ln["stubs"]) == (1, 1)
+    assert rows["plane-gap"]["mm"] == pytest.approx(40 - 1.4, abs=0.3)  # own via antipad is no gap
+    assert rows["plane-gap"]["layer"] == "F.Cu"
+    dl = rows["decap-loop"]
+    assert dl["sev"] == "warn" and dl["nH"] == pytest.approx(10) and dl["z_ohm"] == pytest.approx(44.0, rel=0.01)
+    # a slow edge (100 ns) makes the same copper short and the loop fine
+    raw["nets"]["CLK"]["edge_ns"] = 100
+    rows = {r["check"]: r for r in si_screen(d, ex, fills=plane)}
+    assert rows["length"]["sev"] == "info" and rows["decap-loop"]["sev"] == "info"
+    raw["nets"].pop("CLK")
+    assert si_screen(d, ex, fills=plane) == []                   # nothing declared, nothing screened

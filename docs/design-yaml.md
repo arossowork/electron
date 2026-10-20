@@ -45,6 +45,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | router_retries | 3 | KiCadRoutingTools: when a width class leaves nets unrouted, route it again in another net order this many times and keep the best |
 | drc_rules | [] | KiCad custom rules, one `(rule ...)` string each, written to `<project>.kicad_dru` and applied by DRC. Use for class-pair clearance and creepage, e.g. mains to SELV |
 | isolation | [] | net groups that keep a distance to every other net, as data (backlog 38): `{name, nets: <glob or list>, class: <net class>, clearance_mm, creepage_mm, req}`. hwflow writes one KiCad clearance and one creepage rule per group into the `.kicad_dru` (next to `drc_rules`), runs them in the layout-stage DRC, reports the measured copper distance in plan with the limit and the DRC violations, and a group with `req: R8` verifies that requirement in `trace`. Example: `isolation: [{name: mains-SELV, class: mains, clearance_mm: 4.0, creepage_mm: 6.0, req: R8}]`. The plan distance does not see a stacked second board (see docs/design-note-stack-keepouts-boards.md) |
+| si_pdn_z_ohm | 1.0 | signal-integrity screen: the largest impedance of a decap loop at the knee frequency 0.35/t_r of its IC (see `edge_ns` under nets) |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
 ## nets
@@ -60,7 +61,7 @@ nets:
   RF: {impedance_ohm: 50, width_mm: 1.1}
 ```
 
-`class: fast` or `edge_ns: <rise time>` keeps the full trace R and C network of that net in post-layout transients (see `post_tran_lump`). `current_a` sizes the track with IPC-2221 (10 C rise). `external_supply` marks a rail that enters through a connector. `sensitive` turns on crosstalk and return-path checks for that net.
+`class: fast` or `edge_ns: <rise time>` keeps the full trace R and C network of that net in post-layout transients (see `post_tran_lump`). `edge_ns` also turns on the signal-integrity screen in post-layout (`si` findings, no SPICE): the delay of the longest pad-to-pad copper path against t_r/6 (warn: electrically long, terminate it or rely on the full transient), the vias and branch points of the net, the trace length with no pour on the adjacent copper layer (own via and pad antipads excluded), and for every IC on such a net (or with `edge_ns:` on the component) the extracted inductance of each decap path as impedance at 0.35/t_r against `board.si_pdn_z_ohm` (default 1 ohm). `current_a` sizes the track with IPC-2221 (10 C rise). `external_supply` marks a rail that enters through a connector. `sensitive` turns on crosstalk and return-path checks for that net.
 
 ## components
 
