@@ -168,3 +168,32 @@ def test_gnd_island_gets_a_stitching_via(tmp_path):
     new = [v for v in r["vias"] if v not in via]
     assert len(new) == 1 and new[0]["x"] + new[0]["y"] < 8, "the via must sit inside the cut-off corner"
     assert r["tracks"] == track
+
+
+def _stub_drc(n):
+    return [{"sev": "error", "type": "clearance", "desc": f"Clearance [N{i}]", "at": (0, 0)} for i in range(n)]
+
+
+def test_repair_skipped_above_error_limit(tmp_path, monkeypatch):
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    monkeypatch.setattr(repair, "plan", lambda *a, **k: pytest.fail("plan must not run"))
+    class D: name = "d"
+    r = repair.repair(D(), None, {}, [], [], _stub_drc(repair.MAX_ERRORS + 1), board, lambda *a: [], 3)["report"]
+    assert r["skipped"] and r["rounds"] == 0 and "repair skipped" in repair.summary(r)
+
+
+def test_repair_stops_on_wall_budget(tmp_path, monkeypatch):
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    clock = iter(range(0, 10000, 100))
+    monkeypatch.setattr(repair.time, "time", lambda: next(clock))
+    monkeypatch.setattr(repair, "BUDGET_S", 150)
+    monkeypatch.setattr(repair, "plan", lambda *a, **k: {"rip": [], "islands": [], "drop_vias": ["v"]})
+    n = {"c": 0}
+    def check(t, v, i):
+        n["c"] += 1
+        return _stub_drc(10 - n["c"])
+    class D: name = "d"; board = {}
+    r = repair.repair(D(), None, {}, [], [], _stub_drc(10), board, check, 10)["report"]
+    assert r["rounds"] < 10 and any("budget" in l for l in r["log"])

@@ -3,6 +3,7 @@ and connect GND zone islands with stitching vias (or drop them). No LLM, no re-p
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import time
@@ -16,6 +17,8 @@ from . import kicad, pcb, sexpr
 _NET = re.compile(r"\[([^\]]+)\]")
 _ON = re.compile(r" on (\S+?)(?:,| -|$)")
 MAX_RIPUP = 12  # nets ripped in one round, the ones named by errors first
+MAX_ERRORS = int(os.environ.get("HWFLOW_REPAIR_MAX_ERRORS", 40))  # above this many errors local repair cannot converge: skip it
+BUDGET_S = float(os.environ.get("HWFLOW_REPAIR_BUDGET_S", 120))  # wall time for the whole repair, checked after each round
 
 
 def errors(drc: list[dict]) -> list[dict]:
@@ -256,8 +259,15 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     drc_json = board.with_suffix(".drc.json")
     snap = (board.read_bytes(), drc_json.read_bytes() if drc_json.exists() else None)
     first, log, fails, island, done = best["score"], [], 0, 0, 0
-    for r in range(max(rounds, 0)):
+    max_err, budget = MAX_ERRORS, BUDGET_S
+    skipped = first[0] > max_err
+    if skipped:
+        log.append(f"repair skipped: {first[0]} errors > limit {max_err}")
+    for r in range(0 if skipped else max(rounds, 0)):
         if not best["score"][0]:
+            break
+        if done and time.time() - t0 > budget:
+            log.append(f"repair stopped: {time.time() - t0:.0f} s > budget {budget:.0f} s")
             break
         p = plan(d, best["tracks"], best["vias"], best["drc"], radius=2.0 * fails)
         if not (p["rip"] or p["islands"] or p["drop_vias"]):
@@ -309,10 +319,12 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
         f.unlink()
     return {"tracks": best["tracks"], "vias": best["vias"], "drc": best["drc"], "island": best["island"],
             "report": {"before": first[0], "after": best["score"][0], "unrouted_before": first[1],
-                       "unrouted_after": best["score"][1], "rounds": done, "log": log,
+                       "unrouted_after": best["score"][1], "rounds": done, "log": log, "skipped": skipped,
                        "seconds": round(time.time() - t0, 1)}}
 
 
 def summary(rep: dict) -> str:
+    if rep.get("skipped"):
+        return rep["log"][0]
     return (f"repair: {rep['before']} -> {rep['after']} errors in {rep['rounds']} rounds, {rep['seconds']} s"
             if rep["rounds"] else f"repair: {rep['before']} errors, none the router can repair")
