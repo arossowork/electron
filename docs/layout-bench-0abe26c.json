@@ -1,0 +1,571 @@
+{
+ "date": "2026-10-20T20:11:43",
+ "runs": 1,
+ "offsets": [
+  0,
+  100,
+  200
+ ],
+ "timeout_s": 900,
+ "loadavg_start": [
+  4.73974609375,
+  4.76123046875,
+  4.958984375
+ ],
+ "cpus": 16,
+ "git": "0abe26c",
+ "designs": {
+  "sensor_preamp": {
+   "placer": {
+    "seeds": 4,
+    "iters": 30000
+   },
+   "env": {
+    "HWFLOW_KEEPOUT_STRICT": "1"
+   },
+   "runs": [
+    {
+     "offset": 0,
+     "wall_s": 128.6,
+     "error": null,
+     "phase_s": {
+      "placer": 106.0,
+      "router": 20.7,
+      "repair": 0.0,
+      "drc": 1.9,
+      "other": 0.0
+     },
+     "phase_calls": {
+      "placer": 7,
+      "router": 6,
+      "repair": 0,
+      "drc": 1
+     },
+     "ok": true,
+     "attempts": 1,
+     "kept": 1,
+     "stopped": null,
+     "board_mm": [
+      18,
+      14
+     ],
+     "vias": 6,
+     "placement_violations": 0,
+     "placement_cost": 151.6,
+     "repair_rounds": 0,
+     "repair_text": null,
+     "before_a1": {
+      "errors": 0,
+      "unrouted": 0,
+      "by_type": {},
+      "warnings": 20
+     },
+     "before_kept": {
+      "errors": 0,
+      "unrouted": 0,
+      "by_type": {},
+      "warnings": 20
+     },
+     "after": {
+      "errors": 0,
+      "unrouted": 0,
+      "warnings": 20,
+      "by_type": {}
+     },
+     "attempt_lines": [
+      "attempt 1 (placer seeds 1-4): board 18x14 mm, 0 unrouted, DRC 0 errors, 0 placement violations, 6 vias"
+     ],
+     "track_mm": 65.6,
+     "segments": 38,
+     "vias_board": 6,
+     "hpwl_mm": 87.3,
+     "postlayout_s": 0.0,
+     "postlayout": {
+      "info:decap-distance": 3,
+      "warn:return-path": 1
+     },
+     "postlayout_warnings": 1
+    }
+   ],
+   "aggregate": {
+    "runs": 1,
+    "ok_rate": 1,
+    "clean_before_repair_rate": 1,
+    "clean_before_repair_kept_rate": 1,
+    "timeouts": 0,
+    "errors": 0,
+    "attempts_mean": 1,
+    "attempts_median": 1,
+    "hpwl_mm_mean": 87.3,
+    "hpwl_mm_median": 87.3,
+    "vias_mean": 6,
+    "vias_median": 6,
+    "track_mm_mean": 65.6,
+    "track_mm_median": 65.6,
+    "repair_rounds_mean": 0,
+    "repair_rounds_median": 0,
+    "wall_s_mean": 128.6,
+    "wall_s_median": 128.6,
+    "errors_before_a1_mean": 0,
+    "errors_before_a1_median": 0,
+    "unrouted_before_a1_mean": 0,
+    "unrouted_before_a1_median": 0,
+    "errors_before_kept_mean": 0,
+    "errors_before_kept_median": 0,
+    "drc_after_mean": 0,
+    "drc_after_median": 0,
+    "postlayout_warnings_mean": 1,
+    "postlayout_warnings_median": 1,
+    "placer_s_mean": 106.0,
+    "placer_s_median": 106.0,
+    "router_s_mean": 20.7,
+    "router_s_median": 20.7,
+    "repair_s_mean": 0.0,
+    "repair_s_median": 0.0,
+    "drc_s_mean": 1.9,
+    "drc_s_median": 1.9,
+    "other_s_mean": 0.0,
+    "other_s_median": 0.0,
+    "postlayout_by_code_mean": {
+     "info:decap-distance": 3.0,
+     "warn:return-path": 1.0
+    },
+    "drc_after_by_type_mean": {}
+   }
+  },
+  "thermostat": {
+   "placer": {
+    "seeds": 4,
+    "iters": 30000
+   },
+   "env": {
+    "HWFLOW_KEEPOUT_STRICT": "0"
+   },
+   "runs": [
+    {
+     "offset": 0,
+     "wall_s": 79.5,
+     "error": null,
+     "phase_s": {
+      "placer": 0.2,
+      "router": 51.4,
+      "repair": 0.0,
+      "drc": 27.0,
+      "other": 0.9
+     },
+     "phase_calls": {
+      "placer": 1,
+      "router": 1,
+      "repair": 0,
+      "drc": 1
+     },
+     "ok": true,
+     "attempts": 1,
+     "kept": 1,
+     "stopped": null,
+     "board_mm": [
+      130,
+      40
+     ],
+     "vias": 94,
+     "placement_violations": 0,
+     "placement_cost": 223701.9,
+     "repair_rounds": 0,
+     "repair_text": null,
+     "before_a1": {
+      "errors": 0,
+      "unrouted": 0,
+      "by_type": {},
+      "warnings": 30
+     },
+     "before_kept": {
+      "errors": 0,
+      "unrouted": 0,
+      "by_type": {},
+      "warnings": 30
+     },
+     "after": {
+      "errors": 0,
+      "unrouted": 0,
+      "warnings": 30,
+      "by_type": {}
+     },
+     "attempt_lines": [
+      "attempt 1 (placer seeds 1-4): board 130x40 mm, 0 unrouted, DRC 0 errors, 0 placement violations, 94 vias"
+     ],
+     "track_mm": 1443.2,
+     "segments": 529,
+     "vias_board": 94,
+     "hpwl_mm": 1409.8,
+     "postlayout_s": 0.4,
+     "postlayout": {
+      "info:decap-distance": 10,
+      "warn:decap-distance": 1,
+      "info:crosstalk": 2
+     },
+     "postlayout_warnings": 1
+    }
+   ],
+   "aggregate": {
+    "runs": 1,
+    "ok_rate": 1,
+    "clean_before_repair_rate": 1,
+    "clean_before_repair_kept_rate": 1,
+    "timeouts": 0,
+    "errors": 0,
+    "attempts_mean": 1,
+    "attempts_median": 1,
+    "hpwl_mm_mean": 1409.8,
+    "hpwl_mm_median": 1409.8,
+    "vias_mean": 94,
+    "vias_median": 94,
+    "track_mm_mean": 1443.2,
+    "track_mm_median": 1443.2,
+    "repair_rounds_mean": 0,
+    "repair_rounds_median": 0,
+    "wall_s_mean": 79.5,
+    "wall_s_median": 79.5,
+    "errors_before_a1_mean": 0,
+    "errors_before_a1_median": 0,
+    "unrouted_before_a1_mean": 0,
+    "unrouted_before_a1_median": 0,
+    "errors_before_kept_mean": 0,
+    "errors_before_kept_median": 0,
+    "drc_after_mean": 0,
+    "drc_after_median": 0,
+    "postlayout_warnings_mean": 1,
+    "postlayout_warnings_median": 1,
+    "placer_s_mean": 0.2,
+    "placer_s_median": 0.2,
+    "router_s_mean": 51.4,
+    "router_s_median": 51.4,
+    "repair_s_mean": 0.0,
+    "repair_s_median": 0.0,
+    "drc_s_mean": 27.0,
+    "drc_s_median": 27.0,
+    "other_s_mean": 0.9,
+    "other_s_median": 0.9,
+    "postlayout_by_code_mean": {
+     "info:crosstalk": 2.0,
+     "info:decap-distance": 10.0,
+     "warn:decap-distance": 1.0
+    },
+    "drc_after_by_type_mean": {}
+   }
+  },
+  "thermostat-strict": {
+   "placer": {
+    "seeds": 4,
+    "iters": 30000
+   },
+   "env": {
+    "HWFLOW_KEEPOUT_STRICT": "1"
+   },
+   "runs": [
+    {
+     "offset": 0,
+     "wall_s": 64.8,
+     "error": null,
+     "phase_s": {
+      "placer": 0.2,
+      "router": 35.7,
+      "repair": 0.0,
+      "drc": 27.8,
+      "other": 1.1
+     },
+     "phase_calls": {
+      "placer": 1,
+      "router": 1,
+      "repair": 1,
+      "drc": 1
+     },
+     "ok": false,
+     "attempts": 1,
+     "kept": 1,
+     "stopped": "stopped: remaining errors are on fixed parts: BT1, U2",
+     "board_mm": [
+      130,
+      40
+     ],
+     "vias": 94,
+     "placement_violations": 0,
+     "placement_cost": 223701.9,
+     "repair_rounds": 0,
+     "repair_text": "repair: 2 errors, none the router can repair",
+     "before_a1": {
+      "errors": 2,
+      "unrouted": 0,
+      "by_type": {
+       "items_not_allowed": 2
+      },
+      "warnings": 30
+     },
+     "before_kept": {
+      "errors": 2,
+      "unrouted": 0,
+      "by_type": {
+       "items_not_allowed": 2
+      },
+      "warnings": 30
+     },
+     "after": {
+      "errors": 2,
+      "unrouted": 0,
+      "warnings": 30,
+      "by_type": {
+       "items_not_allowed": 2
+      }
+     },
+     "attempt_lines": [
+      "attempt 1 (placer seeds 1-4): board 130x40 mm, 0 unrouted, DRC 2 errors, 0 placement violations, 94 vias, repair: 2 errors, none the router can repair"
+     ],
+     "track_mm": 1443.2,
+     "segments": 529,
+     "vias_board": 94,
+     "hpwl_mm": 1409.8,
+     "postlayout_s": 0.5,
+     "postlayout": {
+      "info:decap-distance": 10,
+      "warn:decap-distance": 1,
+      "info:crosstalk": 2
+     },
+     "postlayout_warnings": 1
+    }
+   ],
+   "aggregate": {
+    "runs": 1,
+    "ok_rate": 0,
+    "clean_before_repair_rate": 0,
+    "clean_before_repair_kept_rate": 0,
+    "timeouts": 0,
+    "errors": 0,
+    "attempts_mean": 1,
+    "attempts_median": 1,
+    "hpwl_mm_mean": 1409.8,
+    "hpwl_mm_median": 1409.8,
+    "vias_mean": 94,
+    "vias_median": 94,
+    "track_mm_mean": 1443.2,
+    "track_mm_median": 1443.2,
+    "repair_rounds_mean": 0,
+    "repair_rounds_median": 0,
+    "wall_s_mean": 64.8,
+    "wall_s_median": 64.8,
+    "errors_before_a1_mean": 2,
+    "errors_before_a1_median": 2,
+    "unrouted_before_a1_mean": 0,
+    "unrouted_before_a1_median": 0,
+    "errors_before_kept_mean": 2,
+    "errors_before_kept_median": 2,
+    "drc_after_mean": 2,
+    "drc_after_median": 2,
+    "postlayout_warnings_mean": 1,
+    "postlayout_warnings_median": 1,
+    "placer_s_mean": 0.2,
+    "placer_s_median": 0.2,
+    "router_s_mean": 35.7,
+    "router_s_median": 35.7,
+    "repair_s_mean": 0.0,
+    "repair_s_median": 0.0,
+    "drc_s_mean": 27.8,
+    "drc_s_median": 27.8,
+    "other_s_mean": 1.1,
+    "other_s_median": 1.1,
+    "postlayout_by_code_mean": {
+     "info:crosstalk": 2.0,
+     "info:decap-distance": 10.0,
+     "warn:decap-distance": 1.0
+    },
+    "drc_after_by_type_mean": {
+     "items_not_allowed": 2.0
+    }
+   }
+  },
+  "thermostat-unfixed": {
+   "placer": {
+    "seeds": 4,
+    "iters": 30000
+   },
+   "env": {
+    "HWFLOW_KEEPOUT_STRICT": "1"
+   },
+   "runs": [
+    {
+     "offset": 0,
+     "timeout": true,
+     "wall_s": 900.0,
+     "ok": false,
+     "phase_s": {
+      "placer": 81.2,
+      "router": 363.2,
+      "repair": 0.0,
+      "drc": 16.6
+     },
+     "running_phase_at_timeout": "repair"
+    }
+   ],
+   "aggregate": {
+    "runs": 1,
+    "ok_rate": 0,
+    "clean_before_repair_rate": null,
+    "clean_before_repair_kept_rate": null,
+    "timeouts": 1,
+    "errors": 0,
+    "attempts_mean": null,
+    "attempts_median": null,
+    "hpwl_mm_mean": null,
+    "hpwl_mm_median": null,
+    "vias_mean": null,
+    "vias_median": null,
+    "track_mm_mean": null,
+    "track_mm_median": null,
+    "repair_rounds_mean": null,
+    "repair_rounds_median": null,
+    "wall_s_mean": 900.0,
+    "wall_s_median": 900.0,
+    "errors_before_a1_mean": null,
+    "errors_before_a1_median": null,
+    "unrouted_before_a1_mean": null,
+    "unrouted_before_a1_median": null,
+    "errors_before_kept_mean": null,
+    "errors_before_kept_median": null,
+    "drc_after_mean": null,
+    "drc_after_median": null,
+    "postlayout_warnings_mean": null,
+    "postlayout_warnings_median": null,
+    "placer_s_mean": 81.2,
+    "placer_s_median": 81.2,
+    "router_s_mean": 363.2,
+    "router_s_median": 363.2,
+    "repair_s_mean": 0.0,
+    "repair_s_median": 0.0,
+    "drc_s_mean": 16.6,
+    "drc_s_median": 16.6,
+    "other_s_mean": null,
+    "other_s_median": null,
+    "postlayout_by_code_mean": {},
+    "drc_after_by_type_mean": {}
+   }
+  },
+  "synth60": {
+   "placer": {
+    "seeds": 4,
+    "iters": 30000
+   },
+   "env": {
+    "HWFLOW_KEEPOUT_STRICT": "1"
+   },
+   "runs": [
+    {
+     "offset": 0,
+     "timeout": true,
+     "wall_s": 900.0,
+     "ok": false,
+     "phase_s": {
+      "placer": 57.7,
+      "router": 270.5,
+      "repair": 506.7,
+      "drc": 5.3
+     },
+     "running_phase_at_timeout": "router"
+    }
+   ],
+   "aggregate": {
+    "runs": 1,
+    "ok_rate": 0,
+    "clean_before_repair_rate": null,
+    "clean_before_repair_kept_rate": null,
+    "timeouts": 1,
+    "errors": 0,
+    "attempts_mean": null,
+    "attempts_median": null,
+    "hpwl_mm_mean": null,
+    "hpwl_mm_median": null,
+    "vias_mean": null,
+    "vias_median": null,
+    "track_mm_mean": null,
+    "track_mm_median": null,
+    "repair_rounds_mean": null,
+    "repair_rounds_median": null,
+    "wall_s_mean": 900.0,
+    "wall_s_median": 900.0,
+    "errors_before_a1_mean": null,
+    "errors_before_a1_median": null,
+    "unrouted_before_a1_mean": null,
+    "unrouted_before_a1_median": null,
+    "errors_before_kept_mean": null,
+    "errors_before_kept_median": null,
+    "drc_after_mean": null,
+    "drc_after_median": null,
+    "postlayout_warnings_mean": null,
+    "postlayout_warnings_median": null,
+    "placer_s_mean": 57.7,
+    "placer_s_median": 57.7,
+    "router_s_mean": 270.5,
+    "router_s_median": 270.5,
+    "repair_s_mean": 506.7,
+    "repair_s_median": 506.7,
+    "drc_s_mean": 5.3,
+    "drc_s_median": 5.3,
+    "other_s_mean": null,
+    "other_s_median": null,
+    "postlayout_by_code_mean": {},
+    "drc_after_by_type_mean": {}
+   }
+  }
+ },
+ "aggregate": {
+  "runs": 4,
+  "ok_rate": 0.5,
+  "clean_before_repair_rate": 1,
+  "clean_before_repair_kept_rate": 1,
+  "timeouts": 2,
+  "errors": 0,
+  "attempts_mean": 1,
+  "attempts_median": 1.0,
+  "hpwl_mm_mean": 748.55,
+  "hpwl_mm_median": 748.55,
+  "vias_mean": 50,
+  "vias_median": 50.0,
+  "track_mm_mean": 754.4,
+  "track_mm_median": 754.4,
+  "repair_rounds_mean": 0,
+  "repair_rounds_median": 0.0,
+  "wall_s_mean": 502.02,
+  "wall_s_median": 514.3,
+  "errors_before_a1_mean": 0,
+  "errors_before_a1_median": 0.0,
+  "unrouted_before_a1_mean": 0,
+  "unrouted_before_a1_median": 0.0,
+  "errors_before_kept_mean": 0,
+  "errors_before_kept_median": 0.0,
+  "drc_after_mean": 0,
+  "drc_after_median": 0.0,
+  "postlayout_warnings_mean": 1,
+  "postlayout_warnings_median": 1.0,
+  "placer_s_mean": 61.27,
+  "placer_s_median": 69.45,
+  "router_s_mean": 176.45,
+  "router_s_median": 160.95,
+  "repair_s_mean": 126.67,
+  "repair_s_median": 0.0,
+  "drc_s_mean": 12.7,
+  "drc_s_median": 10.95,
+  "other_s_mean": 0.45,
+  "other_s_median": 0.45,
+  "postlayout_by_code_mean": {
+   "info:crosstalk": 0.5,
+   "info:decap-distance": 3.25,
+   "warn:decap-distance": 0.25,
+   "warn:return-path": 0.25
+  },
+  "drc_after_by_type_mean": {},
+  "attempts_mean_of_designs": 1,
+  "total_wall_s": 2107.0
+ },
+ "loadavg_end": [
+  2.39501953125,
+  5.0302734375,
+  5.923828125
+ ]
+}

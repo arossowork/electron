@@ -19,6 +19,39 @@ the same 1 to 3 errors. `scripts/run_timing.py` gives these numbers from the tra
 | L5 parallel `--auto`, early stop | 7d5bb7e | `tests/test_layout_perf.py` (deterministic pick, early stop, no pool when attempt 1 is final, per-attempt dirs) | thermostat `layout --auto` 190 s, 4 sequential attempts ending with the same 2 errors on fixed parts | 74 to 89 s, 1 attempt ("stopped: remaining errors are on fixed parts"); attempt 1 runs alone, the pool starts only if it is not final |
 | L14 keep-out check independent of `fp-lib-table` | 694aaf7 | `tests/test_keepout.py` | KiCad drops footprint and pad keep-out errors when the keep-out footprint's library resolves; hwflow always ran that way | own check (0.15 s), adds exactly BT1 and U2 on the baseline; off by default (`HWFLOW_KEEPOUT_STRICT=1`), proposed field `board.keepout_check: strict` |
 
+## Second goal (L8 to L14)
+
+Benchmark: `scripts/layout_bench.py`. Before = `docs/layout-bench-baseline.json` (694aaf7). After = `docs/layout-bench-0abe26c.json` (L9, L10, L11 and the follow-up fixes; 1 run per design, 900 s cap).
+
+| design | before | after |
+|---|---|---|
+| thermostat (all parts fixed) | clean before repair, 1 attempt, 63 s | same, 80 s (machine load, same work) |
+| thermostat-strict | 2 `items_not_allowed` (BT1, U2) | same |
+| thermostat-unfixed (70 of 82 parts placed) | timeout at 1200 s: placer 673 s, router 464 s, killed in repair | timeout at 900 s: placer 81 s, router 363 s, killed in repair |
+| synth60 | timeout at 1200 s: placer 286 s, router 264 s, repair 366 s | timeout at 900 s: placer 58 s, router 270 s, repair 507 s |
+| sensor_preamp | clean, HPWL 78, placer 71 s | clean, HPWL 87, placer 106 s (regression, see L13) |
+
+The headline numbers (DRC-clean rate before repair, mean attempts) cannot be compared. Every design that finishes was already at 1.0 and 1 attempt, and the two hard designs time out in both states. The targets (clean rate x2, at most 2 attempts) are not shown.
+
+What did improve:
+- The placer is 5 to 8 times faster on the hard designs.
+- Keep-out and isolation are met while placing.
+- On a single attempt of thermostat-unfixed without repair, measured by the follow-up agent: DRC errors 528 -> 101 and unrouted 85 -> 51 (`0abe26c`).
+
+What blocks the rest:
+- Repair does not converge on boards with hundreds of errors (507 s on synth60). It takes the time that a new attempt would use (L13).
+- The router. It applies the mains class-pair clearance only track to track, so SELV tracks pass about 2.5 mm from mains pads (291 of the remaining clearance errors on thermostat-unfixed). It is also slow on dense 2-layer boards. Both need a router change: the user decides.
+
+| item | commit | test | measured effect |
+|---|---|---|---|
+| L8 benchmark | 6f9d62f, 738e7b2 | the bench itself | see the table above; the original set was at its ceiling, so thermostat-unfixed and synth60 were added |
+| L9 RUDY congestion, incremental cost, refine | f923a61 | `tests/test_placer.py` (incremental == full, channel fixture) | place() 10 to 70 times faster per iteration (thermostat unfixed 229 -> 2160 it/s; synth150 50 -> 1450 to 3600 it/s); RUDY overflow on synth150 1122 -> 267 |
+| L10 keep-outs and isolation in the placer | 5224952 | `tests/test_placer.py` (never in KO_STACK, isolation gap, incremental) | movable parts in keep-outs 8 -> 0; inter-group pad gap 0.10 -> 6.55 mm (target 6.5) |
+| follow-up: pad clearance, PTH in courtyard, cutouts, post-DRC hang | 0abe26c | `tests/test_placer.py`, `test_split_tjunctions_is_bounded`, router path test | the >20 min hang after DRC removed (`_split_tjunctions` O(splits x n^2), now 0.01 s); thermostat-unfixed single attempt 528 -> 101 DRC errors, 85 -> 51 unrouted |
+| L11 creepage as router clearance | 9c31f1b | 4 tests in `tests/test_router_rules.py` | thermostat unchanged (already 0); track-to-track only, see above |
+| L12 post-layout terms in the placer | 477133f | one fixture per term in `tests/test_placer.py` | no placer time change (1.4 s / 3000 moves); post-layout warnings not yet measured on a routed hard design |
+| L14 keep-out check | 694aaf7, 194c57a | `tests/test_keepout.py` | on by default (user decision): thermostat now reports BT1 and U2 |
+
 ## Regression gate (first goal)
 
 Commit `7d5bb7e`, two `hwflow build <copy> --auto` of the baseline from scratch (108 s and 124 s each, full build
