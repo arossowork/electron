@@ -49,6 +49,8 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | si_pdn_z_ohm | 1.0 | signal-integrity screen: the largest impedance of a decap loop at the knee frequency 0.35/t_r of its IC (see `edge_ns` under nets) |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
+Route cache: the layout stage stores the routed and repaired copper in `build/routecache/<key>.json`; the key hashes the unrouted board (placement, footprints, nets, outline), the rules files, the `board:` settings, the router version and the repair code. The same key skips the router and the repair (the full DRC still runs), so `layout --reuse` and a repeated build give the same copper. Delete `build/routecache/` to force a new route. `layout --auto` runs its attempts in parallel (`--workers N`, default cpu count - 1) and stops when the remaining errors are on parts with `fixed: true`.
+
 ## nets
 
 Only nets that need intent are listed. Every net in `components.*.pins` exists automatically.

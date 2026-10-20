@@ -251,8 +251,18 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     return tree
 
 
+def board_text(tree: list) -> str:
+    """The board as text, its UUIDs renamed in order of appearance: the same input gives the same bytes."""
+    import re
+    ids: dict[str, str] = {}
+    text = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+                  lambda m: ids.setdefault(m.group(0), str(uuid.uuid5(uuid.NAMESPACE_URL, f"hwflow/{len(ids)}"))),
+                  sexpr.dumps(tree))
+    return text + "\n"
+
+
 def write_board(path: Path, tree: list):
-    path.write_text(sexpr.dumps(tree) + "\n")
+    path.write_text(board_text(tree))
 
 
 def isolation_groups(design: Design) -> list[dict]:
@@ -512,6 +522,26 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
     return cur, last, retried, len(groups)
+
+
+_ROUTER_VERSION: dict[str, str] = {}
+
+
+def router_version(design: Design) -> str:
+    """What the routing result depends on besides the input: a hash of the KiCadRoutingTools sources and its compiled
+    extension (or the Freerouting jar), so a cached route is dropped when the router changes."""
+    import hashlib
+    krt = design.board.get("router", "krt") == "krt" and (KRT_DIR / "py_router" / "route.py").exists()
+    key = f"krt:{KRT_DIR}" if krt else f"freerouting:{FREEROUTING}"
+    if key not in _ROUTER_VERSION:
+        h = hashlib.sha256()
+        files = sorted(list((KRT_DIR / "py_router").rglob("*.py")) + list((KRT_DIR / "rust_router").glob("*.so"))) if krt \
+            else [Path(FREEROUTING)]
+        for f in files:
+            if f.exists():
+                h.update(str(f.name).encode() + f.read_bytes())
+        _ROUTER_VERSION[key] = h.hexdigest()[:16]
+    return _ROUTER_VERSION[key]
 
 
 def _kicad_cli() -> str:

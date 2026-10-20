@@ -486,18 +486,18 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
     d = Design.load(proj)
     seen = []
 
-    def fake(d, libs, reuse=False, seeds=4, iters=0, passes=0, seed0=1):
+    def fake(d, libs, reuse=False, seeds=4, iters=0, passes=0, seed0=1, workdir=None):
         seen.append((reuse, seed0))
         n = len(seen)
-        (cli._out(d) / f"{d.name}.kicad_pcb").write_text(f"board {n}")
-        (cli._out(d) / "placement.json").write_text("{}")
+        (workdir / f"{d.name}.kicad_pcb").write_text(f"board {n}")
+        (workdir / "placement.json").write_text("{}")
         bad = n < 3
         return {"ok": not bad, "board_mm": [50, 40], "unrouted": 0, "drc_errors": 2 if bad else 0, "drc_warnings": 0,
                 "placement_violations": [], "vias": 10, "segments": 5, "router": "", "drc": []}
 
     monkeypatch.setattr(cli, "stage_layout", fake)
     (cli._out(d) / "placement.json").write_text("{}")
-    r = cli.layout_auto(d, None, reuse=True, attempts=4, seeds=4)
+    r = cli.layout_auto(d, None, reuse=True, attempts=4, seeds=4, workers=1)  # in this process, one at a time
     assert seen == [(True, 1), (False, 5), (False, 9)]
     assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
     assert (cli._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"

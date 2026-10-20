@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -242,8 +243,8 @@ def _run_summary(res: list[dict]) -> list[dict]:
             for a in res if a.get("status", "ok") != "ok" or a.get("flaky")]
 
 
-def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, str, int]:
-    out = _out(d)
+def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None) -> tuple[list, list, str, int]:
+    out = out or _out(d)
     name = d.name
     if d.board.get("router", "krt") == "krt":
         if (pcb.KRT_DIR / "py_router" / "route.py").exists():
@@ -260,7 +261,8 @@ def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, 
     return tracks, vias, summary, unrouted
 
 
-def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights, seed0: int = 1):
+def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights, seed0: int = 1,
+                   out: Path | None = None):
     """Shrink the board (keeping the requested aspect ratio) until placement or routing fails."""
     b = d.raw.setdefault("board", {})
     W0, H0 = float(d.board["width_mm"]), float(d.board["height_mm"])
@@ -279,7 +281,7 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
         if viol:
             tried.append(f"{W}x{H}: placement fails")
             break
-        tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes)
+        tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes, out)
         if unrouted:
             tried.append(f"{W}x{H}: {unrouted} unrouted")
             break
@@ -292,16 +294,40 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
     return best, tried
 
 
+def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
+    """Hash of everything the routed and repaired copper depends on: the unrouted board text (placement, footprints,
+    nets, outline), the rules files, the board settings (router and repair settings among them), the router
+    version and the repair code. The router is deterministic for the same input, so the same key gives the same copper."""
+    import hashlib
+    h = hashlib.sha256(pcb.board_text(pcb.build_board(d, libs, parts)).encode())
+    for suf in (".kicad_pro", ".kicad_dru"):
+        f = out / f"{d.name}{suf}"
+        h.update(f.read_bytes() if f.exists() else b"-")
+    h.update(json.dumps([d.board, passes, pcb.KRT_VARIANTS, pcb.router_version(d)], sort_keys=True, default=str).encode())
+    h.update((Path(repair.__file__)).read_bytes())
+    return h.hexdigest()[:24]
+
+
+def _cache_save(cache: Path, key: str, data: dict):
+    cache.mkdir(exist_ok=True)
+    tmp = cache / f"{key}.{os.getpid()}.tmp"
+    tmp.write_text(json.dumps(data))
+    os.replace(tmp, cache / f"{key}.json")  # atomic: parallel attempts may write the same key
+
+
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
-                 passes: int = 30, seed0: int = 1) -> dict:
-    out = _out(d)
+                 passes: int = 30, seed0: int = 1, workdir: Path | None = None) -> dict:
+    """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
+    (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs."""
+    out = workdir or _out(d)
+    cache = _out(d) / "routecache"
     pj = out / "placement.json"
     t0 = time.time()
     weights = (d.raw.get("placement") or {}).get("weights")
     area_log = None
     pre = None
     if d.board.get("optimize_area") and not reuse:
-        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0)
+        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out)
     if pre:
         _, _, parts, cost, viol, tracks, vias, summary = pre
     elif reuse and pj.exists():
@@ -319,33 +345,42 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pj.write_text(json.dumps({r: [p.x, p.y, p.r] for r, p in parts.items()}, indent=1))
     name = d.name
     board = out / f"{name}.kicad_pcb"
-    if not pre:
-        tracks, vias, summary, _ = _route_once(d, libs, parts, passes)
+
     def route_check(tr, vi, island=0, fast=False):
         pcb.write_board(board, pcb.build_board(d, libs, parts, tr, vi, island_removal=island))
         return kicad.drc_fast(board) if fast else kicad.drc(board, refill=True, parity=True)
 
-    pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for this DRC
-    drc = route_check(tracks, vias)
-    rep = None
-    rounds = int(d.board.get("repair_rounds", 3))
-    if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
-            and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
-        pre = (tracks, vias, drc, board.read_bytes())
-        r = repair.repair(d, libs, parts, tracks, vias, drc, board,
-                          lambda *a: route_check(*a, fast=True), rounds)  # local repair, not a rebuild
-        tracks, vias, rep = r["tracks"], r["vias"], r["report"]
-        if rep["rounds"] and (tracks, vias) != pre[:2]:
-            drc = kicad.drc(board, refill=True, parity=True)  # the full DRC, once, on the board kept
-            if len([x for x in drc if x["sev"] == "error"]) > len([x for x in pre[2] if x["sev"] == "error"]):
-                tracks, vias, drc = pre[0], pre[1], pre[2]  # a creepage error the fast check cannot see
-                board.write_bytes(pre[3])
-                rep["log"].append("rejected by the full DRC")
-                drc = kicad.drc(board, refill=True, parity=True)
-        rep["before"] = len([x for x in pre[2] if x["sev"] == "error"])
-        rep["after"] = len([x for x in drc if x["sev"] == "error"])
-        rep["text"] = repair.summary(rep)
-        print(f"[layout] {rep['text']}")
+    pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for the router and DRC
+    key = _route_key(d, libs, parts, out, passes)
+    hit = json.loads((cache / f"{key}.json").read_text()) if (cache / f"{key}.json").exists() else None
+    rep, island = None, 0
+    if hit:
+        tracks, vias, summary, island, rep = hit["tracks"], hit["vias"], hit["summary"] + " (route cache)", hit["island"], hit["rep"]
+        drc = route_check(tracks, vias, island)  # the full DRC runs again: it is the check of the board kept
+        print(f"[layout] route cache hit {key}: router and repair skipped")
+    else:
+        if not pre:
+            tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
+        drc = route_check(tracks, vias)
+        rounds = int(d.board.get("repair_rounds", 3))
+        if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
+                and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
+            pre = (tracks, vias, drc, board.read_bytes())
+            r = repair.repair(d, libs, parts, tracks, vias, drc, board,
+                              lambda *a: route_check(*a, fast=True), rounds)  # local repair, not a rebuild
+            tracks, vias, rep, island = r["tracks"], r["vias"], r["report"], r["island"]
+            if rep["rounds"] and (tracks, vias) != pre[:2]:
+                drc = kicad.drc(board, refill=True, parity=True)  # the full DRC, once, on the board kept
+                if len([x for x in drc if x["sev"] == "error"]) > len([x for x in pre[2] if x["sev"] == "error"]):
+                    tracks, vias, drc, island = pre[0], pre[1], pre[2], 0  # a creepage error the fast check cannot see
+                    board.write_bytes(pre[3])
+                    rep["log"].append("rejected by the full DRC")
+                    drc = kicad.drc(board, refill=True, parity=True)
+            rep["before"] = len([x for x in pre[2] if x["sev"] == "error"])
+            rep["after"] = len([x for x in drc if x["sev"] == "error"])
+            rep["text"] = repair.summary(rep)
+            print(f"[layout] {rep['text']}")
+        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep})
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     iso = isolation_distances(d, board, drc)
@@ -354,6 +389,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
+            "route_cache": key if hit else None, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "seconds": round(time.time() - t0, 1)}
 
 
@@ -379,64 +415,161 @@ def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
     return rows
 
 
+_AUTO: dict = {}  # what the attempts of layout_auto need; set before the workers start (fork copies it)
+
+
+def _auto_attempt(k: int) -> dict:
+    """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/. Runs in a worker process,
+    so the design it mutates (board size) is that worker's own copy."""
+    import shutil
+    c = _AUTO
+    d, libs, out = c["d"], c["libs"], c["out"]
+    b = d.raw.setdefault("board", {})
+    for key, v in zip(("width_mm", "height_mm"), c["size0"]):  # every attempt starts from the requested outline
+        if v is None:
+            b.pop(key, None)
+        else:
+            b[key] = v
+    w = out / "auto" / f"a{k + 1}"
+    shutil.rmtree(w, ignore_errors=True)
+    w.mkdir(parents=True)
+    for f in ("fp-lib-table", "sym-lib-table"):  # DRC reads the library tables next to the board
+        if (out / f).exists():
+            shutil.copy(out / f, w / f)
+    seeds = c["seeds"]
+    seed0 = 1 + k * seeds
+    use_saved = c["reuse"] and k == 0 and (out / "placement.json").exists()
+    if use_saved:
+        shutil.copy(out / "placement.json", w / "placement.json")
+    try:
+        r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=c["iters"], passes=c["passes"], seed0=seed0,
+                         workdir=w)
+    except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
+        return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
+    how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
+    line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
+            f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
+            f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
+            + (", route cache" if r.get("route_cache") else ""))
+    return {"k": k + 1, "r": r, "line": line}
+
+
+def _auto_final(res: dict) -> bool:
+    """An attempt after which more attempts cannot help: it is clean, or its errors are on fixed parts."""
+    r = res.get("r")
+    return bool(r and (r["ok"] or r.get("fixed_parts_only")))
+
+
+def _auto_pool(n: int):
+    import concurrent.futures as cf
+    import multiprocessing as mp
+    if n <= 1 or "fork" not in mp.get_all_start_methods():
+        return cf.ThreadPoolExecutor(1)
+    return cf.ProcessPoolExecutor(n, mp_context=mp.get_context("fork"))
+
+
 def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, seeds: int = 4, iters: int = 30000,
-                passes: int = 30) -> dict:
+                passes: int = 30, workers: int | None = None) -> dict:
     """Placement, routing (with net-order retries), area search and DRC in one call (backlog 23, 25, 40).
 
     Attempt 1 keeps the saved placement when `reuse` is set; every later attempt places again with new placer
-    seeds. Stops at the first attempt with 0 DRC errors, 0 unrouted and no placement violations, otherwise keeps
-    the best one. Each attempt's board is kept in build/auto/."""
+    seeds. The attempts run in a process pool (`workers`, default cpu count - 1, at most `attempts`), each in its own
+    directory build/auto/a<k>/. The result does not depend on completion order: an attempt is final when it has 0 DRC
+    errors, 0 unrouted and no placement violations, or when its remaining errors are on fixed parts that no
+    placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias, index) of the
+    attempts up to the first final one, or of all of them. Later attempts are not waited for. Each attempt's board
+    is kept in build/auto/."""
+    import concurrent.futures as cf
     import shutil
     out = _out(d)
     adir = out / "auto"
     if adir.exists():
         shutil.rmtree(adir)
     adir.mkdir()
-    board, pj = out / f"{d.name}.kicad_pcb", out / "placement.json"
     t0 = time.time()
-    log, best = [], None
+    n = max(attempts, 1)
+    workers = max(1, min(n, workers if workers else (os.cpu_count() or 2) - 1))
     size0 = (d.raw.get("board") or {}).get("width_mm"), (d.raw.get("board") or {}).get("height_mm")
-    for k in range(max(attempts, 1)):
-        b = d.raw.setdefault("board", {})
-        for key, v in zip(("width_mm", "height_mm"), size0):  # every attempt starts from the requested outline
-            if v is None:
-                b.pop(key, None)
-            else:
-                b[key] = v
-        seed0 = 1 + k * seeds
-        use_saved = reuse and k == 0 and pj.exists()
-        try:
-            r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=iters, passes=passes, seed0=seed0)
-        except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
-            log.append(f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}")
+    _AUTO.clear()
+    _AUTO.update(d=d, libs=libs, out=out, size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=reuse)
+    results: dict[int, dict] = {}
+    pending: dict = {}
+    fixed_all = libs is not None and all(p.fixed for p in placer.build_parts(d, libs).values())
+    if fixed_all:
+        n = 1  # no movable part: another seed gives the same placement
+    results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
+    cutoff = 0 if _auto_final(results[0]) else None
+    nxt = 1
+    workers = max(1, min(workers, n - 1))
+    pool = _auto_pool(workers) if n > 1 and cutoff is None else None
+    try:
+        while pool is not None:
+            while nxt < n and len(pending) < workers and (cutoff is None or nxt <= cutoff):
+                pending[pool.submit(_auto_attempt, nxt)] = nxt
+                nxt += 1
+            if all(k in results for k in range(n if cutoff is None else cutoff + 1)):
+                break
+            done, _ = cf.wait(pending, return_when=cf.FIRST_COMPLETED)
+            for f in done:
+                k = pending.pop(f)
+                try:
+                    results[k] = f.result()
+                except Exception as e:  # noqa: BLE001 - a crashed worker ends this attempt
+                    results[k] = {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
+            finals = [k for k, res in results.items() if _auto_final(res)]
+            cutoff = min(finals) if finals else None
+    finally:
+        left = [f for f in pending if not f.done()]  # attempts after the first final one
+        for f in left:
+            f.cancel()
+        for proc in (getattr(pool, "_processes", None) or {}).values() if left else ():
+            if proc.is_alive():
+                proc.terminate()
+        if pool is not None:
+            pool.shutdown(wait=not left, cancel_futures=True)
+    used = sorted(k for k in results if cutoff is None or k <= cutoff)
+    log, best = [], None
+    for k in used:
+        res = results[k]
+        if "error" in res:
+            log.append(res["error"])
             continue
-        how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
-        log.append(f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
-                   f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
-                   f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else ""))
-        for f in (board, pj):
-            if f.exists():
-                shutil.copy(f, adir / f"attempt{k + 1}{f.suffix}")
-        key = (not r["ok"], r["drc_errors"] + r["unrouted"], len(r["placement_violations"]), r["vias"])
+        log.append(res["line"])
+        r = res["r"]
+        key = (not r["ok"], r["drc_errors"] + r["unrouted"], len(r["placement_violations"]), r["vias"], k)
         if best is None or key < best[0]:
             best = (key, k + 1, r)
-        if r["ok"]:
-            break
+        for suf in (".kicad_pcb", ".json"):
+            f = adir / f"a{k + 1}" / (f"{d.name}.kicad_pcb" if suf == ".kicad_pcb" else "placement.json")
+            if f.exists():
+                shutil.copy(f, adir / f"attempt{k + 1}{suf}")
     if best is None:
         raise RuntimeError("layout --auto: every attempt failed: " + " | ".join(log))
     _, k, r = best
-    for suf, f in ((".kicad_pcb", board), (".json", pj)):
-        if (adir / f"attempt{k}{suf}").exists():
-            shutil.copy(adir / f"attempt{k}{suf}", f)
+    w = adir / f"a{k}"
+    for f in (f"{d.name}.kicad_pcb", f"{d.name}.drc.json", "placement.json", "krt.log",
+              f"{d.name}.kicad_pro", f"{d.name}.kicad_dru"):
+        if (w / f).exists():
+            shutil.copy(w / f, out / f)
+    for x in adir.glob("a[0-9]*"):
+        if x.is_dir():
+            shutil.rmtree(x, ignore_errors=True)
     d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = r["board_mm"]
-    r = dict(r, auto={"attempts": log, "kept": k}, seconds=round(time.time() - t0, 1))
+    stopped = None
+    if cutoff is not None and results[cutoff].get("r", {}).get("fixed_parts_only") and not results[cutoff]["r"]["ok"]:
+        stopped = ("stopped: remaining errors are on fixed parts: "
+                   + ", ".join(results[cutoff]["r"]["fixed_parts_only"]))
+    elif fixed_all and not r["ok"]:
+        stopped = "all parts fixed: one attempt"
+    r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
+             seconds=round(time.time() - t0, 1))
     return r
 
 
 def _auto_summary(r: dict) -> str:
     a = r.get("auto") or {}
     return (f"[layout --auto] {'OK' if r['ok'] else 'FAIL'}: kept attempt {a.get('kept')} of {len(a.get('attempts', []))} "
-            f"in {r['seconds']} s; board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
+            f"in {r['seconds']} s{' (' + a['stopped'] + ')' if a.get('stopped') else ''}; board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors / {r['drc_warnings']} warnings, {r['vias']} vias, {r['segments']} segments")
 
 
@@ -638,7 +771,8 @@ def write_report(d: Design, history: bool = False) -> str:
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
         if c.get("auto"):
-            L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {len(c['auto']['attempts'])}")
+            L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {len(c['auto']['attempts'])}"
+                     + (f"; {c['auto']['stopped']}" if c["auto"].get("stopped") else ""))
             for x in c["auto"]["attempts"]:
                 L.append(f"  - {x}")
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
@@ -959,12 +1093,13 @@ def main(argv=None):
     p = sub.add_parser("sim"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--brief", action="store_true", help=brief)
     auto = ("placement, routing with net-order retries, area search and DRC in one call: up to --attempts "
-            "placements, stop at the first clean board; prints only the final numbers")
+            "placements in parallel (--workers, default cpu count - 1), stop at the first clean board or when the errors "
+            "are on fixed parts; prints only the final numbers")
     p = sub.add_parser("layout"); p.add_argument("project"); p.add_argument("--reuse", action="store_true")
     p.add_argument("--brief", action="store_true", help=brief)
     p.add_argument("--auto", action="store_true", help=auto); p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--seeds", type=int, default=4); p.add_argument("--iters", type=int, default=30000)
-    p.add_argument("--passes", type=int, default=30)
+    p.add_argument("--passes", type=int, default=30); p.add_argument("--workers", type=int, default=None)
     p = sub.add_parser("build"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--until", choices=["check", "sch", "sim", "layout", "post", "fab"], default="fab")
     p.add_argument("--reuse", action="store_true"); p.add_argument("--force", action="store_true",
@@ -1085,7 +1220,8 @@ def main(argv=None):
             elif st == "layout":
                 kw = {"seeds": a.seeds, "iters": a.iters, "passes": a.passes} if a.cmd == "layout" else {}
                 if getattr(a, "auto", False):
-                    r = layout_auto(d, libs, reuse=getattr(a, "reuse", False), attempts=a.attempts, **kw)
+                    r = layout_auto(d, libs, reuse=getattr(a, "reuse", False), attempts=a.attempts,
+                                    workers=getattr(a, "workers", None), **kw)
                 else:
                     r = stage_layout(d, libs, reuse=getattr(a, "reuse", False), **kw)
             elif st == "post":

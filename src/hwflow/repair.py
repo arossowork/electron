@@ -77,6 +77,31 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
     return {"rip": rip[:MAX_RIPUP], "islands": islands, "drop_vias": drop, "unfixable": left}
 
 
+_OF = re.compile(r" of (\S+)$")
+
+
+def fixed_part_errors(drc: list[dict], parts: dict) -> list[str] | None:
+    """The parts named by the DRC errors when no error can be cured by routing (no track, via or zone named, nothing
+    unconnected) and every named part is fixed in the placement, so a new placement cannot move them either; else
+    None. `parts` maps a ref to an object with a `fixed` flag."""
+    refs: set[str] = set()
+    for x in errors(drc):
+        if x["type"] == "unconnected" or x["type"].startswith("parity:"):
+            return None
+        mine = set()
+        for s in x["items"]:
+            kind = s.split(" ", 1)[0]
+            if kind in ("Track", "Via", "Zone"):
+                return None
+            m = re.match(r"Footprint (\S+)$", s) or _OF.search(s)
+            if m:
+                mine.add(m.group(1))
+        if not mine or any(r not in parts or not parts[r].fixed for r in mine):
+            return None
+        refs |= mine
+    return sorted(refs) or None
+
+
 # ------------------------------------------------------------------ GND islands
 
 def zone_fill(board: Path) -> dict[tuple[str, str], list[Polygon]]:
