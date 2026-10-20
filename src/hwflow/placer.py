@@ -58,8 +58,15 @@ class Part:
         return self.x + dx, self.y + dy
 
 
+class Parts(dict):
+    """ref -> Part, with the rule areas of the design's keep-out footprints (`areas`, see keepout.placement_areas)."""
+    areas: list = ()
+
+
 def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
-    parts = {}
+    parts = Parts()
+    from . import keepout
+    parts.areas = keepout.placement_areas(design, libs)
     for c in design.components.values():
         if c.get("virtual"):
             continue
@@ -104,9 +111,11 @@ def _overlap(a, b) -> float:
     return w * h if w > 0 and h > 0 else 0.0
 
 
+ISO_MARGIN = 0.5  # mm added to the creepage (else clearance) of a board.isolation group
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
 
 
+_REPORTED: set = set()  # fixed-part violations already printed, once per process
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
 
 
@@ -115,9 +124,9 @@ class Placer:
                  weights: dict | None = None, keepouts: list | None = None):
         self.d, self.parts, self.W, self.H = design, parts, width, height
         self.rng = random.Random(seed)
-        self.keepouts = keepouts or []  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
+        self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
         self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
-                   "congestion": 1.0}
+                   "congestion": 1.0, "keepout": 400.0, "isolation": 400.0}
         self.wt.update(weights or {})
         gnds = design.ground_nets()
         self.nets = []
@@ -159,6 +168,42 @@ class Placer:
             if p.group:
                 self.group_members.setdefault(p.group, []).append(p)
         self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
+        self._init_rules(getattr(parts, "areas", ()))
+
+    def _init_rules(self, areas):
+        """Keep-out areas (courtyards and pads forbidden, tracks removed from the congestion capacity) and the pad
+        groups of board.isolation (a pad of a group keeps creepage + ISO_MARGIN to the pads of every other net)."""
+        nl = max(1, int(self.d.board.get("layers", 2)))
+        self.ko_fp, self.ko_pad = [], []  # (box, board sides, owner, name)
+        for a in areas:
+            lay = a["layers"]
+            sides = {s for s, L in (("front", "F.Cu"), ("back", "B.Cu")) if L in lay or "*.Cu" in lay}
+            if "footprints" in a["forbids"]:
+                self.ko_fp.append((a["box"], sides, a["owner"], a["name"]))
+            elif "pads" in a["forbids"]:
+                self.ko_pad.append((a["box"], sides, a["owner"], a["name"]))
+            if "tracks" in a["forbids"]:
+                n = nl if "*.Cu" in lay else len([L for L in lay if L.endswith(".Cu")])
+                self.keepouts.append((*a["box"], max(0.0, 1 - n / nl)))
+        from . import pcb
+        net_of = {(r, p): n for n, conns in self.d.nets().items() for r, p in conns}
+        self.iso_need, gid = [], {}
+        for g in pcb.isolation_groups(self.d):
+            need = g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"]
+            if need is not None and g["members"]:
+                for n in g["members"]:
+                    gid.setdefault(n, len(self.iso_need))
+                self.iso_need.append(float(need) + ISO_MARGIN)
+        self.pad_grp = {}  # (ref, pad) -> (group index or -1, net); only pads with a net
+        self.iso_parts = set()
+        for (r, p), n in net_of.items():
+            if r in self.parts and p in self.parts[r].pads:
+                self.pad_grp[(r, p)] = gid.get(n, -1)
+                if n in gid:
+                    self.iso_parts.add(r)
+        if not self.iso_need:
+            self.pad_grp, self.iso_parts = {}, set()
+        self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.iso_need else {}
 
     # ---- congestion (RUDY) ------------------------------------------------------------------------------------
 
@@ -237,6 +282,72 @@ class Placer:
             edge = abs({"left": x0 - m, "right": self.W - m - x1, "top": y0 - m, "bottom": self.H - m - y1}[p.edge])
         return bnd, edge
 
+    def _ko_cost(self, r):
+        """Courtyard area of `r` inside the areas that forbid footprints, plus pad area inside those that forbid pads."""
+        p = self.parts[r]
+        c = 0.0
+        for box, sides, owner, _ in self.ko_fp:
+            if owner != r:
+                for s in sides:
+                    b = p.side_box(s)
+                    if b:
+                        c += _overlap(b, box)
+        for box, sides, owner, _ in self.ko_pad:
+            if owner != r and sides & set(p.sides or ()):
+                for n in p.pads:
+                    c += _overlap(self._pad_box(p, n), box)
+        return c
+
+    def _boxes(self, p):
+        return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self._pad_box(p, n) for n in p.pads]
+
+    @staticmethod
+    def _pad_box(p, n):
+        x, y = p.pad(n)
+        w, h = (p.pad_size or {}).get(n, (0.0, 0.0))
+        if p.r % 180:
+            w, h = h, w
+        return x - w / 2, y - h / 2, x + w / 2, y + h / 2
+
+    def _iso_short(self, a, b):
+        """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below the creepage need; 0 if they are
+        in the same group, on the same part, or no group is involved."""
+        ga, gb = self.pad_grp[a], self.pad_grp[b]
+        if ga == gb or a[0] == b[0]:
+            return 0.0
+        need = max(self.iso_need[g] for g in (ga, gb) if g >= 0)
+        ba, bb = self._pad_box(self.parts[a[0]], a[1]), self._pad_box(self.parts[b[0]], b[1])
+        gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
+        return max(0.0, need - gap)
+
+    def _iso_scan(self, r, log, skip=()):
+        if not self.iso_parts:
+            return
+        cand = set(self.iso_parts)
+        if r in self.iso_parts:  # a pad of a group: every part within reach, from the spatial hash
+            B, reach = self.bucket, max(self.iso_need) + 1.0
+            for a in self.part_pads[r]:
+                if self.pad_grp[a] >= 0:
+                    x, y = self.parts[r].pad(a[1])
+                    for i in range(int((x - reach) // B), int((x + reach) // B) + 1):
+                        for j in range(int((y - reach) // B), int((y + reach) // B) + 1):
+                            cand |= self.buckets.get((i, j), set())
+        for q in cand:
+            if q == r or q in skip:
+                continue
+            for a in self.part_pads[r]:
+                for b in self.part_pads[q]:
+                    v = self._iso_short(a, b)
+                    if v > 0:
+                        key = (a, b) if (self.order[r], a[1]) < (self.order[q], b[1]) else (b, a)
+                        if key not in self.iso_pairs:
+                            self.iso_pairs[key] = v
+                            self.iso_adj[r].add(key)
+                            self.iso_adj[q].add(key)
+                            self.t_iso += v
+                            if log is not None:
+                                log.append(("iso_add", key, v))
+
     def _decap_len(self, k):
         cr, cp, ir, ip = self.decap[k]
         ax, ay = self.parts[cr].pad(cp)
@@ -279,6 +390,9 @@ class Placer:
         self.t_dec = sum(self.dec_len)
         self.grp_cost = {g: self._group_cost(g) for g in self.group_members}
         self.t_grp = sum(self.grp_cost.values())
+        self.part_ko = {r: self._ko_cost(r) for r in P}
+        self.t_ko = sum(self.part_ko.values())
+        self.iso_pairs, self.iso_adj, self.t_iso = {}, {r: set() for r in P}, 0.0
         self.pairs, self.adj, self.t_ov = {}, {r: set() for r in P}, 0.0
         self.buckets, self.part_buckets = {}, {}
         for r in P:
@@ -287,6 +401,8 @@ class Placer:
                 self.buckets.setdefault(bk, set()).add(r)
         for r in P:
             self._pair_scan(r, None)
+        for r in P:
+            self._iso_scan(r, None)
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
@@ -306,7 +422,8 @@ class Placer:
     def _update(self, moved):
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
-        saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp)
+        saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
+                 self.t_iso)
         nets, decs, groups = set(), set(), set()
         for r in moved:
             nets.update(self.part_nets[r])
@@ -330,6 +447,11 @@ class Placer:
             self.t_bnd += self.part_bnd[r] - ob
             self.t_edge += self.part_edge[r] - oe
             log.append(("part", r, ob, oe))
+            if self.ko_fp or self.ko_pad:
+                ok = self.part_ko[r]
+                self.part_ko[r] = self._ko_cost(r)
+                self.t_ko += self.part_ko[r] - ok
+                log.append(("ko", r, ok))
         for k in decs:
             old = self.dec_len[k]
             self.dec_len[k] = self._decap_len(k)
@@ -341,6 +463,12 @@ class Placer:
             self.t_grp += self.grp_cost[g] - old
             log.append(("grp", g, old))
         for r in moved:  # drop the old pairs and buckets, then rescan
+            for key in list(self.iso_adj[r]):
+                v = self.iso_pairs.pop(key)
+                self.iso_adj[key[0][0]].discard(key)
+                self.iso_adj[key[1][0]].discard(key)
+                self.t_iso -= v
+                log.append(("iso_del", key, v))
             for key in list(self.adj[r]):
                 v = self.pairs.pop(key)
                 self.adj[key[0]].discard(key)
@@ -358,6 +486,10 @@ class Placer:
         for r in moved:
             done.add(r)
             self._pair_scan(r, log, skip=done)
+        done = set()
+        for r in moved:
+            done.add(r)
+            self._iso_scan(r, log, skip=done)
         self._log, self._saved = log, saved
         return self._total()
 
@@ -372,6 +504,18 @@ class Placer:
                 self.net_len[k], self.net_dem[k] = ol, od
             elif kind == "part":
                 self.part_bnd[e[1]], self.part_edge[e[1]] = e[2], e[3]
+            elif kind == "ko":
+                self.part_ko[e[1]] = e[2]
+            elif kind == "iso_add":
+                key = e[1]
+                del self.iso_pairs[key]
+                self.iso_adj[key[0][0]].discard(key)
+                self.iso_adj[key[1][0]].discard(key)
+            elif kind == "iso_del":
+                key = e[1]
+                self.iso_pairs[key] = e[2]
+                self.iso_adj[key[0][0]].add(key)
+                self.iso_adj[key[1][0]].add(key)
             elif kind == "dec":
                 self.dec_len[e[1]] = e[2]
             elif kind == "grp":
@@ -393,13 +537,14 @@ class Placer:
                 self.part_buckets[r] = e[2]
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
-        (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp) = self._saved
+        (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
+         self.t_iso) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
-                + w["congestion"] * self.t_cong)
+                + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -427,6 +572,12 @@ class Placer:
             mx = sum(p.x for p in g) / len(g)
             my = sum(p.y for p in g) / len(g)
             c += self.wt["group"] * sum(abs(p.x - mx) + abs(p.y - my) for p in g)
+        for r in P:
+            c += self.wt["keepout"] * self._ko_cost(r)
+        keys = list(self.pad_grp)
+        for i, a in enumerate(keys):
+            for b in keys[i + 1:]:
+                c += self.wt["isolation"] * self._iso_short(a, b)
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
@@ -450,13 +601,14 @@ class Placer:
     def _anneal(self, movable, iters, t0, t1, ramp=True):
         cur = self.cost()
         best, best_state = cur, self._state()
-        base_ov, base_b = self.wt["overlap"], self.wt["bounds"]
+        base = {k: self.wt[k] for k in ("overlap", "bounds", "keepout", "isolation")}
         for i in range(iters):
             t = t0 * (t1 / t0) ** (i / iters)
             if i % 500 == 0:
                 if ramp:
                     f = 1 + 20 * i / iters
-                    self.wt["overlap"], self.wt["bounds"] = base_ov * f, base_b * f
+                    for k, v in base.items():
+                        self.wt[k] = v * f
                 cur = self.cost()  # also resets the incremental drift
                 best, best_state = cur, self._state()  # weights changed: costs are not comparable
             p = self.rng.choice(movable)
@@ -543,6 +695,19 @@ class Placer:
                         mover.x += sgn * (ox + 0.05)
                     else:
                         mover.y += sgn * (oy + 0.05)
+            for p in P:  # out of the areas that forbid courtyards, along the axis of least penetration
+                if p.fixed:
+                    continue
+                for box, sides, owner, _ in self.ko_fp:
+                    for side in sides:
+                        b = p.side_box(side)
+                        if owner == p.ref or not b or _overlap(b, box) <= 1e-6:
+                            continue
+                        moved = True
+                        opts = [(box[0] - b[2] - 0.05, 0), (box[2] - b[0] + 0.05, 0),
+                                (0, box[1] - b[3] - 0.05), (0, box[3] - b[1] + 0.05)]
+                        dx, dy = min(opts, key=lambda o: abs(o[0]) + abs(o[1]))
+                        p.x, p.y = p.x + dx, p.y + dy
             for p in P:
                 if p.fixed:
                     continue
@@ -580,7 +745,33 @@ class Placer:
                         or py + h / 2 > self.H - ce + 0.01:
                     out.append(f"{a} pad {n} copper closer than {ce} mm to the board edge")
                     break
-        return out
+        mv, fx = self._rule_violations()
+        return out + mv
+
+    def _rule_violations(self):
+        """(movable, fixed-only) keep-out and isolation violations of the current placement. A violation that involves
+        only fixed parts cannot be repaired by the placer: it is listed apart and never makes placement fail."""
+        P = self.parts
+        mv, fx = [], []
+        for r in P:
+            if self._ko_cost(r) > 0.01:
+                names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and any(
+                    _overlap(bx, box) > 0 for bx in self._boxes(P[r]))]
+                (fx if P[r].fixed else mv).append(f"{r} courtyard or pad in keep-out '{names[0] if names else '?'}'")
+        keys = list(self.pad_grp)
+        seen = set()
+        for i, a in enumerate(keys):
+            for b in keys[i + 1:]:
+                v = self._iso_short(a, b)
+                if v > 0.01 and (a[0], b[0]) not in seen:
+                    seen.add((a[0], b[0]))
+                    both_fixed = P[a[0]].fixed and P[b[0]].fixed
+                    (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short of creepage")
+        return mv, fx
+
+    def fixed_violations(self) -> list[str]:
+        """Keep-out and isolation violations caused only by fixed parts (not moved, not counted as failures)."""
+        return self._rule_violations()[1]
 
     def _state(self):
         return {r: (p.x, p.y, p.r) for r, p in self.parts.items()}
@@ -607,6 +798,10 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         if best is None or key < best[0]:
             best = (key, parts, cost, v, pl)
     key, parts, cost, v, pl = best
+    for f in pl.fixed_violations():
+        if f not in _REPORTED:
+            _REPORTED.add(f)
+            print(f"[place] fixed parts: {f}")
     if refine > 0 and any(not p.fixed for p in parts.values()):
         before = pl._state()
         cost2 = pl.refine(extra)
