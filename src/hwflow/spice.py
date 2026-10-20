@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import re
 import shutil
@@ -323,8 +325,28 @@ ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|
 DETAIL_RE = re.compile(r"trouble with|no such vector|not found|singular matrix|timestep too small", re.I)
 
 
+_NGSPICE_VERSION: list[str] = []
+
+
+def _cache_key(netlist: str) -> str:
+    """Hash of everything that decides the ngspice output: the exact netlist text, the ngspice version and the
+    content of every file the netlist includes (model files are named by path, so the path alone proves nothing)."""
+    if not _NGSPICE_VERSION:
+        try:
+            p = subprocess.run([NGSPICE, "-v"], capture_output=True, text=True, timeout=20)
+            _NGSPICE_VERSION.append(p.stdout + p.stderr)
+        except (OSError, subprocess.SubprocessError):
+            _NGSPICE_VERSION.append("?")
+    h = hashlib.sha1(netlist.encode())
+    h.update(_NGSPICE_VERSION[0].encode())
+    for m in re.finditer(r"^\.(?:include|lib)\s+(\S+)", netlist, re.I | re.M):
+        f = Path(m.group(1).strip("\"'"))
+        h.update(f.read_bytes() if f.is_file() else b"-")
+    return h.hexdigest()
+
+
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
-                 temp=None, tag: str = "") -> dict:
+                 temp=None, tag: str = "", cache: Path | None = None) -> dict:
     """One ngspice run. `status` is ok, timeout, crash, aborted or error, and `reason` says why a row has no
     value. `analysis.timeout_s` (default 600) bounds the run."""
     import time
@@ -332,10 +354,31 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
     timeout = float(analysis.get("timeout_s", DEFAULT_TIMEOUT_S))
     t0 = time.time()
     timed_out = False
+    # Result cache (L6): an analysis whose netlist did not change is not simulated again. The measure
+    # definitions are lines of the netlist; evaluation (min, max, scale) reruns on the stored ngspice output.
+    # `cache` is a directory; without it every call simulates.
+    cfile = cache / f"{_cache_key(net)}.json" if cache else None
+    hit = None
     try:
-        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}", timeout=timeout)
-    except subprocess.TimeoutExpired:
-        out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+        hit = cfile and json.loads(cfile.read_text())
+    except (OSError, ValueError):
+        pass
+    if hit:
+        out, rc = hit["out"], hit["rc"]
+        workdir.mkdir(parents=True, exist_ok=True)
+        (workdir / f"{analysis['name']}{tag}.cir").write_text(net)
+        (workdir / f"{analysis['name']}{tag}.log").write_text(out)
+    else:
+        try:
+            out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}", timeout=timeout)
+        except subprocess.TimeoutExpired:
+            out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+        if cfile and not timed_out and not out.startswith(FLAKY_MARK) and not crashed(rc, out):
+            try:
+                cache.mkdir(parents=True, exist_ok=True)
+                cfile.write_text(json.dumps({"out": out, "rc": rc}))
+            except OSError:
+                pass
     seconds = round(time.time() - t0, 1)
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
@@ -383,6 +426,8 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             r["na_reason"] = reason or "measure gave no value"
     res = {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
            "aborted": bool(aborted) or timed_out, "warnings": warnings, "status": status, "seconds": seconds}
+    if hit:
+        res["cached"] = True
     if reason:
         res["reason"] = reason
     if out.startswith(FLAKY_MARK):
@@ -390,7 +435,8 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
     return res
 
 
-def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:
+def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None,
+            cache: Path | None = None) -> list[dict]:
     """Every analysis at every temperature, in parallel; results keep the order of design.yaml."""
     import os
     from concurrent.futures import ThreadPoolExecutor
@@ -400,7 +446,8 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
     def one(job):
         a, t = job
-        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
+        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""),
+                         cache=cache)
         if t is not None:
             r["name"] += f" @ {t}C"
         return r
