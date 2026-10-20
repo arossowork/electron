@@ -370,6 +370,10 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
     elif errors or any(r["value"] is None for r in real):
         status = "error"
         reason = f"error: {errors[0]}" if errors else "measure gave no value"
+        ghosts = sorted({x for t in re.findall(r"vector (\S+) is not available|no such vector (\S+)", out)
+                         for x in t if x})
+        if ghosts:  # a probe on a node that the netlist does not have (backlog 46)
+            reason = f"node not in the netlist: {', '.join(ghosts[:4])} ({reason})"
     else:
         status, reason = "ok", ""
     if detail and status != "ok":

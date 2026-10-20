@@ -406,3 +406,14 @@ def test_check_compares_package_with_footprint():
     assert package_findings(ok, libs.footprint("Diode_SMD:D_SOD-882")) == []
     sot = Component("U1", {"footprint": "Package_TO_SOT_SMD:SOT-23-5", "package": "SOT-23-5", "package_pads": 6})
     assert [s for s, _ in package_findings(sot, libs.footprint("Package_TO_SOT_SMD:SOT-23-5"))] == ["error"]
+
+
+def test_measure_on_missing_node_says_so(tmp_path):
+    """Backlog 46: a measure on a node that is not in the netlist fails with the ngspice reason, not a silent n/a."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op"))
+    a["measures"] = a["measures"] + [{"name": "ghost", "expr": "v(x_bt1_2,x_bt1_1)"}]
+    r = spice.run_analysis(d, a, tmp_path)
+    ghost = next(x for x in r["rows"] if x["name"] == "ghost")
+    assert r["status"] == "error" and not ghost["pass"] and "node not in the netlist: x_bt1_2" in ghost["na_reason"]

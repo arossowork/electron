@@ -341,7 +341,7 @@ class PostLayoutNodeMap(NodeMap):
         kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
         use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
         if kind == "tran" and not use_l and self.d.board.get("post_tran_lump", True):
-            return self._lumped()
+            return self._tie_islands(self._lumped())
         lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
         for i, e in enumerate(self.ex.elements):
             if self._is_ideal(e["net"]):
@@ -361,7 +361,29 @@ class PostLayoutNodeMap(NodeMap):
             if e["C"] > 0:
                 lines.append(f"Cpxa{i} {a} 0 {e['C'] / 2:.6g}")
                 lines.append(f"Cpxb{i} {b} 0 {e['C'] / 2:.6g}")
-        # tie unrouted nets' fallback node to every pad that the fallback serves is implicit (same name)
+        return self._tie_islands(lines)
+
+    def _tie_islands(self, lines: list[str]) -> list[str]:
+        """Every pad node of a net must exist in the netlist and reach the other pads (backlog 46). Copper islands
+        joined only through a pour, a pad whose island holds no other pad (dropped by the lumping), or a pad that
+        falls back to the ideal net node are tied with 1 mOhm, so a testbench probe on any pad (`v(BT1.2)`) finds
+        its node and the circuit is not split. Split nets are still reported by layout_checks."""
+        uf = UF()
+        for ln in lines:
+            t = ln.split()
+            if len(t) >= 4 and t[0][:1] in "RLC" and not t[0].startswith("C"):
+                uf.union(t[1], t[2])
+        ties = []
+        for net, conns in self.d.nets().items():
+            if self._is_ideal(net):
+                continue
+            names = sorted({self.pin(r, p) for r, p in conns})
+            for a, b in zip(names, names[1:]):
+                if uf.find(a) != uf.find(b):
+                    uf.union(a, b)
+                    ties.append(f"Rtie{len(ties)} {a} {b} 1e-3")
+        if ties:
+            lines = lines + ["* pads on separate copper islands of one net (pour or unrouted): ideal tie"] + ties
         return lines
 
     def _lumped(self) -> list[str]:

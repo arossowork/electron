@@ -60,3 +60,24 @@ def test_group_clearance_reports_the_closest_copper():
     (r,) = group_clearances(d, ex)
     assert r["mm"] == pytest.approx(2.25) and r["limit"] == 4.0 and not r["ok"]
     assert r["between"] == "AC_N / VCC on F.Cu"
+
+
+def test_every_pad_node_of_a_net_exists_and_is_connected():
+    """Backlog 46: a pad whose island holds no other pad (zone joined) keeps a node, tied to the rest of the net."""
+    a, b, c, mid = ("pad", "U1", "1"), ("pad", "C1", "1"), ("pad", "BT1", "2"), ("p", 1.0, 1.0, "F.Cu")
+    z = ("p", 5.0, 5.0, "F.Cu")
+    elements = [{"net": "N", "a": a, "b": mid, "R": 1.0, "C": 1e-12},
+                {"net": "N", "a": mid, "b": b, "R": 2.0, "C": 2e-12},
+                {"net": "N", "a": c, "b": z, "R": 0.5, "C": 1e-12}]     # BT1.2 alone on its island
+    st = _stub(elements, [a, b, c])
+    nm = PostLayoutNodeMap.__new__(PostLayoutNodeMap)
+    adj = {st.ex.uf.find(n): [1] for n in (a, b, c, mid, z)}
+    nm.ex = SimpleNamespace(**vars(st.ex), adj=adj)
+    nm.grounds = set()
+    comps = {"U1": {"1": "N"}, "C1": {"1": "N"}, "BT1": {"2": "N"}}
+    nm.d = SimpleNamespace(nets=lambda: {"N": [("U1", "1"), ("C1", "1"), ("BT1", "2")]},
+                           components={r: SimpleNamespace(pins=p) for r, p in comps.items()},
+                           board={"gnd_pour": True})
+    lines = nm._tie_islands(PostLayoutNodeMap._lumped(nm))
+    assert any(ln.startswith("Rtie") and "x_bt1_2" in ln for ln in lines)
+    assert sum(ln.startswith("Rtie") for ln in lines) == 1
