@@ -567,3 +567,32 @@ def test_cost_changes_need_the_product_person(tmp_path, capsys):
     assert main(["check", str(proj)]) == 0
     main(["approve", str(proj)])
     assert approval_findings(Design.load(proj)) == []
+
+
+def test_analysis_cache_runs_ngspice_once_per_netlist(tmp_path, monkeypatch):
+    """L6: an unchanged netlist is not simulated again; a changed one re-runs only its own analysis."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
+    b = next(x for x in d.raw["sim"]["analyses"] if x["name"] != "line_transient")
+    calls = []
+
+    def fake(netlist, *args, **kw):
+        calls.append(netlist)
+        return "HWF __tend 1e6\n", 0
+
+    monkeypatch.setattr(spice, "run_ngspice", fake)
+    cache = tmp_path / "simcache"
+    r1 = spice.run_analysis(d, a, tmp_path / "w", cache=cache)
+    r2 = spice.run_analysis(d, a, tmp_path / "w", cache=cache)
+    assert len(calls) == 1 and not r1.get("cached") and r2["cached"]
+    assert [x["value"] for x in r1["rows"]] == [x["value"] for x in r2["rows"]]
+    spice.run_analysis(d, b, tmp_path / "w", cache=cache)  # other analysis: its own netlist
+    assert len(calls) == 2
+    r = next(c for c in d.components.values() if c.kind == "R")
+    spice.run_analysis(d, a, tmp_path / "w", values={r.ref: parse_value(r.get("value")) * 1.1}, cache=cache)
+    assert len(calls) == 3  # a changed value changes the netlist, so it runs again
+    spice.run_analysis(d, a, tmp_path / "w", cache=cache)
+    assert len(calls) == 3
+    spice.run_analysis(d, a, tmp_path / "w")  # no cache directory: always simulates
+    assert len(calls) == 4

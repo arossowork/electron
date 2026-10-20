@@ -208,7 +208,7 @@ def stage_sch(d: Design, libs: Libs) -> dict:
 
 def stage_sim(d: Design, mc: int = 0) -> dict:
     w = _out(d) / "sim"
-    res = spice.run_all(d, w)
+    res = spice.run_all(d, w, cache=_out(d) / "simcache")
     allrows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
     rows = [r for r in allrows if not r.get("debug")]  # dbg_* probes never count (backlog 19)
     der = spice.derating_audit(d, w)
@@ -435,8 +435,8 @@ def stage_post(d: Design) -> dict:
     nm = postlayout.PostLayoutNodeMap(d, ex)
     pre = _fresh_pre_results(d)
     if pre is None:
-        pre = spice.run_all(d, out / "sim")
-    post = spice.run_all(d, w, nm, tag="_post")
+        pre = spice.run_all(d, out / "sim", cache=out / "simcache")
+    post = spice.run_all(d, w, nm, tag="_post", cache=out / "simcache")
     deltas = []
     for a, b in zip(pre, post):
         for r1, r2 in zip(a["rows"], b["rows"]):
@@ -482,7 +482,8 @@ def _lump_check(d: Design, ex, w: Path, post: list[dict]) -> dict | None:
     if a is None or lumped is None:
         return {"analysis": name, "error": "no such analysis"}
     full = spice.run_analysis(d, a, w, postlayout.PostLayoutNodeMap(d, ex, lump=False), temp=temp,
-                              tag="_post_full" + (f"_T{temp}" if temp is not None else ""))
+                              tag="_post_full" + (f"_T{temp}" if temp is not None else ""),
+                              cache=w.parent / "simcache")
     worst, rows = 0.0, []
     for r1, r2 in zip(lumped["rows"], full["rows"]):
         if r1["value"] is None or r2["value"] is None:
