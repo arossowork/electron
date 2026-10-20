@@ -54,3 +54,18 @@ def test_large_class_clearance_has_no_drc_clearance_errors(tmp_path):
     bad = [x for x in res["drc"] if x["sev"] == "error" and "amp " in x["msg"]
            and any(i.startswith(("Track", "Via")) for i in x["items"])]
     assert bad == [], "\n".join(str(x) for x in bad)
+
+
+def test_board_writes_quoted_pad_numbers_and_layers(tmp_path):
+    """Older KiCad libraries write `(pad 1 smd ..)` unquoted; the router's parser then drops those pads (ICs), so nets
+    came out half-connected while the router reported 0 unrouted. The written board must quote them."""
+    import re
+    d = Design.load(EX)
+    libs = Libs()
+    parts = placer.build_parts(d, libs)
+    path = tmp_path / "b.kicad_pcb"
+    pcb.write_board(path, pcb.build_board(d, libs, parts))
+    text = path.read_text()
+    pads = re.findall(r"\(pad\s+(\S+)", text)
+    assert pads and all(p.startswith('"') for p in pads)
+    assert not re.search(r"\(layers?\s+[^\"()\s]", text)

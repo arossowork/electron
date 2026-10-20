@@ -74,6 +74,22 @@ def cu_layers(n: int) -> list[str]:
     return ["F.Cu"] + (["In1.Cu", "In2.Cu"] if n == 4 else []) + ["B.Cu"]
 
 
+def _quote_tokens(node: list) -> None:
+    """Quote pad numbers and layer names in place. Older KiCad libraries write `(pad 1 smd ..)` and
+    `(layers F.Cu F.Mask)` unquoted; KiCad reads both, but the router's board parser only finds quoted pad numbers
+    and silently drops those pads (IC pads vanish from the router's view and nets come out unconnected)."""
+    head = node[0] if node else None
+    if head == "pad" and len(node) > 1 and not isinstance(node[1], list):
+        node[1] = Q(str(node[1]))
+    if head in ("layer", "layers"):
+        for i in range(1, len(node)):
+            if not isinstance(node[i], list):
+                node[i] = Q(str(node[i]))
+    for x in node:
+        if isinstance(x, list):
+            _quote_tokens(x)
+
+
 def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: dict, pin_nets: dict,
                      fields: dict | None = None) -> list:
     t = copy.deepcopy(fp_tree)
@@ -108,6 +124,7 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
             _rotate_text(item, part.r)
         elif head == "pad":
             item = copy.deepcopy(item)
+            _quote_tokens(item)
             at = sexpr.find(item, "at")
             prot = float(at[3]) if len(at) > 3 else 0.0
             ang = (prot + part.r) % 360
@@ -125,6 +142,9 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
                 pass
             mp = str(item[1]).replace("${KICAD9_3DMODEL_DIR}", "${KICAD10_3DMODEL_DIR}")
             item[1] = Q(mp)
+        elif head not in ("pad", "property", "fp_text"):
+            item = copy.deepcopy(item)
+        _quote_tokens(item)
         out.append(item)
     return out
 
