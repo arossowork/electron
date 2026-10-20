@@ -35,6 +35,7 @@ class Part:
     decouples: str | None = None
     pad_size: dict | None = None  # pad number -> (w, h) at rot 0, for the copper-to-edge check
     sides: dict | None = None     # "front"/"back" -> (w, h, cx, cy) courtyard per board side
+    tht: frozenset = frozenset()  # numbers of the plated through-hole pads (KiCad: not inside another courtyard)
 
     def side_box(self, side: str):
         if not self.sides or side not in self.sides:
@@ -81,9 +82,11 @@ def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
         pl = c.get("placement") or {}
         sides = {k: (b[2] - b[0] + 2 * margin, b[3] - b[1] + 2 * margin, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
                  for k, b in fp.get("sides", {}).items()}
+        if not any(l.endswith(".Cu") for p in fp["pads"] for l in p["layers"]):
+            sides = {}  # nothing to place: a keep-out or cutout marker has no copper and no body
         part = Part(c.ref, x1 - x0 + 2 * margin, y1 - y0 + 2 * margin, (x0 + x1) / 2, (y0 + y1) / 2, pads,
                     edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes,
-                    sides=sides)
+                    sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"))
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))
@@ -94,13 +97,27 @@ def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
 
 
 def _side_overlap(pa: "Part", pb: "Part") -> float:
-    """Courtyard overlap on the same board side only (a back-side holder may sit under top parts)."""
+    """Courtyard overlap on the same board side only (a back-side holder may sit under top parts), plus the area of
+    the through-hole pads of one part inside a courtyard of the other on either side (KiCad pth_inside_courtyard)."""
     total = 0.0
     for side in ("front", "back"):
         ba, bb = pa.side_box(side), pb.side_box(side)
         if ba and bb:
             total += _overlap(ba, bb)
+    for a, b in ((pa, pb), (pb, pa)):
+        if a.tht and b.sides:
+            for n in a.tht:
+                pad = _pad_box(a, n)
+                total += sum(_overlap(pad, c) for c in (b.side_box("front"), b.side_box("back")) if c)
     return total
+
+
+def _pad_box(p: "Part", n):
+    x, y = p.pad(n)
+    w, h = (p.pad_size or {}).get(n, (0.0, 0.0))
+    if p.r % 180:
+        w, h = h, w
+    return x - w / 2, y - h / 2, x + w / 2, y + h / 2
 
 
 def _overlap(a, b) -> float:
@@ -112,6 +129,7 @@ def _overlap(a, b) -> float:
 
 
 ISO_MARGIN = 0.5  # mm added to the creepage (else clearance) of a board.isolation group
+CLEAR_MARGIN = 0.1  # mm added to the net class clearance between the pads of two nets
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
 
 
@@ -188,22 +206,23 @@ class Placer:
         from . import pcb
         net_of = {(r, p): n for n, conns in self.d.nets().items() for r, p in conns}
         self.iso_need, gid = [], {}
-        for g in pcb.isolation_groups(self.d):
-            need = g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"]
-            if need is not None and g["members"]:
-                for n in g["members"]:
-                    gid.setdefault(n, len(self.iso_need))
-                self.iso_need.append(float(need) + ISO_MARGIN)
-        self.pad_grp = {}  # (ref, pad) -> (group index or -1, net); only pads with a net
+        for g in pcb.isolation_needs(self.d):
+            for n in g["members"]:
+                gid.setdefault(n, len(self.iso_need))
+            self.iso_need.append(g["mm"] + ISO_MARGIN)
+        base = float(self.d.board["clearance_mm"])  # a net class with a larger clearance keeps it to every other net
+        cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
+        self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
         self.iso_parts = set()
         for (r, p), n in net_of.items():
             if r in self.parts and p in self.parts[r].pads:
-                self.pad_grp[(r, p)] = gid.get(n, -1)
-                if n in gid:
+                self.pad_grp[(r, p)], self.pad_net[(r, p)], self.pad_cl[(r, p)] = gid.get(n, -1), n, cls.get(n, 0.0)
+                if n in gid or n in cls:
                     self.iso_parts.add(r)
-        if not self.iso_need:
-            self.pad_grp, self.iso_parts = {}, set()
-        self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.iso_need else {}
+        if not self.iso_parts:
+            self.pad_grp = {}
+        self.reach = max(self.iso_need + list(cls.values()) + [0.0]) + 1.0
+        self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.pad_grp else {}
 
     # ---- congestion (RUDY) ------------------------------------------------------------------------------------
 
@@ -301,21 +320,20 @@ class Placer:
     def _boxes(self, p):
         return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self._pad_box(p, n) for n in p.pads]
 
-    @staticmethod
-    def _pad_box(p, n):
-        x, y = p.pad(n)
-        w, h = (p.pad_size or {}).get(n, (0.0, 0.0))
-        if p.r % 180:
-            w, h = h, w
-        return x - w / 2, y - h / 2, x + w / 2, y + h / 2
+    _pad_box = staticmethod(_pad_box)
 
     def _iso_short(self, a, b):
-        """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below the creepage need; 0 if they are
-        in the same group, on the same part, or no group is involved."""
-        ga, gb = self.pad_grp[a], self.pad_grp[b]
-        if ga == gb or a[0] == b[0]:
+        """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below what they need: the creepage of a
+        board.isolation group (pads of different groups) or the net class clearance (pads of different nets); 0 on
+        the same part."""
+        if a[0] == b[0]:
             return 0.0
-        need = max(self.iso_need[g] for g in (ga, gb) if g >= 0)
+        ga, gb = self.pad_grp[a], self.pad_grp[b]
+        need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
+        if self.pad_net[a] != self.pad_net[b]:
+            need = max(need, self.pad_cl[a], self.pad_cl[b])
+        if need <= 0:
+            return 0.0
         ba, bb = self._pad_box(self.parts[a[0]], a[1]), self._pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
@@ -323,15 +341,16 @@ class Placer:
     def _iso_scan(self, r, log, skip=()):
         if not self.iso_parts:
             return
-        cand = set(self.iso_parts)
-        if r in self.iso_parts:  # a pad of a group: every part within reach, from the spatial hash
-            B, reach = self.bucket, max(self.iso_need) + 1.0
-            for a in self.part_pads[r]:
-                if self.pad_grp[a] >= 0:
-                    x, y = self.parts[r].pad(a[1])
-                    for i in range(int((x - reach) // B), int((x + reach) // B) + 1):
-                        for j in range(int((y - reach) // B), int((y + reach) // B) + 1):
-                            cand |= self.buckets.get((i, j), set())
+        cand = set(self.iso_parts)  # a part without a rule pad only meets the parts that have one
+        if r in self.iso_parts or len(cand) > 8:  # the parts within reach, from the spatial hash
+            B = self.bucket
+            bs = [b for b in (self.parts[r].side_box("front"), self.parts[r].side_box("back")) if b]
+            cand = set()
+            for i in range(int((min(b[0] for b in bs) - self.reach) // B), int((max(b[2] for b in bs) + self.reach) // B) + 1):
+                for j in range(int((min(b[1] for b in bs) - self.reach) // B), int((max(b[3] for b in bs) + self.reach) // B) + 1):
+                    cand |= self.buckets.get((i, j), set())
+            if r not in self.iso_parts:
+                cand &= self.iso_parts
         for q in cand:
             if q == r or q in skip:
                 continue
@@ -644,6 +663,54 @@ class Placer:
         self.legalize()
         return self.cost()
 
+    def unstick(self, rounds: int = 3, step: float = 1.5, polish: float = 0.25) -> float:
+        """Annealing can leave a large part stuck on a violation (two relays nose to nose, a part in a keep-out) when
+        every small move costs more than it gains. For each movable part in a violation, try every position on a
+        coarse grid in the four rotations and keep the cheapest (HPWL and the other terms count), then polish it on a
+        fine grid. Cheap: a few parts, one incremental update per candidate."""
+        P = self.parts
+        self.cost()
+        for _ in range(rounds):
+            bad: dict = {}
+            for (a, b), v in self.pairs.items():
+                bad[a] = bad.get(a, 0.0) + v
+                bad[b] = bad.get(b, 0.0) + v
+            for (a, b), v in self.iso_pairs.items():
+                bad[a[0]] = bad.get(a[0], 0.0) + v
+                bad[b[0]] = bad.get(b[0], 0.0) + v
+            for r, v in self.part_ko.items():
+                if v > 0:
+                    bad[r] = bad.get(r, 0.0) + v
+            bad = [r for r in sorted(bad, key=bad.get, reverse=True) if not P[r].fixed and bad[r] > 0.01]
+            if not bad:
+                break
+            moved = False
+            for r in bad:
+                p = P[r]
+                cur = self._total()
+                best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
+
+                def scan(xs, ys, rots):
+                    nonlocal best
+                    for a in rots:
+                        for x in xs:
+                            for y in ys:
+                                p.x, p.y, p.r = x, y, a
+                                c = self._update([r])
+                                if c < best[0] - 1e-9:
+                                    best = (c, x, y, a)
+                                self._undo()
+                scan([i * step for i in range(int(self.W / step) + 1)], [j * step for j in range(int(self.H / step) + 1)],
+                     (0.0, 90.0, 180.0, 270.0))
+                scan([best[1] + i * polish for i in range(-6, 7)], [best[2] + j * polish for j in range(-6, 7)], (best[3],))
+                p.x, p.y, p.r = best[1], best[2], best[3]
+                self._update([r])
+                if (p.x, p.y, p.r) != here:
+                    moved = True
+            if not moved:
+                break
+        return self.cost()
+
     def legalize(self, rounds: int = 200):
         """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board."""
         P = [p for p in self.parts.values()]
@@ -766,7 +833,7 @@ class Placer:
                 if v > 0.01 and (a[0], b[0]) not in seen:
                     seen.add((a[0], b[0]))
                     both_fixed = P[a[0]].fixed and P[b[0]].fixed
-                    (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short of creepage")
+                    (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short of clearance or creepage")
         return mv, fx
 
     def fixed_violations(self) -> list[str]:
@@ -802,6 +869,14 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         if f not in _REPORTED:
             _REPORTED.add(f)
             print(f"[place] fixed parts: {f}")
+    if v and any(not p.fixed for p in parts.values()):  # a violation left by the annealing: search it away
+        before = pl._state()
+        cost2 = pl.unstick()
+        v2 = pl.violations()
+        if (len(v2), cost2) <= key:
+            cost, v, key = cost2, v2, (len(v2), cost2)
+        else:
+            pl._restore(before)
     if refine > 0 and any(not p.fixed for p in parts.values()):
         before = pl._state()
         cost2 = pl.refine(extra)

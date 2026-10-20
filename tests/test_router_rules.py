@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -157,3 +158,21 @@ def _copy(tmp_path):
     proj = tmp_path / "q"
     shutil.copytree(EX, proj)
     return proj
+
+
+@needs_router
+def test_router_input_path_is_absolute(tmp_path, monkeypatch):
+    """The router runs with cwd=KRT_DIR, so a relative project path (hwflow layout projects/x) must not reach it."""
+    d = _project(tmp_path)
+    (tmp_path / "out").mkdir()
+    monkeypatch.chdir(tmp_path)
+    seen = []
+
+    def stop(base, *a, **k):
+        seen.append(base[2])
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(pcb, "route_class", stop)
+    with pytest.raises(RuntimeError, match="stop"):
+        pcb.krt_route(d, Path("out/x.kicad_pcb"), Path("out"), "x_")
+    assert seen and seen[0].startswith("/")

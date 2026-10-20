@@ -213,3 +213,20 @@ def test_si_screen_flags_long_lines_plane_gaps_and_decap_loops():
     assert rows["length"]["sev"] == "info" and rows["decap-loop"]["sev"] == "info"
     raw["nets"].pop("CLK")
     assert si_screen(d, ex, fills=plane) == []                   # nothing declared, nothing screened
+
+
+def test_split_tjunctions_is_bounded():
+    """Overlapping same-net tracks (a router leaves them where it fails) put many endpoints inside other segments;
+    the extraction used to restart its scan after every split (minutes for 1400 segments on a real board)."""
+    import time
+    from hwflow.postlayout import _split_tjunctions
+    segs = [{"net": "N", "layer": "F.Cu", "w": 0.25, "x1": i * 0.4, "y1": 0.0, "x2": i * 0.4 + 30.0, "y2": 0.0}
+            for i in range(150)]
+    segs += [{"net": "M", "layer": "F.Cu", "w": 0.25, "x1": 5.0, "y1": 1.0, "x2": 25.0, "y2": 1.0}]
+    t0 = time.time()
+    out = _split_tjunctions(segs)
+    assert time.time() - t0 < 2.0
+    xs = sorted({round(p, 3) for s in segs[:150] for p in (s["x1"], s["x2"])})
+    n = [s for s in out if s["net"] == "N"]
+    assert {round(p, 3) for s in n for p in (s["x1"], s["x2"])} == set(xs)  # every endpoint is a vertex
+    assert sum(1 for s in out if s["net"] == "M") == 1

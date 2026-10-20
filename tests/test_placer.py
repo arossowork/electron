@@ -1,4 +1,5 @@
 """L9: congestion (RUDY) term and the incremental placer cost."""
+import itertools
 import math
 import random
 import shutil
@@ -155,6 +156,62 @@ def test_isolation_groups_keep_creepage_plus_margin(tmp_path):
         assert gaps and min(gaps) >= 3.5 - 0.02, (seed, min(gaps))
 
 
+def _iso_design(tmp_path, nets, board_extra):
+    rs = "Resistor_SMD:R_0603_1608Metric"
+    comps = {"RH": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "HV1", "2": "HV2"}},
+             "RB": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "HV2", "2": "LV1"}},
+             "RL": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "LV1", "2": "LV2"}},
+             "RC": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "HV1", "2": "LV2"}}}
+    board = {"width_mm": 30, "height_mm": 20, "layers": 2, "track_mm": 0.25, "clearance_mm": 0.2, "gnd_pour": False,
+             **board_extra}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(
+        {"project": "iso", "board": board, "nets": nets, "components": comps}))
+    d = Design.load(tmp_path)
+    return d, Libs(design=d)
+
+
+def test_net_class_clearance_keeps_pads_of_other_nets_apart(tmp_path):
+    """A net class with a clearance above the board's is a placement distance between its pads and the pads of every
+    other net, with no board.isolation entry."""
+    nets = {n: {"class": "mains" if n.startswith("HV") else "signal", **({"clearance_mm": 2.0} if n.startswith("HV") else {})}
+            for n in ("HV1", "HV2", "LV1", "LV2")}
+    d, libs = _iso_design(tmp_path, nets, {})
+    parts = placer.build_parts(d, libs)
+    pl = placer.Placer(d, parts, 30, 20, seed=2)
+    assert pl.iso_need == []
+    check_incremental(pl, parts)
+    assert pl.t_iso > 0
+    for seed in (1, 2):
+        parts = placer.build_parts(d, libs)
+        pl = placer.Placer(d, parts, 30, 20, seed=seed)
+        pl.run(6000)
+        assert pl.violations() == []
+        for (ra, pa), (rb, pb) in itertools.combinations(pl.pad_grp, 2):
+            na, nb = pl.pad_net[(ra, pa)], pl.pad_net[(rb, pb)]
+            if ra != rb and na != nb and "HV" in (na[:2], nb[:2]):
+                ba, bb = pl._pad_box(parts[ra], pa), pl._pad_box(parts[rb], pb)
+                gap = math.hypot(max(0, ba[0] - bb[2], bb[0] - ba[2]), max(0, ba[1] - bb[3], bb[1] - ba[3]))
+                assert gap >= 2.1 - 0.02, (seed, ra, rb, gap)
+
+
+def test_raw_drc_rule_is_a_placement_distance(tmp_path):
+    nets = {n: {"class": "signal"} for n in ("HV1", "HV2", "LV1", "LV2")}
+    rule = "(rule \"x\" (constraint clearance (min 4.0mm)) (condition \"A.NetName == 'HV*' && B.NetName != 'HV*'\"))"
+    d, libs = _iso_design(tmp_path, nets, {"drc_rules": [rule]})
+    assert placer.Placer(d, placer.build_parts(d, libs), 30, 20).iso_need == [4.5]
+
+
+def test_through_hole_pad_stays_out_of_the_courtyard_on_the_other_side():
+    """KiCad pth_inside_courtyard: a plated pad inside a courtyard of another part, on any board side."""
+    th = placer.Part("J", 4, 4, 0, 0, {"1": (0, 0)}, x=10, y=10, pad_size={"1": (1.6, 1.6)},
+                     sides={"front": (4, 4, 0, 0)}, tht=frozenset({"1"}))
+    under = placer.Part("R", 2, 1, 0, 0, {"1": (0, 0)}, x=10, y=10, pad_size={"1": (1, 1)},
+                        sides={"back": (2, 1, 0, 0)})
+    assert placer._side_overlap(th, under) == pytest.approx(1.6)  # the J pad area inside the R courtyard
+    under.x = 20
+    assert placer._side_overlap(th, under) == 0
+
+
 BASELINE = Path(__file__).resolve().parents[1] / "evals" / "baselines" / "home-thermostat-2026-10-19" / "project"
 
 
@@ -185,3 +242,28 @@ def test_thermostat_never_places_a_footprint_in_ko_stack(tmp_path):
                 assert not (b and placer._overlap(b, a["box"]) > 0), (seed, r, b, a["box"])
         assert not [v for v in pl.violations() if "3D 4 mm" in v]
         assert any("BT1" in v for v in pl.fixed_violations())  # the fixed BT1 is reported, not moved
+
+
+@pytest.mark.skipif(not BASELINE.exists(), reason="baseline project not in this checkout")
+def test_panel_slot_is_a_keep_out_for_courtyards():
+    d = Design.load(BASELINE)
+    slot = [a for a in placer.build_parts(d, Libs(design=d)).areas if a["owner"] == "SLOT1"]
+    assert len(slot) == 1 and "footprints" in slot[0]["forbids"]
+    assert tuple(round(v, 2) for v in slot[0]["box"]) == (62.0, 16.5, 68.0, 38.0)
+
+
+def test_unstick_separates_parts_the_annealing_left_overlapping(tmp_path):
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    for r in ("R1", "R2", "R3"):  # three resistors on top of each other, in the middle of the board
+        parts[r].x, parts[r].y = 18.0, 15.0
+    for r, p in parts.items():
+        if r not in ("R1", "R2", "R3") and not p.fixed:
+            p.x, p.y = 18.0 + 3 * int(r[1:]), 4.0
+    pl = placer.Placer(d, parts, W, H, seed=1)
+    before = pl.cost()
+    assert pl.t_ov > 0
+    after = pl.unstick()
+    assert pl.t_ov == 0 and after < before
+    assert math.isclose(after, pl.cost_full(), rel_tol=1e-9, abs_tol=1e-6)
+    assert not any(v.startswith("courtyard overlap") for v in pl.violations())

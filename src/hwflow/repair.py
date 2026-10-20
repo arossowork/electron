@@ -44,7 +44,7 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
         items = [_parse_item(s, a) for s, a in zip(x["items"], x.get("at") or [None] * len(x["items"]))]
         n0 = (len(rip), len(islands), len(drop))
         if x["type"] == "unconnected":
-            zones = [i["net"] for i in items if i["kind"] == "Zone" and i["net"] in pour]
+            zones = [i["net"] for i in items if i["net"] in pour]  # a split pour shows as zone-zone or pad-pad
             if zones:
                 islands += zones
             else:

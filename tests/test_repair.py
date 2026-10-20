@@ -105,6 +105,8 @@ def test_plan_names_nets_islands_and_stitching_vias():
            {"sev": "error", "type": "unconnected", "msg": "", "at": [[3, 3]], "items": ["Track [LED_A] on B.Cu", ]},
            {"sev": "error", "type": "unconnected", "msg": "", "at": [[5, 5], [6, 6]],
             "items": ["Zone [GND] on F.Cu", "Zone [GND] on B.Cu"]},
+           {"sev": "error", "type": "unconnected", "msg": "", "at": [[8, 8], [9, 9]],
+            "items": ["Pad 2 [GND] of C1 on B.Cu", "Pad 2 [GND] of SW1 on F.Cu"]},  # a split pour seen between two pads
            {"sev": "error", "type": "items_not_allowed", "msg": "", "at": [[7, 7]], "items": ["Footprint U1"]},
            {"sev": "warning", "type": "silk_overlap", "msg": "", "at": [], "items": []}]
     p = repair.plan(d, [], [], drc)

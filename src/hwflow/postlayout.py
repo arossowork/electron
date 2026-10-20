@@ -116,27 +116,33 @@ def _on_segment(px, py, s, tol):
 
 
 def _split_tjunctions(segs):
-    """Split segments where another segment's endpoint touches their interior."""
-    changed = True
-    while changed:
-        changed = False
-        for s in list(segs):
-            for o in segs:
-                if o is s or o["layer"] != s["layer"] or o["net"] != s["net"]:
-                    continue
-                for px, py in ((o["x1"], o["y1"]), (o["x2"], o["y2"])):
-                    t = _on_segment(px, py, s, max(s["w"], o["w"]) / 2)
+    """Split segments where another segment's endpoint touches their interior. One pass over a grid of the
+    endpoints per net and layer (a split makes no endpoint that was not there before), so it is bounded."""
+    cell = 1.0
+    pts: dict = {}
+    for k, o in enumerate(segs):
+        for px, py in ((o["x1"], o["y1"]), (o["x2"], o["y2"])):
+            pts.setdefault((o["net"], o["layer"], int(px // cell), int(py // cell)), []).append((px, py, o["w"], k))
+    reach = max((s["w"] for s in segs), default=0.0) / 2
+    out = []
+    for k, s in enumerate(segs):
+        cuts = []
+        for i in range(int((min(s["x1"], s["x2"]) - reach) // cell), int((max(s["x1"], s["x2"]) + reach) // cell) + 1):
+            for j in range(int((min(s["y1"], s["y2"]) - reach) // cell), int((max(s["y1"], s["y2"]) + reach) // cell) + 1):
+                for px, py, w, o in pts.get((s["net"], s["layer"], i, j), ()):
+                    t = _on_segment(px, py, s, max(s["w"], w) / 2) if o != k else None
                     if t is not None:
-                        segs.remove(s)
-                        segs.append(dict(s, x2=px, y2=py))
-                        segs.append(dict(s, x1=px, y1=py))
-                        changed = True
-                        break
-                if changed:
-                    break
-            if changed:
-                break
-    return segs
+                        cuts.append((t, px, py))
+        if not cuts:
+            out.append(s)
+            continue
+        x, y = s["x1"], s["y1"]
+        for _, px, py in sorted(cuts):
+            if (px, py) != (x, y):
+                out.append(dict(s, x1=x, y1=y, x2=px, y2=py))
+                x, y = px, py
+        out.append(dict(s, x1=x, y1=y))
+    return out
 
 
 class Extraction:
@@ -169,22 +175,16 @@ class Extraction:
         segs = [dict(s) for s in b["segments"] if s["net"]]
         # 1. split traces where a via ring sits on their interior, so the via has a node to attach to
         for v in b["vias"]:
-            changed = True
-            while changed:
-                changed = False
-                for s in segs:
-                    if s["net"] != v["net"]:
-                        continue
-                    t = _on_segment(v["x"], v["y"], s, s["w"] / 2 + via_r)
-                    if t is None:
-                        continue
+            rest = []
+            for s in segs:
+                t = _on_segment(v["x"], v["y"], s, s["w"] / 2 + via_r) if s["net"] == v["net"] else None
+                if t is not None:
                     px, py = s["x1"] + t * (s["x2"] - s["x1"]), s["y1"] + t * (s["y2"] - s["y1"])
-                    if min(math.hypot(px - s["x1"], py - s["y1"]), math.hypot(px - s["x2"], py - s["y2"])) < 1e-3:
+                    if min(math.hypot(px - s["x1"], py - s["y1"]), math.hypot(px - s["x2"], py - s["y2"])) >= 1e-3:
+                        rest += [dict(s, x2=px, y2=py), dict(s, x1=px, y1=py)]
                         continue
-                    segs.remove(s)
-                    segs += [dict(s, x2=px, y2=py), dict(s, x1=px, y1=py)]
-                    changed = True
-                    break
+                rest.append(s)
+            segs = rest
         segs = _split_tjunctions(segs)
         self.segs = segs
         fills = [z for z in _zone_fills(self.path) if z["net"] in self.grounds] if self.path else []
@@ -214,10 +214,14 @@ class Extraction:
         for s in segs:
             for x, y in ((s["x1"], s["y1"]), (s["x2"], s["y2"])):
                 ends.append((s["net"], s["layer"], x, y, s["w"], self._key(x, y, s["layer"])))
-        for i, e1 in enumerate(ends):
-            for e2 in ends[i + 1:]:
-                if e1[0] == e2[0] and e1[1] == e2[1] and math.hypot(e1[2] - e2[2], e1[3] - e2[3]) <= min(e1[4], e2[4]) / 2:
-                    self.uf.union(e1[5], e2[5])
+        by_net: dict = {}
+        for e in ends:
+            by_net.setdefault((e[0], e[1]), []).append(e)
+        for grp in by_net.values():
+            for i, e1 in enumerate(grp):
+                for e2 in grp[i + 1:]:
+                    if math.hypot(e1[2] - e2[2], e1[3] - e2[3]) <= min(e1[4], e2[4]) / 2:
+                        self.uf.union(e1[5], e2[5])
         # 3. vias: a barrel joins its own layer nodes; any trace end inside the ring joins the via
         drill = self.b["via_drill_mm"]
         hv = self.b["thickness_mm"]

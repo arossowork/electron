@@ -294,6 +294,28 @@ def isolation_groups(design: Design) -> list[dict]:
     return out
 
 
+def isolation_needs(design: Design) -> list[dict]:
+    """Distance a net group keeps to every other net, as [{members, mm}] for the placer: `board.isolation` entries
+    (creepage, else clearance) and `board.drc_rules` clearance or creepage rules shaped
+    `A.NetName == 'P' && B.NetName != 'P'` (P a glob; the largest value per P)."""
+    import fnmatch
+    import re
+    out = [{"members": g["members"], "mm": float(g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"])}
+           for g in isolation_groups(design)
+           if g["members"] and (g["creepage_mm"] is not None or g["clearance_mm"] is not None)]
+    nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
+    pat = re.compile(r"A\.NetName\s*==\s*'([^']+)'\s*&&\s*B\.NetName\s*!=\s*'([^']+)'")
+    raw: dict = {}
+    for r in design.board.get("drc_rules") or []:
+        mm = re.search(r"\(constraint\s+(?:clearance|creepage)\s*\(min\s+([0-9.]+)\s*mm\)", r)
+        cond = re.search(r'\(condition\s+"([^"]*)"', r)
+        m = pat.fullmatch(cond.group(1).strip()) if cond else None
+        if mm and m and m.group(1) == m.group(2):
+            raw[m.group(1)] = max(raw.get(m.group(1), 0.0), float(mm.group(1)))
+    out += [{"members": [n for n in nets if fnmatch.fnmatchcase(n, p)], "mm": mm} for p, mm in raw.items()]
+    return [g for g in out if g["members"]]
+
+
 def isolation_router_rules(design: Design) -> list[dict]:
     """Creepage as a clearance the router honours (L11). KiCadRoutingTools reads no net-name condition on a
     clearance rule; it reads a track-to-track rule scoped to a net class, `A.Type=='track' && B.Type=='track' &&
@@ -301,7 +323,7 @@ def isolation_router_rules(design: Design) -> list[dict]:
     creepage requirement between a net group and all other nets becomes such a rule at the creepage value, with a
     class `iso_<name>` that holds the group nets. Sources: `board.isolation` entries with `creepage_mm`, and
     `board.drc_rules` creepage rules shaped `A.NetName == 'P' && B.NetName != 'P'` (P a glob). Returns
-    [{class, members, rule}]. Other condition shapes stay with KiCad DRC and the repair loop."""
+    [{class, members, mm, rule}]. Other condition shapes stay with KiCad DRC and the repair loop."""
     import fnmatch
     import re
     nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
@@ -521,6 +543,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     Returns (last board, {width: summary}, [width class retried in another order], number of passes)."""
     b = design.board
     name = design.name
+    src, workdir = Path(src).resolve(), Path(workdir).resolve()  # the router runs with cwd=KRT_DIR (a relative project path would not be found)
     rule_files = [workdir / f"{name}.kicad_pro", workdir / f"{name}.kicad_dru"]
     classes = net_classes(design)
     gnds = design.ground_nets() if b["gnd_pour"] else set()
