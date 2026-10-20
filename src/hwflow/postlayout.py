@@ -309,10 +309,11 @@ class Extraction:
 
 
 class PostLayoutNodeMap(NodeMap):
-    def __init__(self, design: Design, ex: Extraction, with_l: bool = True):
+    def __init__(self, design: Design, ex: Extraction, with_l: bool = True, lump: bool | None = None):
         super().__init__(design)
         self.ex = ex
         self.with_l = with_l
+        self.lump = lump  # None: board.post_tran_lump decides
 
     def _is_ideal(self, net):
         return net in self.grounds and self.d.board["gnd_pour"]
@@ -340,28 +341,49 @@ class PostLayoutNodeMap(NodeMap):
         # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
         kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
         use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
-        if kind == "tran" and not use_l and self.d.board.get("post_tran_lump", True):
-            return self._tie_islands(self._lumped())
+        lump = self.d.board.get("post_tran_lump", True) if self.lump is None else self.lump
+        if kind == "tran" and not use_l and lump:
+            fast = self.fast_nets()
+            lines = self._lumped(skip=fast)
+            if fast:  # nets declared fast keep their full trace network (backlog 47)
+                lines.append(f"* full R and C network kept for fast nets: {', '.join(sorted(fast))}")
+                lines += self._full([(i, e) for i, e in enumerate(self.ex.elements) if e["net"] in fast], False, "f")
+            return self._tie_islands(lines)
         lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
-        for i, e in enumerate(self.ex.elements):
+        lines += self._full(list(enumerate(self.ex.elements)), use_l, "p")
+        return self._tie_islands(lines)
+
+    def fast_nets(self) -> set[str]:
+        """Nets whose edges matter in transients (`class: fast`, `edge_ns` or `post_full: true` in nets:)."""
+        out = set()
+        for net in self.d.nets():
+            info = self.d.net_info(net)
+            if info.get("class") == "fast" or info.get("edge_ns") is not None or info.get("post_full"):
+                out.add(net)
+        return out
+
+    def _full(self, elems, use_l: bool, tag: str) -> list[str]:
+        lines = []
+        for i, e in elems:
             if self._is_ideal(e["net"]):
                 continue
             a, b = self.ex.node_name(e["a"]), self.ex.node_name(e["b"])
             if a == b:
                 continue
             if use_l and e["L"] > 0:
-                mid = f"m{i}"
-                lines.append(f"Rpx{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
-                lines.append(f"Lpx{i} {mid} {b} {e['L']:.6g}")
+                t2 = "" if tag == "p" else tag
+                mid = f"m{t2}{i}"
+                lines.append(f"R{tag}x{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
+                lines.append(f"L{tag}x{i} {mid} {b} {e['L']:.6g}")
                 # damping across the trace inductance: kills the GHz LC ringing of nH/fF segments,
                 # which made switching transients stall, and leaves behaviour below ~1 GHz unchanged
-                lines.append(f"Rdx{i} {mid} {b} {e.get('Z0', 50):.6g}")
+                lines.append(f"Rd{t2}x{i} {mid} {b} {e.get('Z0', 50):.6g}")
             else:
-                lines.append(f"Rpx{i} {a} {b} {max(e['R'], 1e-6):.6g}")
+                lines.append(f"R{tag}x{i} {a} {b} {max(e['R'], 1e-6):.6g}")
             if e["C"] > 0:
-                lines.append(f"Cpxa{i} {a} 0 {e['C'] / 2:.6g}")
-                lines.append(f"Cpxb{i} {b} 0 {e['C'] / 2:.6g}")
-        return self._tie_islands(lines)
+                lines.append(f"C{tag}xa{i} {a} 0 {e['C'] / 2:.6g}")
+                lines.append(f"C{tag}xb{i} {b} 0 {e['C'] / 2:.6g}")
+        return lines
 
     def _tie_islands(self, lines: list[str]) -> list[str]:
         """Every pad node of a net must exist in the netlist and reach the other pads (backlog 46). Copper islands
@@ -386,7 +408,7 @@ class PostLayoutNodeMap(NodeMap):
             lines = lines + ["* pads on separate copper islands of one net (pour or unrouted): ideal tie"] + ties
         return lines
 
-    def _lumped(self) -> list[str]:
+    def _lumped(self, skip: set | frozenset = frozenset()) -> list[str]:
         """Transient parasitics reduced to the pads: per copper island, the trace R network is Kron-reduced
         to its pad nodes (exact DC resistance between every pad pair). Trace C is left out: pF on nodes
         joined by mOhm gives 1e-14 s time constants that stall long transients and change nothing at
@@ -396,7 +418,7 @@ class PostLayoutNodeMap(NodeMap):
         pad_roots = {find(pn) for pn in self.ex.pad_nodes.values()}
         nets: dict[str, list] = {}
         for e in self.ex.elements:
-            if self._is_ideal(e["net"]):
+            if self._is_ideal(e["net"]) or e["net"] in skip:
                 continue
             a, b = find(e["a"]), find(e["b"])
             if a != b:

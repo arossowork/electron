@@ -133,6 +133,14 @@ def test_post_layout_inductors_are_damped(tmp_path):
     ex = postlayout.Extraction(d, proj / "build" / f"{d.name}.kicad_pcb")
     lines = postlayout.PostLayoutNodeMap(d, ex).extra()
     assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0
+    # backlog 47 (a): the lumped transient network gives the same measures as the full R and C network
+    from hwflow import spice
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
+    lumped = spice.run_analysis(d, a, tmp_path / "l", postlayout.PostLayoutNodeMap(d, ex, lump=True))
+    full = spice.run_analysis(d, a, tmp_path / "f", postlayout.PostLayoutNodeMap(d, ex, lump=False))
+    assert lumped["status"] == full["status"] == "ok"
+    for r1, r2 in zip(lumped["rows"], full["rows"]):
+        assert r1["value"] == pytest.approx(r2["value"], rel=0.01, abs=1e-6), r1["name"]
 
 
 def test_run_all_parallel_matches_serial(tmp_path):
@@ -469,3 +477,28 @@ def test_router_retries_a_class_in_another_net_order(tmp_path):
     calls.clear()
     best, tried, _ = route_class(["py", "r", "in", None, "--nets", "A"], tmp_path / "y", 0, run)
     assert len(calls) == 1 and best[2] == 1                      # router_retries: 0 keeps one attempt
+
+
+def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monkeypatch):
+    """Backlog 23/25: one call places, routes, checks DRC and retries with new placer seeds until the board is clean."""
+    from hwflow import cli
+    proj = _copy_example(tmp_path)
+    d = Design.load(proj)
+    seen = []
+
+    def fake(d, libs, reuse=False, seeds=4, iters=0, passes=0, seed0=1):
+        seen.append((reuse, seed0))
+        n = len(seen)
+        (cli._out(d) / f"{d.name}.kicad_pcb").write_text(f"board {n}")
+        (cli._out(d) / "placement.json").write_text("{}")
+        bad = n < 3
+        return {"ok": not bad, "board_mm": [50, 40], "unrouted": 0, "drc_errors": 2 if bad else 0, "drc_warnings": 0,
+                "placement_violations": [], "vias": 10, "segments": 5, "router": "", "drc": []}
+
+    monkeypatch.setattr(cli, "stage_layout", fake)
+    (cli._out(d) / "placement.json").write_text("{}")
+    r = cli.layout_auto(d, None, reuse=True, attempts=4, seeds=4)
+    assert seen == [(True, 1), (False, 5), (False, 9)]
+    assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
+    assert (cli._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
+    assert "kept attempt 3 of 3" in cli._auto_summary(r)

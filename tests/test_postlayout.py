@@ -81,3 +81,26 @@ def test_every_pad_node_of_a_net_exists_and_is_connected():
     lines = nm._tie_islands(PostLayoutNodeMap._lumped(nm))
     assert any(ln.startswith("Rtie") and "x_bt1_2" in ln for ln in lines)
     assert sum(ln.startswith("Rtie") for ln in lines) == 1
+
+
+def test_fast_nets_keep_their_full_network_in_transients():
+    """Backlog 47 (b): a net marked fast (class: fast or edge_ns) is not lumped; other nets are."""
+    a, b, mid = ("pad", "U1", "1"), ("pad", "C1", "1"), ("p", 1.0, 1.0, "F.Cu")
+    c, e = ("pad", "U1", "2"), ("pad", "R1", "1")
+    elements = [{"net": "CLK", "a": a, "b": mid, "R": 1.0, "C": 1e-12, "L": 1e-9},
+                {"net": "CLK", "a": mid, "b": b, "R": 2.0, "C": 2e-12, "L": 1e-9},
+                {"net": "SLOW", "a": c, "b": e, "R": 3.0, "C": 3e-12, "L": 1e-9}]
+    st = _stub(elements, [a, b, c, e])
+    nm = PostLayoutNodeMap.__new__(PostLayoutNodeMap)
+    nm.ex = SimpleNamespace(**vars(st.ex), adj={st.ex.uf.find(n): [1] for n in (a, b, c, e, mid)})
+    nm.grounds, nm.with_l, nm.lump = set(), True, None
+    pins = {"U1": {"1": "CLK", "2": "SLOW"}, "C1": {"1": "CLK"}, "R1": {"1": "SLOW"}}
+    info = {"CLK": {"edge_ns": 2}}
+    nm.d = SimpleNamespace(nets=lambda: {"CLK": [("U1", "1"), ("C1", "1")], "SLOW": [("U1", "2"), ("R1", "1")]},
+                           components={r: SimpleNamespace(pins=p) for r, p in pins.items()},
+                           board={"gnd_pour": True}, net_info=lambda n: info.get(n, {}))
+    lines = nm.extra({"cmd": "tran 1n 1u"})
+    assert sum(ln.startswith("Rfx") for ln in lines) == 2 and sum(ln.startswith("Cfx") for ln in lines) == 4
+    assert [sorted(ln.split()[1:3]) for ln in lines if ln.startswith("Rpx")] == [["x_r1_1", "x_u1_2"]]
+    info.clear()
+    assert not any(ln.startswith(("Rfx", "Cfx")) for ln in nm.extra({"cmd": "tran 1n 1u"}))

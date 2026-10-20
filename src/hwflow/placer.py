@@ -295,11 +295,11 @@ class Placer:
             self.parts[r].x, self.parts[r].y, self.parts[r].r = x, y, a
 
 
-def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None):
-    """Best of several seeds. Returns (parts, cost, violations)."""
+def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1):
+    """Best of several seeds (seed0 .. seed0 + seeds - 1). Returns (parts, cost, violations)."""
     b = design.board
     best = None
-    for seed in range(1, seeds + 1):
+    for seed in range(seed0, seed0 + seeds):
         parts = build_parts(design, libs)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
         cost = pl.run(iters)

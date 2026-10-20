@@ -174,7 +174,7 @@ def _route_once(d: Design, libs: Libs, parts, passes: int) -> tuple[list, list, 
     return tracks, vias, summary, unrouted
 
 
-def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights):
+def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights, seed0: int = 1):
     """Shrink the board (keeping the requested aspect ratio) until placement or routing fails."""
     b = d.raw.setdefault("board", {})
     W0, H0 = float(d.board["width_mm"]), float(d.board["height_mm"])
@@ -189,7 +189,7 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
         if W > W0 or H > H0:
             continue
         b["width_mm"], b["height_mm"] = W, H
-        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights)
+        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
         if viol:
             tried.append(f"{W}x{H}: placement fails")
             break
@@ -207,7 +207,7 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
 
 
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
-                 passes: int = 30) -> dict:
+                 passes: int = 30, seed0: int = 1) -> dict:
     out = _out(d)
     pj = out / "placement.json"
     t0 = time.time()
@@ -215,7 +215,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     area_log = None
     pre = None
     if d.board.get("optimize_area") and not reuse:
-        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights)
+        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0)
     if pre:
         _, _, parts, cost, viol, tracks, vias, summary = pre
     elif reuse and pj.exists():
@@ -229,7 +229,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         pl.legalize()
         viol, cost = pl.violations(), pl.cost()
     else:
-        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights)
+        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
     pj.write_text(json.dumps({r: [p.x, p.y, p.r] for r, p in parts.items()}, indent=1))
     name = d.name
     board = out / f"{name}.kicad_pcb"
@@ -244,6 +244,67 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40],
             "seconds": round(time.time() - t0, 1)}
+
+
+def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, seeds: int = 4, iters: int = 30000,
+                passes: int = 30) -> dict:
+    """Placement, routing (with net-order retries), area search and DRC in one call (backlog 23, 25, 40).
+
+    Attempt 1 keeps the saved placement when `reuse` is set; every later attempt places again with new placer
+    seeds. Stops at the first attempt with 0 DRC errors, 0 unrouted and no placement violations, otherwise keeps
+    the best one. Each attempt's board is kept in build/auto/."""
+    import shutil
+    out = _out(d)
+    adir = out / "auto"
+    if adir.exists():
+        shutil.rmtree(adir)
+    adir.mkdir()
+    board, pj = out / f"{d.name}.kicad_pcb", out / "placement.json"
+    t0 = time.time()
+    log, best = [], None
+    size0 = (d.raw.get("board") or {}).get("width_mm"), (d.raw.get("board") or {}).get("height_mm")
+    for k in range(max(attempts, 1)):
+        b = d.raw.setdefault("board", {})
+        for key, v in zip(("width_mm", "height_mm"), size0):  # every attempt starts from the requested outline
+            if v is None:
+                b.pop(key, None)
+            else:
+                b[key] = v
+        seed0 = 1 + k * seeds
+        use_saved = reuse and k == 0 and pj.exists()
+        try:
+            r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=iters, passes=passes, seed0=seed0)
+        except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
+            log.append(f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}")
+            continue
+        how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
+        log.append(f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
+                   f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
+                   f"{r['vias']} vias")
+        for f in (board, pj):
+            if f.exists():
+                shutil.copy(f, adir / f"attempt{k + 1}{f.suffix}")
+        key = (not r["ok"], r["drc_errors"] + r["unrouted"], len(r["placement_violations"]), r["vias"])
+        if best is None or key < best[0]:
+            best = (key, k + 1, r)
+        if r["ok"]:
+            break
+    if best is None:
+        raise RuntimeError("layout --auto: every attempt failed: " + " | ".join(log))
+    _, k, r = best
+    for suf, f in ((".kicad_pcb", board), (".json", pj)):
+        if (adir / f"attempt{k}{suf}").exists():
+            shutil.copy(adir / f"attempt{k}{suf}", f)
+    d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = r["board_mm"]
+    r = dict(r, auto={"attempts": log, "kept": k}, seconds=round(time.time() - t0, 1))
+    return r
+
+
+def _auto_summary(r: dict) -> str:
+    a = r.get("auto") or {}
+    return (f"[layout --auto] {'OK' if r['ok'] else 'FAIL'}: kept attempt {a.get('kept')} of {len(a.get('attempts', []))} "
+            f"in {r['seconds']} s; board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
+            f"DRC {r['drc_errors']} errors / {r['drc_warnings']} warnings, {r['vias']} vias, {r['segments']} segments")
 
 
 def _apply_layout_size(d: Design):
@@ -281,8 +342,42 @@ def stage_post(d: Design) -> dict:
     regress = [x for x in deltas if x["pass_pre"] and not x["pass_post"]]
     return {"ok": not errs and not regress and all(x["pass_post"] for x in deltas), "checks": checks,
             "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex),
-            "runs": _run_summary(post),
+            "runs": _run_summary(post), "scope": _post_scope(d, nm), "lump_check": _lump_check(d, ex, w, post),
             "distances": {"decap": postlayout.decap_paths(d, ex), "clearance": postlayout.group_clearances(d, ex)}}
+
+
+def _post_scope(d: Design, nm) -> str:
+    b = d.board
+    if b.get("post_tran_l"):
+        return "transients use the full extracted R, L, C network"
+    if not b.get("post_tran_lump", True):
+        return "transients use the extracted trace R and C (no L)"
+    fast = sorted(nm.fast_nets())
+    return ("transients: trace R reduced to the pads, no trace C or L" +
+            (f" (full R and C kept for fast nets {', '.join(fast)})" if fast else "") +
+            "; they check resistive drops and slow dynamics, not reflections, ringing, crosstalk or RC delay "
+            "along a trace; AC and noise use the full R, L, C network")
+
+
+def _lump_check(d: Design, ex, w: Path, post: list[dict]) -> dict | None:
+    """board.post_lump_check: <analysis>: run that transient again with the full R and C network and compare."""
+    name = d.board.get("post_lump_check")
+    if not name or not d.board.get("post_tran_lump", True) or d.board.get("post_tran_l"):
+        return None
+    a = next((x for x in (d.raw.get("sim") or {}).get("analyses") or [] if x["name"] == name), None)
+    lumped = next((x for x in post if x["name"] == name), None)
+    if a is None or lumped is None:
+        return {"analysis": name, "error": "no such analysis"}
+    full = spice.run_analysis(d, a, w, postlayout.PostLayoutNodeMap(d, ex, lump=False), tag="_post_full")
+    worst, rows = 0.0, []
+    for r1, r2 in zip(lumped["rows"], full["rows"]):
+        if r1["value"] is None or r2["value"] is None:
+            continue
+        rel = abs(r1["value"] - r2["value"]) / max(abs(r2["value"]), 1e-12)
+        rows.append({"name": r1["name"], "lumped": r1["value"], "full": r2["value"], "rel": rel})
+        worst = max(worst, rel)
+    return {"analysis": name, "status": full["status"], "seconds_full": full["seconds"],
+            "seconds_lumped": lumped.get("seconds"), "max_rel": worst, "rows": rows}
 
 
 def _fresh_pre_results(d: Design) -> list[dict] | None:
@@ -406,6 +501,10 @@ def write_report(d: Design, history: bool = False) -> str:
         c = s["layout"]
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
+        if c.get("auto"):
+            L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {len(c['auto']['attempts'])}")
+            for x in c["auto"]["attempts"]:
+                L.append(f"  - {x}")
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
@@ -433,6 +532,13 @@ def write_report(d: Design, history: bool = False) -> str:
                 f"{r['cap']}->{r['ic']} {r['net']} {r['mm']:.1f} mm (limit {r['limit']})" for r in worst))
         for r in c["ir_drop"]:
             L.append(f"  - IR drop {r['net']}: {r['drop_mv']:.2f} mV (worst at {r['worst_pin']})")
+        if c.get("scope"):
+            L.append(f"  - scope: {c['scope']}")
+        lc = c.get("lump_check")
+        if lc:
+            L.append(f"  - lumping check on {lc['analysis']}: " + (lc["error"] if "error" in lc else
+                     f"max difference {lc['max_rel'] * 100:.2f}% against the full R and C network "
+                     f"({lc['seconds_lumped']} s lumped, {lc['seconds_full']} s full, full run {lc['status']})"))
         big = [x for x in c["deltas"] if x["rel"] is not None and abs(x["rel"]) > 0.01]
         L.append(f"  - post-layout SPICE: {sum(x['pass_post'] for x in c['deltas'])}/{len(c['deltas'])} pass; "
                  f"{len(big)} measures moved more than 1%")
@@ -681,8 +787,11 @@ def main(argv=None):
             p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("sim"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--brief", action="store_true", help=brief)
+    auto = ("placement, routing with net-order retries, area search and DRC in one call: up to --attempts "
+            "placements, stop at the first clean board; prints only the final numbers")
     p = sub.add_parser("layout"); p.add_argument("project"); p.add_argument("--reuse", action="store_true")
     p.add_argument("--brief", action="store_true", help=brief)
+    p.add_argument("--auto", action="store_true", help=auto); p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--seeds", type=int, default=4); p.add_argument("--iters", type=int, default=30000)
     p.add_argument("--passes", type=int, default=30)
     p = sub.add_parser("build"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
@@ -690,6 +799,8 @@ def main(argv=None):
     p.add_argument("--reuse", action="store_true"); p.add_argument("--force", action="store_true",
                                                                    help="continue past failing stages")
     p.add_argument("--rebuild", action="store_true", help="run every stage even when its inputs are unchanged")
+    p.add_argument("--auto", action="store_true", help="layout stage as in `layout --auto`")
+    p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
@@ -796,8 +907,11 @@ def main(argv=None):
             elif st == "sim":
                 r = stage_sim(d, getattr(a, "mc", 0))
             elif st == "layout":
-                r = stage_layout(d, libs, reuse=getattr(a, "reuse", False), **(
-                    {"seeds": a.seeds, "iters": a.iters, "passes": a.passes} if a.cmd == "layout" else {}))
+                kw = {"seeds": a.seeds, "iters": a.iters, "passes": a.passes} if a.cmd == "layout" else {}
+                if getattr(a, "auto", False):
+                    r = layout_auto(d, libs, reuse=getattr(a, "reuse", False), attempts=a.attempts, **kw)
+                else:
+                    r = stage_layout(d, libs, reuse=getattr(a, "reuse", False), **kw)
             elif st == "post":
                 r = stage_post(d)
             else:
@@ -808,13 +922,16 @@ def main(argv=None):
         _save_status(d, st, r)
         print(f"[{st}] {'OK' if r.get('ok') else 'FAIL'} ({time.time() - t0:.1f}s)" +
               (f" {r['exception']}" if "exception" in r else ""))
+        if r.get("auto"):
+            print(_auto_summary(r))
         if not r.get("ok"):
             rc = 1
             hard = st in ("check", "sch") or "exception" in r
             if a.cmd == "build" and hard and not a.force:
                 break
     text = write_report(d, history=True)
-    print(_brief(prev_report, text) if getattr(a, "brief", False) else text)
+    brief_out = getattr(a, "brief", False) or (a.cmd == "layout" and getattr(a, "auto", False))
+    print(_brief(prev_report, text) if brief_out else text)
     return rc
 
 

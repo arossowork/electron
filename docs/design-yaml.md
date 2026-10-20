@@ -39,7 +39,9 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | margin_mm | 1.0 | keep parts this far from the board edge |
 | router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
 | post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
-| post_tran_lump | true | in post-layout transients, reduce each net's trace network to its pads (exact DC resistance, no trace C); AC and noise keep the full network |
+| post_tran_lump | true | in post-layout transients, reduce each net's trace network to its pads (exact DC resistance, no trace C); AC and noise keep the full network. Scope: lumped transients check resistive drops and slow dynamics, not reflections, ringing, crosstalk or RC delay along a trace. Nets with `class: fast`, `edge_ns` or `post_full: true` keep their full R and C network |
+| post_lump_check | none | name of one transient analysis that post-layout also runs with the full R and C network; the report gives the largest difference and both run times |
+| router_retries | 3 | KiCadRoutingTools: when a width class leaves nets unrouted, route it again in another net order this many times and keep the best |
 | drc_rules | [] | KiCad custom rules, one `(rule ...)` string each, written to `<project>.kicad_dru` and applied by DRC. Use for class-pair clearance and creepage, e.g. mains to SELV |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 
@@ -56,7 +58,7 @@ nets:
   RF: {impedance_ohm: 50, width_mm: 1.1}
 ```
 
-`current_a` sizes the track with IPC-2221 (10 C rise). `external_supply` marks a rail that enters through a connector. `sensitive` turns on crosstalk and return-path checks for that net.
+`class: fast` or `edge_ns: <rise time>` keeps the full trace R and C network of that net in post-layout transients (see `post_tran_lump`). `current_a` sizes the track with IPC-2221 (10 C rise). `external_supply` marks a rail that enters through a connector. `sensitive` turns on crosstalk and return-path checks for that net.
 
 ## components
 
