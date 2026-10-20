@@ -87,3 +87,27 @@ A tool helps a headless run only if it works without a person: a CLI flag, an en
 4. hwflow: a `build --brief` mode that prints only changed lines against the previous `status.json`, for the circuit and layout loops.
 5. `maxTurns` per agent from the measured turn counts.
 6. If hw-circuit on `sonnet`/`high` scores the same as `opus`/`medium`, move it too.
+
+## hwflow flags
+
+Engine behaviour added for the backlog (group 1 and 2). Each one cuts report noise or a rebuild that an agent turn would otherwise pay for.
+
+| flag or behaviour | what it does | backlog |
+|---|---|---|
+| `build --brief` (also `check`, `sch`, `sim`, `layout`, `post`, `fab`) | prints the verdict and only the report lines that changed against the previous `REPORT.md` (`+` new, `-` gone). An unchanged rebuild prints 3 lines instead of the full report | 8 |
+| stage skipping in `build` | a stage that passed last time with the same inputs (parsed design, model files, project libraries, hwflow code) is skipped; once a stage runs, all later ones run. `--rebuild` forces every stage. Unchanged baseline rebuild: 72 s to 0.5 s | 27 |
+| Monte Carlo once | `--mc N` reuses the last Monte Carlo when the inputs and N are unchanged | 27 |
+| `layout --auto [--attempts 4]`, `build --auto` | placement, routing, area search and DRC in one call; new placer seeds per attempt until 0 DRC errors, 0 unrouted and no placement violations; every attempt kept in `build/auto/`; prints one summary line | 23, 25 |
+| `board.router_retries` (default 3) | KiCadRoutingTools routes a width class again in another net order when nets stay unrouted, keeps the best | 40 |
+| `timeout_s` per analysis (default 600) | bounds one ngspice run. Each analysis gets `status` ok, timeout, crash, aborted or error with its run time; every n/a measure says why, including a node missing from the netlist | 22, 42, 46 |
+| crash retry | an ngspice signal exit or heap error is retried once and reported as flaky | 41 |
+| measure messages | ngspice `measure ... out of interval` on an analysis whose measures all pass is a warning; a sim FAIL names the failing measures or the analysis with the error | 20 |
+| `dbg_*` measures, `debug: true` | listed apart; never counted in pass/total, verdict, trace, post-layout deltas or Monte Carlo yield | 19 |
+| `build/mc_failures/` | every failing Monte Carlo run: seed, run index, sampled values, rows, ngspice log; unfinished runs stay out of the min/max spread | 55 |
+| stale results | kept in `REPORT.md` with `(stale)` and `stale: ...` in the verdict; post and fab are also stale when the layout ran after them; trace and score use fresh results only | 43 |
+| history | every build appends one line to `build/history.jsonl` and keeps its report in `build/history/<timestamp>.md` (last 50) | 18 |
+| design hash | parsed `design.yaml` (comments, whitespace and the in-memory layout resize do not count) and `requirements.yaml` without prose fields | 58 |
+| evidence check | `trace` and the report list requirement evidence files that are missing or empty (`req_evidence_missing` in the score; verdict unchanged) | 54 |
+| `package:`, `package_pads`, `package_pitch_mm` | `check` compares the datasheet package with the footprint (name: warning; pad count, pitch: error); a `Q` with a MOS model or an `M` with a BJT model is a check error | 56, 17 |
+| distances | post-layout reports the clearance of each `board.drc_rules` net group to every other net and the tightest decap paths, with limits | 39 |
+| lumping scope | the report states what lumped post-layout transients check; nets with `class: fast`, `edge_ns` or `post_full` keep the full network; `board.post_lump_check: <analysis>` compares lumped and full on one analysis | 26, 47 |
