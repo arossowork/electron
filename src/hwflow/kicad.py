@@ -41,21 +41,26 @@ def write_lib_tables(design, libs, outdir: Path):
     (outdir / "fp-lib-table").write_text("\n".join(fl + [")"]) + "\n")
 
 
+def _at(v: dict) -> list:
+    """Positions (x, y in mm) of a violation's items, in the order of `items`; None where KiCad gives none."""
+    return [[i["pos"]["x"], i["pos"]["y"]] if i.get("pos") else None for i in v.get("items", [])]
+
+
 def _violations(report: dict) -> list[dict]:
     out = []
     for v in report.get("violations", []):
         out.append({"sev": v.get("severity"), "type": v.get("type"), "msg": v.get("description"),
-                    "items": [i.get("description") for i in v.get("items", [])]})
+                    "items": [i.get("description") for i in v.get("items", [])], "at": _at(v)})
     for sheet in report.get("sheets", []):
         for v in sheet.get("violations", []):
             out.append({"sev": v.get("severity"), "type": v.get("type"), "msg": v.get("description"),
-                        "items": [i.get("description") for i in v.get("items", [])]})
+                        "items": [i.get("description") for i in v.get("items", [])], "at": _at(v)})
     for v in report.get("unconnected_items", []):
         out.append({"sev": "error", "type": "unconnected", "msg": v.get("description"),
-                    "items": [i.get("description") for i in v.get("items", [])]})
+                    "items": [i.get("description") for i in v.get("items", [])], "at": _at(v)})
     for v in report.get("schematic_parity", []):
         out.append({"sev": v.get("severity", "error"), "type": "parity:" + str(v.get("type")), "msg": v.get("description"),
-                    "items": [i.get("description") for i in v.get("items", [])]})
+                    "items": [i.get("description") for i in v.get("items", [])], "at": _at(v)})
     return out
 
 
@@ -63,6 +68,56 @@ def erc(sch: Path) -> list[dict]:
     out = sch.with_suffix(".erc.json")
     _run(["sch", "erc", "--format", "json", "--severity-all", "-o", str(out), str(sch)])
     return _violations(json.loads(out.read_text()))
+
+
+def drc(pcb: Path, refill=True, parity=False) -> list[dict]:
+    out = pcb.with_suffix(".drc.json")
+    args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", str(out)]
+    if refill:
+        args += ["--refill-zones", "--save-board"]
+    if parity:
+        args += ["--schematic-parity"]
+    p = _run(args + [str(pcb)])
+    if not out.exists():
+        raise RuntimeError(p.stdout + p.stderr)
+    return _violations(json.loads(out.read_text()))
+
+
+def _without_creepage(dru: str) -> str:
+    """The .kicad_dru text without its creepage rules (the balanced `(rule ...)` blocks with a creepage constraint)."""
+    out, i = [], 0
+    while True:
+        j = dru.find("(rule", i)
+        if j < 0:
+            break
+        depth, k = 0, j
+        while k < len(dru):
+            depth += (dru[k] == "(") - (dru[k] == ")")
+            k += 1
+            if depth == 0:
+                break
+        out.append(dru[i:j])
+        if "constraint creepage" not in dru[j:k]:
+            out.append(dru[j:k])
+        i = k
+    return "".join(out) + dru[i:]
+
+
+def drc_fast(pcb: Path, refill=True) -> list[dict]:
+    """DRC without the creepage rules of the sibling .kicad_dru: 2-3 s against 15 s on a board with a creepage rule,
+    because KiCad evaluates creepage over every item pair. A pre-check for a repair loop; creepage is left to the
+    full `drc` of the candidate that is kept. It runs on a copy, so the board and its siblings stay as they are."""
+    import shutil
+    import tempfile
+    pcb = Path(pcb)
+    with tempfile.TemporaryDirectory(prefix="drcfast_", dir=pcb.parent) as td:
+        tmp = Path(td) / pcb.name
+        shutil.copy(pcb, tmp)
+        if pcb.with_suffix(".kicad_pro").exists():
+            shutil.copy(pcb.with_suffix(".kicad_pro"), tmp.with_suffix(".kicad_pro"))
+        if pcb.with_suffix(".kicad_dru").exists():
+            tmp.with_suffix(".kicad_dru").write_text(_without_creepage(pcb.with_suffix(".kicad_dru").read_text()))
+        return [v for v in drc(tmp, refill=refill) if v["type"] != "creepage"]
 
 
 def drc(pcb: Path, refill=True, parity=False) -> list[dict]:

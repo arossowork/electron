@@ -176,7 +176,7 @@ def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
 
 
 def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | None = None,
-                vias: list | None = None) -> list:
+                vias: list | None = None, island_removal: int = 0) -> list:
     b = design.board
     nets = list(design.nets())
     netidx = {n: i + 1 for i, n in enumerate(nets)}
@@ -225,7 +225,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
                              ["hatch", "edge", 0.5],
                              ["connect_pads", "yes", ["clearance", b["clearance_mm"]]],
                              ["min_thickness", 0.25], ["filled_areas_thickness", "no"],
-                             ["fill", "yes", ["thermal_gap", 0.3], ["thermal_bridge_width", 0.4], ["island_removal_mode", 0]],
+                             ["fill", "yes", ["thermal_gap", 0.3], ["thermal_bridge_width", 0.4], ["island_removal_mode", island_removal]],
                              ["polygon", ["pts", ["xy", 0.3, 0.3], ["xy", W - 0.3, 0.3], ["xy", W - 0.3, H - 0.3],
                                           ["xy", 0.3, H - 0.3]]]])
     return tree
@@ -425,60 +425,78 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     Power-tap mode is not used, because it places vias inside same-net SMD pads.
     Returns (tracks, vias, summary, unrouted) like the Freerouting path.
     """
-    import json as _json
-    from . import kicad as _kicad
-    route_py = KRT_DIR / "py_router" / "route.py"
-    if not route_py.exists():
-        raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
-    b = design.board
-    name = design.name
     workdir = Path(workdir).resolve()  # the router runs with cwd=KRT_DIR, so relative paths would not be found
+    name = design.name
     src = workdir / f"{name}_unrouted.kicad_pcb"
     write_board(src, build_board(design, libs, parts))
+    (workdir / "krt.log").unlink(missing_ok=True)  # krt_route appends: repair rounds add to the same log
     write_project(workdir, name, design)  # the rules DRC will use: net classes (.kicad_pro) and .kicad_dru
+    cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", timeout=timeout)
+    routed = read_board(cur)
+    tracks = [dict(s) for s in routed["segments"] if s["net"]]
+    vias = [dict(v) for v in routed["vias"] if v["net"]]
+    unrouted = sum(krt_unrouted(v) for v in last.values())
+    extra = f"; retried in another net order ({'; '.join(retried)})" if retried else ""
+    return tracks, vias, f"{unrouted} unrouted, krt {ngroups} pass(es){extra}", unrouted
+
+
+def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, keep_first: bool = False,
+              variants: list | None = None, timeout: int = 1800) -> tuple[Path, dict, list, int]:
+    """The router invocation: one KiCadRoutingTools pass per track-width class (widest first) on the board `src`.
+    `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
+    in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS).
+    The rules files `<name>.kicad_pro` and `.kicad_dru` in `workdir` are copied next to every pass input.
+    Returns (last board, {width: summary}, [width class retried in another order], number of passes)."""
+    b = design.board
+    name = design.name
     rule_files = [workdir / f"{name}.kicad_pro", workdir / f"{name}.kicad_dru"]
     classes = net_classes(design)
     gnds = design.ground_nets() if b["gnd_pour"] else set()
     groups: dict[float, list[str]] = {}
     for net, cl in classes.items():
-        if net not in gnds:
+        if net not in gnds and (nets is None or net in nets):
             groups.setdefault(cl["width"], []).append(net)
-    env = dict(os.environ, KICAD_CLI=_kicad.cli())
+    env = dict(os.environ, KICAD_CLI=_kicad_cli())
     common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
               "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
               "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
     cur, log, last, retried = src, [], {}, []
     retries = int(b.get("router_retries", 3))
+    route_py = KRT_DIR / "py_router" / "route.py"
+    if not route_py.exists():
+        raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
 
     def run(args):
         p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
         return p.stdout + p.stderr, p.returncode
 
-    for i, (w, nets) in enumerate(sorted(groups.items(), reverse=True)):
+    for i, (w, gnets) in enumerate(sorted(groups.items(), reverse=True)):
         for f in rule_files:  # the router reads net-class clearances and custom rules from the input's siblings
             if f.exists():
                 if f.with_name(cur.stem + f.suffix) != f:
                     shutil.copy(f, f.with_name(cur.stem + f.suffix))
             else:
                 f.with_name(cur.stem + f.suffix).unlink(missing_ok=True)
-        base = [sys.executable, str(route_py), str(cur), None, "--nets", *nets, "--track-width", str(w), *common]
-        if i:
+        base = [sys.executable, str(route_py), str(cur), None, "--nets", *gnets, "--track-width", str(w), *common]
+        if i or keep_first:
             base.append("--keep-input-copper")
-        best, tried, logs = route_class(base, workdir / f"{name}_krt{i}", retries, run)
+        best, tried, logs = route_class(base, workdir / f"{stem}{i}", retries, run, variants)
         log += logs
         if best is None:
-            (workdir / "krt.log").write_text("\n".join(log))
+            with (workdir / "krt.log").open("a") as f:
+                f.write("\n".join(log))
             raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm; see krt.log")
         cur, last[w] = best[0], best[1]
         if len(tried) > 1:
             retried.append(f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried))
-    (workdir / "krt.log").write_text("\n".join(log))
-    routed = read_board(cur)
-    tracks = [dict(s) for s in routed["segments"] if s["net"]]
-    vias = [dict(v) for v in routed["vias"] if v["net"]]
-    unrouted = sum(krt_unrouted(v) for v in last.values())
-    extra = f"; retried in another net order ({'; '.join(retried)})" if retried else ""
-    return tracks, vias, f"{unrouted} unrouted, krt {len(groups)} pass(es){extra}", unrouted
+    with (workdir / "krt.log").open("a") as f:
+        f.write("\n".join(log))
+    return cur, last, retried, len(groups)
+
+
+def _kicad_cli() -> str:
+    from . import kicad
+    return kicad.cli()
 
 
 # net orders tried, in turn, when a width class leaves nets unrouted (backlog 40)
@@ -490,12 +508,12 @@ def krt_unrouted(summary: dict) -> int:
     return int(summary.get("failed", 0)) + int(summary.get("multipoint_deficit", 0)) + len(summary.get("open_single") or [])
 
 
-def route_class(base: list, stem: Path, retries: int, run) -> tuple:
+def route_class(base: list, stem: Path, retries: int, run, variants: list | None = None) -> tuple:
     """Route one width class; while nets stay unrouted, retry in another net order (up to `retries` times).
     Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
     import json as _json
     best, tried, logs = None, [], []
-    for j, extra in enumerate(KRT_VARIANTS[:1 + max(retries, 0)]):
+    for j, extra in enumerate(variants or KRT_VARIANTS[:1 + max(retries, 0)]):
         out = stem.with_name(stem.name + (f"_r{j}" if j else "") + ".kicad_pcb")
         args = [str(out) if a is None else a for a in base] + extra  # None marks the output board
         out.unlink(missing_ok=True)

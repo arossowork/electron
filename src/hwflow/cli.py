@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import kicad, pcb, placer, postlayout, spice
+from . import kicad, pcb, placer, postlayout, repair, spice
 from .design import Design, check
 from .libs import Libs
 
@@ -321,9 +321,31 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     board = out / f"{name}.kicad_pcb"
     if not pre:
         tracks, vias, summary, _ = _route_once(d, libs, parts, passes)
-    pcb.write_board(board, pcb.build_board(d, libs, parts, tracks, vias))
+    def route_check(tr, vi, island=0, fast=False):
+        pcb.write_board(board, pcb.build_board(d, libs, parts, tr, vi, island_removal=island))
+        return kicad.drc_fast(board) if fast else kicad.drc(board, refill=True, parity=True)
+
     pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for this DRC
-    drc = kicad.drc(board, refill=True, parity=True)
+    drc = route_check(tracks, vias)
+    rep = None
+    rounds = int(d.board.get("repair_rounds", 3))
+    if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
+            and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
+        pre = (tracks, vias, drc, board.read_bytes())
+        r = repair.repair(d, libs, parts, tracks, vias, drc, board,
+                          lambda *a: route_check(*a, fast=True), rounds)  # local repair, not a rebuild
+        tracks, vias, rep = r["tracks"], r["vias"], r["report"]
+        if rep["rounds"] and (tracks, vias) != pre[:2]:
+            drc = kicad.drc(board, refill=True, parity=True)  # the full DRC, once, on the board kept
+            if len([x for x in drc if x["sev"] == "error"]) > len([x for x in pre[2] if x["sev"] == "error"]):
+                tracks, vias, drc = pre[0], pre[1], pre[2]  # a creepage error the fast check cannot see
+                board.write_bytes(pre[3])
+                rep["log"].append("rejected by the full DRC")
+                drc = kicad.drc(board, refill=True, parity=True)
+        rep["before"] = len([x for x in pre[2] if x["sev"] == "error"])
+        rep["after"] = len([x for x in drc if x["sev"] == "error"])
+        rep["text"] = repair.summary(rep)
+        print(f"[layout] {rep['text']}")
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     iso = isolation_distances(d, board, drc)
@@ -331,7 +353,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
-            "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40],
+            "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
             "seconds": round(time.time() - t0, 1)}
 
 
@@ -391,7 +413,7 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
         how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
         log.append(f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
                    f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
-                   f"{r['vias']} vias")
+                   f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else ""))
         for f in (board, pj):
             if f.exists():
                 shutil.copy(f, adir / f"attempt{k + 1}{f.suffix}")
@@ -622,6 +644,8 @@ def write_report(d: Design, history: bool = False) -> str:
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
+        if c.get("repair"):
+            L.append(f"  - {c['repair']['text']}")
         for r in c.get("isolation") or []:
             creep = (f"; creepage {r['creepage_mm']} mm by DRC: {r['drc_creepage']} violations"
                      if r.get("creepage_mm") is not None else "")
