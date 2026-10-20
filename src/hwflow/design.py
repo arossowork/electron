@@ -184,6 +184,48 @@ def _natkey(s: str):
 
 # ---------------------------------------------------------------- static checks
 
+# datasheet package names that KiCad footprints spell differently (normalized: upper case, alphanumerics only)
+PACKAGE_ALIASES = [
+    ["SOD882", "DFN10062", "DFN1006"], ["SOD523", "SC79"], ["SOD323", "SC76"], ["SOT323", "SC70"],
+    ["SOT363", "SC706", "SC88"], ["SOT236", "TSOT236"], ["SOT235", "TSOT235"], ["TO252", "DPAK"],
+    ["TO263", "D2PAK"], ["SMA", "DSMA", "DO214AC"], ["SMB", "DSMB", "DO214AA"], ["SMC", "DSMC", "DO214AB"],
+    ["MSOP", "VSSOP"], ["SOT23", "SOT233", "TO236"],
+]
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(s).upper())
+
+
+def package_findings(c: Component, fp: dict) -> list[tuple[str, str]]:
+    """Compare the datasheet package (`package`, `package_pads`, `package_pitch_mm`) with the footprint (backlog 56)."""
+    out = []
+    pkg = c.get("package")
+    name = str(c.get("footprint", "")).split(":")[-1]
+    pads = [p for p in fp["pads"] if p.get("number")]
+    numbers = {p["number"] for p in pads}
+    if pkg:
+        key = _norm(pkg)
+        names = {key}.union(*[g for g in PACKAGE_ALIASES if key in g])
+        if not any(n in _norm(name) for n in names):
+            out.append(("warn", f"{c.ref}: datasheet package {pkg} but footprint {name} does not name it "
+                                f"(check the land pattern against the datasheet)"))
+    if c.get("package_pads") is not None and int(c.get("package_pads")) != len(numbers):
+        out.append(("error", f"{c.ref}: package has {c.get('package_pads')} pads, footprint {name} has {len(numbers)}"))
+    if c.get("package_pitch_mm") is not None and len(pads) >= 2:
+        best = {}
+        for p in pads:  # pitch = smallest centre distance between pads of different numbers
+            for q in pads:
+                if p["number"] != q["number"]:
+                    dd = math.hypot(p["x"] - q["x"], p["y"] - q["y"])
+                    best[p["number"]] = min(best.get(p["number"], dd), dd)
+        pitch = min(best.values()) if best else None
+        want = float(c.get("package_pitch_mm"))
+        if pitch is not None and abs(pitch - want) > max(0.05, 0.1 * want):
+            out.append(("error", f"{c.ref}: package pitch {want} mm, footprint {name} pitch {pitch:.2f} mm"))
+    return out
+
+
 def check(design: Design, libs=None) -> list[dict]:
     """Return findings: {sev: error|warn|info, code, msg}."""
     f: list[dict] = []
@@ -208,6 +250,10 @@ def check(design: Design, libs=None) -> list[dict]:
                 add("error", "bad-value", f"{c.ref} value {c.get('value')!r} is not numeric")
         if not c.pins:
             add("error", "no-pins", f"{c.ref} has no pin-to-net map")
+        from .spice import element_mismatch
+        msg = element_mismatch(design, c)
+        if msg:
+            add("error", "spice-element", msg)
 
     # library-backed checks: pins exist, every symbol pin is mapped, pads match
     if libs is not None:
@@ -236,6 +282,8 @@ def check(design: Design, libs=None) -> list[dict]:
                         add("error", "unmapped-pin", f"{c.ref} pin {num} ({p['name']}, {p['type']}) is not "
                                                      f"connected and not listed in nc")
                 if fp:
+                    for sev, msg in package_findings(c, fp):
+                        add(sev, "package-mismatch", msg)
                     pads = {p["number"] for p in fp["pads"] if p["number"]}
                     missing = [n for n in spins if n not in pads]
                     if missing:

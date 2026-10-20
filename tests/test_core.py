@@ -372,3 +372,37 @@ def test_trace_flags_missing_evidence_files(tmp_path):
         "requirements:\n  - {id: R1, verification: inspection, evidence: 'see notes/missing.md'}\n")
     t = trace(Design.load(proj))
     assert t["evidence_missing"] == ["R1"] and t["rows"][0]["evidence_missing"] == ["notes/missing.md"]
+
+
+def test_check_fails_on_mos_model_under_q_reference(tmp_path):
+    """Backlog 17: Q with a MOS model (or M with a BJT model) is a check error, not an ngspice abort."""
+    proj = _copy_example(tmp_path)
+    (proj / "models").mkdir()
+    (proj / "models" / "p.lib").write_text(".model MYP VDMOS(pchan Vto=-1 Kp=1)\n.model MYN nmos(LEVEL=1)\n")
+    d = Design.load(proj)
+    base = {"symbol": "Device:Q_PMOS_GSD", "footprint": "Package_TO_SOT_SMD:SOT-23", "value": "x",
+            "pins": {"1": "GND", "2": "+3V3", "3": "FB"}}
+    d.components["Q2"] = type(d.components["R1"])("Q2", dict(base, spice={"model": "PMOS_LOGIC", "ports": [3, 1, 2]}))
+    d.components["Q3"] = type(d.components["R1"])("Q3", dict(base, spice={"model": "MYP", "lib": "models/p.lib"}))
+    d.components["M4"] = type(d.components["R1"])("M4", dict(base, spice={"model": "NPN_GENERIC"}))
+    d.components["M5"] = type(d.components["R1"])("M5", dict(base, spice={"model": "MYN", "lib": "models/p.lib"}))
+    d.components["Q6"] = type(d.components["R1"])("Q6", dict(base, spice={"model": "NPN_GENERIC"}))
+    errs = {f["msg"].split()[0]: f["msg"] for f in check(d) if f["code"] == "spice-element"}
+    assert sorted(errs) == ["M4", "Q2", "Q3"]
+    assert "PMOS model PMOS_LOGIC" in errs["Q2"] and "rename it M2" in errs["Q2"]
+
+
+def test_check_compares_package_with_footprint():
+    """Backlog 56: a SOD-882 part on a chip 0402 land pattern is flagged; pad count and pitch are compared."""
+    from hwflow.design import Component, package_findings
+    from hwflow.libs import Libs
+    libs = Libs()
+    chip = libs.footprint("Diode_SMD:D_0402_1005Metric")
+    c = Component("D4", {"footprint": "Diode_SMD:D_0402_1005Metric", "package": "SOD-882", "package_pads": 2,
+                         "package_pitch_mm": 0.65})
+    f = package_findings(c, chip)
+    assert [s for s, _ in f] == ["warn", "error"] and "pitch 0.97 mm" in f[1][1]
+    ok = Component("D4", {"footprint": "Diode_SMD:D_SOD-882", "package": "DFN1006-2", "package_pads": 2})
+    assert package_findings(ok, libs.footprint("Diode_SMD:D_SOD-882")) == []
+    sot = Component("U1", {"footprint": "Package_TO_SOT_SMD:SOT-23-5", "package": "SOT-23-5", "package_pads": 6})
+    assert [s for s, _ in package_findings(sot, libs.footprint("Package_TO_SOT_SMD:SOT-23-5"))] == ["error"]

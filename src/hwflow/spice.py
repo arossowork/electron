@@ -34,6 +34,44 @@ def _generic_names() -> set[str]:
 
 GENERIC_NAMES = _generic_names()
 
+_MODEL_LINE = re.compile(r"^\s*\.model\s+(\S+)\s+([A-Za-z]+)", re.I | re.M)
+
+
+def model_types(paths) -> dict[str, str]:
+    """MODEL NAME -> device type (NMOS, PMOS, NPN, PNP, D, VDMOS, ...) from `.model` lines of the given files."""
+    out = {}
+    for f in paths:
+        try:
+            text = Path(f).read_text(errors="replace")
+        except OSError:
+            continue
+        for m in _MODEL_LINE.finditer(text):
+            t = m.group(2).upper()
+            if t == "VDMOS":  # vdmos is n-channel unless the parameter list says pchan
+                line = text[m.start():text.find("\n", m.start()) if "\n" in text[m.start():] else None]
+                t = "PMOS" if re.search(r"\bpchan\b", line, re.I) else "NMOS"
+            out[m.group(1).upper()] = t
+    return out
+
+
+def element_mismatch(design: Design, c) -> str | None:
+    """A model whose device type does not match the element letter of the reference (backlog 17): ngspice reads
+    `Q2 ... PMOS_LOGIC` as a bipolar transistor and aborts. Returns a message, or None."""
+    sp = c.get("spice")
+    if not isinstance(sp, dict) or not sp.get("model") or "subckt" in sp or c.kind not in ("Q", "M", "D"):
+        return None
+    files = [MODELS] + [design.dir / f for f in (design.raw.get("sim") or {}).get("includes") or []]
+    if sp.get("lib"):
+        files.append(design.dir / sp["lib"])
+    t = model_types(files).get(str(sp["model"]).upper())
+    want = {"Q": ("NPN", "PNP"), "M": ("NMOS", "PMOS"), "D": ("D",)}[c.kind]
+    if t is None or t in want:
+        return None
+    letter = {"NMOS": "M", "PMOS": "M", "NPN": "Q", "PNP": "Q", "D": "D"}.get(t)
+    fix = f"; rename it {letter}{c.ref[len(c.kind):]} (the first letter of the reference picks the SPICE element)" \
+        if letter else ""
+    return f"{c.ref} uses {t} model {sp['model']}, but a {c.kind} reference is netlisted as {'/'.join(want)}{fix}"
+
 
 def model_origin(c) -> str | None:
     """'vendor', 'fit', 'behavioral', 'builtin' or 'unclassified' for a simulated active part; None otherwise."""

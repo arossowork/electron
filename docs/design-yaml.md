@@ -70,6 +70,9 @@ components:
     datasheet: https://...
     symbol: Regulator_Linear:AP2112K-3.3    # KiCad lib_id, must exist (hwflow lib sym)
     footprint: Package_TO_SOT_SMD:SOT-23-5  # KiCad footprint, must exist (hwflow lib fp)
+    package: SOT-23-5                       # optional: datasheet package name, compared with the footprint
+    package_pads: 5                         # optional: datasheet pad count (check error if the footprint differs)
+    package_pitch_mm: 0.95                  # optional: datasheet pitch (check error if off by > 10 % or 0.05 mm)
     pins: {"1": VBUS, "2": GND, "3": VBUS, "5": +3V3}   # symbol pin NUMBER -> net
     nc: ["4"]                               # pins left open on purpose
     group: power                            # schematic column and placement cluster
@@ -92,7 +95,7 @@ Every symbol pin must be in `pins` or in `nc`, otherwise `hwflow check` reports 
 |---|---|
 | R, C, L | none. The value is used. For capacitors you can add `esr` and `esl`. |
 | diode or LED | `{model: LED_GREEN}`. Ports default to anode=pin 2, cathode=pin 1, as in `Device:D` and `Device:LED`. |
-| MOSFET | `{model: NMOS_LOGIC, ports: [D, G, S]}` with pin numbers. **The reference must start with `M`** (`M1`, `M2`): the first letter of the reference picks the SPICE element, so a MOSFET named `Q2` is netlisted as a bipolar transistor and ngspice aborts with an error on that line. Bipolar transistors use `Q`. |
+| MOSFET | `{model: NMOS_LOGIC, ports: [D, G, S]}` with pin numbers. **The reference must start with `M`** (`M1`, `M2`): the first letter of the reference picks the SPICE element, so a MOSFET named `Q2` is netlisted as a bipolar transistor and ngspice aborts with an error on that line. `hwflow check` reports this as a `spice-element` error (the model type is read from the `.model` line). Bipolar transistors use `Q`. |
 | BJT | `{model: NPN_GENERIC, ports: [C, B, E]}` |
 | IC | `{subckt: OPAMP_GENERIC, ports: [...pin numbers in model port order...], params: {...}}` |
 | vendor model | `{lib: models/opa344.lib, subckt: OPA344, ports: [...]}` (path is relative to the project) |
