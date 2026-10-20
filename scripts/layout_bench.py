@@ -45,9 +45,14 @@ PHASES = ("placer", "router", "repair", "drc")
 # O(parts^2) per iteration (about 32 ms at 150 parts), so the full synthetic board needs about an hour of placer per
 # attempt and times out at the default 1200 s; it runs once as a timeout record. `synth150-lite` is the same board with
 # 1 seed x 2000 iterations, so that the router, repair, DRC and extraction of a 150 part board are measured.
-DEFAULTS = {"seeds": 4, "iters": 30000, "max_runs": None, "env": {}}
+DEFAULTS = {"seeds": 4, "iters": 30000, "max_runs": None, "env": {"HWFLOW_KEEPOUT_STRICT": "1"}}  # strict keep-out check set explicitly
 SPECIAL = {"synth150": {"max_runs": 1}, "synth150-lite": {"seeds": 1, "iters": 2000, "max_runs": 1},
-           "thermostat-strict": {"max_runs": 1, "env": {"HWFLOW_KEEPOUT_STRICT": "1"}}}  # L14: keep-out check without fp-lib-table
+           "thermostat": {"env": {"HWFLOW_KEEPOUT_STRICT": "0"}},  # comparable to the first baseline
+           "thermostat-strict": {"max_runs": 1}}
+OPT_IN = {"synth150", "synth150-lite"}  # only with --full-synth / --only
+# thermostat-unfixed: the baseline with the placement of every part released except these (connectors, keep-outs,
+# panel slot, battery holder, mounting holes); the placer places the rest and keeps `edge:` hints.
+KEEP_FIXED = ("J", "KO_", "SLOT", "BT1", "MH")
 
 
 def design_set() -> dict[str, Path]:
@@ -56,9 +61,11 @@ def design_set() -> dict[str, Path]:
         s[p.parent.name] = p.parent
     base = ROOT / "evals/baselines/home-thermostat-2026-10-19/project"
     if (base / "design.yaml").exists():
-        s["thermostat"] = s["thermostat-strict"] = base
+        s["thermostat"] = s["thermostat-strict"] = s["thermostat-unfixed"] = base
     if (ROOT / "evals/bench/synth150/design.yaml").exists():
         s["synth150-lite"] = s["synth150"] = ROOT / "evals/bench/synth150"
+    if (ROOT / "evals/bench/synth60/design.yaml").exists():
+        s["synth60"] = ROOT / "evals/bench/synth60"
     return s
 
 
@@ -216,6 +223,23 @@ def prep(src: Path, work: Path, name: str) -> Path:
     dst = work / name / "prep"
     shutil.rmtree(dst.parent, ignore_errors=True)
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("build", "__pycache__", ".venv"))
+    if name == "thermostat-unfixed":
+        import yaml
+        raw = yaml.safe_load((dst / "design.yaml").read_text())
+        freed = []
+        for ref, c in raw["components"].items():
+            fp = str(c.get("footprint", ""))
+            if ref.startswith(KEEP_FIXED) or "Keepout" in fp or "MountingHole" in fp or "PanelSlot" in fp:
+                continue
+            pl = c.get("placement")
+            if pl:
+                for k in ("x", "y", "rot", "fixed"):
+                    pl.pop(k, None)
+                if not pl:
+                    del c["placement"]
+                freed.append(ref)
+        (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
+        print(f"  released {len(freed)} of {len(raw['components'])} parts", flush=True)
     d = Design.load(dst)
     libs = Libs(design=d)
     c = cli.stage_check(d, libs)
@@ -365,8 +389,9 @@ def main():
     if a.list:
         print("\n".join(f"{k}: {v}" for k, v in ds.items()))
         return 0
-    if not a.full_synth and not (a.only and "synth150" in a.only):
-        ds.pop("synth150", None)
+    for n in OPT_IN:
+        if not (a.only and n in a.only) and not (a.full_synth and n == "synth150"):
+            ds.pop(n, None)
     if a.only:
         miss = [x for x in a.only if x not in ds]
         if miss:
