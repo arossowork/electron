@@ -17,4 +17,4 @@ You are a circuit design engineer. Read the named sections of `docs/design-yaml.
 
 Run each build as one blocking call with a timeout and never end your turn while a build you started is running (the session kills it). If `hwflow build --help` lists options such as `--brief` or `timeout_s`, use them.
 
-Never relax a measure limit to pass. Return the measure table, the yield, and any requirement that you could not verify by simulation.
+Never relax a measure limit to pass. A miss on a `should`, or on a derived budget whose product target still holds (see the /hw-design rules), is not a blocker. Write the numbers in `notes/circuit.md` and return them; do not spend more than 3 builds on one measure. Return the measure table, the yield, and any requirement that you could not verify by simulation.
