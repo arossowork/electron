@@ -7,6 +7,7 @@ import csv
 import json
 import math
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -508,6 +509,10 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
         n = 1  # no movable part: another seed gives the same placement
     results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
     cutoff = 0 if _auto_final(results[0]) else None
+    r0 = results[0].get("r") or {}
+    hopeless = cutoff is None and r0 and r0["drc_errors"] + r0["unrouted"] > _hopeless_limit()
+    if hopeless:
+        n = 1  # far from routable: other seeds of the same placer and router do not close the gap (thermostat 3: 121)
     nxt = 1
     workers = max(1, min(workers, n - 1))
     pool = _auto_pool(workers) if n > 1 and cutoff is None else None
@@ -569,11 +574,22 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     if cutoff is not None and results[cutoff].get("r", {}).get("fixed_parts_only") and not results[cutoff]["r"]["ok"]:
         stopped = ("stopped: remaining errors are on fixed parts: "
                    + ", ".join(results[cutoff]["r"]["fixed_parts_only"]))
+    elif hopeless:
+        stopped = (f"stopped: attempt 1 has {r0['drc_errors'] + r0['unrouted']} errors (limit {_hopeless_limit()}); "
+                   "more attempts will not fix it: a structural change is needed (more layers, fewer or smaller "
+                   "parts, a larger board), which is a product decision")
     elif fixed_all and not r["ok"]:
         stopped = "all parts fixed: one attempt"
     r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
              seconds=round(time.time() - t0, 1))
     return r
+
+
+def _hopeless_limit() -> int:
+    """Errors + unrouted of attempt 1 above which `--auto` starts no other attempt (HWFLOW_AUTO_MAX_ERRORS, default the
+    repair limit: a board that repair skips is not one that a new seed fixes)."""
+    from . import repair
+    return int(os.environ.get("HWFLOW_AUTO_MAX_ERRORS", repair.MAX_ERRORS))
 
 
 def _auto_summary(r: dict) -> str:
@@ -1146,7 +1162,9 @@ def main(argv=None):
             s = libs.symbol(q)
             print(f"{q} units={s['units']} footprint={s['props'].get('Footprint', '')}")
             print(f"  {s['props'].get('Description', '')}")
-            for p in sorted(s["pins"], key=lambda p: (p["unit"], [int(t) if t.isdigit() else t for t in p["number"]])):
+            def natural(num):
+                return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in re.findall(r"\d+|\D+", num)]
+            for p in sorted(s["pins"], key=lambda p: (p["unit"], natural(p["number"]))):
                 print(f"  pin {p['number']:>4} {p['name']:<12} {p['type']:<14} unit {p['unit']}{' hidden' if p['hidden'] else ''}")
         else:
             fp = libs.footprint(q)

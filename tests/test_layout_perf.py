@@ -149,6 +149,21 @@ def test_early_stop_on_fixed_parts(tmp_path, monkeypatch):
     assert "stopped: remaining errors are on fixed parts: BT1, U2" in cli._auto_summary(r)
 
 
+def test_hopeless_first_attempt_starts_no_pool(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
+    monkeypatch.delenv("HWFLOW_AUTO_MAX_ERRORS", raising=False)
+    d, libs = _design(tmp_path)
+    started = []
+    monkeypatch.setattr(cli, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(121), "line": "a"})
+    r = cli.layout_auto(d, libs, attempts=4, workers=4)
+    assert started == [0] and r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors (limit 40)")
+    monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "200")  # under the limit: the other attempts run
+    monkeypatch.setattr(cli, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
+    started.clear()
+    r = cli.layout_auto(d, libs, attempts=4, workers=4)
+    assert sorted(started) == [0, 1, 2, 3] and not r["auto"]["stopped"]
+
+
 def test_attempts_have_their_own_directories(tmp_path, monkeypatch):
     d, libs = _design(tmp_path)
     out = tmp_path / "build"
