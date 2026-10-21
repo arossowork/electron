@@ -21,8 +21,9 @@ placement:
   MB: {x: 3.6, y: 0, rot: 90, side: front}
 copper:
   tracks:
-  # IN: one 1.2 mm strip over both drain pads (0.6 mm clear of the gate and source pads), port end at x = -2.2
-  - {net: IN, layer: F.Cu, w: 1.2, pts: [[-2.2, -1.0], [3.6, -1.0]]}
+  # IN: one 1.2 mm strip over both drain pads (0.6 mm clear of the gate and source pads), port end at x = -2.2;
+  # a point on each drain pad, since post-layout extraction joins a pad only at a track end
+  - {net: IN, layer: F.Cu, w: 1.2, pts: [[-2.2, -1.0], [0, -1.0], [3.6, -1.0]]}
   # OUT: 0.6 mm stubs (pad width) from the sources to a 1.2 mm strip 0.24 mm below the MB gate pad, port end at
   # x = 5.8
   - {net: OUT, layer: F.Cu, w: 0.6, pts: [[0.95, 0.94], [0.95, 2.52]]}

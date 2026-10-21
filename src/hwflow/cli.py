@@ -1120,6 +1120,9 @@ def cmd_block(a) -> int:
         for x in r["drc"]:
             if x["sev"] == "error":
                 print(f"  {x['type']}: {x['msg']} {x['items']}")
+        for n, k in r["split"].items():
+            print(f"  net {n} is split in {k} copper islands for post-layout extraction (a track crosses a pad "
+                  f"without a point on it)")
         print(f"block {a.arg}: {'OK' if r['ok'] else 'FAIL'}, DRC {r['errors']} errors, {r['warnings']} warnings on the "
               f"block alone; nets joined by its copper: {', '.join(r['joined']) or '-'} ({r['board']})")
         return 0 if r["ok"] else 1

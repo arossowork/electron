@@ -583,7 +583,7 @@ def write(block: dict, root: Path | None = None) -> Path:
 def verify(name: str, workdir: Path, design=None) -> dict:
     """Place the block alone on a small board (instantiate mode, ports as single nets) and run KiCad DRC on the
     unrouted board, which holds only the block copper. Returns {ok, errors, warnings, drc, board, joined}."""
-    from . import kicad, pcb, placer
+    from . import kicad, pcb, placer, postlayout
     from .design import Design
     from .libs import Libs
     b = load(name, design)
@@ -617,8 +617,10 @@ def verify(name: str, workdir: Path, design=None) -> dict:
     pcb.write_board(f, pcb.build_board(d, libs, parts))
     drc = kicad.drc(f, refill=True)
     errs = [x for x in drc if x["sev"] == "error"]
-    return {"ok": not errs, "errors": len(errs), "warnings": len(drc) - len(errs), "drc": drc, "board": str(f),
-            "joined": sorted(connected_nets(b, libs, float(d.board["via_dia_mm"])))}
+    # post-layout extraction joins a pad only at a track end: a track that crosses a pad needs a point on it
+    split = {n: k for n, k in postlayout.Extraction(d, f).islands().items() if k > 1}
+    return {"ok": not errs and not split, "errors": len(errs), "warnings": len(drc) - len(errs), "drc": drc,
+            "board": str(f), "split": split, "joined": sorted(connected_nets(b, libs, float(d.board["via_dia_mm"])))}
 
 
 def describe(name: str, design=None) -> str:
