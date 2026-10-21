@@ -90,6 +90,9 @@ class Design:
         d = cls(path=path, raw=raw)
         for ref, c in (raw.get("components") or {}).items():
             d.components[ref] = Component(ref, c or {})
+        if raw.get("blocks"):
+            from . import blocks
+            blocks.expand(d)  # instantiate mode: components a block adds
         return d
 
     def save(self):
@@ -97,7 +100,7 @@ class Design:
         import io
 
         from ruamel.yaml import YAML
-        self.raw["components"] = {r: c.data for r, c in self.components.items()}
+        self.raw["components"] = {r: c.data for r, c in self.components.items() if not c.get("from_block")}
         rt = YAML()
         rt.preserve_quotes = True
         rt.width = 120
@@ -323,4 +326,7 @@ def check(design: Design, libs=None) -> list[dict]:
             for net in set(c.pins.values()) - gnds:
                 if design.net_info(net).get("class") == "power" and net not in caps_on:
                     add("warn", "no-decoupling", f"{c.ref} on power net {net} has no capacitor to ground")
+    if design.raw.get("blocks"):
+        from . import blocks
+        f += blocks.findings(design, libs)
     return f

@@ -197,6 +197,9 @@ def placement_areas(design, libs) -> list[dict]:
         if c.get("virtual"):
             continue
         pl = c.get("placement") or {}
+        if design.raw.get("blocks"):
+            from . import blocks
+            pl = blocks.anchor(design, c.ref) or pl  # a member of a fixed block
         for a in _rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
             # library zones are in footprint coordinates (pcb.py writes them moved to the part); only a part with a
             # set position gives a fixed area for the placer
@@ -208,7 +211,6 @@ def placement_areas(design, libs) -> list[dict]:
             out.append({"name": a["name"], "owner": c.ref, "forbids": a["forbids"], "layers": a["layers"],
                         "box": (min(xs), min(ys), max(xs), max(ys)), "poly": Polygon(pts).buffer(0)})
         cut = _courtyard(libs.footprint_tree(c.get("footprint")), "Edge.Cuts")  # a cutout (panel slot) of a fixed part
-        pl = c.get("placement") or {}
         if cut and "x" in pl and "y" in pl:
             pts = [rot(x, y, float(pl.get("rot", 0))) for x, y in cut]
             xs, ys = [float(pl["x"]) + x for x, _ in pts], [float(pl["y"]) + y for _, y in pts]

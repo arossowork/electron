@@ -1,0 +1,49 @@
+name: rev_guard_2pfet
+description: Reverse-battery guard, two P-FETs (SOT-23) in parallel, wide drain (IN) and source (OUT) copper.
+source: >-
+  Hand layout for the M1/M2 guard of home-thermostat-3 (CJ2305, symbol Transistor_FET:AO3401A: 1 G, 2 S, 3 D;
+  M1/M2 pins 1 VBAT_EN, 2 VBAT_P, 3 VBAT_RAW). The routed reference board (ht3-routed-ref) gives no usable guard
+  copper (0.6 mm tracks, R4 fails post-layout at 63.8-69.9 mV against 50 mV), so the copper is sized from the R4
+  budget in notes/layout-power.md (about 24 mOhm of copper allowed in the guard path at 0.7 A).
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+ports: [IN, OUT, GATE]
+roles:
+  MA: {ref: M1, symbol: Transistor_FET:AO3401A, footprint: Package_TO_SOT_SMD:SOT-23, value: CJ2305,
+       pins: {'1': GATE, '2': OUT, '3': IN}}
+  MB: {ref: M2, symbol: Transistor_FET:AO3401A, footprint: Package_TO_SOT_SMD:SOT-23, value: CJ2305,
+       pins: {'1': GATE, '2': OUT, '3': IN}}
+# Both FETs rot 90: drain (pin 3) up at (0, -0.94), gate (pin 1) at (-0.95, 0.94), source (pin 2) at (0.95, 0.94).
+# MB x = 3.6: courtyards (half width 1.7) 0.2 mm apart, and 1.1 mm between the MA source and MB gate pads for the
+# gate via (0.6 mm, 0.25 mm clear on both sides).
+placement:
+  MA: {x: 0, y: 0, rot: 90, side: front}
+  MB: {x: 3.6, y: 0, rot: 90, side: front}
+copper:
+  tracks:
+  # IN: one 1.2 mm strip over both drain pads (0.6 mm clear of the gate and source pads), port end at x = -2.2;
+  # a point on each drain pad, since post-layout extraction joins a pad only at a track end
+  - {net: IN, layer: F.Cu, w: 1.2, pts: [[-2.2, -1.0], [0, -1.0], [3.6, -1.0]]}
+  # OUT: 0.6 mm stubs (pad width) from the sources to a 1.2 mm strip 0.24 mm below the MB gate pad, port end at
+  # x = 5.8
+  - {net: OUT, layer: F.Cu, w: 0.6, pts: [[0.95, 0.94], [0.95, 2.52]]}
+  - {net: OUT, layer: F.Cu, w: 0.6, pts: [[4.55, 0.94], [4.55, 2.52]]}
+  - {net: OUT, layer: F.Cu, w: 1.2, pts: [[0.95, 2.52], [5.8, 2.52]]}
+  # GATE: MB gate to a via between the MA source and MB gate pads, under the FETs on B.Cu to a via at the left,
+  # into the MA gate pad; port end at x = -2.2
+  - {net: GATE, layer: F.Cu, w: 0.3, pts: [[2.65, 0.94], [1.8, 0.94]]}
+  - {net: GATE, layer: B.Cu, w: 0.3, pts: [[1.8, 0.94], [-1.8, 0.94]]}
+  - {net: GATE, layer: F.Cu, w: 0.3, pts: [[-2.2, 0.94], [-0.95, 0.94]]}
+  vias:
+  - {net: GATE, x: 1.8, y: 0.94}
+  - {net: GATE, x: -1.8, y: 0.94}
+courtyard: [-2.8, -1.95, 6.4, 3.15]
+# 1 oz copper, rho 1.72e-8 ohm m / 35 um = 0.491 mOhm per square at 20 C (+9.8 % at 45 C). Common copper: IN port
+# to the MA drain 2.2 / 1.2 = 1.83 sq, MB source to the OUT port 1.25 / 1.2 = 1.04 sq. Each FET branch: 3.6 / 1.2 =
+# 3.0 sq of strip plus a source stub 1.58 / 0.6 = 2.63 sq (pad centre to strip centre) = 5.63 sq; the two branches
+# are equal, in parallel 2.82 sq. Total 5.69 sq = 2.8 mOhm at 20 C, 3.1 mOhm at 45 C (FET Rds(on) not included).
+resistance_mohm: {IN-OUT copper at 20 C: 2.8, IN-OUT copper at 45 C: 3.1}
+notes: >-
+  The block is 9.2 x 5.1 mm: it does not fit the 3.55 mm strip between K1 and BT1 that the hand placement of
+  home-thermostat-3 used, so the placer puts it elsewhere on the VBAT_RAW -> VBAT_P path. The router joins the IN
+  and OUT ends with the nets' own width (VBAT_RAW, VBAT_P: 1.2 mm).
