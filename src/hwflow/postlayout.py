@@ -208,7 +208,7 @@ class Extraction:
             s["z0"] = z0
             R = RHO_CU * (L * 1e-3) / (s["w"] * 1e-3 * self.t_mm * 1e-3)
             self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L,
-                                  "Z0": z0})
+                                  "Z0": z0, "layer": s["layer"], "w": s["w"]})
         # 2. trace ends that touch (closer than half the narrower width) are one node
         ends = []
         for s in segs:
@@ -514,6 +514,9 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                                           f"(limit {r['limit']} mm)")
         else:
             add("info", "decap-distance", f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm")
+    # requirement budgets on the routed copper (design.yaml budgets:)
+    from .budgets import findings as budget_findings
+    f += budget_findings(design, ex)
     # signal integrity without SPICE, for nets with a declared edge rate (backlog 48)
     for r in si_screen(design, ex):
         add(r["sev"], "si", r["msg"])

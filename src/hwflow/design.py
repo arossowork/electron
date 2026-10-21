@@ -78,6 +78,7 @@ class Design:
     path: Path
     raw: dict
     components: dict[str, Component] = field(default_factory=dict)
+    budget_widths: dict[str, float] = field(default_factory=dict)  # net -> mm from budgets: on the current placement
 
     @classmethod
     def load(cls, path: str | Path) -> "Design":
@@ -309,6 +310,8 @@ def check(design: Design, libs=None) -> list[dict]:
                     and not design.net_info(net).get("external_supply"):
                 add("warn", "no-power-source", f"net {net} feeds power_in pins but no power_out pin drives it "
                                                f"(set nets.{net}.external_supply: true if it comes from a connector)")
+    from .budgets import check as budget_check
+    f += budget_check(design)
     # decoupling heuristic: each IC supply net has a cap to ground
     gnds = design.ground_nets()
     caps_on = {}

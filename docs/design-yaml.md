@@ -15,6 +15,7 @@ sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
 libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
+budgets: [...]                 # optional requirement margins that layout may spend (see below)
 approval: {cost_pct: 5, size_mm: 0.5}   # optional tolerances of the approval check (see below)
 ```
 
@@ -50,6 +51,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | thermal_clearance_mm | 5 | placer: parts that dissipate more than 50 mW (from `build/status.json` derating, when a build has run) keep this distance from temperature-sensing parts |
 | antenna_clearance_mm | 10 | placer: antenna parts keep this distance from relays (`K*` refs, `Relay*` symbols) and from the pads of `isolation` / mains groups |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
+| budget_max_track_mm | 3.0 | widest track a `budgets:` entry may ask for; past it, the layout stage says the budget needs the parts closer |
 
 Route cache: the layout stage stores the routed and repaired copper in `build/routecache/<key>.json`; the key hashes the unrouted board (placement, footprints, nets, outline), the rules files, the `board:` settings, the router version and the repair code. The same key skips the router and the repair (the full DRC still runs), so `layout --reuse` and a repeated build give the same copper. Delete `build/routecache/` to force a new route. `layout --auto` runs its attempts in parallel (`--workers N`, default cpu count - 1) and stops when the remaining errors are on parts with `fixed: true`.
 
@@ -157,6 +159,30 @@ Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a conn
 `timeout_s` on an analysis (default 600) bounds its ngspice run. An analysis that times out, crashes, aborts or reports an error is named in the report with its status and run time, and every measure without a value says why (`n/a: timeout after 600 s`, `n/a: aborted: ...`). A run that crashes on a signal (`free(): invalid ...`) is retried once and reported as flaky.
 
 A measure whose name starts with `dbg_`, or that sets `debug: true`, is a debug probe: the report lists its value apart, and it never counts in the pass ratio, the verdict, the requirement trace, the post-layout comparison or the Monte Carlo yield.
+
+## budgets
+
+A budget is the part of a requirement margin that layout may spend on copper. The architect writes it, the circuit stage sets the limit from the pre-layout simulation, and hwflow holds layout to it.
+
+```yaml
+budgets:
+  - name: guard_copper
+    req: R4                                  # optional: the budget verifies this requirement in `trace`
+    kind: copper_r                           # copper_r (resistance) or copper_len (length)
+    path: ["BT1.1 -> M1.3, M2.3", "M1.2, M2.2 -> C1.1"]
+    current_a: 0.7                           # copper_r: the current the requirement states
+    max_mohm: 15.7                           # copper_r: limit; copper_len: max_mm
+    source: "R4 50 mV - 38.97 mV pre-layout worst case at 0.7 A = 15.7 mOhm"
+  - {name: c6_loop, kind: copper_len, path: ["C6.1 -> U1.2"], max_mm: 3, source: "..."}
+```
+
+`path` is a list of legs, each on one net. A leg is `pads -> pads`; pads joined by a comma are one end (parallel parts, or several pins of one IC), and the current splits equally over them. A part between two nets ends one leg and starts the next; its own drop is not counted. A bare net name as a leg means the worst pad pair of that net. Measure the pads that the SPICE nodes of the requirement map to: post-layout, a net node is its first pad, connectors first, then by reference (`v(VBAT_P)` is `C1.1` when C1 is the first part on VBAT_P).
+
+`source` is required and holds the arithmetic: the requirement limit minus the worst simulated value, at the stated current, with no extra margin.
+
+Before routing, each `copper_r` budget becomes a track width for the nets of its path. The length estimate is the Manhattan distance between the closest pads of each leg times `detour` (default 1.3), and 2 vias per leg come off the budget first. Resistance uses 35 um x `copper_oz` at 20 C, as the post-layout extraction. One width serves the whole path, rounded up to 0.05 mm and capped at `board.budget_max_track_mm`. A net never gets narrower than its own width. The layout result lists each derived width with its numbers; a budget that the cap cannot meet says that the parts are too far apart.
+
+After routing, the layout stage and the post-layout checks measure every budget on the extracted copper (vias included). A budget over its limit, or with a leg that is not connected by tracks, is a layout error. The message gives the path, the value, the limit, the drop at `current_a`, and the worst stretch (net, layer, width, length, share of the resistance). Fix it with width or placement. Do not raise the budget.
 
 ## optimize
 
