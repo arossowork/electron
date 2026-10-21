@@ -18,5 +18,6 @@ Write `architecture.md` with:
 - A signal chain budget for analog paths: gain, offset, noise (sum of squares), and bandwidth, with the error contribution of each block.
 - An interface list: connector, pins, voltage levels, and protection.
 - The choice between architectures where there is one (for example LDO against buck), with the numbers that decide it.
+- When size, depth or isolation is tight, the board construction: one board with parts on one face, one board with parts on both faces, and two stacked boards (made as one panel, joined by a board-to-board header, which also separates mains from low voltage). Give the area and the depth stack of each, and the number that rejects each one you do not choose.
 
 If the numbers show a conflict that `conflicts.md` does not have, add it and report it. Return a summary of 10 lines or less.

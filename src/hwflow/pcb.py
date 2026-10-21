@@ -12,6 +12,8 @@ import sys
 import uuid
 from pathlib import Path
 
+from shapely.geometry import box
+
 from . import sexpr
 from .design import Design
 from .placer import Part, rot
@@ -547,17 +549,30 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
     in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS).
     The rules files `<name>.kicad_pro` and `.kicad_dru` in `workdir` are copied next to every pass input.
-    Returns (last board, {width: summary}, [width class retried in another order], number of passes)."""
+
+    With `board.isolation` groups, the member nets route first, and every pass input gets the isolation keep-outs
+    of routing.isolation_keepouts. A net a pass wider than the board track width leaves open is routed again as a
+    router power net (neck-down for at most 2 mm at a pad entry), then at the track width and widened where it fits
+    (routing.widen); a net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the
+    neck-down off.
+    Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
+    from . import keepout, routing
     b = design.board
     name = design.name
     src, workdir = Path(src).resolve(), Path(workdir).resolve()  # the router runs with cwd=KRT_DIR (a relative project path would not be found)
     rule_files = [workdir / f"{name}.kicad_pro", workdir / f"{name}.kicad_dru"]
     classes = net_classes(design)
     gnds = design.ground_nets() if b["gnd_pour"] else set()
-    groups: dict[float, list[str]] = {}
+    iso = isolation_needs(design)
+    members = {n for g in iso for n in g["members"]}
+    groups: dict[tuple, list[str]] = {}
     for net, cl in classes.items():
         if net not in gnds and (nets is None or net in nets):
-            groups.setdefault(cl["width"], []).append(net)
+            groups.setdefault((net not in members, -cl["width"]), []).append(net)
+    passes = [(-k[1], groups[k]) for k in sorted(groups)]  # isolation members first, then widest first
+    neck = float(b["track_mm"])
+    neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
+    copper = cu_layers(b["layers"])
     env = dict(os.environ, KICAD_CLI=_kicad_cli())
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
     # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
@@ -575,28 +590,115 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
         return p.stdout + p.stderr, p.returncode
 
-    for i, (w, gnets) in enumerate(sorted(groups.items(), reverse=True)):
+    def pass_input(cur, tag, pnets):
+        """The pass input: `cur` with the isolation keep-outs of this pass, and the rules files beside it."""
+        rules = []
+        if iso:
+            zones, rules = routing.isolation_keepouts(iso, read_board(cur), copper, b["via_dia_mm"],
+                                                      b["clearance_mm"], set(pnets))
+            cur = routing.pass_input(cur, workdir / f"{stem}{tag}_in.kicad_pcb", zones)
         for f in rule_files:  # the router reads net-class clearances and custom rules from the input's siblings
-            if f.exists():
-                if f.with_name(cur.stem + f.suffix) != f:
-                    shutil.copy(f, f.with_name(cur.stem + f.suffix))
-            else:
-                f.with_name(cur.stem + f.suffix).unlink(missing_ok=True)
-        base = [sys.executable, str(route_py), str(cur), None, "--nets", *gnets, "--track-width", str(w), *common]
+            dst = f.with_name(cur.stem + f.suffix)
+            if rules and f.suffix == ".kicad_dru":
+                text = f.read_text().rstrip("\n") if f.exists() else "(version 1)"
+                dst.write_text(text + "\n" + "\n".join(rules) + "\n")
+            elif not f.exists():
+                dst.unlink(missing_ok=True)
+            elif dst != f:
+                shutil.copy(f, dst)
+        return cur
+
+    def run_pass(cur, tag, pnets, args, i):
+        base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:
             base.append("--keep-input-copper")
-        best, tried, logs = route_class(base, workdir / f"{stem}{i}", retries, run, variants)
-        log += logs
+        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants)
+        log.extend(logs)
         if best is None:
             with (workdir / "krt.log").open("a") as f:
                 f.write("\n".join(log))
-            raise RuntimeError(f"KiCadRoutingTools failed on width class {w} mm; see krt.log")
-        cur, last[w] = best[0], best[1]
-        if len(tried) > 1:
-            retried.append(f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried))
+            raise RuntimeError(f"KiCadRoutingTools failed on pass {tag} ({' '.join(args)}); see krt.log")
+        return best, tried
+
+    def route_group(cur, tag, pnets, w, i):
+        """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
+        at the track width, widened back where they fit. Returns ((board, summary, unrouted), notes)."""
+        wide = neckdown and w > neck + 1e-9
+        best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
+        notes = [f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried)] if len(tried) > 1 else []
+        # neck-down, only for the nets left open (a board that routes at full width keeps that copper): first the
+        # router's own pad-entry neck (power nets, at most 2 mm narrow), then the nets at the track width (then at
+        # the board's minimum width), back to their width wherever it fits
+        open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if wide and best[2] else []
+        if open_nets:
+            pb, _ = run_pass(best[0], f"{tag}w", open_nets, ["--track-width", str(neck), "--power-nets", *open_nets,
+                                                           "--power-nets-widths", *[str(w)] * len(open_nets)], 1)
+            if pb[2] < best[2]:
+                best = pb
+                notes.append(f"{w} mm: {', '.join(open_nets)} routed with the router's pad-entry neck-down")
+        for k, nw in enumerate(x for x in dict.fromkeys((neck, routing.NECK_FLOOR)) if x <= neck):
+            open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if wide and best[2] else []
+            if not open_nets:
+                break
+            nb, _ = run_pass(best[0], f"{tag}n{k}", open_nets, ["--track-width", str(nw)], 1)
+            if nb[2] >= best[2]:
+                continue
+            ko = {}
+            for a in keepout._rule_areas(sexpr.loads(nb[0].read_text()), ("tracks",)):
+                for L in routing.pad_layers(a["layers"], copper):
+                    ko.setdefault(L, []).append(a["poly"])
+            edge = 0.3  # min_copper_edge_clearance written by write_project
+            outline = box(edge, edge, b["width_mm"] - edge, b["height_mm"] - edge)
+            stats = routing.widen(nb[0], read_board(nb[0]), {n: w for n in open_nets},
+                                  _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko)
+            text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow" for n, s in sorted(stats.items()))
+            if all(s[0] <= routing.NECK_MAX_MM for s in stats.values()):
+                best = nb
+                notes.append(f"{w} mm: neck-down to {nw:g} mm: {text}")
+            else:  # a long narrow stretch is a thinner net, not a neck: leave the net open and say so
+                notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (over {routing.NECK_MAX_MM:g} mm narrow): {text}")
+        return best, notes
+
+    for i, (w, gnets) in enumerate(passes):
+        best, notes = route_group(cur, i, gnets, w, i)
+        got = {f"{i}: {w} mm": best[1]}
+        open_nets = sorted(set(krt_open_nets(best[1])) & set(gnets)) if best[2] else []
+        if open_nets and len(open_nets) < len(gnets):
+            # a net walled in by the others of its pass (a pin between two pins of a wider net): route it first
+            first, n1 = route_group(cur, f"{i}p", open_nets, w, i)
+            rest, n2 = route_group(first[0], f"{i}q", [n for n in gnets if n not in open_nets], w, 1)
+            if first[2] + rest[2] < best[2]:
+                best = (rest[0], rest[1], first[2] + rest[2])
+                got = {f"{i}: {w} mm, open nets first": first[1], f"{i}: {w} mm, the others": rest[1]}
+                notes = n1 + n2 + [f"{w} mm: {', '.join(open_nets)} routed before the other nets of the pass"]
+        cur = best[0]
+        last.update(got)
+        retried += notes
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
-    return cur, last, retried, len(groups)
+    return cur, last, retried, len(passes)
+
+
+def krt_open_nets(summary: dict) -> list[str]:
+    """Nets a router summary reports as not fully connected."""
+    out = list(summary.get("failed_single") or []) + list(summary.get("open_single") or [])
+    out += [x.get("net_name") for x in summary.get("failed_multipoint") or [] if isinstance(x, dict)]
+    out += list((summary.get("pad_pairs_open") or {}).get("nets") or [])
+    return [n for n in dict.fromkeys(out) if n]
+
+
+def _pair_clearance(design: Design, classes: dict, iso: list[dict]):
+    """clearance(a, b): the copper distance nets a and b keep (net classes, and the distance of an isolation group
+    between a member and a non-member)."""
+    default = float(design.board["clearance_mm"])
+
+    def clearance(a, b):
+        c = max(classes.get(a, {}).get("clearance", default), classes.get(b, {}).get("clearance", default))
+        for g in iso:
+            if (a in g["members"]) != (b in g["members"]):
+                c = max(c, float(g["mm"]))
+        return c
+    return clearance
 
 
 _ROUTER_VERSION: dict[str, str] = {}
@@ -702,7 +804,9 @@ def read_board(path: Path) -> dict:
     for fp in sexpr.find_all(t, "footprint"):
         at = sexpr.find(fp, "at")
         fx, fy, fr = float(at[1]), float(at[2]), float(at[3]) if len(at) > 3 else 0.0
-        ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), "?")
+        ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), None)
+        ref = ref or next((str(p[2]) for p in sexpr.find_all(fp, "fp_text") if str(p[1]) == "reference"), None)
+        ref = ref if ref and ref not in fps else f"?{len(fps)}"  # older footprints keep the reference in fp_text
         pads = []
         for p in sexpr.find_all(fp, "pad"):
             pat = sexpr.find(p, "at")

@@ -16,7 +16,7 @@ Measured on the 2026-10-19 baseline (rebuilt): clearance 19 -> 0, copper_edge_cl
 
 | Rule | Why | What L2 must do |
 |---|---|---|
-| Creepage to pads and vias of the other side | the router's pair rule covers track against track only; pads and vias use the net-class clearance map, which cannot be pair-specific (a class value also applies inside the group) | read `creepage` errors from DRC, rip up the nets named, re-route or move the part |
+| Creepage to pads and vias of the other side | the router's pair rule covers track against track only; pads and vias use the net-class clearance map, which cannot be pair-specific (a class value also applies inside the group) | **done in hwflow** (`src/hwflow/routing.py`): before each pass, named rule areas around the other side's copper, grown by the distance, with a net-filtered `disallow track via` rule. The router's net-rescue step can still place copper there; KiCad DRC reports it |
 | Creepage rules with another condition shape (`NetClass`, `hasNetclass`, `||` lists, `onLayer`) | `isolation_router_rules` converts only `A.NetName == 'P' && B.NetName != 'P'` and `board.isolation` | same as above; `board.isolation` can say any group |
 | Creepage through a slot or along a surface | the router has copper-to-copper distance only; the router rule is a straight track-track gap (a slot that lengthens the path is not credited, so KiCad DRC may report the 6 mm track gap where creepage itself is met) | none needed for the baseline |
 | Footprint keep-outs (`footprints not_allowed`, e.g. `KO_STACK`, `KO_ANT` for BT1/U2) | the router places no footprints | placement (L14 checks them) |

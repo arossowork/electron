@@ -189,8 +189,8 @@ def merge(found: list[dict], extra: list[dict]) -> list[dict]:
 
 def placement_areas(design, libs) -> list[dict]:
     """Rule areas of the design's placed footprints (moved from footprint to board coordinates) for the placer:
-    `{name, owner (ref), forbids (footprints/pads/tracks), layers, box (x0, y0, x1, y1)}`. A polygon that is not a
-    rectangle is replaced by its bounding box (a bound, never smaller). Board-level areas are not in the library, so
+    `{name, owner (ref), forbids (footprints/pads/tracks), layers, box (x0, y0, x1, y1), poly}`. The annealing cost
+    uses the bounding box (a bound, never smaller); a reported violation is confirmed on the polygon. Board-level areas are not in the library, so
     they are not seen here."""
     out = []
     for c in design.components.values():
@@ -203,14 +203,16 @@ def placement_areas(design, libs) -> list[dict]:
             if "x" not in pl or "y" not in pl:
                 continue
             pts = [rot(x, y, float(pl.get("rot", 0))) for x, y in a["poly"].exterior.coords]
-            xs, ys = [float(pl["x"]) + x for x, _ in pts], [float(pl["y"]) + y for _, y in pts]
+            pts = [(float(pl["x"]) + x, float(pl["y"]) + y) for x, y in pts]
+            xs, ys = [x for x, _ in pts], [y for _, y in pts]
             out.append({"name": a["name"], "owner": c.ref, "forbids": a["forbids"], "layers": a["layers"],
-                        "box": (min(xs), min(ys), max(xs), max(ys))})
+                        "box": (min(xs), min(ys), max(xs), max(ys)), "poly": Polygon(pts).buffer(0)})
         cut = _courtyard(libs.footprint_tree(c.get("footprint")), "Edge.Cuts")  # a cutout (panel slot) of a fixed part
         pl = c.get("placement") or {}
         if cut and "x" in pl and "y" in pl:
             pts = [rot(x, y, float(pl.get("rot", 0))) for x, y in cut]
             xs, ys = [float(pl["x"]) + x for x, _ in pts], [float(pl["y"]) + y for _, y in pts]
             out.append({"name": f"{c.ref} cutout", "owner": c.ref, "forbids": {"footprints"},
-                        "layers": ["F.Cu", "B.Cu"], "box": (min(xs), min(ys), max(xs), max(ys))})
+                        "layers": ["F.Cu", "B.Cu"], "box": (min(xs), min(ys), max(xs), max(ys)),
+                        "poly": Polygon([(float(pl["x"]) + x, float(pl["y"]) + y) for x, y in pts]).buffer(0)})
     return out

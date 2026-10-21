@@ -122,3 +122,18 @@ should forbid only copper (tracks, vias, pads, pour), or BT1 must move.
 | router `KICAD_RIP_PREEXISTING=0` | ac07781 | thermostat-3, same floorplan: 73 -> 11 unrouted, DRC 96 -> 61; baseline identical with 0 and 1 |
 
 **Baseline after a86a3a6:** the baseline draws its KO_* zones in board coordinates on parts placed at (65, 22) and similar. With footprint zones now moved like KiCad does, those keep-outs land off target: 15 unrouted, 63 DRC. With the four KO_* parts placed at (0, 0, 0) in a copy, it returns to 0 unrouted, 94 vias and DRC 2 (BT1, U2) in 48 s. The baseline itself is not edited: the user decides.
+
+## Blocker fixes after the home-thermostat-3 run (2026-10-21)
+
+| Blocker | Fix | home-thermostat-3 copy, `--auto` (before -> after) |
+|---|---|---|
+| 230 V creepage to pads | `routing.isolation_keepouts`: isolation members route first; each router pass keeps its nets the group distance from the other side's pads, tracks and vias (named rule areas, net-filtered `disallow` rules, pass input only) | R10 1.38 mm FAIL -> 6.00 mm, 0 clearance / 0 creepage violations |
+| Fine-pitch escape (U2, 0.5 mm pitch) | open wide nets only: router pad-entry neck (power nets), then the track width, then 0.15 mm; `routing.widen` restores the class width where it fits; at most 3 mm narrow per net (`NECK_MAX_MM`), else the net stays open; a net walled in by its pass is routed first | SW_BOOST open -> routed (0.7 mm narrow), +3V3 routed (2.2 mm narrow) |
+| Region placement | placer: with all member parts fixed, other parts stay out of the convex hull of the member pads (no new field) | C15 inside the 230 V area -> outside |
+| Round keep-out box test | violations confirmed on the polygon and the real courtyard | F1 / NOTCH_L false flag gone |
+| IR drop on split nets | "not measured, split in N islands" | |
+| `pcb.read_board` | read one footprint from boards whose references are `fp_text` (every board hwflow writes) | |
+
+Kept: 4 unrouted SELV signal nets (K1_COIL_A, K1_IN1, SENS_EN), DRC 4 (the unrouted items). R4 (63.8-69.9 mV against 50) is copper: 33 mV before layout leaves about 24 mOhm for the tracks at 0.7 A; wider VBAT_RAW / VBAT_P (now possible with the neck-down) or shorter paths are layout decisions for the run.
+
+Baseline (KO_* at the origin, same placement): 0 unrouted, DRC 2 (the accepted KO_STACK errors), post-layout OK; unchanged. Tests: 124 passed before the last change (power-net routing only as a fallback), router and routing tests after it.

@@ -410,3 +410,30 @@ def test_incremental_cost_equals_full_with_the_l12_terms(tmp_path):
     assert {e[5] for e in pl.seps} == {"separation", "thermal", "antenna"}
     check_incremental(pl, parts)
     assert pl.t_sep > 0
+
+
+def test_parts_stay_out_of_the_area_between_fixed_isolation_pads(tmp_path):
+    """Two fixed HV resistors far apart enclose an area; the LV part that wirelength pulls between them is placed out
+    of it (any route to it would cross the isolation distance), and a part placed there by hand is reported."""
+    rs = "Resistor_SMD:R_0603_1608Metric"
+    comps = {"RH1": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "HV1", "2": "HV2"},
+                     "placement": {"x": 5, "y": 4, "rot": 90, "fixed": True}},
+             "RH2": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "HV1", "2": "HV2"},
+                     "placement": {"x": 5, "y": 26, "rot": 90, "fixed": True}},
+             "RL": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "LV1", "2": "LV2"}},
+             "RX": {"value": "1k", "symbol": "Device:R", "footprint": rs, "pins": {"1": "LV2", "2": "LV1"},
+                    "placement": {"x": 40, "y": 15, "rot": 0, "fixed": True}}}
+    board = {"width_mm": 50, "height_mm": 30, "layers": 2, "track_mm": 0.25, "clearance_mm": 0.2, "gnd_pour": False,
+             "isolation": [{"name": "hv", "nets": ["HV*"], "clearance_mm": 1.0, "creepage_mm": 1.0}]}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(
+        {"project": "iso", "board": board, "nets": {n: {"class": "signal"} for n in ("HV1", "HV2", "LV1", "LV2")},
+         "components": comps}))
+    d = Design.load(tmp_path)
+    libs = Libs(design=d)
+    parts = placer.build_parts(d, libs)
+    pl = placer.Placer(d, parts, 50, 30, seed=1)
+    assert len(pl.iso_hulls) == 1 and pl.iso_hulls[0][1] == {"RH1", "RH2"}
+    parts["RL"].x, parts["RL"].y = 5, 15  # between the HV pads
+    assert pl._ko_cost("RL") > 0 and any("isolation group 1 area" in v for v in pl.violations())
+    pl.run(4000)
+    assert pl._ko_cost("RL") < 0.01 and not any("isolation group" in v for v in pl.violations())

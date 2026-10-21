@@ -307,7 +307,9 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(json.dumps([d.board, passes, pcb.KRT_VARIANTS, pcb.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
-    knobs = sorted((k, v) for k, v in os.environ.items() if k.startswith(("KICAD_", "KRT_")) and k != "KICAD_CLI")
+    h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    knobs = sorted((k, v) for k, v in os.environ.items()
+                   if k.startswith(("KICAD_", "KRT_")) and k != "KICAD_CLI" or k == "HWFLOW_NECKDOWN")
     h.update(json.dumps(knobs).encode())  # router environment knobs (KICAD_RIP_PREEXISTING and the like)
     return h.hexdigest()[:24]
 
@@ -849,7 +851,10 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append("  - decap path, tightest: " + "; ".join(
                 f"{r['cap']}->{r['ic']} {r['net']} {r['mm']:.1f} mm (limit {r['limit']})" for r in worst))
         for r in c["ir_drop"]:
-            L.append(f"  - IR drop {r['net']}: {r['drop_mv']:.2f} mV (worst at {r['worst_pin']})")
+            if r.get("islands"):
+                L.append(f"  - IR drop {r['net']}: not measured, the net is split in {r['islands']} copper islands")
+            else:
+                L.append(f"  - IR drop {r['net']}: {r['drop_mv']:.2f} mV (worst at {r['worst_pin']})")
         if c.get("scope"):
             L.append(f"  - scope: {c['scope']}")
         lc = c.get("lump_check")

@@ -486,8 +486,13 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         if segs:
             wmin = min(s["w"] for s in segs)
             if wmin + 1e-6 < need:
-                add("error", "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
-                                              f"{info['current_a']} A at 10C rise (IPC-2221)")
+                from .routing import NECK_MAX_MM
+                narrow = sum(s["len"] for s in segs if s["w"] + 1e-6 < need)
+                # a short neck at a pad heats no more than the pad it enters (copper on both sides spreads the heat)
+                sev = "warn" if narrow <= NECK_MAX_MM else "error"
+                add(sev, "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
+                                          f"{info['current_a']} A at 10C rise (IPC-2221), for {narrow:.1f} mm"
+                                          + (f" (a neck of at most {NECK_MAX_MM:g} mm)" if sev == "warn" else ""))
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
     declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
@@ -866,8 +871,12 @@ def ir_drop(design: Design, ex: Extraction, workdir: Path) -> list[dict]:
     for m in re.finditer(rf"^\s*(?:v\()?(\S+?)\)?\s*=\s*({spice._NUM})\s*$", out, re.M):
         vals[m.group(1).lower()] = float(m.group(2))
     rows = []
+    split = ex.islands()
     for netname, conns in design.nets().items():
         if design.net_info(netname).get("class") != "power":
+            continue
+        if split.get(netname, 1) > 1:  # the islands are joined by ideal 1 mOhm ties: a drop read there means nothing
+            rows.append({"net": netname, "drop_mv": None, "worst_pin": None, "v_max": None, "islands": split[netname]})
             continue
         vs = {}
         for ref, pin in conns:

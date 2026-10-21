@@ -64,7 +64,10 @@ class Parts(dict):
     areas: list = ()
 
 
-def build_parts(design: Design, libs, margin: float = 0.25) -> dict[str, Part]:
+COURTYARD_MARGIN = 0.25  # mm around each courtyard in the placer's boxes
+
+
+def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[str, Part]:
     parts = Parts()
     from . import keepout
     parts.areas = keepout.placement_areas(design, libs)
@@ -118,6 +121,18 @@ def _pad_box(p: "Part", n):
     if p.r % 180:
         w, h = h, w
     return x - w / 2, y - h / 2, x + w / 2, y + h / 2
+
+
+def _corners(b):
+    return [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])]
+
+
+def _poly_overlap(b, poly) -> float:
+    from shapely.geometry import box
+    x0, y0, x1, y1 = poly.bounds
+    if b[2] <= x0 or b[0] >= x1 or b[3] <= y0 or b[1] >= y1:
+        return 0.0
+    return box(*b).intersection(poly).area
 
 
 def _overlap(a, b) -> float:
@@ -292,7 +307,10 @@ class Placer:
         groups of board.isolation (a pad of a group keeps creepage + ISO_MARGIN to the pads of every other net)."""
         nl = max(1, int(self.d.board.get("layers", 2)))
         self.ko_fp, self.ko_pad = [], []  # (box, board sides, owner, name)
+        self.ko_poly = {}  # (owner, name) -> area polygon, to confirm a box overlap before it is reported
         for a in areas:
+            if a.get("poly") is not None:
+                self.ko_poly[(a["owner"], a["name"])] = a["poly"]
             lay = a["layers"]
             sides = {s for s, L in (("front", "F.Cu"), ("back", "B.Cu")) if L in lay or "*.Cu" in lay}
             if "footprints" in a["forbids"]:
@@ -318,6 +336,19 @@ class Placer:
                 self.pad_grp[(r, p)], self.pad_net[(r, p)], self.pad_cl[(r, p)] = gid.get(n, -1), n, cls.get(n, 0.0)
                 if n in gid or n in cls:
                     self.iso_parts.add(r)
+        # The area enclosed by an isolation group's pads, where its tracks run: a part without a pad of the group
+        # stays out of it, or every route to it crosses the isolation distance. Only for a group whose parts are all
+        # fixed (the area is then known before placement).
+        self.iso_hulls = []
+        from shapely.geometry import MultiPoint
+        for gi in range(len(self.iso_need)):
+            keys = [k for k, g in self.pad_grp.items() if g == gi]
+            refs = {k[0] for k in keys}
+            if refs and all(self.parts[r].fixed for r in refs):
+                pts = [c for k in keys for c in _corners(_pad_box(self.parts[k[0]], k[1]))]
+                hull = MultiPoint(pts).convex_hull
+                if hull.area > 1.0:
+                    self.iso_hulls.append((hull, refs, f"isolation group {gi + 1} area"))
         if not self.iso_parts:
             self.pad_grp = {}
         self.reach = max(self.iso_need + list(cls.values()) + [0.0]) + 1.0
@@ -414,7 +445,19 @@ class Placer:
             if owner != r and sides & set(p.sides or ()):
                 for n in p.pads:
                     c += _overlap(self._pad_box(p, n), box)
+        for hull, refs, _ in self.iso_hulls:
+            if r not in refs:
+                c += sum(_poly_overlap(b, hull) for b in (p.side_box("front"), p.side_box("back")) if b)
         return c
+
+    def _in_area(self, bx, owner, name, courtyard=False) -> bool:
+        poly = self.ko_poly.get((owner, name))
+        if poly is None:
+            return True
+        from shapely.geometry import box
+        m = COURTYARD_MARGIN if courtyard else 0.0  # courtyard boxes carry this margin; KiCad tests the courtyard
+        b = box(bx[0] + m, bx[1] + m, bx[2] - m, bx[3] - m) if bx[2] - bx[0] > 2 * m and bx[3] - bx[1] > 2 * m else box(*bx)
+        return b.intersection(poly).area > 0.01
 
     def _boxes(self, p):
         return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self._pad_box(p, n) for n in p.pads]
@@ -574,7 +617,7 @@ class Placer:
             self.t_bnd += self.part_bnd[r] - ob
             self.t_edge += self.part_edge[r] - oe
             log.append(("part", r, ob, oe))
-            if self.ko_fp or self.ko_pad:
+            if self.ko_fp or self.ko_pad or self.iso_hulls:
                 ok = self.part_ko[r]
                 self.part_ko[r] = self._ko_cost(r)
                 self.t_ko += self.part_ko[r] - ok
@@ -938,9 +981,15 @@ class Placer:
         mv, fx = [], []
         for r in P:
             if self._ko_cost(r) > 0.01:
-                names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and any(
-                    _overlap(bx, box) > 0 for bx in self._boxes(P[r]))]
-                (fx if P[r].fixed else mv).append(f"{r} courtyard or pad in keep-out '{names[0] if names else '?'}'")
+                yards = [b for b in (P[r].side_box("front"), P[r].side_box("back")) if b]
+                pads = [self._pad_box(P[r], k) for k in P[r].pads]
+                names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and (
+                    any(_overlap(bx, box) > 0 and self._in_area(bx, o, n, courtyard=True) for bx in yards)
+                    or any(_overlap(bx, box) > 0 and self._in_area(bx, o, n) for bx in pads))]
+                names += [n for hull, refs, n in self.iso_hulls if r not in refs and any(
+                    _poly_overlap(b, hull) > 0.01 for b in (P[r].side_box("front"), P[r].side_box("back")) if b)]
+                if names:  # the box test is a bound: a round area overlaps its bounding box at the corners only
+                    (fx if P[r].fixed else mv).append(f"{r} courtyard or pad in keep-out '{names[0]}'")
         keys = list(self.pad_grp)
         seen = set()
         for i, a in enumerate(keys):

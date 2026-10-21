@@ -165,6 +165,8 @@ def test_router_input_path_is_absolute(tmp_path, monkeypatch):
     """The router runs with cwd=KRT_DIR, so a relative project path (hwflow layout projects/x) must not reach it."""
     d = _project(tmp_path)
     (tmp_path / "out").mkdir()
+    libs = Libs()
+    pcb.write_board(tmp_path / "out" / "x.kicad_pcb", pcb.build_board(d, libs, placer.build_parts(d, libs)))
     monkeypatch.chdir(tmp_path)
     seen = []
 
