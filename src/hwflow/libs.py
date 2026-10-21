@@ -39,6 +39,9 @@ def project_lib_dirs(design) -> list[Path]:
         for cand in (base, base / "symbols", base / "footprints"):
             if cand.is_dir() and cand not in out:
                 out.append(cand)
+    if design.raw.get("blocks"):
+        from . import blocks
+        out += [d for d in blocks.footprint_dirs(design) if d not in out]  # footprints shipped with a block
     return out
 
 

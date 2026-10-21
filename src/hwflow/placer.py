@@ -60,8 +60,44 @@ class Part:
 
 
 class Parts(dict):
-    """ref -> Part, with the rule areas of the design's keep-out footprints (`areas`, see keepout.placement_areas)."""
+    """ref -> Part, with the rule areas of the design's keep-out footprints (`areas`, see keepout.placement_areas)
+    and the layout blocks that move as one unit (`blocks`, see blocks.units)."""
     areas: list = ()
+    blocks: list = ()
+
+
+@dataclass
+class Rigid:
+    """Parts that move as one unit (a layout block): `members` are (ref, dx, dy, drot) from the unit origin, `yard` is
+    the virtual part that holds the unit courtyard (ref `self.ref`, not a component). x, y, r place the origin."""
+    name: str
+    ref: str
+    members: list
+    yard: Part
+    x: float = 0.0
+    y: float = 0.0
+    r: float = 0.0
+    fixed: bool = False
+
+    def refs(self) -> list[str]:
+        return [m[0] for m in self.members] + [self.ref]
+
+    def sync(self, parts):
+        """Move the members and the courtyard to the unit origin."""
+        for ref, dx, dy, dr in self.members:
+            ox, oy = rot(dx, dy, self.r)
+            p = parts[ref]
+            p.x, p.y, p.r = self.x + ox, self.y + oy, (dr + self.r) % 360
+        self.yard.x, self.yard.y, self.yard.r = self.x, self.y, self.r
+
+    def pull(self, parts):
+        """The unit origin from its first member (a saved placement), then every member from the origin."""
+        ref, dx, dy, dr = self.members[0]
+        p = parts[ref]
+        self.r = (p.r - dr) % 360
+        ox, oy = rot(dx, dy, self.r)
+        self.x, self.y = p.x - ox, p.y - oy
+        self.sync(parts)
 
 
 COURTYARD_MARGIN = 0.25  # mm around each courtyard in the placer's boxes
@@ -96,6 +132,8 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
         elif "rot" in pl:
             part.r = float(pl["rot"])
         parts[c.ref] = part
+    from . import blocks
+    parts.blocks = blocks.units(design, libs, parts, margin)
     return parts
 
 
@@ -155,6 +193,14 @@ REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
 class Placer:
     def __init__(self, design: Design, parts: dict[str, Part], width: float, height: float, seed: int = 1,
                  weights: dict | None = None, keepouts: list | None = None):
+        self.units = list(getattr(parts, "blocks", ()))
+        self.unit_of = {r: u for u in self.units for r in u.refs()}
+        if self.units:  # the cost sees the block courtyards too; the caller's `parts` keeps the components only
+            areas, parts = getattr(parts, "areas", ()), Parts(parts)
+            parts.areas = areas
+            for u in self.units:
+                parts[u.ref] = u.yard
+                u.pull(parts)
         self.d, self.parts, self.W, self.H = design, parts, width, height
         self.rng = random.Random(seed)
         self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
@@ -218,7 +264,9 @@ class Placer:
         """ref -> 'temp_sensor' | 'antenna' | None. `role` wins; `role: none` switches the inference off."""
         out = {}
         for r in self.parts:
-            c = self.d.components[r]
+            c = self.d.components.get(r)
+            if c is None:  # a block courtyard
+                continue
             role = c.get("role")
             if role in ("temp_sensor", "antenna"):
                 out[r] = role
@@ -436,17 +484,17 @@ class Placer:
         p = self.parts[r]
         c = 0.0
         for box, sides, owner, _ in self.ko_fp:
-            if owner != r:
+            if owner != r and not self._same(owner, r):
                 for s in sides:
                     b = p.side_box(s)
                     if b:
                         c += _overlap(b, box)
         for box, sides, owner, _ in self.ko_pad:
-            if owner != r and sides & set(p.sides or ()):
+            if owner != r and not self._same(owner, r) and sides & set(p.sides or ()):
                 for n in p.pads:
                     c += _overlap(self._pad_box(p, n), box)
         for hull, refs, _ in self.iso_hulls:
-            if r not in refs:
+            if r not in refs and not any(self._same(r, q) for q in refs):
                 c += sum(_poly_overlap(b, hull) for b in (p.side_box("front"), p.side_box("back")) if b)
         return c
 
@@ -459,6 +507,39 @@ class Placer:
         b = box(bx[0] + m, bx[1] + m, bx[2] - m, bx[3] - m) if bx[2] - bx[0] > 2 * m and bx[3] - bx[1] > 2 * m else box(*bx)
         return b.intersection(poly).area > 0.01
 
+    def _same(self, a, b) -> bool:
+        """a and b are parts (or the courtyard) of one block: their relative placement is the block's, not a cost."""
+        u = self.unit_of.get(a)
+        return u is not None and u is self.unit_of.get(b)
+
+    def _refs(self, p) -> list[str]:
+        """Refs a move of `p` (a part or a block) changes, after moving the block's members with it."""
+        if isinstance(p, Rigid):
+            p.sync(self.parts)
+            return p.refs()
+        return [p.ref]
+
+    def _unit(self, p):
+        """The thing that moves when part `p` moves: its block, or the part itself."""
+        return self.unit_of.get(p.ref, p)
+
+    def _shift(self, p, dx, dy):
+        u = self._unit(p)
+        u.x += dx
+        u.y += dy
+        if u is not p:
+            u.sync(self.parts)
+
+    def _movable(self) -> list:
+        """Movable parts and blocks, each block once, at the place of its first member."""
+        out, seen = [], set()
+        for p in self.parts.values():
+            u = self._unit(p)
+            if not u.fixed and id(u) not in seen:
+                seen.add(id(u))
+                out.append(u)
+        return out
+
     def _boxes(self, p):
         return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self._pad_box(p, n) for n in p.pads]
 
@@ -468,7 +549,7 @@ class Placer:
         """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below what they need: the creepage of a
         board.isolation group (pads of different groups) or the net class clearance (pads of different nets); 0 on
         the same part."""
-        if a[0] == b[0]:
+        if a[0] == b[0] or self._same(a[0], b[0]):
             return 0.0
         ga, gb = self.pad_grp[a], self.pad_grp[b]
         need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
@@ -575,7 +656,7 @@ class Placer:
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
-            if q == r or q in skip:
+            if q == r or q in skip or self._same(r, q):
                 continue
             v = _side_overlap(self.parts[r], self.parts[q])
             if v > 0:
@@ -739,7 +820,8 @@ class Placer:
         refs = list(P)
         for i, a in enumerate(refs):
             for b in refs[i + 1:]:
-                c += self.wt["overlap"] * _side_overlap(P[a], P[b])
+                if not self._same(a, b):
+                    c += self.wt["overlap"] * _side_overlap(P[a], P[b])
             bnd, edge = self._part_cost(a)
             c += self.wt["bounds"] * bnd + self.wt["edge"] * edge
         for k in range(len(self.decap)):
@@ -759,10 +841,11 @@ class Placer:
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
-        movable = [p for p in self.parts.values() if not p.fixed]
+        movable = self._movable()
         for p in movable:
             p.x = self.rng.uniform(self.W * 0.2, self.W * 0.8)
             p.y = self.rng.uniform(self.H * 0.2, self.H * 0.8)
+            self._refs(p)
         if not movable:
             return self.cost()
         self._anneal(movable, iters, max(self.W, self.H) * 2, 0.01)
@@ -770,7 +853,7 @@ class Placer:
 
     def refine(self, iters: int, t0: float = 0.6) -> float:
         """Short low-temperature anneal from the current placement (weights as the last run left them)."""
-        movable = [p for p in self.parts.values() if not p.fixed]
+        movable = self._movable()
         if not movable or iters <= 0:
             return self.cost()
         self._anneal(movable, iters, t0, 0.01, ramp=False)
@@ -803,15 +886,17 @@ class Placer:
                 other = self.rng.choice(movable)
                 oold = (other.x, other.y)
                 p.x, p.y, other.x, other.y = other.x, other.y, p.x, p.y
-            new = self._update([p.ref, other.ref] if other else [p.ref])
+            new = self._update(self._refs(p) + (self._refs(other) if other else []))
             if new <= cur or self.rng.random() < math.exp(-(new - cur) / max(t, 1e-9)):
                 cur = new
                 if cur < best:
                     best, best_state = cur, self._state()
             else:
                 p.x, p.y, p.r = old
+                self._refs(p)
                 if other:
                     other.x, other.y = oold
+                    self._refs(other)
                 self._undo()
         self._restore(best_state)
 
@@ -819,6 +904,7 @@ class Placer:
         self.legalize()
         for p in movable:  # snap to 0.05 mm grid
             p.x, p.y = round(p.x / 0.05) * 0.05, round(p.y / 0.05) * 0.05
+            self._refs(p)
         self.legalize()
         return self.cost()
 
@@ -844,8 +930,8 @@ class Placer:
             if not bad:
                 break
             moved = False
-            for r in bad:
-                p = P[r]
+            units = {id(self._unit(P[r])): self._unit(P[r]) for r in bad}  # a block moves as one
+            for p in units.values():
                 cur = self._total()
                 best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
 
@@ -855,7 +941,7 @@ class Placer:
                         for x in xs:
                             for y in ys:
                                 p.x, p.y, p.r = x, y, a
-                                c = self._update([r])
+                                c = self._update(self._refs(p))
                                 if c < best[0] - 1e-9:
                                     best = (c, x, y, a)
                                 self._undo()
@@ -863,7 +949,7 @@ class Placer:
                      (0.0, 90.0, 180.0, 270.0))
                 scan([best[1] + i * polish for i in range(-6, 7)], [best[2] + j * polish for j in range(-6, 7)], (best[3],))
                 p.x, p.y, p.r = best[1], best[2], best[3]
-                self._update([r])
+                self._update(self._refs(p))
                 if (p.x, p.y, p.r) != here:
                     moved = True
             if not moved:
@@ -893,7 +979,7 @@ class Placer:
                             for gj in range(int((bx[1] - 1) // B), int((bx[3] + 1) // B) + 1):
                                 near |= grid.get((gi, gj), set())
                 for j in sorted(near):
-                    if j <= i:
+                    if j <= i or self._same(a.ref, P[j].ref):
                         continue
                     b = P[j]
                     pair = None
@@ -918,34 +1004,34 @@ class Placer:
                     if a.fixed and b.fixed:
                         continue
                     if ox < oy:
-                        mover.x += sgn * (ox + 0.05)
+                        self._shift(mover, sgn * (ox + 0.05), 0.0)
                     else:
-                        mover.y += sgn * (oy + 0.05)
+                        self._shift(mover, 0.0, sgn * (oy + 0.05))
             for p in P:  # out of the areas that forbid courtyards, along the axis of least penetration
                 if p.fixed:
                     continue
                 for box, sides, owner, _ in self.ko_fp:
                     for side in sides:
                         b = p.side_box(side)
-                        if owner == p.ref or not b or _overlap(b, box) <= 1e-6:
+                        if owner == p.ref or self._same(owner, p.ref) or not b or _overlap(b, box) <= 1e-6:
                             continue
                         moved = True
                         opts = [(box[0] - b[2] - 0.05, 0), (box[2] - b[0] + 0.05, 0),
                                 (0, box[1] - b[3] - 0.05), (0, box[3] - b[1] + 0.05)]
                         dx, dy = min(opts, key=lambda o: abs(o[0]) + abs(o[1]))
-                        p.x, p.y = p.x + dx, p.y + dy
+                        self._shift(p, dx, dy)
             for p in P:
                 if p.fixed:
                     continue
                 x0, y0, x1, y1 = p.box()
                 if x0 < m:
-                    p.x += m - x0
+                    self._shift(p, m - x0, 0.0)
                 if x1 > self.W - m:
-                    p.x -= x1 - (self.W - m)
+                    self._shift(p, -(x1 - (self.W - m)), 0.0)
                 if y0 < m:
-                    p.y += m - y0
+                    self._shift(p, 0.0, m - y0)
                 if y1 > self.H - m:
-                    p.y -= y1 - (self.H - m)
+                    self._shift(p, 0.0, -(y1 - (self.H - m)))
             if not moved:
                 break
 
@@ -956,7 +1042,7 @@ class Placer:
         boxes = {r: P[r].box() for r in refs}
         for i, a in enumerate(refs):
             for b in refs[i + 1:]:
-                if _side_overlap(P[a], P[b]) > 0.01:
+                if not self._same(a, b) and _side_overlap(P[a], P[b]) > 0.01:
                     out.append(f"courtyard overlap {a}/{b}")
             # copper must stay inside the board with the copper-to-edge clearance; a courtyard (body)
             # may overhang on purpose, for example a connector flush with the edge
@@ -1011,6 +1097,8 @@ class Placer:
     def _restore(self, s):
         for r, (x, y, a) in s.items():
             self.parts[r].x, self.parts[r].y, self.parts[r].r = x, y, a
+        for u in self.units:  # the courtyard part holds the block origin
+            u.x, u.y, u.r = s[u.ref]
 
 
 def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1,

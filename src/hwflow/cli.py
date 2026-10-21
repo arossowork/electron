@@ -74,6 +74,7 @@ def _inputs_hash(d) -> str:
     files = [d.dir / f for f in (d.raw.get("sim") or {}).get("includes") or []]
     files += [d.dir / c.get("spice")["lib"] for c in d.components.values()
               if isinstance(c.get("spice"), dict) and c.get("spice").get("lib")]
+    files += _block_files(d)
     for f in sorted(set(files)):
         h.update(str(f).encode() + (f.read_bytes() if f.is_file() else b"-"))
     for root in project_lib_dirs(d):
@@ -85,6 +86,12 @@ def _inputs_hash(d) -> str:
         if f.suffix in (".py", ".lib") and f.is_file():
             h.update(f.read_bytes())
     return h.hexdigest()[:12]
+
+
+def _block_files(d) -> list[Path]:
+    """The block.yaml files of the layout blocks the design uses."""
+    from . import blocks
+    return [f for e in (d.raw.get("blocks") or {}).values() if (f := blocks.find(str((e or {}).get("use")), d))]
 
 
 def _save_status(d, key, val):
@@ -308,6 +315,10 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
+        h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())
+        for f in _block_files(d):
+            h.update(f.read_bytes())
     knobs = sorted((k, v) for k, v in os.environ.items()
                    if k.startswith(("KICAD_", "KRT_")) and k != "KICAD_CLI" or k == "HWFLOW_NECKDOWN")
     h.update(json.dumps(knobs).encode())  # router environment knobs (KICAD_RIP_PREEXISTING and the like)
@@ -1086,6 +1097,44 @@ def cmd_em(a, argv) -> int:
 
 # ------------------------------------------------------------------ main
 
+def cmd_block(a) -> int:
+    """`hwflow block list|show|check|extract`: the layout block library (src/hwflow/blocks.py)."""
+    import tempfile
+
+    from . import blocks
+    d = _load(a.project) if a.project else None
+    if a.what == "list":
+        for n in blocks.names(d):
+            b = blocks.load(n, d)
+            print(f"{n:<28} {str(b.get('description', '')).strip().splitlines()[0][:90]}")
+        return 0
+    if not a.arg:
+        print(f"hwflow block {a.what}: name the {'board' if a.what == 'extract' else 'block'}")
+        return 2
+    if a.what == "show":
+        print(blocks.describe(a.arg, d))
+        return 0
+    if a.what == "check":
+        w = Path(a.out) if a.out else Path(tempfile.mkdtemp(prefix=f"block_{a.arg}_"))
+        r = blocks.verify(a.arg, w, d)
+        for x in r["drc"]:
+            if x["sev"] == "error":
+                print(f"  {x['type']}: {x['msg']} {x['items']}")
+        print(f"block {a.arg}: {'OK' if r['ok'] else 'FAIL'}, DRC {r['errors']} errors, {r['warnings']} warnings on the "
+              f"block alone; nets joined by its copper: {', '.join(r['joined']) or '-'} ({r['board']})")
+        return 0 if r["ok"] else 1
+    refs = [r.strip() for r in (a.refs or "").split(",") if r.strip()]
+    if not refs or not a.name:
+        print("hwflow block extract <board.kicad_pcb> --refs U2,L1 --name <name> --source <text>")
+        return 2
+    roles = dict(x.split("=", 1) for x in a.roles.split(",")) if a.roles else None
+    b = blocks.extract(Path(a.arg), refs, a.name, a.source or "", roles, d, Libs(design=d) if d else Libs())
+    f = blocks.write(b, Path(a.out) if a.out else None)
+    print(f"wrote {f}: {len(b['roles'])} parts, ports {', '.join(b['ports'])}, {len(b['copper']['tracks'])} tracks, "
+          f"{len(b['copper']['vias'])} vias")
+    return 0
+
+
 def _brief(old: str, new: str) -> str:
     """Only what changed against the previous REPORT.md, plus the verdict (backlog 8)."""
     skip = ("Updated ", "# ")
@@ -1156,6 +1205,13 @@ def main(argv=None):
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
+    p = sub.add_parser("block", help="layout blocks: list, show <name>, check <name>, extract <board> --refs ...")
+    p.add_argument("what", choices=["list", "show", "check", "extract"]); p.add_argument("arg", nargs="?")
+    p.add_argument("--refs", help="extract: parts of the block, comma separated"); p.add_argument("--name")
+    p.add_argument("--source", help="extract: where the block comes from (board, run, datasheet)")
+    p.add_argument("--roles", help="extract: role=ref pairs, comma separated (default: role = ref)")
+    p.add_argument("--project", help="design whose blocks/, symbols and values to use")
+    p.add_argument("--out", help="extract: library folder (default: the repository blocks/); check: work folder")
     p = sub.add_parser("parts"); p.add_argument("category"); p.add_argument("filters", nargs="*",
                                                                            help="key=value server filters")
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
@@ -1191,6 +1247,8 @@ def main(argv=None):
             for p in fp["pads"]:
                 print(f"  pad {p['number']:>4} {p['kind']:<10} {p['shape']:<9} at ({p['x']:.2f},{p['y']:.2f}) {p['w']}x{p['h']}")
         return 0
+    if a.cmd == "block":
+        return cmd_block(a)
     if a.cmd == "parts":
         from . import parts
         filters = dict(f.split("=", 1) for f in a.filters)

@@ -234,10 +234,15 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
         fields = {k.upper() if k != "manufacturer" else "Manufacturer": c.get(k)
                   for k in ("mpn", "lcsc", "manufacturer") if c.get(k)}
         tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields))
+    routed = tracks is not None
+    if design.raw.get("blocks"):  # layout blocks: their copper, once, on the unrouted and on the routed board
+        from . import blocks
+        tracks, vias = blocks.merge(design, parts, tracks, vias)
+        tree += blocks.keepout_zones(design, parts)
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
                      ["width", t["w"]], ["layer", Q(t["layer"])], ["net", netidx[t["net"]]], ["uuid", uid()]])
-    if tracks is not None:  # routed board: add declared thermal via grids inside their pads
+    if routed:  # routed board: add declared thermal via grids inside their pads
         vias = list(vias or []) + thermal_vias(design, libs, parts)
     for v in vias or []:
         tree.append(["via", ["at", round(v["x"], 4), round(v["y"], 4)], ["size", b["via_dia_mm"]],
@@ -402,6 +407,9 @@ def write_project(dirpath: Path, name: str, design: Design):
     dru = dirpath / f"{name}.kicad_dru"
     rules = list(b.get("drc_rules") or []) + [r for g in isolation_groups(design) for r in g["kicad"]]
     rules += [x["rule"] for x in iso]
+    if design.raw.get("blocks"):  # the land-pattern rules of the layout blocks
+        from . import blocks
+        rules += blocks.drc_rules(design)
     if rules:
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
     elif dru.exists():
@@ -484,6 +492,13 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     library += list(padstacks.values())
     vd = _um(b["via_dia_mm"])
     library.append(["padstack", Q(via_name)] + [["shape", ["circle", L, vd]] for L in layers] + [["attach", "off"]])
+    wiring = ["wiring"]
+    if design.raw.get("blocks"):  # layout blocks: their copper as protected wiring
+        from . import blocks
+        bt, bv = blocks.copper(design, parts)
+        wiring += [["wire", ["path", t["layer"], _um(t["w"]), _um(t["x1"]), -_um(t["y1"]), _um(t["x2"]), -_um(t["y2"])],
+                    ["net", Q(t["net"])], ["type", "protect"]] for t in bt]
+        wiring += [["via", Q(via_name), _um(v["x"]), -_um(v["y"]), ["net", Q(v["net"])], ["type", "protect"]] for v in bv]
     network = ["network"]
     nets = design.nets()
     for net, conns in nets.items():
@@ -497,7 +512,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
                        [["circuit", ["use_via", Q(via_name)]], ["rule", ["width", _um(w)], ["clearance", _um(cl)]]])
     tree = ["pcb", Q(str(path)), ["parser", ["string_quote", Q('"')], ["space_in_quoted_tokens", "on"],
                                   ["host_cad", Q("hwflow")], ["host_version", Q("0.1")]],
-            ["resolution", "um", 10], ["unit", "um"], structure, placement, library, network, ["wiring"]]
+            ["resolution", "um", 10], ["unit", "um"], structure, placement, library, network, wiring]
     text = sexpr.dumps(tree).replace('(string_quote "\\"")', "(string_quote \")")
     path.write_text(text + "\n")
 
@@ -534,7 +549,14 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     write_board(src, build_board(design, libs, parts))
     (workdir / "krt.log").unlink(missing_ok=True)  # krt_route appends: repair rounds add to the same log
     write_project(workdir, name, design)  # the rules DRC will use: net classes (.kicad_pro) and .kicad_dru
-    cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", timeout=timeout)
+    nets, keep = None, False
+    if design.raw.get("blocks"):  # layout blocks: keep their copper from the first pass, skip the nets it closes
+        from . import blocks
+        closed = blocks.closed_nets(design, libs)
+        nets = set(design.nets()) - closed if closed else None
+        keep = any(blocks.copper(design, parts))
+    cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", nets=nets, keep_first=keep,
+                                            timeout=timeout)
     routed = read_board(cur)
     tracks = [dict(s) for s in routed["segments"] if s["net"]]
     vias = [dict(v) for v in routed["vias"] if v["net"]]
