@@ -1219,6 +1219,9 @@ def main(argv=None):
                                                                            help="key=value server filters")
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
     sub.add_parser("trace").add_argument("project")
+    p = sub.add_parser("floorplan", help="early layout feasibility of the floorplan: field (area, depth, regions, quick "
+                                         "placement and congestion); no simulation or routing")
+    p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")
     p = sub.add_parser("em", help="optional openEMS field-solver run on nets with `em:` set (prototype)")
     p.add_argument("project"); p.add_argument("--net", action="append")
@@ -1302,6 +1305,12 @@ def main(argv=None):
         return 0
 
     libs = Libs(design=d)
+    if a.cmd == "floorplan":
+        from . import floorplan
+        text, data = floorplan.run(d, libs, _out(d), a.iters, a.seeds)
+        _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
+        print(text)
+        return 0 if data["ok"] else 1
     order = ["check", "sch", "sim", "layout", "post", "fab"]
     if a.cmd == "build":
         stages = order[: order.index(a.until) + 1]
