@@ -15,8 +15,10 @@ import re
 import numpy as np
 
 KINDS = ("copper_r", "copper_len")
-DETOUR = 1.3        # routed length over the Manhattan pad distance (width estimate before routing; `detour:` overrides)
-VIAS_PER_LEG = 2    # vias allowed per leg in the width estimate: one layer change and back
+DETOUR = 1.0        # routed length over the Manhattan pad distance (width estimate before routing; `detour:` overrides).
+#                     home-thermostat-3: two routed guard paths measured 8.4 and 9.2 mOhm against 15.6 estimated at
+#                     1.3 x and 2 vias per leg; 1.0 x and 1 via per leg fit them
+VIAS_PER_LEG = 1    # vias per leg in the width estimate (see DETOUR)
 WIDTH_STEP = 0.05   # derived widths round up to this grid (mm)
 MAX_WIDTH_MM = 3.0  # widest track a budget asks for (`board.budget_max_track_mm`); past it, width alone cannot meet it
 

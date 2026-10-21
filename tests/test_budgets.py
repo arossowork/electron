@@ -49,7 +49,7 @@ def test_width_from_budget_length_and_copper(tmp_path):
              "Q2": _part(10, 20, {"2": (0, 5), "3": (0, 0)}), "C1": _part(30, 10, {"1": (0, 0)})}
     w, (row,) = budgets.widths(d, parts)
     L = (10 + (20 + 5)) * budgets.DETOUR                    # J1.1 -> Q1.3 10 mm; Q1.2 (10, 5) -> C1.1 (30, 10) 25 mm
-    left = 20e-3 - 4 * budgets.via_r(d.board)
+    left = 20e-3 - 2 * budgets.VIAS_PER_LEG * budgets.via_r(d.board)
     need = RHO_CU * L * 1e-3 / (0.035e-3 * left) * 1e3
     assert row["need_mm"] == pytest.approx(need, abs=0.01)
     assert w == {"VIN": row["width_mm"], "VP": row["width_mm"]} and row["width_mm"] >= need > row["width_mm"] - 0.05
