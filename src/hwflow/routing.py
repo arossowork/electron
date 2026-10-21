@@ -29,7 +29,7 @@ ISO_ZONE = "hwflow_iso"  # name prefix of the rule areas in a pass input
 ISO_SLACK = 0.1
 PIECE_MM = 0.5  # widening tests a track that does not fit as a whole in pieces of at most this length
 NECK_FLOOR = 0.15  # second neck width: the min_track_width pcb.write_project gives KiCad DRC
-NECK_MAX_MM = 3.0  # narrow copper a net may keep after widening (pad escapes); more leaves the net open instead
+NECK_MAX_MM = 3.0  # longest continuous narrow stretch (a pad escape) after widening; a longer one leaves the net open
 
 
 def pad_layers(tokens: list[str], copper: list[str]) -> list[str]:
@@ -121,6 +121,20 @@ def _segment_net(node, nets: dict) -> str | None:
     return nets.get(int(v)) if str(v).isdigit() and not isinstance(v, Q) else str(v)
 
 
+def longest_neck(lines: list[tuple]) -> float:
+    """Length of the longest connected stretch of `lines` [((x1, y1), (x2, y2), layer)], in mm. Pieces that share an
+    end on the same layer are one stretch (a via between layers ends it)."""
+    out = 0.0
+    for L in {ln[2] for ln in lines}:
+        segs = [LineString([a, b]) for a, b, lay in lines if lay == L and a != b]
+        if not segs:
+            continue
+        blobs = unary_union([g.buffer(1e-3) for g in segs])
+        for blob in getattr(blobs, "geoms", [blobs]):
+            out = max(out, sum(g.length for g in segs if blob.contains(g.centroid)))
+    return out
+
+
 def _pieces(x1, y1, x2, y2) -> list[tuple]:
     n = max(1, math.ceil(math.hypot(x2 - x1, y2 - y1) / PIECE_MM))
     pts = [(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n) for k in range(n + 1)]
@@ -134,11 +148,11 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
     fits and copper the router shipped too wide at a pinch is narrowed. `clearance(a, b)` is the copper distance
     two nets keep; `outline` the area copper may use (board inset by the edge clearance); `keepouts` layer ->
     geometries no track may enter. A segment that does not fit as a whole is split into pieces of at most
-    PIECE_MM. Returns net -> (length narrower than the net's width, total length) in mm."""
+    PIECE_MM. Returns net -> (length narrower than the net's width, total length, longest narrow stretch) in mm."""
     shapes = copper_shapes(board, copper, via_dia)
     t = sexpr.loads(path.read_text())
     nets = {int(n[1]): str(n[2]) for n in sexpr.find_all(t, "net") if len(n) > 2}
-    out, stats = [], {}
+    out, stats, necks = [], {}, {}
     for node in t:
         if not (isinstance(node, list) and node and node[0] == "segment"):
             out.append(node)
@@ -184,7 +198,9 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
             shapes.append((net, layer, LineString([a, b]).buffer(c / 2, quad_segs=8)))  # other nets keep off it
             n = math.hypot(b[0] - a[0], b[1] - a[1])
             total += n
-            narrow += n if c < w - 1e-6 else 0.0
+            if c < w - 1e-6:
+                narrow += n
+                necks.setdefault(net, []).append((tuple(a), tuple(b), layer))
         stats[net] = (narrow, total)
     path.write_text(sexpr.dumps(out) + "\n")
-    return stats
+    return {n: (a, b, longest_neck(necks.get(n, []))) for n, (a, b) in stats.items()}

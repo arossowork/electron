@@ -486,13 +486,16 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         if segs:
             wmin = min(s["w"] for s in segs)
             if wmin + 1e-6 < need:
-                from .routing import NECK_MAX_MM
-                narrow = sum(s["len"] for s in segs if s["w"] + 1e-6 < need)
+                from .routing import NECK_MAX_MM, longest_neck
+                thin = [s for s in segs if s["w"] + 1e-6 < need]
+                narrow = sum(s["len"] for s in thin)
+                neck = longest_neck([((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in thin])
                 # a short neck at a pad heats no more than the pad it enters (copper on both sides spreads the heat)
-                sev = "warn" if narrow <= NECK_MAX_MM else "error"
+                sev = "warn" if neck <= NECK_MAX_MM else "error"
                 add(sev, "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
                                           f"{info['current_a']} A at 10C rise (IPC-2221), for {narrow:.1f} mm"
-                                          + (f" (a neck of at most {NECK_MAX_MM:g} mm)" if sev == "warn" else ""))
+                                          + (f" (necks of at most {NECK_MAX_MM:g} mm each)" if sev == "warn"
+                                             else f" (a stretch of {neck:.1f} mm)"))
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
     declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
