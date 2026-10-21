@@ -408,7 +408,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     iso = isolation_distances(d, board, drc)
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
-    return {"ok": not errs and not viol and all(r["ok"] for r in iso) and all(r["ok"] for r in bud), "isolation": iso,
+    from . import diagnose
+    failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
+    return {"failing": failing, "ok": not errs and not viol and all(r["ok"] for r in iso) and all(r["ok"] for r in bud), "isolation": iso,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
@@ -609,7 +611,48 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
         stopped = "all parts fixed: one attempt"
     r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
              seconds=round(time.time() - t0, 1))
+    if not r["ok"]:
+        r["diagnosis"] = layout_diagnosis(d, libs, [results[i]["r"] for i in used if "r" in results[i]])
     return r
+
+
+def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
+    """diagnose.diagnose on the kept board in build/ and the failing parts of every attempt."""
+    from . import diagnose
+    out = _out(d)
+    if libs is None or not (out / f"{d.name}.kicad_pcb").exists():
+        return {}  # no board to read (an attempt that crashed): no diagnosis
+    board = pcb.read_board(out / f"{d.name}.kicad_pcb")
+    parts = placer.build_parts(d, libs)
+    for ref, fp in board["footprints"].items():
+        if ref in parts:
+            parts[ref].x, parts[ref].y, parts[ref].r = fp["x"], fp["y"], fp["r"]
+    return diagnose.diagnose(d, parts, [{"failing": a.get("failing") or {}} for a in attempts], board, out)
+
+
+def _layout_blocked(d: Design, a) -> dict | None:
+    """The layout stage result when the layout diagnosis blocks this build (see diagnose.blocked), else None."""
+    from . import diagnose
+    e = diagnose.blocked(d, _out(d))
+    if e is None or getattr(a, "retry_layout", False):
+        return None
+    prev = dict(_status(d).get("layout") or {})
+    msg = ("blocked: the last layout build of these same parts, nets and board was sent back to "
+           f"{e['diagnosis'].get('stage')}; change the design there (or run with --retry-layout)")
+    print(f"[layout] {msg}")
+    keep = {"router": "-", "segments": 0, "vias": 0, "drc_errors": 0, "drc_warnings": 0, "unrouted": 0, "drc": [],
+            "placement_violations": [], "board_mm": None, "isolation": [], "budgets": []}
+    return {**{k: prev.get(k) or v for k, v in keep.items()},  # the numbers of the build that was sent back
+            "ok": False, "blocked": msg, "diagnosis": e["diagnosis"]}
+
+
+def _record_layout(d: Design, r: dict, override: bool):
+    from . import diagnose
+    g = r.get("diagnosis") or {}
+    diagnose.record(_out(d), {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "structure": diagnose.structure_key(d),
+                              "ok": bool(r.get("ok")), "unrouted": r.get("unrouted"), "drc_errors": r.get("drc_errors"),
+                              "persistent": g.get("persistent") or [], "blocked": bool(g.get("blocked")),
+                              "override": override, "diagnosis": g})
 
 
 def _hopeless_limit() -> int:
@@ -856,8 +899,14 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - placement: {v}")
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
             L.append(f"  - DRC {x['type']}: {x['msg']} {x['items'][:2]}")
+        from . import diagnose
+        if c.get("blocked"):
+            L.append(f"  - {c['blocked']}")
+        if diagnose.summary(c.get("diagnosis")):
+            L.append(f"  - layout diagnosis: {diagnose.summary(c['diagnosis'])}")
         if not c["ok"]:
-            fail("layout", "layout/DRC errors")
+            g = c.get("diagnosis") or {}
+            fail("layout", f"layout blocked, go back to {g['stage']}" if g.get("blocked") else "layout/DRC errors")
     if "post" in s:
         c = s["post"]
         m = c["metrics"]
@@ -1214,6 +1263,9 @@ def main(argv=None):
     p.add_argument("--auto", action="store_true", help=auto); p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--seeds", type=int, default=4); p.add_argument("--iters", type=int, default=30000)
     p.add_argument("--passes", type=int, default=30); p.add_argument("--workers", type=int, default=None)
+    retry = ("run a layout the layout diagnosis blocked (same parts, nets and board as a build it sent back to an "
+             "earlier stage); recorded in the layout history")
+    p.add_argument("--retry-layout", action="store_true", help=retry)
     p = sub.add_parser("build"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--until", choices=["check", "sch", "sim", "layout", "post", "fab"], default="fab")
     p.add_argument("--reuse", action="store_true"); p.add_argument("--force", action="store_true",
@@ -1221,6 +1273,7 @@ def main(argv=None):
     p.add_argument("--rebuild", action="store_true", help="run every stage even when its inputs are unchanged")
     p.add_argument("--auto", action="store_true", help="layout stage as in `layout --auto`")
     p.add_argument("--attempts", type=int, default=4)
+    p.add_argument("--retry-layout", action="store_true", help=retry)
     p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
@@ -1351,6 +1404,8 @@ def main(argv=None):
                 r = stage_sch(d, libs)
             elif st == "sim":
                 r = stage_sim(d, getattr(a, "mc", 0))
+            elif st == "layout" and (blk := _layout_blocked(d, a)):
+                r = blk
             elif st == "layout":
                 kw = {"seeds": a.seeds, "iters": a.iters, "passes": a.passes} if a.cmd == "layout" else {}
                 if getattr(a, "auto", False):
@@ -1358,6 +1413,9 @@ def main(argv=None):
                                     workers=getattr(a, "workers", None), **kw)
                 else:
                     r = stage_layout(d, libs, reuse=getattr(a, "reuse", False), **kw)
+                    if not r["ok"]:
+                        r["diagnosis"] = layout_diagnosis(d, libs, [r])
+                _record_layout(d, r, getattr(a, "retry_layout", False))
             elif st == "post":
                 r = stage_post(d)
             else:
@@ -1372,7 +1430,7 @@ def main(argv=None):
             print(_auto_summary(r))
         if not r.get("ok"):
             rc = 1
-            hard = st in ("check", "sch") or "exception" in r
+            hard = st in ("check", "sch") or "exception" in r or bool(r.get("blocked"))
             if a.cmd == "build" and hard and not a.force:
                 break
     text = write_report(d, history=True)

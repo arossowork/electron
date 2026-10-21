@@ -19,6 +19,7 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 - You take pin numbers from `uv run hwflow lib show <lib_id>` and pad numbers from `uv run hwflow lib pads <fp_id>`. You never guess them.
 - A number in a design decision has a source: a datasheet, a calculation in `notes/`, or a simulation.
 - A requirement is done only when `hwflow trace` shows it verified and `hwflow build` gives a PASS verdict.
+- A layout verdict `layout blocked, go back to <stage>` sends the loop back to that stage (parts, circuit or architecture). More layout cycles cannot fix it.
 - If a fix needs a product decision (cost against performance, a changed spec), you ask the product person. You do not decide alone.
 
 ## Commands
@@ -31,6 +32,7 @@ uv run hwflow lib pads <lib:fp>        # pads of a footprint
 uv run hwflow parts <category> k=v --text "<words>"   # JLCPCB in-stock search
 uv run hwflow check <proj>             # static and library checks
 uv run hwflow build <proj> [--until sim] [--mc 50] [--reuse]
+uv run hwflow build <proj> --retry-layout   # only when the product person overrides a blocked layout (docs/layout-diagnosis.md)
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix
 uv run hwflow report <proj>            # rewrite build/REPORT.md

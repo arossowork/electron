@@ -23,3 +23,5 @@ For each block:
 7. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
 
 Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model).
+
+When the orchestrator sends you back from layout with a `layout diagnosis` (a part whose pads cannot be escaped at the net widths, with the pitch needed), replace that part with one that meets the stated pitch or package, or with a different topology that lowers the current on those pins. Keep its electrical ratings, check stock, and record the change and the diagnosis line in `notes/parts.md`.
