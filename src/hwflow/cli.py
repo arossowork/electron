@@ -627,7 +627,7 @@ def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
     for ref, fp in board["footprints"].items():
         if ref in parts:
             parts[ref].x, parts[ref].y, parts[ref].r = fp["x"], fp["y"], fp["r"]
-    return diagnose.diagnose(d, parts, [{"failing": a.get("failing") or {}} for a in attempts], board, out)
+    return diagnose.diagnose(d, parts, [{"failing": a.get("failing") or {}} for a in attempts], board, out, libs)
 
 
 def _layout_blocked(d: Design, a) -> dict | None:

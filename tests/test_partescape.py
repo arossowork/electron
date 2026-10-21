@@ -138,14 +138,15 @@ def test_the_perimeter_of_a_part_bounds_the_nets_that_leave_it(tmp_path):
     assert partescape.findings(d, libs) == []
 
 
-def test_hwflow_check_reports_escape_findings_as_errors(tmp_path):
+def test_hwflow_check_reports_escape_findings_as_errors(tmp_path, monkeypatch):
     pins = {"1": "VIN", "2": "SW", "3": "VIN", "4": "GND", "5": "VOUT", "6": "GND"}
     d = _design(tmp_path, {"U2": {"footprint": "SOT563", "pins": pins}},
                 nets={"SW": {"width_mm": 0.6}, "VOUT": {"width_mm": 0.4}})
     libs = _libs({"SOT563": _sot563(), "C": C_PADS})
-    errs = feasibility.check(d, libs)
+    errs = [e for e in feasibility.check(d, libs) if e["code"] == "escape"]  # the other checks need the full libs
     assert [(e["sev"], e["code"]) for e in errs] == [("error", "escape")] and errs[0]["msg"].startswith("U2 ")
     assert ("escape", "hwflow.partescape") in feasibility.FEASIBILITY_CHECKS
+    monkeypatch.setattr(feasibility, "FEASIBILITY_CHECKS", [x for x in feasibility.FEASIBILITY_CHECKS if x[0] == "escape"])
     assert [f["code"] for f in feasibility.findings(d, libs)] == ["escape"]
     assert any(f["code"] == "escape" for f in design_mod.check(d, libs=SimpleNamespace(
         footprint=libs.footprint, symbol=lambda s: (_ for _ in ()).throw(KeyError(s)))))

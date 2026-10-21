@@ -11,6 +11,10 @@ A failing layout build ends with a diagnosis (`src/hwflow/diagnose.py`) that ans
    - Board fill: courtyard area over a board face, above `floorplan.FILL_MAX`.
 4. **History.** `build/layout_history.json` records every layout build with a structure key. The key covers the parts, footprints and pin nets, net widths and currents, and the board size, layers, track and clearance. It does not cover placement anchors, weights, or router and DRC settings. A failing build whose persistent parts overlap those of the previous failing build of the same structure means placement and routing have been tried.
 
+## Proofs before and after layout
+
+`feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
+
 ## Verdict
 
 | Finding | Back to |

@@ -140,7 +140,7 @@ def blocked(design, out: Path) -> dict | None:
 
 # ------------------------------------------------------------------ the verdict
 
-def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path) -> dict:
+def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, libs=None) -> dict:
     """`attempts`: [{"failing": failing_parts(...)}] of the build's attempts; `board`: pcb.read_board of the kept
     board; `parts`: placer parts at the kept placement. Returns the diagnosis and records it in the history."""
     from . import floorplan, pcb, routing
@@ -167,7 +167,7 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path) 
         back = "architecture"
         reasons.append(f"board fill {max(fill.values()):.0%} of a face (limit {floorplan.FILL_MAX:.0%}): "
                        "the parts do not fit this board")
-    for row in rows:
+    for row in rows if libs is None else []:  # with libs the proofs below replace this estimate
         if row["dead_pads"]:
             back = back or "parts"
             e = row["dead_pads"][0]
@@ -183,7 +183,21 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path) 
                            f"escapes; every one is a neck in a row of fine-pitch pads. Options: a package with pitch "
                            f">= {worst['pitch_needed']} mm, or narrower nets (circuit: width/current of "
                            f"{', '.join(nets)})")
-    plain = [r["ref"] for r in rows if not r["escape"]]
+    proofs = []
+    if libs is not None:  # the feasibility proofs (feasibility.py) at the kept placement and board
+        from . import feasibility
+        try:
+            proofs = feasibility.findings(design, libs, parts=parts, board=board)
+        except Exception as e:  # noqa: BLE001 - a crashed proof is no evidence either way
+            reasons.append(f"(feasibility proofs not run: {type(e).__name__}: {e})")
+        # a finding that depends on the placement of movable parts counts only on the persistent parts
+        proofs = [f for f in proofs if f.get("fixed", True) or set(f.get("refs") or []) & set(pers)]
+        for f in sorted(proofs, key=lambda f: ("architecture", "parts", "circuit").index(f["back_to"])
+                        if f["back_to"] in ("architecture", "parts", "circuit") else 3):
+            back = back or f["back_to"]
+            reasons.append(f"[{f['check']}] {f['msg']}")
+    explained = {r for f in proofs for r in f.get("refs") or []}
+    plain = [r["ref"] for r in rows if (not r["escape"] if libs is None else r["ref"] not in explained)]
     if plain and back is not None:
         reasons.append(f"Also failing in most attempts, no physical limit found: {', '.join(plain)}.")
     prev = [e for e in history(out) if e.get("structure") == key and not e.get("ok")]
@@ -204,7 +218,7 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path) 
                        if len(per) > 1 else "one attempt only: no evidence yet whether the failures stay on the same parts")
     res = {"structure": key, "attempts": len(per), "persistent": pers, "parts": rows,
            "fill": {k: round(v, 2) for k, v in fill.items()}, "back_to": back, "stage": STAGES.get(back),
-           "reasons": reasons, "repeat": repeat,
+           "reasons": reasons, "repeat": repeat, "proofs": proofs,
            "blocked": back not in (None, "layout") or repeat}
     return res
 
