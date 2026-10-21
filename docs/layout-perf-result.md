@@ -109,3 +109,16 @@ nothing when `fp-lib-table` sits next to the board, which is how hwflow always r
 Whether this is a defect is a design question. The keep-out is meant to keep front-board copper away from the rear
 230 V terminals, and BT1 sits on the front side. The baseline is not edited. For the user: either the keep-out
 should forbid only copper (tracks, vias, pads, pour), or BT1 must move.
+
+## Fixes found during the home-thermostat-3 run
+
+| change | commit | evidence |
+|---|---|---|
+| ngspice crash retry under other file-name lengths | ba284f7 | final gate post-layout 163/163 |
+| agent prompts: product limit vs derived budget, at most 3 builds per failing measure | 4c37bfd | an hour spent on 25.26 against 25 uA (a margin the agent added) |
+| `layout --auto` starts no more attempts when attempt 1 is far from routable (> 40 errors); hw-layout escalates a structural change | b1f49e6, 36271c2 | 2-layer thermostat-3: 121 errors after attempt 1, 3 more attempts would have run for about 15 min |
+| footprint zones move with the part (KiCad footprint coordinates), placer areas too | a86a3a6 | the ESP32 antenna keep-out landed at the board corner |
+| `--reuse` ignores a placement made for another declared board size and never moves fixed parts | a86a3a6 | a 74 mm placement was reused on the 88 mm board |
+| router `KICAD_RIP_PREEXISTING=0` | ac07781 | thermostat-3, same floorplan: 73 -> 11 unrouted, DRC 96 -> 61; baseline identical with 0 and 1 |
+
+**Baseline after a86a3a6:** the baseline draws its KO_* zones in board coordinates on parts placed at (65, 22) and similar. With footprint zones now moved like KiCad does, those keep-outs land off target: 15 unrouted, 63 DRC. With the four KO_* parts placed at (0, 0, 0) in a copy, it returns to 0 unrouted, 94 vias and DRC 2 (BT1, U2) in 48 s. The baseline itself is not edited: the user decides.
