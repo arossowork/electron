@@ -60,6 +60,9 @@ def test_route_cache_skips_router(tmp_path, monkeypatch):
     d.raw["board"]["clearance_mm"] = 0.3  # other rules: another key
     cli.stage_layout(d, libs, reuse=True)
     assert calls["route"] == 2
+    monkeypatch.setenv("KICAD_RIP_PREEXISTING", "1")  # another router environment: another key
+    cli.stage_layout(d, libs, reuse=True)
+    assert calls["route"] == 3
 
 
 def test_fixed_part_errors():

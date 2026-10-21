@@ -298,7 +298,7 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
 def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     """Hash of everything the routed and repaired copper depends on: the unrouted board text (placement, footprints,
     nets, outline), the rules files, the board settings (router and repair settings among them), the router
-    version and the repair code. The router is deterministic for the same input, so the same key gives the same copper."""
+    version, the router environment knobs, and the repair and router-driver code. The router is deterministic for the same input, so the same key gives the same copper."""
     import hashlib
     h = hashlib.sha256(pcb.board_text(pcb.build_board(d, libs, parts)).encode())
     for suf in (".kicad_pro", ".kicad_dru"):
@@ -306,6 +306,9 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         h.update(f.read_bytes() if f.exists() else b"-")
     h.update(json.dumps([d.board, passes, pcb.KRT_VARIANTS, pcb.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
+    h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
+    knobs = sorted((k, v) for k, v in os.environ.items() if k.startswith(("KICAD_", "KRT_")) and k != "KICAD_CLI")
+    h.update(json.dumps(knobs).encode())  # router environment knobs (KICAD_RIP_PREEXISTING and the like)
     return h.hexdigest()[:24]
 
 
