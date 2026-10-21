@@ -1,0 +1,58 @@
+name: tps61299_boost
+description: TPS61299 SOT-563 boost, 3.3 V (VSEL to GND), always on (EN to VIN), 1 uH inductor, input and output caps.
+source: >-
+  Hand layout from the TI TPS61299 datasheet SLVSGS9G (https://www.ti.com/lit/ds/symlink/tps61299.pdf):
+  8.6.1 Layout Guidelines (wide, short main current path and power ground; input cap, output cap and inductor as
+  close as possible to the device), 8.6.2 (bottom layer GND plane joined by vias), Table 5-1 pins (DRL: 1 VIN, 2 SW,
+  3 EN, 4 VSEL, 5 VOUT, 6 GND), Table 7-1 (VSEL to GND = 3.3 V), 6.3 and 8.2.2 (L 1 uH, CIN 2.2 uF effective,
+  COUT 10 uF typical, 4 uF effective minimum; value_min is the nominal floor). Parts and nets as in home-thermostat-3 (U2, L1, C3, C4).
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+# SOT-563 pads are 0.16 mm apart (0.5 mm pitch, 0.34 mm pads): the land pattern needs a 0.15 mm clearance on U;
+# every track keeps 0.2 mm
+drc_rules: ['(rule "{block} fine pitch" (condition "A.memberOfFootprint(''{U}'')") (constraint clearance (min 0.15mm)))']
+ports: [VIN, VOUT, GND]
+roles:
+  U: {ref: U2, symbol: thermo:TPS61299, footprint: Package_TO_SOT_SMD:SOT-563, value: TPS61299,
+      pins: {'1': VIN, '2': SW, '3': VIN, '4': GND, '5': VOUT, '6': GND}}
+  L: {ref: L1, symbol: Device:L, footprint: Inductor_SMD:L_Murata_DFE201610P, value: 1u, pins: {'1': VIN, '2': SW}}
+  CIN: {ref: C3, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, value_min: 2.2u, pins: {'1': VIN, '2': GND}}
+  COUT: {ref: C4, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, value_min: 10u, pins: {'1': VOUT, '2': GND}}
+# Origin: U centre. Courtyards touch with 0.05 mm gaps: L x = -(1.35 + 1.25 + 0.05); CIN y = -(1.10 + 0.98 + 0.05);
+# COUT (rot 90, half width 0.98) x = 1.70 + 0.98 + 0.05, y = -0.95 so its pad 1 (VOUT) sits on the U pin 5 axis.
+placement:
+  U: {x: 0, y: 0, rot: 0, side: front}
+  L: {x: -2.65, y: 0, rot: 0, side: front}
+  CIN: {x: 0, y: -2.13, rot: 0, side: front}
+  COUT: {x: 2.73, y: -0.95, rot: 90, side: front}
+copper:
+  tracks:
+  # SW (pin 2) sits between the two VIN pins at 0.5 mm pitch: a 0.2 mm neck (0.23 mm to pins 1 and 3), then
+  # 0.6 mm from x = -1.6 (round end 0.30 mm from the pin 1/3 corners) into L pad 2
+  - {net: SW, layer: F.Cu, w: 0.2, pts: [[-0.75, 0], [-1.6, 0]]}
+  - {net: SW, layer: F.Cu, w: 0.6, pts: [[-1.6, 0], [-1.93, 0]]}
+  # VIN: pin 1 straight up into CIN pad 1, CIN pad 1 around the top to L pad 1, port stub to the block edge
+  - {net: VIN, layer: F.Cu, w: 0.3, pts: [[-0.75, -0.55], [-0.75, -0.9]]}
+  - {net: VIN, layer: F.Cu, w: 0.5, pts: [[-0.75, -0.9], [-0.75, -2.13]]}
+  - {net: VIN, layer: F.Cu, w: 0.5, pts: [[-0.95, -2.13], [-3.37, -2.13], [-3.37, 0]]}
+  - {net: VIN, layer: F.Cu, w: 0.5, pts: [[-3.37, -2.13], [-4.2, -2.13]]}
+  # EN (pin 3) to VIN under the inductor's SW pad (0.33 mm clear of it)
+  - {net: VIN, layer: F.Cu, w: 0.25, pts: [[-0.75, 0.55], [-1.25, 1.25], [-3.37, 1.25], [-3.37, 0]]}
+  # VOUT: 0.2 mm neck between pins 4 and 6, 0.6 mm into COUT pad 1, port stub
+  - {net: VOUT, layer: F.Cu, w: 0.2, pts: [[0.75, 0], [1.6, 0]]}
+  - {net: VOUT, layer: F.Cu, w: 0.6, pts: [[1.6, 0], [2.73, 0], [4.0, 0]]}
+  # GND: pin 6 into CIN pad 2, CIN pad 2 to COUT pad 2 (the output loop), vias to the plane, VSEL (pin 4) to a via
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[0.75, -0.55], [0.75, -0.9]]}
+  - {net: GND, layer: F.Cu, w: 0.5, pts: [[0.75, -0.9], [0.75, -2.13]]}
+  - {net: GND, layer: F.Cu, w: 0.6, pts: [[0.95, -2.13], [2.73, -1.9], [3.9, -1.9]]}
+  - {net: GND, layer: F.Cu, w: 0.4, pts: [[1.75, -2.0], [1.75, -2.75]]}
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[0.75, 0.55], [0.75, 1.5]]}
+  vias:
+  - {net: GND, x: 1.75, y: -2.75}
+  - {net: GND, x: 3.9, y: -1.9}
+  - {net: GND, x: 0.75, y: 1.5}
+courtyard: [-4.45, -3.15, 4.3, 1.85]
+notes: >-
+  Clearances (0.2 mm rule): SW neck to pins 1/3 0.23 mm; SW 0.6 mm end to the pin 1/3 corners 0.30 mm; VIN and GND
+  risers 1.0 mm apart; EN track 0.33 mm below L pad 2; L pad 2 to U pin 1 0.55 mm. GND of pin 4 (VSEL) and of the
+  caps meet in the plane through the vias.

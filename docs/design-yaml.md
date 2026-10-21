@@ -15,6 +15,7 @@ sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
 libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
+blocks: {...}                  # optional layout blocks bound to components (see below)
 approval: {cost_pct: 5, size_mm: 0.5}   # optional tolerances of the approval check (see below)
 ```
 
@@ -157,6 +158,51 @@ Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a conn
 `timeout_s` on an analysis (default 600) bounds its ngspice run. An analysis that times out, crashes, aborts or reports an error is named in the report with its status and run time, and every measure without a value says why (`n/a: timeout after 600 s`, `n/a: aborted: ...`). A run that crashes on a signal (`free(): invalid ...`) is retried once and reported as flaky.
 
 A measure whose name starts with `dbg_`, or that sets `debug: true`, is a debug probe: the report lists its value apart, and it never counts in the pass ratio, the verdict, the requirement trace, the post-layout comparison or the Monte Carlo yield.
+
+## blocks
+
+A layout block is a sub-circuit laid out and checked once: a boost cell, an MCU module with its decoupling, a guard FET pair. The library is `blocks/<name>/block.yaml` in the repository (`uv run hwflow block list`, `uv run hwflow block show <name>`); a project may add its own in `<proj>/blocks/`. A design binds its components to a block's roles:
+
+```yaml
+blocks:
+  boost: {use: tps61299_boost, parts: {U: U2, L: L1, CIN: C3, COUT: C4}}             # the placer chooses the place
+  mcu: {use: esp32c3_mini_decoupling, parts: {U: U1, C100N: C7, C10U: C6},
+        at: {x: 62, y: 37.5, rot: 180, fixed: true}}                                 # block origin on the board
+```
+
+The components stay in `components:`. `hwflow check` verifies the binding: every role is bound once, each part has the role's footprint, the part's pin nets map one to one onto the block's nets (a block net cannot be two design nets, an internal net cannot reach a part outside the block, two block nets on one design net must both be ports), the value matches `value`, `value_min` or `value_max` (a warning), the board has `layers_min` layers, and a part in a block has no `placement:` of its own. A board clearance or via size larger than the block's `rules` is a warning.
+
+- `at` (optional): `{x, y, rot, fixed}` of the block origin; `fixed` defaults to true, `rot` is a multiple of 90. Without `at` the placer places the block. Only the front side is supported.
+- Placement: the placer moves the block's parts as one rigid unit (translation, rotation by 90 degrees) and never changes their relative placement. The block courtyard counts in the overlap, keep-out and bounds costs like a part courtyard.
+- Routing: the block copper is in the unrouted board and every router pass keeps it (`--keep-input-copper`). A net whose pads are all in the block and joined by its copper is not routed. The routed board holds the block copper once, also after repair and from the route cache.
+- `drc_rules` of a block (a land pattern that needs a smaller clearance) are added to the `.kicad_dru`.
+- Instantiate mode: `{use: <block>, nets: {VIN: VBAT, VOUT: +3V3, GND: GND}, refs: {U: U7}}` without `parts` adds the block's components (refs from `refs`, else the block's); internal nets become `<entry>_<net>`. `Design.save` does not write them back.
+
+block.yaml:
+
+```yaml
+name: tps61299_boost
+description: one line
+source: datasheet section and URL, or the board and run it was extracted from
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}   # what the copper was checked at
+drc_rules: ['(rule "{block} fine pitch" (condition "A.memberOfFootprint(''{U}'')") (constraint clearance (min 0.15mm)))']
+ports: [VIN, VOUT, GND]                    # nets the block exposes; every other pin net is internal
+roles:
+  U: {ref: U2, symbol: thermo:TPS61299, footprint: Package_TO_SOT_SMD:SOT-563, value: TPS61299,
+      pins: {'1': VIN, '2': SW, '3': VIN, '4': GND, '5': VOUT, '6': GND}}
+  CIN: {ref: C3, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, value_min: 2.2u, pins: {'1': VIN, '2': GND}}
+placement:                                 # footprint origin of each role from the block origin
+  U: {x: 0, y: 0, rot: 0, side: front}
+copper:
+  tracks: [{net: SW, layer: F.Cu, w: 0.2, pts: [[-0.75, 0], [-1.6, 0]]}]   # polylines, block nets
+  vias: [{net: GND, x: 1.75, y: -2.75}]
+courtyard: [x0, y0, x1, y1]                # the whole block, parts and copper
+keepouts: [{rect: [x0, y0, x1, y1], layers: [In1.Cu, In2.Cu], forbids: [tracks, vias, copperpour]}]   # optional
+resistance_mohm: {IN-OUT copper at 20 C: 2.8}                         # optional, with the arithmetic in a comment
+```
+
+A block's own footprints go in `blocks/<name>/footprints/<lib>.pretty/`. `uv run hwflow block check <name>` places the block alone on a small board (ports as nets, ground pour on GND) and runs KiCad DRC on its copper. `uv run hwflow block extract <board.kicad_pcb> --refs U2,L1,C3,C4 --name <name> --source "<text>" [--roles U=U2,...] [--project <proj>]` writes a block from a routed board: the parts' placement relative to the first one, the copper of the nets whose pads are all in the set, and the port copper attached to the parts, clipped 1 mm around them.
 
 ## optimize
 

@@ -1,0 +1,37 @@
+name: esp32c3_mini_decoupling
+description: ESP32-C3-MINI-1 module with its 100 nF and 10 uF supply decoupling at pin 3, antenna kept clear on inner layers.
+source: >-
+  Hand layout from the Espressif ESP32-C3-MINI-1 datasheet (https://documentation.espressif.com/esp32-c3-mini-1_datasheet_en.pdf):
+  Table 3-1 pins (3 = 3V3, 1/2 = GND), s9 reference schematic and the hardware design guidelines (10 uF + 0.1 uF
+  at the module supply, the 0.1 uF closest; antenna at the board edge, no copper under it on any layer). Footprint
+  thermo:ESP32-C3-MINI-1 from home-thermostat-3 (shipped in footprints/; it has an F/B.Cu track and pour keep-out
+  over the antenna, the block adds the inner layers). The routed reference board puts C6 10 mm from pin 3, so its
+  copper is not reused.
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+ports: [VDD, GND]
+roles:
+  U: {ref: U1, symbol: thermo:ESP32-C3-MINI-1, footprint: thermo:ESP32-C3-MINI-1, value: ESP32-C3-MINI-1,
+      pins: {'1': GND, '2': GND, '3': VDD}}
+  C100N: {ref: C7, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 100n, pins: {'1': VDD, '2': GND}}
+  C10U: {ref: C6, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, value_min: 10u, pins: {'1': VDD, '2': GND}}
+# Origin: module centre (courtyard +-6.8 x +-8.5). Both caps rot 90 (pad 1 down) left of the module, pad 1 on the
+# pin 3 axis (y = 0.3): C100N x = -(6.8 + 0.46 + 0.05), y = 0.3 - 0.48; C10U x = -7.31 - 0.46 - 0.98 - 0.05,
+# y = 0.3 - 0.95.
+placement:
+  U: {x: 0, y: 0, rot: 0, side: front}
+  C100N: {x: -7.31, y: -0.18, rot: 90, side: front}
+  C10U: {x: -8.8, y: -0.65, rot: 90, side: front}
+copper:
+  tracks:
+  # VDD on the pin 3 axis: 0.4 mm (pin 3 pad height), 0.4 mm clear of pins 2 and 4; port end at the left
+  - {net: VDD, layer: F.Cu, w: 0.4, pts: [[-9.9, 0.3], [-8.8, 0.3], [-7.31, 0.3], [-5.9, 0.3]]}
+  # GND: C100N pad 2 into pin 2, both cap grounds to a via
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[-7.31, -0.66], [-5.9, -0.66]]}
+  - {net: GND, layer: F.Cu, w: 0.4, pts: [[-7.31, -0.66], [-7.31, -1.5]]}
+  - {net: GND, layer: F.Cu, w: 0.4, pts: [[-8.8, -1.6], [-8.8, -1.5], [-7.31, -1.5]]}
+  vias:
+  - {net: GND, x: -7.31, y: -1.5}
+courtyard: [-10.1, -8.5, 6.8, 8.5]
+keepouts:
+- {rect: [-6.6, -8.3, 6.6, -2.9], layers: [In1.Cu, In2.Cu], forbids: [tracks, vias, copperpour]}
