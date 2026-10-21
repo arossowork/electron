@@ -109,3 +109,24 @@ def test_pair_clearance_uses_the_isolation_distance():
 def test_open_nets_of_a_router_summary():
     s = {"failed_single": ["A"], "failed_multipoint": [{"net_name": "B"}], "pad_pairs_open": {"nets": ["A", "C"]}}
     assert pcb.krt_open_nets(s) == ["A", "B", "C"]
+
+
+def test_fit_narrows_a_wide_track_at_a_foreign_pad(tmp_path):
+    # net A: a 0.6 mm track from a pad centre (0, 0); a foreign pad of net B 0.5 mm above the first millimetre
+    # (the router's pad-entry neck shipped full width): only that stretch is narrowed to keep 0.2 mm
+    seg = ["segment", ["start", 0, 0], ["end", 6, 0], ["width", 0.6], ["layer", sexpr.Q("F.Cu")], ["net", 1],
+           ["uuid", sexpr.Q("u")]]
+    path = tmp_path / "x.kicad_pcb"
+    path.write_text(sexpr.dumps(["kicad_pcb", ["net", 1, sexpr.Q("A")], ["net", 2, sexpr.Q("B")], seg]))
+    b = pcb.read_board(path)
+    b["footprints"] = {"U1": {"pads": [_pad("B", 0.5, 0.5, w=0.34, layers=("F.Cu",))]}}
+    stats = routing.widen(path, b, {"A": 0.6}, lambda a, c: 0.2, CU, 0.6, box(-5, -5, 15, 5), {})
+    narrow, total = stats["A"]
+    assert abs(total - 6) < 1e-6 and 0 < narrow <= 1.5
+    segs = pcb.read_board(path)["segments"]
+    pad = box(0.33, 0.33, 0.67, 0.67)
+    for s in segs:
+        from shapely.geometry import LineString
+        g = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2)
+        assert g.distance(pad) >= 0.2 - 1e-6
+    assert max(s["w"] for s in segs) == 0.6 and min(s["w"] for s in segs) < 0.6

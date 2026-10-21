@@ -129,10 +129,12 @@ def _pieces(x1, y1, x2, y2) -> list[tuple]:
 
 def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: list[str], via_dia: float,
           outline, keepouts: dict[str, list]) -> dict[str, tuple[float, float]]:
-    """Put each net of `widths` back to its width where it fits, in place in the board file `path`.
-    `clearance(a, b)` is the copper distance two nets keep; `outline` the area copper may use (board inset by the
-    edge clearance); `keepouts` layer -> geometries no track may enter. A segment that does not fit as a whole is
-    split into pieces, each widened if it fits. Returns net -> (narrow length, total length) in mm."""
+    """Fit every track of the nets of `widths`, in place in the board file `path`: each piece gets the widest of
+    (the net's width, its own width, NECK_FLOOR) that keeps its clearances, so narrow copper is widened where it
+    fits and copper the router shipped too wide at a pinch is narrowed. `clearance(a, b)` is the copper distance
+    two nets keep; `outline` the area copper may use (board inset by the edge clearance); `keepouts` layer ->
+    geometries no track may enter. A segment that does not fit as a whole is split into pieces of at most
+    PIECE_MM. Returns net -> (length narrower than the net's width, total length) in mm."""
     shapes = copper_shapes(board, copper, via_dia)
     t = sexpr.loads(path.read_text())
     nets = {int(n[1]): str(n[2]) for n in sexpr.find_all(t, "net") if len(n) > 2}
@@ -143,39 +145,46 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
             continue
         net = _segment_net(node, nets)
         w = widths.get(net)
-        cur = float(sexpr.value(node, "width"))
-        if w is None or cur >= w - 1e-6:
+        if w is None:
             out.append(node)
             continue
+        cur = float(sexpr.value(node, "width"))
         layer = str(sexpr.value(node, "layer"))
         st, en = sexpr.find(node, "start"), sexpr.find(node, "end")
         x1, y1, x2, y2 = float(st[1]), float(st[2]), float(en[1]), float(en[2])
         obst = [g.buffer(clearance(net, n), quad_segs=4) for n, lay, g in shapes if lay == layer and n != net]
         obst = unary_union(obst + list(keepouts.get(layer, [])))
 
-        def fits(a, b):
-            g = LineString([a, b]).buffer(w / 2, quad_segs=8)
+        def fits(a, b, width):
+            g = LineString([a, b]).buffer(width / 2, quad_segs=8)
             return outline.contains(g) and not g.intersects(obst)
 
-        pieces = [((x1, y1), (x2, y2))] if fits((x1, y1), (x2, y2)) else _pieces(x1, y1, x2, y2)
-        runs = []  # merge neighbouring pieces with the same result
-        for a, b in pieces:
-            ok = fits(a, b) if len(pieces) > 1 else True
-            if runs and runs[-1][2] == ok:
-                runs[-1][1] = b
-            else:
-                runs.append([a, b, ok])
+        cands = sorted({w, cur} | {f for f in (NECK_FLOOR,) if f < cur}, reverse=True)
+        whole = next((c for c in cands if c >= w and fits((x1, y1), (x2, y2), c)), None)
+        if whole is not None:
+            runs = [[(x1, y1), (x2, y2), whole]]
+        else:
+            runs = []  # neighbouring pieces with the same width merge
+            for a, b in _pieces(x1, y1, x2, y2):
+                c = next((c for c in cands if fits(a, b, c)), cands[-1])  # nothing fits: the least copper, DRC reports it
+                if runs and runs[-1][2] == c:
+                    runs[-1][1] = b
+                else:
+                    runs.append([a, b, c])
+        if len(runs) == 1 and runs[0][2] == cur:
+            out.append(node)
+        else:
+            for a, b, c in runs:
+                seg = [x for x in node if not (isinstance(x, list) and x and x[0] in ("start", "end", "width", "uuid"))]
+                seg += [["start", round(a[0], 4), round(a[1], 4)], ["end", round(b[0], 4), round(b[1], 4)],
+                        ["width", c], ["uuid", Q(str(uuid.uuid4()))]]
+                out.append(seg)
         narrow, total = stats.get(net, (0.0, 0.0))
-        for a, b, ok in runs:
-            seg = [x for x in node if not (isinstance(x, list) and x and x[0] in ("start", "end", "width", "uuid"))]
-            seg += [["start", round(a[0], 4), round(a[1], 4)], ["end", round(b[0], 4), round(b[1], 4)],
-                    ["width", w if ok else cur], ["uuid", Q(str(uuid.uuid4()))]]
-            out.append(seg)
-            if ok:  # another widened net keeps its distance to this copper
-                shapes.append((net, layer, LineString([a, b]).buffer(w / 2, quad_segs=8)))
+        for a, b, c in runs:
+            shapes.append((net, layer, LineString([a, b]).buffer(c / 2, quad_segs=8)))  # other nets keep off it
             n = math.hypot(b[0] - a[0], b[1] - a[1])
             total += n
-            narrow += 0.0 if ok else n
+            narrow += n if c < w - 1e-6 else 0.0
         stats[net] = (narrow, total)
     path.write_text(sexpr.dumps(out) + "\n")
     return stats
