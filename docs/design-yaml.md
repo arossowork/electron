@@ -16,6 +16,7 @@ optimize: {...}                # optional optimization problem
 libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
 placement: {weights: {...}}    # optional placer tuning
 approval: {cost_pct: 5, size_mm: 0.5}   # optional tolerances of the approval check (see below)
+floorplan: {...}               # optional construction, depth stack, regions and items (stage 2, see below)
 ```
 
 ## libraries
@@ -174,6 +175,54 @@ optimize:
 ```
 
 Every measure with limits stays a hard constraint. `margin` (default 0.1) keeps each measure that fraction of its limit span away from the limits, so the optimum is not on the edge. Objectives are normalized to the starting design and summed with the weights. A choice is a patch that is merged into the component.
+
+## floorplan
+
+The architect writes the floorplan in stage 2, before parts exist, and `uv run hwflow floorplan <proj>` checks it in about 20 s: no simulation, no schematic, no routing. A stage-2 `design.yaml` may hold only `project`, `board` (size, layers) and `floorplan`. Stage 4 adds the components and names the real parts of each item (`refs`); the same command then uses their courtyards. In stage 7 the placer keeps the regions.
+
+```yaml
+floorplan:
+  construction: double          # single (one face) | double (two faces) | stacked (two or more boards)
+  fill_max: 0.85                # optional: face fill that fails (risk above 0.70)
+  depth:
+    limit_mm: 30                # R2
+    extra: [{name: cover sheet and air, mm: 1.0, source: R2}]
+  regions:
+    - {name: notch_l, kind: keepout, circle: [2.25, 23, 4], conductive: true}   # a screw is accessible metal
+    - {name: mains, kind: mains, rect: [0, 0, 20, 46], nets: ["AC_*"], isolation_mm: 6.0, source: R10}
+    - {name: hv_parts, kind: barrier, rect: [0, 0, 26, 46], items: [relays, terminals]}
+    - {name: battery, kind: battery, rect: [27, 0, 82, 28.5], items: [cells]}
+    - {name: antenna, kind: antenna, rect: [60, 40, 73, 46], allow: [module], isolation_mm: 15, from: [mains, barrier, battery]}
+  items:
+    - {name: relays, size_mm: [24.5, 10.5], count: 2, side: back, height_mm: 15.8, protrusion_mm: 1.0, source: "ADW1 datasheet"}
+    - {name: cells, refs: [BT1, BT2], height_mm: 12.0, source: "LR03 10.5 + clip 1.5"}
+    - {name: module, refs: [U1], height_mm: 2.4}
+  nets: [{between: [module, relays], count: 4}]   # stage 2 only: wires between placeholders
+```
+
+Coordinates are board millimetres, as in `placement: {x, y}` (origin top left, y down).
+
+- `construction: stacked` needs `boards: [{name, size_mm: [w, h], at: [x, y], stack_mm, connector, flipped}]`, listed from the top (face A) down. hwflow lays the boards side by side in one panel (`at`, default left to right with a 6 mm gap), so `board:` is the panel. `stack_mm` is the mated height of the board-to-board connector below that board. `flipped: true` marks a board drawn with mirrored footprints (its back face looks up). Every item and region of a stacked floorplan names its `board`.
+- A region has a shape (`rect: [x0, y0, x1, y1]`, `poly: [[x, y], ...]` or `circle: [cx, cy, r]`), a `side` (front, back, both; default both) and a `kind`:
+  - `mains`, `antenna`, `keepout`, `barrier` are exclusive: a part that is not a member stays out on the region's sides. A barrier region holds the parts that bridge an isolation band (relays, optocouplers); its members may enter the mains region, and the mains members may enter it.
+  - `selv`, `battery`, `other` only hold their members.
+  - `items` lists the members (item names or ref patterns); an item's `region` does the same. A member stays inside. `allow` lets other parts into an exclusive region. `nets` (globs) are the nets whose pads stay inside the region.
+  - `isolation_mm` is the distance to the other regions on the same board (by default every other kind except barrier and keepout; `from` names kinds or regions). A `conductive` keep-out is cut out of every region with `isolation_mm`, grown by that distance.
+- An item is a placeholder (`size_mm: [w, h]`, `count`, `side`, `at: [x, y]` centre, `edge`) or real parts (`refs` and `groups`, patterns on refs and component groups; a ref named in `refs` wins over a group). `height_mm` (or `height_mm` on the component) enters the depth stack, `protrusion_mm` adds the through-hole pins on the other face. `area_mm2` replaces the courtyard area in the fill (a holder on wire leads leaves the board under it free). Later, a pre-laid-out block is an item with a size too.
+
+The check, written to `build/FLOORPLAN.md`, `build/floorplan.svg` and `status.json` (`floorplan`):
+
+| check | fails when |
+|---|---|
+| area | a board face, or the pool of a face left outside the exclusive regions and the mains isolation band, fills more than `fill_max` (risk above 70 %); a region holds more courtyard area than it has |
+| fit | a member cannot fit in its region in any position or rotation |
+| depth | the stack is above `limit_mm`, or a connector `stack_mm` is lower than the parts between the boards. Single and double: front tallest + board + back tallest. Stacked: top front + boards + gaps (max of `stack_mm` and back of the upper board + front of the lower one) + bottom back. Plus `extra` |
+| isolation | two regions are closer than `isolation_mm` |
+| routability | a quick placement (the stage-7 placer with the regions, 20000 moves, 2 seeds) needs more than 20 % of the track capacity where its nets may run (risk above 10 % or a cell at twice its capacity) |
+
+The thresholds come from the thermostats: the baseline (two stacked 62 x 40 boards, 4 layers, routed clean) fills its faces 20-42 % and uses 5 % of the track capacity; home-thermostat-3 at 88 x 46 on 4 layers (4 unrouted) fills its SELV face 74 % and uses 11-13 %; at 74 x 46 on 2 layers (95 unrouted) 95 % and 24-28 %. Overlaps left by the quick placement are risks, not failures. The verdict is PASS, PASS with risks, or FAIL; a FAIL that needs a size, layer, construction or cost change is a product decision.
+
+In stage 7 a part in a region keeps its courtyard inside it and the other parts stay out of the exclusive regions (a placer cost like the keep-out term). Fixed parts are reported, not moved.
 
 ## approval
 

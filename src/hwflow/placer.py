@@ -143,6 +143,7 @@ def _overlap(a, b) -> float:
     return w * h if w > 0 and h > 0 else 0.0
 
 
+REGION_PAD_W = 10.0  # floorplan region term: weight of the pad area of a region's nets outside the region
 ISO_MARGIN = 0.5  # mm added to the creepage (else clearance) of a board.isolation group
 CLEAR_MARGIN = 0.1  # mm added to the net class clearance between the pads of two nets
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
@@ -353,6 +354,8 @@ class Placer:
             self.pad_grp = {}
         self.reach = max(self.iso_need + list(cls.values()) + [0.0]) + 1.0
         self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.pad_grp else {}
+        from . import floorplan
+        self.regions, self.region_start = floorplan.placer_regions(self.d, self.parts)  # design.yaml floorplan.regions
 
     # ---- congestion (RUDY) ------------------------------------------------------------------------------------
 
@@ -448,7 +451,35 @@ class Placer:
         for hull, refs, _ in self.iso_hulls:
             if r not in refs:
                 c += sum(_poly_overlap(b, hull) for b in (p.side_box("front"), p.side_box("back")) if b)
+        for g in self.regions:
+            c += sum(self._region_cost(p, g))
         return c
+
+    # ---- floorplan regions (floorplan.placer_regions) -----------------------------------------------------------
+
+    @staticmethod
+    def _in_region(b, g) -> float:
+        return _overlap(b, g["rect"]) if g["rect"] else _poly_overlap(b, g["poly"])
+
+    def _region_cost(self, p, g) -> tuple[float, float, float]:
+        """(courtyard area of a member outside its region, courtyard area of another part inside an exclusive region on
+        its sides, REGION_PAD_W x pad area of the region's nets outside it). Courtyards without the placer margin."""
+        m = COURTYARD_MARGIN
+        out = inside = pads = 0.0
+        if p.ref in g["members"]:
+            for b in (p.side_box("front"), p.side_box("back")):
+                if b:
+                    b = (b[0] + m, b[1] + m, b[2] - m, b[3] - m)
+                    out += (b[2] - b[0]) * (b[3] - b[1]) - self._in_region(b, g)
+        elif g["excl"] and p.ref not in g["allow"]:
+            for s in g["sides"]:
+                b = p.side_box(s)
+                if b:
+                    inside += self._in_region((b[0] + m, b[1] + m, b[2] - m, b[3] - m), g)
+        for n in g["pads"].get(p.ref, ()):  # a pad outside is an isolation error: weighed like 10 times its area
+            b = _pad_box(p, n)
+            pads += REGION_PAD_W * ((b[2] - b[0]) * (b[3] - b[1]) - self._in_region(b, g))
+        return out, inside, pads
 
     def _in_area(self, bx, owner, name, courtyard=False) -> bool:
         poly = self.ko_poly.get((owner, name))
@@ -617,7 +648,7 @@ class Placer:
             self.t_bnd += self.part_bnd[r] - ob
             self.t_edge += self.part_edge[r] - oe
             log.append(("part", r, ob, oe))
-            if self.ko_fp or self.ko_pad or self.iso_hulls:
+            if self.ko_fp or self.ko_pad or self.iso_hulls or self.regions:
                 ok = self.part_ko[r]
                 self.part_ko[r] = self._ko_cost(r)
                 self.t_ko += self.part_ko[r] - ok
@@ -760,9 +791,10 @@ class Placer:
 
     def run(self, iters: int = 30000) -> float:
         movable = [p for p in self.parts.values() if not p.fixed]
-        for p in movable:
-            p.x = self.rng.uniform(self.W * 0.2, self.W * 0.8)
-            p.y = self.rng.uniform(self.H * 0.2, self.H * 0.8)
+        for p in movable:  # a member of a floorplan region starts inside the region's bounding box
+            x0, y0, x1, y1 = self.region_start.get(p.ref) or (self.W * 0.2, self.H * 0.2, self.W * 0.8, self.H * 0.8)
+            p.x = self.rng.uniform(x0, x1)
+            p.y = self.rng.uniform(y0, y1)
         if not movable:
             return self.cost()
         self._anneal(movable, iters, max(self.W, self.H) * 2, 0.01)
@@ -946,6 +978,13 @@ class Placer:
                     p.y += m - y0
                 if y1 > self.H - m:
                     p.y -= y1 - (self.H - m)
+                for g in self.regions:  # a member of a rectangular floorplan region into its region
+                    if p.ref in g["members"] and g["rect"]:
+                        c = COURTYARD_MARGIN
+                        x0, y0, x1, y1 = p.box()
+                        rx0, ry0, rx1, ry1 = g["rect"]
+                        p.x += max(0.0, rx0 - x0 - c) - max(0.0, x1 - c - rx1)
+                        p.y += max(0.0, ry0 - y0 - c) - max(0.0, y1 - c - ry1)
             if not moved:
                 break
 
@@ -990,6 +1029,11 @@ class Placer:
                     _poly_overlap(b, hull) > 0.01 for b in (P[r].side_box("front"), P[r].side_box("back")) if b)]
                 if names:  # the box test is a bound: a round area overlaps its bounding box at the corners only
                     (fx if P[r].fixed else mv).append(f"{r} courtyard or pad in keep-out '{names[0]}'")
+                for g in self.regions:
+                    out, inside, pads = self._region_cost(P[r], g)
+                    for v, what in ((out, "outside"), (inside, "inside"), (pads, "has pads of its nets outside")):
+                        if v > 0.01:
+                            (fx if P[r].fixed else mv).append(f"{r} {what} floorplan region '{g['name']}' ({v:.1f} mm2)")
         keys = list(self.pad_grp)
         seen = set()
         for i, a in enumerate(keys):
