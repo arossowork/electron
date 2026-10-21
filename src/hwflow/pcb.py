@@ -622,7 +622,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
 
     def fit(path, fnets, w):
         """Fit the tracks of `fnets` in the pass result `path` to width `w` where clearances allow (routing.widen).
-        Accepted when no net keeps more than NECK_MAX_MM of narrow copper. Returns (accepted, note text)."""
+        Accepted when no narrow stretch is longer than NECK_MAX_MM. Returns (accepted, note text)."""
         ko = {}
         for a in keepout._rule_areas(sexpr.loads(path.read_text()), ("tracks",)):
             for L in routing.pad_layers(a["layers"], copper):
@@ -631,8 +631,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         outline = box(edge, edge, b["width_mm"] - edge, b["height_mm"] - edge)
         stats = routing.widen(path, read_board(path), {n: w for n in fnets},
                               _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko)
-        text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow" for n, s in sorted(stats.items()))
-        return all(s[0] <= routing.NECK_MAX_MM for s in stats.values()), text
+        text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow, longest neck {s[2]:.1f} mm"
+                         for n, s in sorted(stats.items()))
+        return all(s[2] <= routing.NECK_MAX_MM for s in stats.values()), text
 
     def route_group(cur, tag, pnets, w, i):
         """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
@@ -653,7 +654,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                     best = pb
                     notes.append(f"{w} mm: {', '.join(open_nets)} routed with the router's pad-entry neck-down: {text}")
                 else:
-                    notes.append(f"{w} mm: router pad-entry neck-down rejected (over {routing.NECK_MAX_MM:g} mm narrow): {text}")
+                    notes.append(f"{w} mm: router pad-entry neck-down rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         for k, nw in enumerate(x for x in dict.fromkeys((neck, routing.NECK_FLOOR)) if x <= neck):
             open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if wide and best[2] else []
             if not open_nets:
@@ -666,7 +667,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 best = nb
                 notes.append(f"{w} mm: neck-down to {nw:g} mm: {text}")
             else:  # a long narrow stretch is a thinner net, not a neck: leave the net open and say so
-                notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (over {routing.NECK_MAX_MM:g} mm narrow): {text}")
+                notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         return best, notes
 
     for i, (w, gnets) in enumerate(passes):

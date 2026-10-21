@@ -128,7 +128,7 @@ should forbid only copper (tracks, vias, pads, pour), or BT1 must move.
 | Blocker | Fix | home-thermostat-3 copy, `--auto` (before -> after) |
 |---|---|---|
 | 230 V creepage to pads | `routing.isolation_keepouts`: isolation members route first; each router pass keeps its nets the group distance from the other side's pads, tracks and vias (named rule areas, net-filtered `disallow` rules, pass input only) | R10 1.38 mm FAIL -> 6.00 mm, 0 clearance / 0 creepage violations |
-| Fine-pitch escape (U2, 0.5 mm pitch) | open wide nets only: router pad-entry neck (power nets), then the track width, then 0.15 mm; `routing.widen` restores the class width where it fits; at most 3 mm narrow per net (`NECK_MAX_MM`), else the net stays open; a net walled in by its pass is routed first | SW_BOOST open -> routed (0.7 mm narrow), +3V3 routed (2.2 mm narrow) |
+| Fine-pitch escape (U2, 0.5 mm pitch) | open wide nets only: router pad-entry neck (power nets), then the track width, then 0.15 mm; `routing.widen` restores the class width where it fits; every piece of the necked nets fitted to the widest width that keeps clearance; no continuous narrow stretch over 3 mm (`NECK_MAX_MM`, per neck, not per net), else the net stays open; a net walled in by its pass is routed first | SW_BOOST open -> routed (0.7 mm narrow), +3V3 routed (2.2 mm narrow) |
 | Region placement | placer: with all member parts fixed, other parts stay out of the convex hull of the member pads (no new field) | C15 inside the 230 V area -> outside |
 | Round keep-out box test | violations confirmed on the polygon and the real courtyard | F1 / NOTCH_L false flag gone |
 | IR drop on split nets | "not measured, split in N islands" | |

@@ -76,7 +76,7 @@ def test_widen_keeps_the_neck_only_at_the_pinch(tmp_path):
     b = pcb.read_board(path)
     b["footprints"] = {"U1": {"pads": [_pad("B", 0.5, 0.55, w=0.3, layers=("F.Cu",))]}}
     stats = routing.widen(path, b, {"A": 0.6}, lambda a, c: 0.2, CU, 0.6, box(-5, -5, 15, 5), {})
-    narrow, total = stats["A"]
+    narrow, total, neck = stats["A"]
     assert abs(total - 10) < 1e-6 and 0 < narrow <= 1.5
     segs = pcb.read_board(path)["segments"]
     assert {s["w"] for s in segs} == {0.25, 0.6}
@@ -93,11 +93,11 @@ def test_widen_stays_inside_the_outline_and_keepouts(tmp_path):
     path.write_text(sexpr.dumps(["kicad_pcb", ["net", 1, sexpr.Q("A")], seg]))
     b = pcb.read_board(path)
     stats = routing.widen(path, b, {"A": 0.6}, lambda a, c: 0.2, CU, 0.6, box(-1, -0.2, 5, 1), {})
-    assert stats["A"] == (4.0, 4.0)  # the wide track would cross the outline edge at y = -0.2
+    assert stats["A"] == (4.0, 4.0, 4.0)  # the wide track would cross the outline edge at y = -0.2
     path.write_text(sexpr.dumps(["kicad_pcb", ["net", 1, sexpr.Q("A")], seg]))
     stats = routing.widen(path, b, {"A": 0.6}, lambda a, c: 0.2, CU, 0.6, box(-1, -1, 5, 1),
                           {"F.Cu": [box(-1, 0.2, 5, 1)]})
-    assert stats["A"] == (4.0, 4.0)
+    assert stats["A"] == (4.0, 4.0, 4.0)
 
 
 def test_pair_clearance_uses_the_isolation_distance():
@@ -121,7 +121,7 @@ def test_fit_narrows_a_wide_track_at_a_foreign_pad(tmp_path):
     b = pcb.read_board(path)
     b["footprints"] = {"U1": {"pads": [_pad("B", 0.5, 0.5, w=0.34, layers=("F.Cu",))]}}
     stats = routing.widen(path, b, {"A": 0.6}, lambda a, c: 0.2, CU, 0.6, box(-5, -5, 15, 5), {})
-    narrow, total = stats["A"]
+    narrow, total, neck = stats["A"]
     assert abs(total - 6) < 1e-6 and 0 < narrow <= 1.5
     segs = pcb.read_board(path)["segments"]
     pad = box(0.33, 0.33, 0.67, 0.67)
@@ -130,3 +130,11 @@ def test_fit_narrows_a_wide_track_at_a_foreign_pad(tmp_path):
         g = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2)
         assert g.distance(pad) >= 0.2 - 1e-6
     assert max(s["w"] for s in segs) == 0.6 and min(s["w"] for s in segs) < 0.6
+
+
+def test_longest_neck_is_per_connected_stretch():
+    # two 2 mm necks at two pads of one net (5.8 mm narrow in all would fail a per-net cap) and one 3.5 mm chain
+    lines = [((0, 0), (2, 0), "F.Cu"), ((10, 0), (12, 0), "F.Cu"),
+             ((20, 0), (21.5, 0), "F.Cu"), ((21.5, 0), (23.5, 0), "F.Cu"), ((23.5, 0), (25, 0), "B.Cu")]
+    assert abs(routing.longest_neck(lines) - 3.5) < 1e-6
+    assert abs(routing.longest_neck(lines[:2]) - 2.0) < 1e-6 and routing.longest_neck([]) == 0.0
