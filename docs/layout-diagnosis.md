@@ -34,3 +34,36 @@ Any verdict other than `layout` is `BLOCKED`. hwflow then refuses the next layou
 **Baseline thermostat:** one attempt, failing only on its 2 accepted keep-out errors. The verdict is `next: stage 7`, not blocked.
 
 **Crowding:** a courtyard share around each failing part was tried and dropped. The baseline parts, which routed clean, scored as high (1.4–1.56) as those of home-thermostat-3.
+
+## Cut capacity (`src/hwflow/cutcap.py`, check `cut`)
+
+**What it proves.** A cut is a curve across the board: a straight chord from edge to edge, or the boundary of a part's courtyard (or a cluster's) grown by 0.5, 1 or 2 mm. Every net with pads on both sides must cross it on some copper layer. If the copper the crossings need is more than the free length of the cut, no placement of the other parts and no router can route the board.
+
+**The bound.**
+- Demand, a lower bound: the sum over crossing nets of (w + c). w is the DRC minimum track width, 0.15 mm, because a neck of up to 3 mm may sit anywhere on a net. c is the smallest clearance two tracks may keep. Clearance rules that name only footprints are ignored, because they apply to pads. Ground nets with a pour are left out, and so are nets with a pad on the cut, which cross through that pad. Each net is counted once.
+- Capacity, an upper bound: on each copper layer, the cut inside the copper area (board inset by the 0.3 mm edge clearance), minus pads on that layer, holes, and rule areas that forbid both tracks and vias. Each free interval adds its length + c. An interval shorter than w adds nothing.
+- Why a crossing costs w + c: the centre line of the crossing net meets the cut at a point. A disk of diameter w around that point is that net's copper, and the cut runs through it for at least w. Copper of two different nets is at least c apart along the cut.
+- Isolation: a second test counts only the nets outside a `board.isolation` group. It also blocks the group's `clearance_mm` band around the group's pads.
+
+**Which cuts.** Before placement, the cuts come from fixed geometry only:
+- an x/y grid every 2 mm;
+- lines at the extents of the keep-outs and of large fixed parts (courtyard area ≥ 20 mm²);
+- the line through the nearest points of each pair of those, and of each one and each board edge;
+- the grown courtyards of the fixed parts.
+
+The demand counts only nets whose pads are all on fixed parts or on parts that a floorplan region keeps within one face. After placement, the same chords are tested, plus the grown courtyard of every part and of every cluster, all at that placement. A failing ring around one part goes back to `parts`. A failing chord or cluster goes back to `architecture`.
+
+**Interface.** `cutcap.findings(design, libs, parts=None, board=None)` returns a list of findings. Each finding has `check`, `back_to`, `refs`, `nets`, `need_mm`, `have_mm` and `msg`, plus `cut` and `per_layer`. `cutcap.margin(...)` lists the tightest cuts, failing or not, for calibration. One call takes about 1 s on these boards.
+
+**Calibration.** Nothing fired on any data set. The table gives the largest demand/capacity ratio found. A cut fires above 1.0.
+
+| data | largest need / have | tightest cut |
+|---|---|---|
+| baseline thermostat (130 × 40, 4 layers), pre-placement and routed board | 0.048 (4.2 / 88.2 mm, 14 nets) | chord x = 115.7 |
+| home-thermostat-3, pre-placement | 0.006 | NOTCH_L to BT1 |
+| home-thermostat-3, attempts 1–8 and the kept board | 0.035–0.047 (e.g. 8.05 / 170.8 mm, 23 nets) | chord BT1 to U1; on attempt 5 x = 22 (mains band); on attempt 6, around K2 |
+| the same boards, rings around U2 / U4 / U5 / M2 | ≤ 0.023 / 0.029 / 0.026 / 0.013 | |
+| 74 × 46, 2 layers (B's floorplan, 20 000-move placement) | 0.105 (3.85 / 36.6 mm, 11 nets) | U4 courtyard + 2 mm; chords 0.090 (y = 38, mains band) |
+| sensor_preamp (5000-move placement) | 0.025 | U2 courtyard + 0.5 mm |
+
+The bound is too weak to explain the home-thermostat-3 failures. U2, U4 and U5 fail on local geometry: escape between pads, and necks that conflict with neighbours. One crossing per net per cut does not see that. The 74 × 46 two-layer board (95 unrouted) is at about 10 % of a single cut's capacity. Its failure is total wire length against area, which no single cut sees either. The check stays as a cheap guard for gross cases, such as a part walled in by keep-outs or a narrow neck of board, and it gives zero false positives by construction.
