@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import kicad, pcb, placer, postlayout, repair, spice
+from . import budgets, kicad, pcb, placer, postlayout, repair, spice
 from .design import Design, check
 from .libs import Libs
 
@@ -289,6 +289,7 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
         if viol:
             tried.append(f"{W}x{H}: placement fails")
             break
+        d.budget_widths = budgets.widths(d, parts)[0]  # requirement budgets: track widths on this placement
         tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes, out)
         if unrouted:
             tried.append(f"{W}x{H}: {unrouted} unrouted")
@@ -362,6 +363,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
     pj.write_text(json.dumps({"__design_board__": list(declared), **{r: [p.x, p.y, p.r] for r, p in parts.items()}},
                              indent=1))
+    d.budget_widths, bud_w = budgets.widths(d, parts)  # requirement budgets: track widths on this placement
+    for r in bud_w:
+        print(f"[layout] budget {r['name']}: {r['msg']}")
     name = d.name
     board = out / f"{name}.kicad_pcb"
 
@@ -403,7 +407,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     iso = isolation_distances(d, board, drc)
-    return {"ok": not errs and not viol and all(r["ok"] for r in iso), "isolation": iso,
+    bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
+    return {"ok": not errs and not viol and all(r["ok"] for r in iso) and all(r["ok"] for r in bud), "isolation": iso,
+            "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
@@ -478,7 +484,9 @@ def _auto_attempt(k: int) -> dict:
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
-            + (", route cache" if r.get("route_cache") else ""))
+            + (", route cache" if r.get("route_cache") else "")
+            + "".join(f", budget {b['name']} {b['value']}/{b['limit']:g} {b['unit']}" + ("" if b["ok"] else " FAIL")
+                      for b in r.get("budgets") or []))
     return {"k": k + 1, "r": r, "line": line}
 
 
@@ -568,7 +576,8 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
             continue
         log.append(res["line"])
         r = res["r"]
-        key = (not r["ok"], r["drc_errors"] + r["unrouted"], r.get("post_warnings", 0),
+        key = (not r["ok"], r["drc_errors"] + r["unrouted"], sum(not b["ok"] for b in r.get("budgets") or []),
+               r.get("post_warnings", 0),
                len(r["placement_violations"]), r["vias"], k)
         if best is None or key < best[0]:
             best = (key, k + 1, r)
@@ -839,6 +848,10 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - isolation {r['rule']}{' (' + r['req'] + ')' if r.get('req') else ''}: copper to other nets "
                      f"{r['mm']:.2f} mm in plan (limit {r['limit']} mm; DRC clearance {r['drc_clearance']} violations"
                      f"{creep}; closest {r['between']}){'' if r['ok'] else ' FAIL'}")
+        for r in c.get("budget_widths") or []:
+            L.append(f"  - budget {r['name']} width: {r['msg']}")
+        for r in c.get("budgets") or []:
+            L.append(f"  - {r['msg']}")
         for v in c["placement_violations"][:5]:
             L.append(f"  - placement: {v}")
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
@@ -1007,6 +1020,10 @@ def trace(d: Design) -> dict:
         for rid in str(r.get("req") or "").replace(" ", "").split(","):
             if rid:
                 results.setdefault(rid, []).append((f"isolation {r['rule']} {r['mm']:.2f}/{r['limit']} mm", r["ok"]))
+    for r in (s.get("layout") or {}).get("budgets") or []:   # budgets: with req: (copper on the routed board)
+        for rid in str(r.get("req") or "").replace(" ", "").split(","):
+            if rid:
+                results.setdefault(rid, []).append((f"budget {r['name']} {r['value']}/{r['limit']:g} {r['unit']}", r["ok"]))
     post = {x["name"]: x["pass_post"] for x in (s.get("post") or {}).get("deltas", [])}
     rows = []
     for q in reqs:

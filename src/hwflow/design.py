@@ -78,6 +78,7 @@ class Design:
     path: Path
     raw: dict
     components: dict[str, Component] = field(default_factory=dict)
+    budget_widths: dict[str, float] = field(default_factory=dict)  # net -> mm from budgets: on the current placement
 
     @classmethod
     def load(cls, path: str | Path) -> "Design":
@@ -315,6 +316,8 @@ def check(design: Design, libs=None) -> list[dict]:
     from .floorplan import validate
     for msg in validate(design):
         add("error", "floorplan", msg)
+    from .budgets import check as budget_check
+    f += budget_check(design)
     # decoupling heuristic: each IC supply net has a cap to ground
     gnds = design.ground_nets()
     caps_on = {}

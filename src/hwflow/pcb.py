@@ -49,6 +49,7 @@ def net_classes(design: Design) -> dict[str, dict]:
             w = max(w, round(ipc2221_width_mm(float(info["current_a"]), b["copper_oz"]) + 0.049, 1))
         if info.get("class") == "power":
             w = max(w, float(b.get("power_track_mm", 0.4)))
+        w = max(w, (getattr(design, "budget_widths", None) or {}).get(net, 0.0))  # budgets.widths, set by the layout stage
         out[net] = {"width": w, "clearance": float(info.get("clearance_mm", b["clearance_mm"])),
                     "class": info.get("class", "signal")}
     return out

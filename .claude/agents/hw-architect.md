@@ -17,6 +17,7 @@ Write `architecture.md` with:
 - A power budget table, and for battery products, the runtime calculation.
 - A signal chain budget for analog paths: gain, offset, noise (sum of squares), and bandwidth, with the error contribution of each block.
 - An interface list: connector, pins, voltage levels, and protection.
+- Layout budgets: for every requirement whose margin layout can consume (a voltage drop or IR drop through copper, a decoupling distance), a `budgets:` entry in `design.yaml` (see `docs/design-yaml.md`, section budgets): the current path pad to pad, the current, the limit, and in `source` the arithmetic (requirement limit minus the expected circuit value). The circuit stage replaces the expected value with the simulated one.
 - The choice between architectures where there is one (for example LDO against buck), with the numbers that decide it.
 - When size, depth or isolation is tight, the board construction: one board with parts on one face, one board with parts on both faces, and two stacked boards (made as one panel, joined by a board-to-board header, which also separates mains from low voltage). Give the area and the depth stack of each, and the number that rejects each one you do not choose.
 
