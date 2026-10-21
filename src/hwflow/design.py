@@ -318,6 +318,9 @@ def check(design: Design, libs=None) -> list[dict]:
         add("error", "floorplan", msg)
     from .budgets import check as budget_check
     f += budget_check(design)
+    if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)
+        from .feasibility import check as feasibility_check
+        f += feasibility_check(design, libs)
     # decoupling heuristic: each IC supply net has a cap to ground
     gnds = design.ground_nets()
     caps_on = {}

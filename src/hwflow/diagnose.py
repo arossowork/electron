@@ -79,36 +79,10 @@ def persistent(per_attempt: list[dict[str, list[str]]]) -> list[str]:
 # ------------------------------------------------------------------ physics at a part
 
 def escape(fp: dict, classes: dict, clearance: float, default_w: float) -> list[dict]:
-    """Pads of footprint `fp` whose net class is wider than the widest straight escape. A pad inside a row (foreign
-    pads on both sides along the row) leaves across the row: the track is limited by the nearest foreign pad on
-    either side, 2 x (distance to that pad's edge along the row - clearance). A pad at the end of a row can leave
-    along the row and is not limited."""
-    pads = [p for p in fp["pads"] if p.get("net") and p.get("kind") != "np_thru_hole"]
-    out = []
-    for p in pads:
-        others = [q for q in pads if q is not p]
-        if not others:
-            continue
-        near = min(others, key=lambda q: math.hypot(q["x"] - p["x"], q["y"] - p["y"]))
-        ax = abs(near["x"] - p["x"]) >= abs(near["y"] - p["y"])  # the row runs along x
-
-        def along(q):
-            return (q["x"] - p["x"]) if ax else (q["y"] - p["y"])
-
-        row = [q for q in others if (abs(q["y"] - p["y"]) if ax else abs(q["x"] - p["x"])) < (p["h"] if ax else p["w"]) / 2]
-        foreign = [q for q in row if q["net"] != p["net"]]
-        if not (any(along(q) > 0 for q in foreign) and any(along(q) < 0 for q in foreign)):
-            continue
-        gap = min(abs(along(q)) - (q["w"] if ax else q["h"]) / 2 for q in foreign)
-        w_esc = max(2 * (gap - clearance), 0.0)
-        w = float(classes.get(p["net"], {}).get("width", default_w))
-        if w > w_esc + 1e-6:
-            pitch = min(abs(along(q)) for q in row)
-            half = (p["w"] if ax else p["h"]) / 2
-            out.append({"pad": p["number"], "net": p["net"], "width": round(w, 3), "escape": round(w_esc, 3),
-                        "pitch": round(pitch, 3),
-                        "pitch_needed": round(w / 2 + clearance + half, 2)})  # this pad's width, the same clearance
-    return out
+    """Pads of footprint `fp` whose net class is wider than the widest straight escape between its foreign
+    neighbours in a row (partescape.pad_escape, which also runs before layout in `hwflow check`)."""
+    from .partescape import pad_escape
+    return pad_escape(fp, classes, clearance, default_w)
 
 
 def _side(design, ref) -> str:

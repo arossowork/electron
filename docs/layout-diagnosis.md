@@ -34,3 +34,21 @@ Any verdict other than `layout` is `BLOCKED`. hwflow then refuses the next layou
 **Baseline thermostat:** one attempt, failing only on its 2 accepted keep-out errors. The verdict is `next: stage 7`, not blocked.
 
 **Crowding:** a courtyard share around each failing part was tried and dropped. The baseline parts, which routed clean, scored as high (1.4–1.56) as those of home-thermostat-3.
+
+## Part escape, before layout (`partescape.py`)
+
+`hwflow check` runs the escape proofs of every part from its library footprint, pin nets and net widths (`feasibility.py` registers them; each finding is an error with code `escape`). They need no placement, so they give the same answer before and after it. Each one is a proof, not a heuristic: the copper a part needs (a lower bound) against the room its own pads leave (an upper bound).
+
+- Free room is computed in configuration space: the centre line of a track of width w must start inside its pad and keep w/2 + clearance from every foreign pad. Same-net pads are no obstacle.
+- Every approximation gives more room, never less. Foreign pads are drawn no larger than their copper (rounded corners, inscribed polygons). The start pad is drawn no smaller (its bounding box). The clearance is the smallest in force at the part, including custom DRC rules that lower it. Neighbouring parts, tracks and the board edge are left out.
+
+| Check | Fires when | Back to |
+|---|---|---|
+| `pad_escape` | Two or more pads (`ESCAPE_PINS`) on one part have nets wider than the board track, sit between foreign pads in a row, and no track of the net's width leaves them, either out of the part or to a via. Each needs a neck. Pads at the board track width are left out. | parts: the pitch named, or circuit: narrower nets |
+| `part_escape`, walled pads | Not even a track of the board minimum width (`min_track_mm`, else 0.15 mm) leaves a pad, as with BGA inner balls or a thermal pad with no same-net ring pin. Each such net then needs a via in its pocket. Via centres keep via_dia/2 + clearance from foreign pads and are never inside an SMD pad, unless `thermal_vias` declares that pad. Vias of different nets are at least via_dia + clearance apart, so a region V holds at most area(V grown by half that) / area(disc) of them. The check fires when the nets exceed that count. | parts |
+| `part_escape`, perimeter | Every net that leaves the part crosses the convex hull of its pads, and each crossing takes at least w_min + clearance of the hull. The check fires when the nets that must cross on the pad layer need more than the hull perimeter. Nets with a through-hole pad, and as many as the via bound inside the hull allows, are left out. The sum is over the whole perimeter, not per side, because a net may leave around a corner. | parts |
+
+**Calibration** (pre-layout `hwflow check`, and the same call on the routed boards):
+- home-thermostat-3 fires `pad_escape` on U2 (SOT-563, 0.5 mm pitch). SW_BOOST is 0.6 mm and +3V3 is 0.4 mm, and at most 0.36 mm leaves pads 2 and 5. That figure uses the 0.15 mm clearance of the design's `fine_pitch` DRC rule at U2. The layout diagnosis used the board's 0.2 mm, which gives 0.26 mm. The fix is a package with pitch ≥ 0.62 mm, or narrower nets. The check fires on the design and on all 8 attempt boards. Nothing else fires. U4 and U5 (WSON-8, 0.5 mm) carry +3V3 0.4 mm only on row-end pads 1 and 8, and their thermal pads leave at the open ends of the package. U1 (ESP32-C3-MINI-1) has room under the module.
+- The baseline thermostat (gate-abc) gives 0 findings before layout and 0 on its routed board. The examples, the other thermostat projects, and the floorplan variants also give none, except the variants copied from home-thermostat-3, which carry the same U2.
+- Cost: under 0.1 s per design.
