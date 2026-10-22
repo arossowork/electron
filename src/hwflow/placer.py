@@ -36,6 +36,7 @@ class Part:
     pad_size: dict | None = None  # pad number -> (w, h) at rot 0, for the copper-to-edge check
     sides: dict | None = None     # "front"/"back" -> (w, h, cx, cy) courtyard per board side
     tht: frozenset = frozenset()  # numbers of the plated through-hole pads (KiCad: not inside another courtyard)
+    nocu: frozenset = frozenset()  # numbers of the pads without copper (a keep-out marker's dummy pad)
 
     def side_box(self, side: str):
         if not self.sides or side not in self.sides:
@@ -125,7 +126,9 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
             sides = {}  # nothing to place: a keep-out or cutout marker has no copper and no body
         part = Part(c.ref, x1 - x0 + 2 * margin, y1 - y0 + 2 * margin, (x0 + x1) / 2, (y0 + y1) / 2, pads,
                     edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes,
-                    sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"))
+                    sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"),
+                    nocu=frozenset(p["number"] for p in fp["pads"]
+                                   if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])))
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))

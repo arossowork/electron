@@ -331,6 +331,8 @@ def cut_pad_findings(design, parts: dict, edge_mm: float) -> list[str]:
         if c is None or not p.fixed:
             continue
         for num in p.pads:
+            if num in p.nocu:  # no copper: nothing to keep from the edge
+                continue
             x, y = p.pad(num)
             w, h = (p.pad_size or {}).get(num, (0.0, 0.0))
             if p.r % 180:

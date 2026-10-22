@@ -138,6 +138,10 @@ def test_cut_pad_warning_and_structure_key(tmp_path):
     d.components["R1"].data["placement"] = {"x": 6.5, "y": 3, "fixed": True}
     f = [x for x in check(d, Libs(design=d)) if x["code"] == "cut-pad"]
     assert f and all(x["sev"] == "warn" and "slot" in x["msg"] for x in f)
+    from hwflow import floorplan, placer
+    parts = placer.build_parts(d, Libs(design=d))
+    parts["R1"].nocu = frozenset(parts["R1"].pads)            # a keep-out marker's dummy pads have no copper
+    assert floorplan.cut_pad_findings(d, parts, 0.3) == []
     assert diagnose.structure_key(d0) != diagnose.structure_key(d)
     d0.raw["nets"]["AMP_OUT"]["layers"] = ["F.Cu"]
     k1 = diagnose.structure_key(d0)
