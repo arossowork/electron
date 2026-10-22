@@ -14,7 +14,7 @@ components: {...}              # parts, keyed by reference designator
 sim: {...}                     # SPICE testbench and measures
 optimize: {...}                # optional optimization problem
 libraries: [lib]               # optional project libraries (symbols/ and footprints/ inside)
-placement: {weights: {...}}    # optional placer tuning
+placement: {weights: {...}}    # optional placer tuning (e.g. corridor: 30, see docs/layout-diagnosis.md)
 blocks: {...}                  # optional layout blocks bound to components (see below)
 budgets: [...]                 # optional requirement margins that layout may spend (see below)
 approval: {cost_pct: 5, size_mm: 0.5}   # optional tolerances of the approval check (see below)
