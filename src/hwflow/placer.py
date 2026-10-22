@@ -37,6 +37,8 @@ class Part:
     sides: dict | None = None     # "front"/"back" -> (w, h, cx, cy) courtyard per board side
     tht: frozenset = frozenset()  # numbers of the plated through-hole pads (KiCad: not inside another courtyard)
     nocu: frozenset = frozenset()  # numbers of the pads without copper (a keep-out marker's dummy pad)
+    cu: dict | None = None        # pad number -> its copper layers (frozenset, "*" = every layer); None: every layer
+    round: frozenset = frozenset()  # numbers of the circular pads (the corridor term measures them as circles)
 
     def side_box(self, side: str):
         if not self.sides or side not in self.sides:
@@ -113,12 +115,16 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
             continue
         fp = libs.footprint(c.get("footprint"))
         x0, y0, x1, y1 = fp["bbox"]
-        pads, sizes = {}, {}
+        pads, sizes, cu, rnd = {}, {}, {}, set()
         for p in fp["pads"]:
             if p["number"] and p["number"] not in pads:
                 pads[p["number"]] = (p["x"], p["y"])
                 w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
                 sizes[p["number"]] = (w, h)
+                lays = [l for l in p["layers"] if l.endswith(".Cu")]
+                cu[p["number"]] = frozenset({"*"} if p["kind"] == "thru_hole" or "*.Cu" in lays else lays)
+                if p.get("shape") == "circle":
+                    rnd.add(p["number"])
         pl = c.get("placement") or {}
         sides = {k: (b[2] - b[0] + 2 * margin, b[3] - b[1] + 2 * margin, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
                  for k, b in fp.get("sides", {}).items()}
@@ -128,7 +134,8 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
                     edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes,
                     sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"),
                     nocu=frozenset(p["number"] for p in fp["pads"]
-                                   if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])))
+                                   if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])),
+                    cu=cu, round=frozenset(rnd))
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))
@@ -190,13 +197,55 @@ def _overlap(a, b) -> float:
     return w * h if w > 0 and h > 0 else 0.0
 
 
+def _pt_seg(px, py, ax, ay, bx, by) -> float:
+    dx, dy = bx - ax, by - ay
+    L2 = dx * dx + dy * dy
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / L2))
+    return math.hypot(ax + t * dx - px, ay + t * dy - py)
+
+
+def _seg_box(ax, ay, bx, by, b) -> float:
+    """Distance from segment a-b to box b (0 when they meet; Liang-Barsky clip, then endpoints and corners)."""
+    x0, y0, x1, y1 = b
+    dx, dy = bx - ax, by - ay
+    t0, t1, hit = 0.0, 1.0, True
+    for p, q in ((-dx, ax - x0), (dx, x1 - ax), (-dy, ay - y0), (dy, y1 - ay)):
+        if p == 0:
+            if q < 0:
+                hit = False
+                break
+        elif p < 0:
+            t0 = max(t0, q / p)
+        else:
+            t1 = min(t1, q / p)
+        if t0 > t1:
+            hit = False
+            break
+    if hit:
+        return 0.0
+    d = min(math.hypot(max(x0 - x, 0.0, x - x1), max(y0 - y, 0.0, y - y1)) for x, y in ((ax, ay), (bx, by)))
+    return min([d] + [_pt_seg(cx, cy, ax, ay, bx, by) for cx, cy in _corners(b)])
+
+
+def _seg_pad(s, b, rnd) -> float:
+    """Distance from segment s (ax, ay, bx, by) to a pad: its box, or the circle inscribed in it when `rnd`."""
+    if rnd:
+        return max(0.0, _pt_seg((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, *s) - (b[2] - b[0]) / 2)
+    return _seg_box(*s, b)
+
+
 REGION_PAD_W = 10.0  # floorplan region term: weight of the pad area of a region's nets outside the region
 ISO_MARGIN = 0.5  # mm added to the creepage (else clearance) of a board.isolation group
 CLEAR_MARGIN = 0.1  # mm added to the net class clearance between the pads of two nets
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
+CORRIDOR_CAP = 2.0  # mm beyond the track width: a channel that wide is open, copper farther away is not looked at
+CORRIDOR_MAX_PADS = 16  # a constrained net with more pads has no corridor term (a spread net, not a channel)
+CORRIDOR_RES = 0.05  # mm, raster of the fixed-part corridor block check
+CORRIDOR_TOL = 0.02  # mm the block check grants each spacing (raster rounding: a block is never a rounding artefact)
 
 
 _REPORTED: set = set()  # fixed-part violations already printed, once per process
+_BLOCKS: dict = {}  # corridor block check results per net and fixed-part placement (the check rasterizes the board)
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
 
 
@@ -215,7 +264,8 @@ class Placer:
         self.rng = random.Random(seed)
         self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
         self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
-                   "congestion": 1.0, "keepout": 400.0, "isolation": 400.0, "separation": 4.0, "thermal": 4.0, "antenna": 4.0}
+                   "congestion": 1.0, "keepout": 400.0, "isolation": 400.0, "separation": 4.0, "thermal": 4.0, "antenna": 4.0,
+                   "corridor": 30.0}
         self.wt.update(weights or {})
         gnds = design.ground_nets()
         self.nets = []
@@ -264,6 +314,7 @@ class Placer:
         self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
         self._init_rules(getattr(parts, "areas", ()))
         self._init_seps()
+        self._init_corridors()
 
     # ---- separation terms (L12): aggressor/sensitive, heat/sensor, antenna/relay+mains --------------------------
 
@@ -416,6 +467,285 @@ class Placer:
         self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.pad_grp else {}
         from . import floorplan
         self.regions, self.region_start = floorplan.placer_regions(self.d, self.parts)  # design.yaml floorplan.regions
+
+    # ---- routing corridors of the constrained nets ----------------------------------------------------------------
+
+    def _init_corridors(self):
+        """Constrained nets: the members of a board.isolation group (or a drc_rules isolation pattern), the nets with
+        `layers` and the nets of a floorplan region with `nets`. self.cor: (net, pads, track width, layers it may use,
+        static obstacles [(polygon, spacing, name)]): the conductive keep-outs its region keeps the isolation from and
+        the rule areas without tracks on every layer it may use."""
+        from . import floorplan, pcb
+        d = self.d
+        self.cor, self.cor_part = [], {}
+        groups = pcb.isolation_needs(d)
+        lays = pcb.net_layers(d)
+        regs = floorplan.net_regions(d)
+        cons = {n for g in groups for n in g["members"]} | set(lays) | {n for r in regs for n in r["nets"]}
+        nets = d.nets()
+        cons &= set(nets)
+        if not cons:
+            return
+        cls = pcb.net_classes(d)
+        self._cor_base = float(d.board["clearance_mm"])
+        self._cor_cl = {n: v["clearance"] for n, v in cls.items()}
+        self._cor_gid, self._cor_mm, self._cor_btw, self._cor_need = {}, [], [], {}
+        for i, g in enumerate(groups):
+            for n in g["members"]:
+                self._cor_gid.setdefault(n, i)
+            self._cor_mm.append(g["mm"])
+            self._cor_btw.append(g["between"] or 0.0)
+        self._cor_reach = max(self._cor_mm + self._cor_btw + list(self._cor_cl.values()) + [self._cor_base])
+        self.cor_net = {(r, p): n for n, conns in nets.items() for r, p in conns}
+        allcu = frozenset(pcb.cu_layers(int(d.board.get("layers", 2))))
+        cond = floorplan.conductive_needs(d)
+        areas = [a for a in getattr(self.parts, "areas", ()) if "tracks" in a["forbids"]]
+        from shapely.geometry import box
+        for n in sorted(cons):
+            P = self.parts
+            pads = [(r, p) for r, p in nets[n] if r in P and p in P[r].pads and p not in P[r].nocu]
+            if not 2 <= len(pads) <= CORRIDOR_MAX_PADS:
+                continue
+            L = frozenset(lays.get(n) or allcu)
+            static = [(c["poly"], float(c["mm"]), f"conductive keep-out {c['keepout']}") for c in cond if n in c["nets"]]
+            static += [(a["poly"] if a.get("poly") is not None else box(*a["box"]), self._cor_base, f"rule area {a['name']}")
+                       for a in areas if "*.Cu" in a["layers"] or L <= set(a["layers"])]
+            self.cor.append((n, pads, float(cls[n]["width"]), L, static))
+        for k, (_, pads, *_) in enumerate(self.cor):
+            for r in {r for r, _ in pads}:
+                self.cor_part.setdefault(r, []).append(k)
+
+    def _cor_space(self, n, m) -> float:
+        """Copper distance a track of constrained net n keeps to copper of net m (None: a pad without a net): the
+        between_mm of their isolation group (two different members), the group distance (a member and another
+        net), else the larger net class clearance. Router values, without the placer margins."""
+        v = self._cor_need.get((n, m))
+        if v is None:
+            base = self._cor_base
+            v = max(self._cor_cl.get(n, base), self._cor_cl.get(m, base) if m else base)
+            gn, gm = self._cor_gid.get(n), self._cor_gid.get(m)
+            if gn is not None and gn == gm:
+                v = max(v, self._cor_btw[gn])
+            else:
+                v = max([v] + [self._cor_mm[g] for g in (gn, gm) if g is not None])
+            self._cor_need[(n, m)] = v
+        return v
+
+    def _cor_blocks(self, part, pn, L) -> bool:
+        """Pad pn of `part` blocks a track that may only use the layers L (a through-hole pad blocks every layer)."""
+        cu = part.cu.get(pn) if part.cu else None
+        return cu is None or "*" in cu or L <= cu
+
+    def _cor_eval(self, k, buckets):
+        """(shortfall mm, links, bucket cells looked at) of constrained net k. The links are the edges of the minimum
+        spanning tree of its pads: (free width, pad a, pad b, limiting copper). The free width of a link is the best
+        of the straight and the two L-shaped channels; a channel's width is twice the smallest distance, along it,
+        from the track centre line to foreign copper grown by the spacing that copper needs (_cor_space; conductive
+        keep-outs by their isolation). The shortfall is the sum over links of what is missing to the track width."""
+        n, pads, w, L, static = self.cor[k]
+        P = self.parts
+        pts = [P[r].pad(p) for r, p in pads]
+        tree, rest = [], {i: (math.hypot(pts[i][0] - pts[0][0], pts[i][1] - pts[0][1]), 0) for i in range(1, len(pts))}
+        while rest:  # Prim
+            i = min(rest, key=lambda j: rest[j][0])
+            tree.append((rest.pop(i)[1], i))
+            for j in rest:
+                dj = math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1])
+                if dj < rest[j][0]:
+                    rest[j] = (dj, i)
+        half = (w + CORRIDOR_CAP) / 2
+        G = self._cor_reach + half + 0.5
+        xs, ys = [x for x, _ in pts], [y for _, y in pts]
+        B = self.bucket
+        cells = [(i, j) for i in range(int((min(xs) - G) // B), int((max(xs) + G) // B) + 1)
+                 for j in range(int((min(ys) - G) // B), int((max(ys) + G) // B) + 1)]
+        own = set(pads)
+        obs = []  # (pad box, round, spacing, label)
+        for q in sorted(set().union(*(buckets.get(c, ()) for c in cells))):
+            pq = P[q]
+            for pn in pq.pads:
+                if pn in pq.nocu or (q, pn) in own:
+                    continue
+                m = self.cor_net.get((q, pn))
+                if m == n or not self._cor_blocks(pq, pn, L):
+                    continue
+                need = self._cor_space(n, m)
+                obs.append((self._pad_box(pq, pn), pn in pq.round, need, f"{q}.{pn} {m or 'no net'} {need:g} mm"))
+        total, links = 0.0, []
+        for a, b in tree:
+            W, lim = self._cor_link(pts[a], pts[b], self._cor_trim(pads[a]), self._cor_trim(pads[b]), w, obs, static)
+            total += max(0.0, w - W)
+            links.append((W, pads[a], pads[b], lim))
+        return total, links, set(cells)
+
+    def _cor_trim(self, key) -> float:
+        """Half the smaller side of a pad: the channel starts at the pad edge (the pad's own escape is not placement)."""
+        w, h = (self.parts[key[0]].pad_size or {}).get(key[1], (0.0, 0.0))
+        return min(w, h) / 2
+
+    @staticmethod
+    def _cor_link(a, b, ta, tb, w, obs, static):
+        """(free width, limiting copper) of the best channel from a to b: straight, then the two L shapes when the
+        straight one is narrower than the track. Segment ends at the pads are trimmed by ta and tb."""
+        half = (w + CORRIDOR_CAP) / 2
+        paths = [[a, b]]
+        if abs(a[0] - b[0]) > 1e-6 and abs(a[1] - b[1]) > 1e-6:
+            paths += [[a, (b[0], a[1]), b], [a, (a[0], b[1]), b]]
+        best = (-math.inf, None)
+        for path in paths:
+            pts = [list(p) for p in path]
+            for i, t in ((0, ta), (len(pts) - 1, tb)):  # trim the first and the last segment at the pads
+                j = 1 if i == 0 else i - 1
+                L = math.hypot(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1])
+                if L > 1e-9:
+                    f = min(t, L / 2 if len(pts) == 2 else L) / L
+                    pts[i] = [pts[i][0] + (pts[j][0] - pts[i][0]) * f, pts[i][1] + (pts[j][1] - pts[i][1]) * f]
+            segs = [(*pts[i], *pts[i + 1]) for i in range(len(pts) - 1)]
+            x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
+            y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
+            m, lim = half, None
+            for bx, rnd, need, label in obs:
+                g = need + m
+                if bx[0] - g > x1 or bx[2] + g < x0 or bx[1] - g > y1 or bx[3] + g < y0:
+                    continue
+                v = min(_seg_pad(s, bx, rnd) for s in segs) - need
+                if v < m:
+                    m, lim = v, label
+            if static:
+                from shapely.geometry import LineString
+                line = None
+                for poly, need, name in static:
+                    g, (px0, py0, px1, py1) = need + m, poly.bounds
+                    if px0 - g > x1 or px1 + g < x0 or py0 - g > y1 or py1 + g < y0:
+                        continue
+                    line = line or LineString([(s[0], s[1]) for s in segs] + [(segs[-1][2], segs[-1][3])])
+                    v = poly.distance(line) - need
+                    if v < m:
+                        m, lim = v, f"{name} {need:g} mm"
+            if 2 * m > best[0]:
+                best = (2 * m, lim)
+            if best[0] >= w:
+                break
+        return best
+
+    def _bucket_map(self) -> dict:
+        """The spatial hash of the current positions, from scratch (cost_full and the reports)."""
+        out: dict = {}
+        for r in self.parts:
+            for bk in self._buckets(r):
+                out.setdefault(bk, set()).add(r)
+        return out
+
+    def corridors(self) -> list[dict]:
+        """Narrowest channel of each constrained net at the current placement: [{net, a, b, width, track, limit, ok,
+        msg}] (width in mm, the best of the straight and L-shaped channels of its narrowest link)."""
+        bk = self._bucket_map()
+        out = []
+        for k, (n, _, w, L, _) in enumerate(self.cor):
+            W, a, b, lim = min(self._cor_eval(k, bk)[1], key=lambda x: x[0])
+            W = max(0.0, W)
+            ok = W >= w - 1e-6
+            wtxt = f">= {W:.2f}" if lim is None else f"{W:.2f}"
+            out.append({"net": n, "a": f"{a[0]}.{a[1]}", "b": f"{b[0]}.{b[1]}", "width": round(W, 2), "track": w,
+                        "limit": lim, "ok": ok,
+                        "msg": f"{n} {a[0]}.{a[1]}-{b[0]}.{b[1]} on {'/'.join(sorted(L))}: channel {wtxt} mm for a "
+                               f"{w:g} mm track" + (f", limited by {lim}" if lim else "") + ("" if ok else " NARROW")})
+        return out
+
+    def corridor_blocks(self) -> list[str]:
+        """Constrained nets whose pads are all on fixed parts and that no track of their width joins on the layers it
+        may use past the copper of the fixed parts: pads grown by the spacing each needs (_cor_space) plus half the
+        track, conductive keep-outs and rule areas without tracks grown the same way, the board edge. A flood fill on a
+        CORRIDOR_RES raster (8-connected, each spacing CORRIDOR_TOL short, so a block is never a rounding artefact).
+        No placement opens such a channel: it is a placement violation and the layout stage does not route."""
+        if not self.cor:
+            return []
+        P = self.parts
+        fixed = sorted(r for r in P if self._unit(P[r]).fixed)
+        sig = tuple((r, P[r].x, P[r].y, P[r].r) for r in fixed)
+        out = []
+        for k, (n, pads, w, L, static) in enumerate(self.cor):
+            if not all(self._unit(P[r]).fixed for r, _ in pads):
+                continue
+            key = (str(getattr(self.d, "dir", "")), n, w, self.W, self.H, sig)
+            if key not in _BLOCKS:
+                _BLOCKS[key] = self._block_check(k, fixed)
+            if _BLOCKS[key]:
+                out.append(_BLOCKS[key])
+        return out
+
+    def _block_check(self, k, fixed) -> str | None:
+        import shapely
+        from scipy import ndimage
+
+        from . import pcb
+        n, pads, w, L, static = self.cor[k]
+        P, h = self.parts, CORRIDOR_RES
+        nx, ny = max(1, math.ceil(self.W / h)), max(1, math.ceil(self.H / h))
+        X, Y = (np.arange(nx) + 0.5) * h, (np.arange(ny) + 0.5) * h
+        blocked = np.zeros((nx, ny), bool)
+        e = max(self._cor_base, pcb.EDGE_CLEARANCE_MM) + w / 2 - CORRIDOR_TOL
+        blocked[X < e, :] = blocked[X > self.W - e, :] = True
+        blocked[:, Y < e] = blocked[:, Y > self.H - e] = True
+
+        def sub(b, g):
+            i0, i1 = max(0, int((b[0] - g) / h)), min(nx, math.ceil((b[2] + g) / h) + 1)
+            j0, j1 = max(0, int((b[1] - g) / h)), min(ny, math.ceil((b[3] + g) / h) + 1)
+            return i0, i1, j0, j1
+
+        def mark(arr, b, rnd, g):
+            i0, i1, j0, j1 = sub(b, g)
+            if i0 >= i1 or j0 >= j1:
+                return
+            xx, yy = X[i0:i1, None], Y[None, j0:j1]
+            if rnd:
+                dist = np.hypot(xx - (b[0] + b[2]) / 2, yy - (b[1] + b[3]) / 2) - (b[2] - b[0]) / 2
+            else:
+                dist = np.hypot(np.maximum(np.maximum(b[0] - xx, xx - b[2]), 0), np.maximum(np.maximum(b[1] - yy, yy - b[3]), 0))
+            arr[i0:i1, j0:j1] |= dist < g
+        own = set(pads)
+        for q in fixed:
+            pq = P[q]
+            for pn in pq.pads:
+                m = self.cor_net.get((q, pn))
+                if pn in pq.nocu or (q, pn) in own or m == n or not self._cor_blocks(pq, pn, L):
+                    continue
+                mark(blocked, self._pad_box(pq, pn), pn in pq.round, self._cor_space(n, m) + w / 2 - CORRIDOR_TOL)
+        for poly, need, _ in static:
+            g = poly.buffer(need + w / 2 - CORRIDOR_TOL)
+            i0, i1, j0, j1 = sub(g.bounds, 0)
+            if i0 < i1 and j0 < j1:
+                xx, yy = np.meshgrid(X[i0:i1], Y[j0:j1], indexing="ij")
+                blocked[i0:i1, j0:j1] |= shapely.contains_xy(g, xx, yy)
+        cells = []
+        for r, p in pads:  # a pad's own copper is where its track starts
+            pad = np.zeros((nx, ny), bool)
+            mark(pad, self._pad_box(P[r], p), p in P[r].round, 1e-9)
+            if not pad.any():
+                i, j = min(nx - 1, int(P[r].pad(p)[0] / h)), min(ny - 1, int(P[r].pad(p)[1] / h))
+                pad[max(i, 0), max(j, 0)] = True
+            cells.append(pad)
+        free = ~blocked
+        for c in cells:
+            free |= c
+        lab, _ = ndimage.label(free, structure=np.ones((3, 3), bool))
+        comp = [set(np.unique(lab[c])) - {0} for c in cells]
+        group = list(range(len(pads)))  # union of the pads that share a free component
+        for i in range(len(pads)):
+            for j in range(i + 1, len(pads)):
+                if comp[i] & comp[j]:
+                    gi, gj = group[i], group[j]
+                    group = [gi if g == gj else g for g in group]
+        if len(set(group)) == 1:
+            return None
+        parts = {}
+        for i, g in enumerate(group):
+            parts.setdefault(g, []).append(f"{pads[i][0]}.{pads[i][1]}")
+        sides = " | ".join(", ".join(v) for v in parts.values())
+        lim = min(self._cor_eval(k, self._bucket_map())[1], key=lambda x: x[0])[3]
+        return (f"corridor {n} blocked between fixed parts: no {w:g} mm track on {'/'.join(sorted(L))} joins {sides} "
+                f"(pads grown by their spacing + half the track, conductive keep-outs and rule areas, board edge"
+                + (f"; narrowest straight or L channel limited by {lim}" if lim else "") + ")")
 
     # ---- congestion (RUDY) ------------------------------------------------------------------------------------
 
@@ -715,6 +1045,10 @@ class Placer:
             self._pair_scan(r, None)
         for r in P:
             self._iso_scan(r, None)
+        self.cor_val, self.cor_zone = [0.0] * len(self.cor), [set() for _ in self.cor]
+        for k in range(len(self.cor)):
+            self.cor_val[k], _, self.cor_zone[k] = self._cor_eval(k, self.buckets)
+        self.t_cor = sum(self.cor_val)
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
@@ -735,7 +1069,8 @@ class Placer:
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
         saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-                 self.t_iso, self.t_sep)
+                 self.t_iso, self.t_sep, self.t_cor)
+        old_bk = {r: self.part_buckets[r] for r in moved} if self.cor else {}
         nets, decs, groups, seps = set(), set(), set(), set()
         for r in moved:
             nets.update(self.part_nets[r])
@@ -808,6 +1143,14 @@ class Placer:
         for r in moved:
             done.add(r)
             self._iso_scan(r, log, skip=done)
+        if self.cor:  # a corridor changes when a pad of its net moves or a part enters or leaves the cells it looks at
+            touched = {bk for r in moved for bk in (*old_bk[r], *self.part_buckets[r])}
+            own = {k for r in moved for k in self.cor_part.get(r, ())}
+            for k in range(len(self.cor)):
+                if k in own or not touched.isdisjoint(self.cor_zone[k]):
+                    log.append(("cor", k, self.cor_val[k], self.cor_zone[k]))
+                    self.cor_val[k], _, self.cor_zone[k] = self._cor_eval(k, self.buckets)
+                    self.t_cor += self.cor_val[k] - log[-1][2]
         self._log, self._saved = log, saved
         return self._total()
 
@@ -840,6 +1183,8 @@ class Placer:
                 self.sep_val[e[1]] = e[2]
             elif kind == "grp":
                 self.grp_cost[e[1]] = e[2]
+            elif kind == "cor":
+                self.cor_val[e[1]], self.cor_zone[e[1]] = e[2], e[3]
             elif kind == "pair_add":
                 key = e[1]
                 del self.pairs[key]
@@ -858,14 +1203,14 @@ class Placer:
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
         (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-         self.t_iso, self.t_sep) = self._saved
+         self.t_iso, self.t_sep, self.t_cor) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
                 + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso
-                + self.t_sep)
+                + self.t_sep + w["corridor"] * self.t_cor)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -900,6 +1245,8 @@ class Placer:
         for i, a in enumerate(keys):
             for b in keys[i + 1:]:
                 c += self.wt["isolation"] * self._iso_short(a, b)
+        bk = self._bucket_map() if self.cor else {}
+        c += self.wt["corridor"] * sum(self._cor_eval(k, bk)[0] for k in range(len(self.cor)))
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
@@ -1134,7 +1481,7 @@ class Placer:
                     out.append(f"{a} pad {n} copper closer than {ce} mm to the board edge")
                     break
         mv, fx = self._rule_violations()
-        return out + mv
+        return out + mv + self.corridor_blocks()
 
     def _rule_violations(self):
         """(movable, fixed-only) keep-out and isolation violations of the current placement. A violation that involves
@@ -1200,6 +1547,8 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         if best is None or key < best[0]:
             best = (key, parts, cost, v, pl)
     key, parts, cost, v, pl = best
+    for c in pl.corridors():
+        print(f"[place] corridor {c['msg']}")
     for f in pl.fixed_violations():
         if f not in _REPORTED:
             _REPORTED.add(f)

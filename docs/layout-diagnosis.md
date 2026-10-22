@@ -15,6 +15,14 @@ A failing layout build ends with a diagnosis (`src/hwflow/diagnose.py`) that ans
 
 `feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`, `corridor`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`, `corridor`), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
 
+## Routing corridors of constrained nets (placer)
+
+The placer (`placer.py`, `_cor_eval`) keeps a channel open for the constrained nets: members of a `board.isolation` group (or of a `drc_rules` isolation pattern), nets with `layers`, and nets of a floorplan region with `nets` (2 to 16 pads). For each edge of the minimum spanning tree of the net's pads, it measures the free width of the straight channel and of the two L-shaped channels and keeps the best one. The free width is twice the smallest distance from the centre line to foreign copper, minus the spacing that copper needs. Foreign copper means pads that block every layer the net may use (a through-hole pad blocks all layers, an SMD pad only its own layer), conductive keep-outs and rule areas without tracks. The spacing is `between_mm` between two members of a group, the group distance between a member and another net, and the larger net class clearance otherwise. These are router values, without the placer margins. The channel starts at each pad's edge. A channel narrower than the track adds `weights.corridor` (default 30) × the shortfall in mm to the cost (`placement: {weights: {corridor: ...}}`). The cost is incremental: a net is recomputed only when one of its pads moves, or when a part enters or leaves the spatial-hash cells around it. On home-thermostat-3 this costs about 10 % of the annealing speed.
+
+The straight and L-shaped channels are only a proxy. A `NARROW` line does not prove that the router will fail, since it may go around. The layout stage prints the narrowest channel of each constrained net and writes it to `status.json` (`layout.corridors`) and `REPORT.md`.
+
+When every pad of a constrained net is on a fixed part, `corridor_blocks` checks the net on a 0.05 mm raster flood fill. It grows every fixed obstacle by its spacing plus half the track (each spacing 0.02 mm short) and includes the board edge. If the net's pads fall into separate free components, no placement can open the channel. The check then adds a placement violation `corridor <net> blocked between fixed parts`, and the layout stage writes the unrouted board and stops with `not routed: ...` instead of starting the router. Moving the fixed parts, or changing the net's `layers`, width or spacing, is a design decision.
+
 ## Verdict
 
 | Finding | Back to |
