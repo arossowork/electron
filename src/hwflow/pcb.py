@@ -399,8 +399,8 @@ def isolation_needs(design: Design) -> list[dict]:
     `A.NetName == 'P' && B.NetName != 'P'` (P a glob; the largest value per P)."""
     import fnmatch
     import re
-    out = [{"members": g["members"], "mm": float(g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"])}
-           for g in isolation_groups(design)
+    out = [{"members": g["members"], "mm": float(g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"]),
+            "name": g["name"]} for g in isolation_groups(design)
            if g["members"] and (g["creepage_mm"] is not None or g["clearance_mm"] is not None)]
     nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
     pat = re.compile(r"A\.NetName\s*==\s*'([^']+)'\s*&&\s*B\.NetName\s*!=\s*'([^']+)'")
@@ -411,7 +411,8 @@ def isolation_needs(design: Design) -> list[dict]:
         m = pat.fullmatch(cond.group(1).strip()) if cond else None
         if mm and m and m.group(1) == m.group(2):
             raw[m.group(1)] = max(raw.get(m.group(1), 0.0), float(mm.group(1)))
-    out += [{"members": [n for n in nets if fnmatch.fnmatchcase(n, p)], "mm": mm} for p, mm in raw.items()]
+    out += [{"members": [n for n in nets if fnmatch.fnmatchcase(n, p)], "mm": mm, "name": f"drc_rules {p}"}
+            for p, mm in raw.items()]
     return [g for g in out if g["members"]]
 
 

@@ -345,6 +345,31 @@ def conductive_needs(design) -> list[dict]:
     return out
 
 
+def net_regions(design) -> list[dict]:
+    """The regions that declare `nets` (not keep-outs): [{region, nets, poly}], poly the declared shape in board
+    coordinates (keep-outs and isolation bands not taken out: postlayout.conductive_clearances checks those). The
+    copper of those nets belongs inside it; postlayout.region_excursions measures what lies outside."""
+    if not any(isinstance(r, dict) and r.get("nets")
+               for r in ((design.raw.get("floorplan") or {}).get("regions") or [])):
+        return []
+    try:
+        fp = parse(design)
+    except FloorplanError:
+        return []
+    from shapely import affinity
+    bd = {b["name"]: b for b in fp["boards"]} if fp else {}
+    names = sorted(set(design.nets()) | set(design.raw.get("nets") or {}))
+    out = []
+    for r in fp["regions"] if fp else []:
+        if not r["nets"] or r["kind"] == "keepout":
+            continue
+        nets = [n for n in names if any(fnmatch.fnmatchcase(n, g) for g in r["nets"])]
+        b = bd[r["board"]]
+        if nets:
+            out.append({"region": r["name"], "nets": nets, "poly": affinity.translate(r["geom"], b["x"], b["y"])})
+    return out
+
+
 def cut_pad_findings(design, parts: dict, edge_mm: float) -> list[str]:
     """Pads of fixed parts closer than `edge_mm` (the copper-to-edge clearance) to a cut region, or inside one."""
     cs = cuts(design)

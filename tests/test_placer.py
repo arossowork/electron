@@ -450,3 +450,24 @@ def test_fixed_parts_overlap_only_by_their_own_courtyards():
     a, b = part(0), part(4.1)                        # real courtyards 0.1 mm apart, margins overlap 0.4 mm
     assert _side_overlap(a, b) > 0.01                # the placer's boxes overlap
     assert _side_overlap(a, b, m) == 0               # the footprints' own courtyards do not
+
+
+def test_isolation_message_names_the_rule_and_never_applies_within_a_group(tmp_path):
+    """home-thermostat-3 reported "J1.3/K2.A2 0.32 mm short" for a mains pad and a relay coil pad (K2_COIL_B, not a
+    member). An isolation group keeps its distance to the other nets only: two members (different nets of one group)
+    need nothing beyond the net class clearance, and the message names the group and the nets."""
+    nets = {n: {"class": "signal"} for n in ("HV1", "HV2", "LV1", "LV2")}
+    d, libs = _iso_design(tmp_path, nets, {"isolation": [{"name": "mains-SELV", "nets": ["HV1", "HV2"],
+                                                          "creepage_mm": 3.0}]})
+    parts = placer.build_parts(d, libs)
+    pl = placer.Placer(d, parts, 30, 20, seed=1)
+    ra = next(k for k in pl.pad_grp if pl.pad_net[k] == "HV1" and k[0] == "RC")
+    rb = next(k for k in pl.pad_grp if pl.pad_net[k] == "HV2" and k[0] == "RB")
+    rl = next(k for k in pl.pad_grp if pl.pad_net[k] == "LV1" and k[0] == "RL")
+    for r, (x, y) in (("RC", (5, 10)), ("RB", (6.5, 10)), ("RL", (5, 12))):
+        parts[r].x, parts[r].y, parts[r].r, parts[r].fixed = x, y, 0, True
+    assert pl._iso_short(ra, rb) == 0.0                      # members of one group: no isolation between them
+    assert pl._iso_short(ra, rl) > 0                         # member to another net: 3.0 + margin
+    msg = pl._iso_rule(ra, rl)
+    assert "mains-SELV" in msg and "HV1 / LV1" in msg and f"3 mm + {placer.ISO_MARGIN:g} mm" in msg
+    assert any("mains-SELV" in v and v.startswith("isolation RC.") for v in pl.fixed_violations())

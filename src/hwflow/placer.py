@@ -380,11 +380,12 @@ class Placer:
                 self.keepouts.append((*a["box"], max(0.0, 1 - n / nl)))
         from . import pcb
         net_of = {(r, p): n for n, conns in self.d.nets().items() for r, p in conns}
-        self.iso_need, gid = [], {}
+        self.iso_need, self.iso_name, gid = [], [], {}
         for g in pcb.isolation_needs(self.d):
             for n in g["members"]:
                 gid.setdefault(n, len(self.iso_need))
             self.iso_need.append(g["mm"] + ISO_MARGIN)
+            self.iso_name.append(g.get("name") or f"isolation group {len(self.iso_name) + 1}")
         base = float(self.d.board["clearance_mm"])  # a net class with a larger clearance keeps it to every other net
         cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
         self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
@@ -601,6 +602,19 @@ class Placer:
         ba, bb = self._pad_box(self.parts[a[0]], a[1]), self._pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
+
+    def _iso_rule(self, a, b) -> str:
+        """The rule behind _iso_short(a, b), for the message: the isolation group (between a member and a pad outside
+        the group; never between two members of one group) or the net class clearance."""
+        ga, gb = self.pad_grp[a], self.pad_grp[b]
+        nets = f"{self.pad_net[a]} / {self.pad_net[b]}"
+        gs = [g for g in (ga, gb) if g >= 0 and ga != gb]
+        if gs:
+            g = max(gs, key=lambda k: self.iso_need[k])
+            if self.iso_need[g] >= max(self.pad_cl[a], self.pad_cl[b]):
+                return (f"{nets}: isolation {self.iso_name[g]} {self.iso_need[g] - ISO_MARGIN:g} mm + {ISO_MARGIN:g} "
+                        f"mm placer margin between a member and another net, pad bounding boxes")
+        return f"{nets}: net class clearance {max(self.pad_cl[a], self.pad_cl[b]):g} mm (with margin), pad bounding boxes"
 
     def _iso_scan(self, r, log, skip=()):
         if not self.iso_parts:
@@ -1144,7 +1158,8 @@ class Placer:
                 if v > 0.01 and (a[0], b[0]) not in seen:
                     seen.add((a[0], b[0]))
                     both_fixed = P[a[0]].fixed and P[b[0]].fixed
-                    (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short of clearance or creepage")
+                    (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short "
+                                                      f"({self._iso_rule(a, b)})")
         return mv, fx
 
     def fixed_violations(self) -> list[str]:
