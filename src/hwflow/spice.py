@@ -240,6 +240,7 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
         lines.append(f"echo HWF {m['name']} $&{m['name']}")
     for ln in analysis.get("control") or []:
         lines.append(_subst(ln, nm, nets))
+    lines.append("quit")  # without it `ngspice -b` runs an op after the control section, which may not converge
     lines += [".endc", ".end", ""]
     return "\n".join(lines), unmodeled
 

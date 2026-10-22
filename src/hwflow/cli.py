@@ -404,6 +404,10 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             rep["text"] = repair.summary(rep)
             print(f"[layout] {rep['text']}")
         _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep})
+    from .prune import prune
+    tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
+    if pruned:
+        print(f"[layout] removed {pruned} dangling tracks or vias")
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     iso = isolation_distances(d, board, drc)
