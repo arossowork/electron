@@ -67,6 +67,7 @@ class Parts(dict):
     and the layout blocks that move as one unit (`blocks`, see blocks.units)."""
     areas: list = ()
     blocks: list = ()
+    libs = None
 
 
 @dataclass
@@ -144,6 +145,7 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
         parts[c.ref] = part
     from . import blocks
     parts.blocks = blocks.units(design, libs, parts, margin)
+    parts.libs = libs  # the corridor proof of corridor_blocks reads the footprints again
     return parts
 
 
@@ -240,12 +242,10 @@ CLEAR_MARGIN = 0.1  # mm added to the net class clearance between the pads of tw
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
 CORRIDOR_CAP = 2.0  # mm beyond the track width: a channel that wide is open, copper farther away is not looked at
 CORRIDOR_MAX_PADS = 16  # a constrained net with more pads has no corridor term (a spread net, not a channel)
-CORRIDOR_RES = 0.05  # mm, raster of the fixed-part corridor block check
-CORRIDOR_TOL = 0.02  # mm the block check grants each spacing (raster rounding: a block is never a rounding artefact)
 
 
 _REPORTED: set = set()  # fixed-part violations already printed, once per process
-_BLOCKS: dict = {}  # corridor block check results per net and fixed-part placement (the check rasterizes the board)
+_BLOCKS: dict = {}  # corridor block verdicts per net and fixed-part placement (the corridor proof is slow)
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
 
 
@@ -649,103 +649,47 @@ class Placer:
             out.append({"net": n, "a": f"{a[0]}.{a[1]}", "b": f"{b[0]}.{b[1]}", "width": round(W, 2), "track": w,
                         "limit": lim, "ok": ok,
                         "msg": f"{n} {a[0]}.{a[1]}-{b[0]}.{b[1]} on {'/'.join(sorted(L))}: channel {wtxt} mm for a "
-                               f"{w:g} mm track" + (f", limited by {lim}" if lim else "") + ("" if ok else " NARROW")})
+                               f"{w:g} mm track" + (f", limited by {lim}" if lim else "")
+                               + ("" if ok else " narrow (a neck may be needed)")})
         return out
 
     def corridor_blocks(self) -> list[str]:
-        """Constrained nets whose pads are all on fixed parts and that no track of their width joins on the layers it
-        may use past the copper of the fixed parts: pads grown by the spacing each needs (_cor_space) plus half the
-        track, conductive keep-outs and rule areas without tracks grown the same way, the board edge. A flood fill on a
-        CORRIDOR_RES raster (8-connected, each spacing CORRIDOR_TOL short, so a block is never a rounding artefact).
-        No placement opens such a channel: it is a placement violation and the layout stage does not route."""
+        """Constrained nets whose pads are all on fixed parts and that the corridor proof (corridor.py, the check of
+        `hwflow check`: the same copper model, spacings, between_mm, conductive keep-outs, layers and neck allowance)
+        cannot connect past the copper of the fixed parts alone. A track may neck down to the board minimum for at
+        most routing.NECK_MAX_MM per stretch, as the router does, so a corridor only a neck passes is no block. No
+        placement opens a blocked corridor: it is a placement violation and the layout stage does not route."""
         if not self.cor:
             return []
         P = self.parts
         fixed = sorted(r for r in P if self._unit(P[r]).fixed)
+        nets = tuple((n, w) for n, pads, w, *_ in self.cor if all(self._unit(P[r]).fixed for r, _ in pads))
+        if not nets:
+            return []
         sig = tuple((r, P[r].x, P[r].y, P[r].r) for r in fixed)
+        key = (str(getattr(self.d, "dir", "")), nets, self.W, self.H, sig)
+        if key not in _BLOCKS:
+            _BLOCKS[key] = self._block_check([n for n, _ in nets], fixed)
+        return list(_BLOCKS[key])
+
+    def _block_check(self, nets, fixed) -> list[str]:
+        from . import corridor
+        libs = getattr(self.parts, "libs", None)
+        if libs is None:
+            from .libs import Libs
+            libs = Libs(design=self.d)
+        model = corridor.Model(self.d, libs, parts=self.parts, use=set(fixed))
         out = []
-        for k, (n, pads, w, L, static) in enumerate(self.cor):
-            if not all(self._unit(P[r]).fixed for r, _ in pads):
+        for n in nets:
+            nodes = corridor._nodes(model, self.d, n, {})
+            if nodes is None or len(nodes) < 2:
                 continue
-            key = (str(getattr(self.d, "dir", "")), n, w, self.W, self.H, sig)
-            if key not in _BLOCKS:
-                _BLOCKS[key] = self._block_check(k, fixed)
-            if _BLOCKS[key]:
-                out.append(_BLOCKS[key])
+            w = model.width(n)
+            if corridor._connects(model, n, nodes, w, w > model.floor + corridor.EPS):
+                continue
+            f = corridor._finding(model, self.d, n, nodes, w, fixed_only=True)
+            out.append(f"corridor {n} blocked between fixed parts: {f['msg']}")
         return out
-
-    def _block_check(self, k, fixed) -> str | None:
-        import shapely
-        from scipy import ndimage
-
-        from . import pcb
-        n, pads, w, L, static = self.cor[k]
-        P, h = self.parts, CORRIDOR_RES
-        nx, ny = max(1, math.ceil(self.W / h)), max(1, math.ceil(self.H / h))
-        X, Y = (np.arange(nx) + 0.5) * h, (np.arange(ny) + 0.5) * h
-        blocked = np.zeros((nx, ny), bool)
-        e = max(self._cor_base, pcb.EDGE_CLEARANCE_MM) + w / 2 - CORRIDOR_TOL
-        blocked[X < e, :] = blocked[X > self.W - e, :] = True
-        blocked[:, Y < e] = blocked[:, Y > self.H - e] = True
-
-        def sub(b, g):
-            i0, i1 = max(0, int((b[0] - g) / h)), min(nx, math.ceil((b[2] + g) / h) + 1)
-            j0, j1 = max(0, int((b[1] - g) / h)), min(ny, math.ceil((b[3] + g) / h) + 1)
-            return i0, i1, j0, j1
-
-        def mark(arr, b, rnd, g):
-            i0, i1, j0, j1 = sub(b, g)
-            if i0 >= i1 or j0 >= j1:
-                return
-            xx, yy = X[i0:i1, None], Y[None, j0:j1]
-            if rnd:
-                dist = np.hypot(xx - (b[0] + b[2]) / 2, yy - (b[1] + b[3]) / 2) - (b[2] - b[0]) / 2
-            else:
-                dist = np.hypot(np.maximum(np.maximum(b[0] - xx, xx - b[2]), 0), np.maximum(np.maximum(b[1] - yy, yy - b[3]), 0))
-            arr[i0:i1, j0:j1] |= dist < g
-        own = set(pads)
-        for q in fixed:
-            pq = P[q]
-            for pn in pq.pads:
-                m = self.cor_net.get((q, pn))
-                if pn in pq.nocu or (q, pn) in own or m == n or not self._cor_blocks(pq, pn, L):
-                    continue
-                mark(blocked, self._pad_box(pq, pn), pn in pq.round, self._cor_space(n, m) + w / 2 - CORRIDOR_TOL)
-        for poly, need, _ in static:
-            g = poly.buffer(need + w / 2 - CORRIDOR_TOL)
-            i0, i1, j0, j1 = sub(g.bounds, 0)
-            if i0 < i1 and j0 < j1:
-                xx, yy = np.meshgrid(X[i0:i1], Y[j0:j1], indexing="ij")
-                blocked[i0:i1, j0:j1] |= shapely.contains_xy(g, xx, yy)
-        cells = []
-        for r, p in pads:  # a pad's own copper is where its track starts
-            pad = np.zeros((nx, ny), bool)
-            mark(pad, self._pad_box(P[r], p), p in P[r].round, 1e-9)
-            if not pad.any():
-                i, j = min(nx - 1, int(P[r].pad(p)[0] / h)), min(ny - 1, int(P[r].pad(p)[1] / h))
-                pad[max(i, 0), max(j, 0)] = True
-            cells.append(pad)
-        free = ~blocked
-        for c in cells:
-            free |= c
-        lab, _ = ndimage.label(free, structure=np.ones((3, 3), bool))
-        comp = [set(np.unique(lab[c])) - {0} for c in cells]
-        group = list(range(len(pads)))  # union of the pads that share a free component
-        for i in range(len(pads)):
-            for j in range(i + 1, len(pads)):
-                if comp[i] & comp[j]:
-                    gi, gj = group[i], group[j]
-                    group = [gi if g == gj else g for g in group]
-        if len(set(group)) == 1:
-            return None
-        parts = {}
-        for i, g in enumerate(group):
-            parts.setdefault(g, []).append(f"{pads[i][0]}.{pads[i][1]}")
-        sides = " | ".join(", ".join(v) for v in parts.values())
-        lim = min(self._cor_eval(k, self._bucket_map())[1], key=lambda x: x[0])[3]
-        return (f"corridor {n} blocked between fixed parts: no {w:g} mm track on {'/'.join(sorted(L))} joins {sides} "
-                f"(pads grown by their spacing + half the track, conductive keep-outs and rule areas, board edge"
-                + (f"; narrowest straight or L channel limited by {lim}" if lim else "") + ")")
 
     # ---- congestion (RUDY) ------------------------------------------------------------------------------------
 

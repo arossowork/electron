@@ -230,7 +230,9 @@ def _blockers(model, net, at, layer, reach) -> list[dict]:
     return sorted(out, key=lambda x: x["d"])
 
 
-def _finding(model, design, net, nodes, w) -> dict:
+def _finding(model, design, net, nodes, w, fixed_only=False) -> dict:
+    """`fixed_only`: the model holds the fixed parts only (placer.corridor_blocks), as before placement."""
+    alone = model.pre or fixed_only
     necks = w > model.floor + EPS
     have = _have(model, net, nodes, w, necks)
     plain = _have(model, net, nodes, w, False) if necks else have
@@ -258,10 +260,10 @@ def _finding(model, design, net, nodes, w) -> dict:
     msg = (f"{net} ({w:g} mm track, layers {', '.join(lays)}): between pads {a} and {b} the widest corridor"
            f"{where} fits a track of {plain:.2f} mm{neck}, need {w:g} mm. Bounded by "
            f"{'; '.join(why[:6]) or 'the board edge'}. No router can route it with "
-           f"{'the fixed parts and keep-outs alone' if model.pre else 'this placement'}. Options: {opts}")
+           f"{'the fixed parts and keep-outs alone' if alone else 'this placement'}. Options: {opts}")
     return {"check": NAME, "back_to": back, "refs": refs, "nets": [net], "need_mm": round(w, 3),
             "have_mm": round(have, 3), "plain_mm": round(plain, 3), "msg": msg, "at": at, "layer": layer,
-            "fixed": model.pre, "blockers": [{k: v for k, v in x.items() if k != "d"} for x in blk]}
+            "fixed": alone, "blockers": [{k: v for k, v in x.items() if k != "d"} for x in blk]}
 
 
 def margin(design, libs, parts=None, board=None) -> list[dict]:

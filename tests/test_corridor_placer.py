@@ -107,19 +107,45 @@ def test_corridor_speed(tmp_path):
     assert rate[True] >= 0.5 * rate[False], rate
 
 
-def test_corridor_fixed_block(tmp_path):
-    """A fixed row of pins across the board at 2.54 mm pitch (0.84 mm between pads): a 1 mm track with 0.2 mm
-    clearance cannot pass, a 0.2 mm one can. Only the first is a placement violation."""
-    hdr = {"W": {"value": "hdr", "symbol": "Connector_Generic:Conn_01x08",
-                 "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical",
-                 "pins": {str(i): f"W{i}" for i in range(1, 9)},
-                 "placement": {"x": W / 2, "y": (H - 7 * 2.54) / 2, "rot": 0, "fixed": True}}}
-    d, libs = _load(tmp_path, hdr)
+def _header(cols):
+    """A fixed pin header across the board (8 rows at 2.54 mm pitch, 0.84 mm between pads; `cols` columns): a 1 mm
+    track with 0.2 mm clearance passes between two rows only as a neck (0.15 mm), and only if the header is thin."""
+    return {"W": {"value": "hdr", "symbol": "Connector_Generic:Conn_01x08" if cols == 1 else
+                  "Connector_Generic:Conn_02x08_Odd_Even",
+                  "footprint": f"Connector_PinHeader_2.54mm:PinHeader_{cols}x08_P2.54mm_Vertical",
+                  "pins": {str(i): f"W{i}" for i in range(1, 8 * cols + 1)},
+                  "placement": {"x": W / 2 - (cols - 1) * 1.27, "y": (H - 7 * 2.54) / 2, "rot": 0, "fixed": True}}}
+
+
+def _verdicts(d, libs):
+    """(placer, its corridor violations, the corridor proof's widest SIG track with necks, as `hwflow check`)."""
+    from hwflow import corridor
     parts = placer.build_parts(d, libs)
     pl = placer.Placer(d, parts, W, H)
     v = [x for x in pl.violations() if x.startswith("corridor ")]
-    assert len(v) == 1 and "SIG blocked between fixed parts" in v[0] and "J1.1 | J2.1" in v[0], v
-    assert not pl.corridors()[0]["ok"]
-    d, libs = _load(tmp_path, hdr, sig_w=0.2)
-    parts = placer.build_parts(d, libs)
-    assert not [x for x in placer.Placer(d, parts, W, H).violations() if x.startswith("corridor ")]
+    row = [r for r in corridor.margin(d, libs) if r["net"] == "SIG"]
+    return pl, v, row[0]["necks"]
+
+
+def test_corridor_fixed_neck_passes(tmp_path):
+    """One column: the full-width channel is closed but the neck between two pins (about 1.7 mm) is within
+    routing.NECK_MAX_MM. The proof and the placer agree: no block; the channel is reported narrow, not blocked."""
+    d, libs = _load(tmp_path, _header(1))
+    pl, v, necks = _verdicts(d, libs)
+    assert not v, v
+    assert necks >= 1.0, necks
+    c = pl.corridors()[0]
+    assert not c["ok"] and "narrow (a neck may be needed)" in c["msg"], c
+
+
+def test_corridor_fixed_long_neck_blocks(tmp_path):
+    """Two columns and a 1.8 mm track: the narrow stretch runs across both columns (about 4.5 mm; the pocket between
+    four round pins fits only 1.49 mm), longer than routing.NECK_MAX_MM. The proof and the placer agree: blocked, a
+    placement violation; a 0.2 mm track passes without a neck."""
+    d, libs = _load(tmp_path, _header(2), sig_w=1.8)
+    _, v, necks = _verdicts(d, libs)
+    assert necks < 1.8, necks
+    assert len(v) == 1 and "SIG blocked between fixed parts" in v[0] and "J1.1" in v[0] and "J2.1" in v[0], v
+    d, libs = _load(tmp_path, _header(2), sig_w=0.2)
+    _, v, necks = _verdicts(d, libs)
+    assert not v and necks >= 0.2, (v, necks)
