@@ -437,3 +437,16 @@ def test_parts_stay_out_of_the_area_between_fixed_isolation_pads(tmp_path):
     assert pl._ko_cost("RL") > 0 and any("isolation group 1 area" in v for v in pl.violations())
     pl.run(4000)
     assert pl._ko_cost("RL") < 0.01 and not any("isolation group" in v for v in pl.violations())
+
+
+def test_fixed_parts_overlap_only_by_their_own_courtyards():
+    from hwflow.placer import COURTYARD_MARGIN, Part, _side_overlap
+    m = COURTYARD_MARGIN
+
+    def part(x, fixed=True):
+        # a 4 mm courtyard (+ the placer margin on each side), touching its neighbour's courtyard edge at x + 4
+        w = 4 + 2 * m
+        return Part(ref="P", w=w, h=w, cx=0, cy=0, pads={}, x=x, y=0, fixed=fixed, sides={"front": (w, w, 0, 0)})
+    a, b = part(0), part(4.1)                        # real courtyards 0.1 mm apart, margins overlap 0.4 mm
+    assert _side_overlap(a, b) > 0.01                # the placer's boxes overlap
+    assert _side_overlap(a, b, m) == 0               # the footprints' own courtyards do not

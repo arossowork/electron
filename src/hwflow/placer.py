@@ -137,19 +137,25 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[
     return parts
 
 
-def _side_overlap(pa: "Part", pb: "Part") -> float:
+def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
     """Courtyard overlap on the same board side only (a back-side holder may sit under top parts), plus the area of
-    the through-hole pads of one part inside a courtyard of the other on either side (KiCad pth_inside_courtyard)."""
+    the through-hole pads of one part inside a courtyard of the other on either side (KiCad pth_inside_courtyard).
+    `shrink` takes that much off each courtyard side (COURTYARD_MARGIN gives the footprint's own courtyard)."""
+    def yard(p, side):
+        b = p.side_box(side)
+        if b is None or not shrink:
+            return b
+        return (b[0] + shrink, b[1] + shrink, b[2] - shrink, b[3] - shrink)
     total = 0.0
     for side in ("front", "back"):
-        ba, bb = pa.side_box(side), pb.side_box(side)
+        ba, bb = yard(pa, side), yard(pb, side)
         if ba and bb:
             total += _overlap(ba, bb)
     for a, b in ((pa, pb), (pb, pa)):
         if a.tht and b.sides:
             for n in a.tht:
                 pad = _pad_box(a, n)
-                total += sum(_overlap(pad, c) for c in (b.side_box("front"), b.side_box("back")) if c)
+                total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
     return total
 
 
@@ -1082,7 +1088,10 @@ class Placer:
         boxes = {r: P[r].box() for r in refs}
         for i, a in enumerate(refs):
             for b in refs[i + 1:]:
-                if not self._same(a, b) and _side_overlap(P[a], P[b]) > 0.01:
+                # two fixed parts: the design put them there, so only their own courtyards count (KiCad's test);
+                # the placer's margin around them is no violation that any placement could repair
+                shrink = COURTYARD_MARGIN if P[a].fixed and P[b].fixed else 0.0
+                if not self._same(a, b) and _side_overlap(P[a], P[b], shrink) > 0.01:
                     out.append(f"courtyard overlap {a}/{b}")
             # copper must stay inside the board with the copper-to-edge clearance; a courtyard (body)
             # may overhang on purpose, for example a connector flush with the edge
