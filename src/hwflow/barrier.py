@@ -323,6 +323,16 @@ class Model:
     def width(self, net) -> float:
         return float(self.classes.get(net, {}).get("width", self.design.board["track_mm"]))
 
+    @staticmethod
+    def neck_len(a, b, k) -> float:
+        """A lower bound of the length of a narrow stretch from wide area `a` to wide area `b` through the narrow
+        component `k`: the distance of a and b."""
+        return a.distance(b)
+
+    def net_copper(self, net) -> list[str]:
+        """The copper layers `net` may use (every layer here; corridor.Model narrows it to nets.<name>.layers)."""
+        return self.copper
+
     def clearance(self, net, other, ref=None, iso=True) -> float:
         """Smallest clearance the rules allow between `net` copper and a pad of `other` (None: no net) of part `ref`."""
         a = self.classes.get(net, {}).get("clearance", self.base_clr)
@@ -379,7 +389,7 @@ class Model:
     def vias(self, net, drop=frozenset()):
         """V: centres where a through via of `net` fits on every layer."""
         g = None
-        for L in self.copper:
+        for L in self.net_copper(net):
             f = self.free(net, L, "tracks", drop)
             ko = [] if "keepout" in drop else self.keepouts(net, L, "vias", {d[1] for d in drop if isinstance(d, tuple)})
             if ko:
@@ -407,7 +417,8 @@ class Model:
                 par[ra] = rb
 
         comps = {}
-        for L in self.copper:
+        layers = self.net_copper(net)
+        for L in layers:
             F = self.free(net, L, "tracks", drop)
             Cw = F.buffer(-w / 2, quad_segs=QS)
             own = [n["own"] for n in nodes if L in n["layers"]]
@@ -426,11 +437,11 @@ class Model:
                     for i in range(len(adj)):
                         for j in range(i + 1, len(adj)):
                             a, b = adj[i], adj[j]
-                            if find((L, a)) != find((L, b)) and cs[a].distance(cs[b]) <= routing.NECK_MAX_MM:
+                            if find((L, a)) != find((L, b)) and self.neck_len(cs[a], cs[b], Kb) <= routing.NECK_MAX_MM:
                                 union((L, a), (L, b))
 
         def comp_of(L, g):
-            for i, c in enumerate(comps[L]):
+            for i, c in enumerate(comps.get(L, ())):  # a layer the net may not use reaches nothing
                 if c.intersects(g):
                     return (L, i)
             return None
@@ -445,7 +456,7 @@ class Model:
             if v.is_empty:
                 continue
             pt = v.representative_point()
-            cs = [comp_of(L, pt) for L in self.copper]
+            cs = [comp_of(L, pt) for L in layers]
             cs = [c for c in cs if c is not None]
             for c in cs[1:]:
                 union(cs[0], c)
@@ -457,7 +468,7 @@ class Model:
     def gap(self, net, nodes, groups, w, drop=frozenset()):
         """Where two groups come closest at width w: (x, y) midway between their components, for the message."""
         best = None
-        for L in self.copper:
+        for L in self.net_copper(net):
             F = self.free(net, L, "tracks", drop)
             Wg = unary_union([F.buffer(-w / 2, quad_segs=QS)] + [n["own"] for n in nodes if L in n["layers"]])
             cs = [g for g in getattr(Wg, "geoms", [Wg])]
@@ -546,15 +557,21 @@ def _cause(model: Model, net, nodes, w, necks) -> tuple[str, str, list[str]]:
 
 def findings(design, libs, parts=None, board=None) -> list[dict]:
     """Barrier and channel findings for every net with at least two pads of known position (see the module text)."""
+    return with_budgets(design, parts, lambda: _findings(design, libs, parts, board))
+
+
+def with_budgets(design, parts, fn):
+    """fn() with the budget widths of this placement set on `design` (the layout stage sets them the same way), for
+    this check only."""
     saved = getattr(design, "budget_widths", None)
     if parts is not None and not saved and design.raw.get("budgets"):
-        try:  # the budget widths of this placement (the layout stage sets them the same way), for this check only
+        try:
             from . import budgets
             design.budget_widths = budgets.widths(design, parts)[0]
         except Exception:  # noqa: BLE001 - a budget that cannot be estimated adds no width
             pass
     try:
-        return _findings(design, libs, parts, board)
+        return fn()
     finally:
         design.budget_widths = saved if saved is not None else {}
 

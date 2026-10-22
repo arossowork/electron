@@ -13,7 +13,7 @@ A failing layout build ends with a diagnosis (`src/hwflow/diagnose.py`) that ans
 
 ## Proofs before and after layout
 
-`feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
+`feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`, `corridor`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`, `corridor`), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
 
 ## Verdict
 
@@ -124,3 +124,35 @@ The demand counts only nets whose pads are all on fixed parts or on parts that a
 | sensor_preamp (5000-move placement) | 0.025 | U2 courtyard + 0.5 mm |
 
 The bound is too weak to explain the home-thermostat-3 failures. U2, U4 and U5 fail on local geometry: escape between pads, and necks that conflict with neighbours. One crossing per net per cut does not see that. The 74 × 46 two-layer board (95 unrouted) is at about 10 % of a single cut's capacity. Its failure is total wire length against area, which no single cut sees either. The check stays as a cheap guard for gross cases, such as a part walled in by keep-outs or a narrow neck of board, and it gives zero false positives by construction.
+
+## Corridor proof (`src/hwflow/corridor.py`, check `corridor`)
+
+**Why a module of its own.** `barrier` models the rules that apply to every net. Some nets carry rules of their own that shrink their room further. `corridor.Model` subclasses `barrier.Model` and adds those rules, so the room model and its upper-bound argument are reused, not copied. It reports only nets that `barrier` does not already cut apart, so the same net is never reported twice. `barrier` itself is unchanged, apart from two hooks: `net_copper` (the layers a net may use) and `neck_len` (the neck length bound).
+
+**Which nets.** Members of a `board.isolation` group with `between_mm`, nets of a floorplan region that declares `nets`, and nets with `layers`.
+
+**The added rules.** Each is a hard rule of the flow: the router enforces it and the post-layout check fails on it.
+- `between_mm`: a member keeps this distance from the pads of the group's other members. It is lowered, like every barrier clearance, by any clearance rule that could override it (a `memberOfFootprint` rule, or a rule this module cannot read).
+- Conductive isolation: the nets of a region with `isolation_mm` stay outside every `conductive: true` keep-out or cut grown by that distance, on every layer (`floorplan.conductive_needs`). The keep-out is drawn as its inscribed polygon, so the grown area is never too large.
+- `nets.<name>.layers`: the net's tracks lie only on those layers. Its pads connect through the union of those layers. A via counts only for a net with two or more layers, wherever its disc fits on those layers. The other layers are left out of the via test, which gives more via sites, never fewer.
+
+The region outline itself is no barrier. Copper outside the region is only a `region-nets` warning.
+
+**The test.** Can the net's pads connect at its track width, with a neck down to the minimum track for up to `NECK_MAX_MM` per stretch? The flow accepts such a neck, even on a current net, where it is a `track-current` warning. The neck length bound is tighter than barrier's, and still a lower bound. It is the distance between where the narrow component touches one wide side and where it touches the other, not the distance between the two sides anywhere on the board. The finding gives:
+- `need_mm`: the track width.
+- `have_mm`: the widest track that connects with necks (bisection, 0.01 mm).
+- `plain_mm`: the widest track that connects without necks.
+- `at` and `layer`: the narrowest place of that corridor.
+- `blockers` and `refs`: the pads, keep-outs, conductive keep-outs and cuts that bound it there, each with its spacing rule.
+
+The verdict is back to `architecture` when all blockers are fixed, else to `layout`. After placement, `fixed` says whether the finding holds with fixed copper alone. `corridor.margin(...)` lists every constrained net's widest corridor, failing or not.
+
+**Calibration.**
+- **home-thermostat-3, before placement** (0.6 s; 1.0 s with `margin`): it fires on AC_ROOM1. The net is 1.0 mm wide, F.Cu only, and runs from K1.14 to J1.2.
+  - There are three ways across the row at y ≈ 13.
+  - Left of F1.2, the 6 mm band around `notch_l` and K1.13 (`between_mm`) close the way.
+  - The slot between F1.2 and F1.1 is 3.08 mm. With 1.5 mm to each side, 0.08 mm is left, below the 0.15 mm minimum.
+  - The corridor right of F1.1 is the widest. Its narrowest place is at (16.46, 12.23). It lies between F1.1 (AC_L_IN, 1.5 mm `between_mm`) and K1.A1 (K1_COIL_A, 6 mm isolation). It fits a 0.34 mm track. With 3 mm necks the bound is 0.90 mm. Both are less than 1.0 mm.
+  - So the net that layout round 4 left unrouted after a 50-minute build could not be routed by any router. Back to `architecture`. The options are F1 or K1 moved by at least 0.66 mm, B.Cu allowed for AC_ROOM1, or a narrower net.
+- The other AC nets pass. Their widest track without necks is AC_L 1.79 mm (need 1.4), AC_L_IN 5.9 mm (need 1.4) and AC_ROOM2 6.0 mm (need 1.0).
+- examples/sensor_preamp has no constrained nets.

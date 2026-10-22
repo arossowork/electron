@@ -13,6 +13,7 @@ FEASIBILITY_CHECKS: list[tuple[str, str]] = [
     ("escape", "hwflow.partescape"),   # pad escape of wide nets, walled-in pads, perimeter of a part
     ("barrier", "hwflow.barrier"),     # nets cut off by keep-outs or isolation, channels narrower than the net
     ("cut", "hwflow.cutcap"),          # nets crossing a line or ring against the free copper along it
+    ("corridor", "hwflow.corridor"),   # between_mm, conductive isolation and net layers close a net's corridor
 ]
 
 
