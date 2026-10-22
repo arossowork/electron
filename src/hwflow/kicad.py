@@ -149,3 +149,74 @@ def export_fab(pcb: Path, sch: Path | None, outdir: Path) -> list[str]:
         p = _run(s)
         msgs.append(f"{' '.join(s[:3])}: {'ok' if p.returncode == 0 else 'FAILED ' + (p.stderr or p.stdout)[-300:]}")
     return msgs
+
+
+def mirrored_back_parts(pcb: Path) -> dict[str, dict]:
+    """Footprints drawn for the back face on F.Cu: a `_back` footprint is the front one mirrored in x, with its body
+    (courtyard, fab) on B.* layers, placed on F.Cu. KiCad's position file calls them top. ref -> {rot (KiCad
+    orientation on F.Cu)}. A footprint with F.CrtYd or F.Fab graphics, or one on B.Cu, is not one."""
+    from . import sexpr
+    t = sexpr.loads(Path(pcb).read_text())
+    out = {}
+    for fp in sexpr.find_all(t, "footprint"):
+        if str(sexpr.value(fp, "layer")) != "F.Cu":
+            continue
+        lays = {str(sexpr.value(g, "layer")) for k in ("fp_line", "fp_rect", "fp_circle", "fp_poly", "fp_arc")
+                for g in sexpr.find_all(fp, k)}
+        if not lays & {"B.CrtYd", "B.Fab"} or lays & {"F.CrtYd", "F.Fab"}:
+            continue
+        ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), None)
+        at = sexpr.find(fp, "at")
+        if ref:
+            out[ref] = {"rot": float(at[3]) if len(at) > 3 else 0.0}
+    return out
+
+
+def _deg(a: float) -> float:
+    """An angle in KiCad's position-file range (-180, 180]."""
+    a = (a + 180.0) % 360.0 - 180.0
+    return 180.0 if a == -180.0 else a
+
+
+def fix_back_positions(pcb: Path, positions: Path, cpl: Path) -> dict:
+    """Rewrite the KiCad position file so mirrored back-face footprints (mirrored_back_parts) are bottom side with the
+    rotation KiCad writes for the same part really flipped to B.Cu: a `_back` footprint at orientation r on F.Cu has
+    the pads of the front footprint flipped to B.Cu at r + 180 (checked against pcbnew's Flip). X and Y stay the board
+    coordinates of the part (KiCad does not negate X on the bottom by default, and JLCPCB reads the KiCad file that
+    way). Writes `cpl` in the JLCPCB column names (Designator, Mid X, Mid Y, Layer, Rotation) for every part.
+    Returns {bottom: refs, tht: through-hole refs}."""
+    import csv
+    back = mirrored_back_parts(pcb)
+    with open(positions, newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    if not rows:
+        return {"bottom": [], "tht": []}
+    fields = list(rows[0])
+    for r in rows:
+        b = back.get(r["Ref"])
+        if b is not None and r["Side"] == "top":
+            r["Side"] = "bottom"
+            r["Rot"] = f"{_deg(float(r['Rot']) + 180.0):.6f}"
+    with open(positions, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fields)
+        w.writeheader()
+        w.writerows(rows)
+    with open(cpl, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
+        for r in rows:
+            w.writerow([r["Ref"], f"{float(r['PosX']):.4f}mm", f"{float(r['PosY']):.4f}mm",
+                        "Bottom" if r["Side"] == "bottom" else "Top", f"{float(r['Rot']):g}"])
+    tht = sorted(_tht_refs(pcb))
+    return {"bottom": sorted(r["Ref"] for r in rows if r["Side"] == "bottom"), "tht": tht}
+
+
+def _tht_refs(pcb: Path) -> set[str]:
+    from . import sexpr
+    out = set()
+    for fp in sexpr.find_all(sexpr.loads(Path(pcb).read_text()), "footprint"):
+        attr = sexpr.find(fp, "attr")
+        ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), None)
+        if ref and attr and "through_hole" in [str(x) for x in attr[1:]]:
+            out.add(ref)
+    return out

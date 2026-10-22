@@ -107,7 +107,7 @@ def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
 
 def structure_key(design) -> str:
     """What a layout cannot change: parts and footprints, the netlist, net widths, currents and layers, board size,
-    cut regions and layers. Placement anchors, weights, router and DRC settings are left out."""
+    cut regions, layers and the between_mm of isolation groups. Placement anchors, weights, router and DRC settings are left out."""
     comps = sorted((r, str(c.get("footprint")), sorted((str(k), str(v)) for k, v in (c.pins or {}).items()))
                    for r, c in design.components.items())
     nets = sorted((n, str(i.get("width_mm")), str(i.get("current_a")))
@@ -120,6 +120,10 @@ def structure_key(design) -> str:
     if cs:
         import shapely
         board.append([shapely.to_wkt(c["poly"], rounding_precision=3) for c in cs])
+    from . import pcb
+    btw = [(g["name"], g["members"], g["between_mm"]) for g in pcb.isolation_groups(design) if g["between_mm"] is not None]
+    if btw:  # board.isolation between_mm: a spacing between member nets (keys without it stay as they were)
+        board.append(btw)
     return hashlib.sha256(json.dumps([comps, nets, board], default=str).encode()).hexdigest()[:12]
 
 

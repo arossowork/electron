@@ -178,3 +178,121 @@ def test_router_input_path_is_absolute(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="stop"):
         pcb.krt_route(d, Path("out/x.kicad_pcb"), Path("out"), "x_")
     assert seen and seen[0].startswith("/")
+
+
+# ---- board.isolation between_mm: functional insulation between the member nets of one group
+
+def _between_project(tmp_path, creepage=0.3, between=0.6):
+    proj = tmp_path / "p"
+    shutil.copytree(EX, proj)
+    f = proj / "design.yaml"
+    f.write_text(f.read_text().replace("board: {", "board: {isolation: [{name: sig, nets: [SENS_IN, AMP_OUT], "
+                                       "creepage_mm: %s, between_mm: %s}], " % (creepage, between)))
+    return Design.load(proj)
+
+
+def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
+    """between_mm: KiCad DRC rules between two different members, one router class per member (KiCadRoutingTools
+    reads one class per track rule and merges a net's classes), keep-outs of the other members' copper in a pass,
+    the placer pad distance, the post-layout closest pair, the design check and the structure key."""
+    import json
+    import re
+    import sys
+    from types import SimpleNamespace
+
+    from hwflow import diagnose, postlayout, routing
+    from hwflow.design import check
+    d = _between_project(tmp_path)
+    (g,) = pcb.isolation_groups(d)
+    assert g["between_mm"] == 0.6 and g["members"] == ["AMP_OUT", "SENS_IN"]
+    assert ('(rule "sig between AMP_OUT clearance" (constraint clearance (min 0.6mm)) '
+            '(condition "A.NetName == \'AMP_OUT\' && B.NetName == \'SENS_IN\'"))') in g["kicad"]
+    assert sum("between" in r for r in g["kicad"]) == 4  # clearance and creepage, per member
+    rr = pcb.isolation_router_rules(d)
+    assert [(x["class"], x["members"], x["mm"], x["between"]) for x in rr] == [
+        ("iso_sig", ["AMP_OUT", "SENS_IN"], 0.3, False), ("isb_sig_between_AMP_OUT", ["AMP_OUT"], 0.6, True),
+        ("isb_sig_between_SENS_IN", ["SENS_IN"], 0.6, True)]
+    pcb.write_project(tmp_path, d.name, d)
+    dru = (tmp_path / f"{d.name}.kicad_dru").read_text()
+    pro = json.loads((tmp_path / f"{d.name}.kicad_pro").read_text())["net_settings"]
+    assert {"netclass": "isb_sig_between_SENS_IN", "pattern": "SENS_IN"} in pro["netclass_patterns"]
+    # KiCadRoutingTools' own readers: member to member 0.6 mm, member to another net the larger group rule
+    if (pcb.KRT_DIR / "py_router" / "kicad_dru.py").exists():
+        sys.path.insert(0, str(pcb.KRT_DIR / "py_router"))
+        try:
+            from kicad_dru import parse_dru_track_clearances, track_pair_clearance
+            from list_nets import net_class_memberships
+        finally:
+            sys.path.pop(0)
+        rules, _ = parse_dru_track_clearances(dru)
+        (tmp_path / f"{d.name}.kicad_pcb").write_text("(kicad_pcb)")
+        cls = net_class_memberships(str(tmp_path / f"{d.name}.kicad_pcb"), {1: "SENS_IN", 2: "AMP_OUT", 3: "VBUS"})
+        assert track_pair_clearance(rules, cls[1], cls[2], 0.2)[0] == pytest.approx(0.6)
+        assert track_pair_clearance(rules, cls[1], cls.get(3, set()), 0.2)[0] == pytest.approx(0.6)
+        d.raw["board"]["isolation"][0]["creepage_mm"] = 2.0
+        pcb.write_project(tmp_path, d.name, d)
+        rules, _ = parse_dru_track_clearances((tmp_path / f"{d.name}.kicad_dru").read_text())
+        assert track_pair_clearance(rules, cls[1], cls[2], 0.2)[0] == pytest.approx(0.6)
+        assert track_pair_clearance(rules, cls[1], cls.get(3, set()), 0.2)[0] == pytest.approx(2.0)
+        d.raw["board"]["isolation"][0]["creepage_mm"] = 0.3
+    # a pass with a member: the other member's pads grown by between - clearance + slack, bound to that member
+    pads = {"footprints": {"J1": {"pads": [
+        {"net": "SENS_IN", "x": 0, "y": 0, "w": 1, "h": 1, "shape": "rect", "kind": "smd", "layers": ["F.Cu"]},
+        {"net": "AMP_OUT", "x": 5, "y": 0, "w": 1, "h": 1, "shape": "rect", "kind": "smd", "layers": ["F.Cu"]}]}},
+        "segments": [], "vias": []}
+    zones, rules = routing.isolation_keepouts(pcb.isolation_needs(d), pads, ["F.Cu", "B.Cu"], 0.6, 0.2, {"SENS_IN"})
+    (r,) = [x for x in rules if "_b0" in x]
+    assert "A.NetName == 'SENS_IN'" in r
+    from shapely.geometry import Polygon
+    (z,) = [z for z in zones if z[5][1].endswith("_b0")]
+    poly = Polygon([(p[1], p[2]) for p in z[-1][1][1:]])
+    assert poly.bounds[0] == pytest.approx(5 - 0.5 - (0.6 - 0.2 + routing.ISO_SLACK), abs=0.01)
+    # placer: two member pads need between_mm + margin, and the message names the rule
+    libs = Libs()
+    parts = placer.build_parts(d, libs)
+    pl = placer.Placer(d, parts, 40, 30)
+    assert pl._iso_short(("J1", "2"), ("J1", "3")) == 0.0          # one part: never
+    ka = next(k for k in pl.pad_grp if pl.pad_net[k] == "SENS_IN" and k[0] != "J1")
+    kb = next(k for k in pl.pad_grp if pl.pad_net[k] == "AMP_OUT" and k[0] not in ("J1", ka[0]))
+    for k, (x, y) in ((ka, (10, 10)), (kb, (10, 10))):
+        parts[k[0]].x, parts[k[0]].y, parts[k[0]].r = x, y, 0
+    bx = pl._pad_box(parts[ka[0]], ka[1])
+    parts[kb[0]].x += (bx[2] + 0.3) - pl._pad_box(parts[kb[0]], kb[1])[0]       # pads 0.3 mm apart in x
+    parts[kb[0]].y += (bx[1] + bx[3]) / 2 - sum(pl._pad_box(parts[kb[0]], kb[1])[1::2]) / 2
+    assert pl._iso_short(ka, kb) == pytest.approx(0.6 + placer.CLEAR_MARGIN - 0.3, abs=1e-6)
+    assert "between_mm 0.6 mm" in pl._iso_rule(ka, kb)
+    # post-layout: the closest pair of two different members, apart from the group row
+    segs = [{"net": "SENS_IN", "layer": "F.Cu", "x1": 0, "y1": 0, "x2": 10, "y2": 0, "w": 0.2},
+            {"net": "AMP_OUT", "layer": "F.Cu", "x1": 0, "y1": 0.6, "x2": 10, "y2": 0.6, "w": 0.2},
+            {"net": "VBUS", "layer": "F.Cu", "x1": 0, "y1": 3, "x2": 10, "y2": 3, "w": 0.2}]
+    ex = SimpleNamespace(d=d, path=None, board={"segments": segs, "vias": [], "footprints": {}})
+    rows = {r["rule"]: r for r in postlayout.group_clearances(d, ex)}
+    btw = rows["sig between members"]
+    assert btw["mm"] == pytest.approx(0.4) and not btw["ok"] and btw["members_only"] and btw["req"] is None
+    assert rows["sig"]["mm"] == pytest.approx(2.2) and rows["sig"]["ok"]
+    assert re.match(r"(SENS_IN / AMP_OUT|AMP_OUT / SENS_IN) on F.Cu", btw["between"])
+    # design check and structure key
+    k0 = diagnose.structure_key(d)
+    d.raw["board"]["isolation"][0]["between_mm"] = -1
+    assert any("between_mm must be a positive number" in x["msg"] for x in check(d))
+    d.raw["board"]["isolation"][0]["between_mm"] = 0.8
+    assert diagnose.structure_key(d) != k0
+
+
+@needs_router
+def test_router_keeps_between_mm_between_members(tmp_path):
+    """A real KiCadRoutingTools run: two member nets of one group keep between_mm track to track (the isb_ class
+    rules) while the group keeps its own distance to the other nets."""
+    from hwflow.cli import stage_layout
+    d = _between_project(tmp_path, 0.3, 0.6)
+    d.raw["board"].update(width_mm=60, height_mm=45)
+    res = stage_layout(d, Libs(), seeds=1, iters=3000)
+    assert res["unrouted"] == 0
+    segs = pcb.read_board(d.dir / "build" / f"{d.name}.kicad_pcb")["segments"]
+    from shapely.geometry import LineString
+    sh = [(s["net"], s["layer"], LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2)) for s in segs]
+    gap = min((p.distance(q) for n1, l1, p in sh for n2, l2, q in sh
+               if l1 == l2 and n1 == "SENS_IN" and n2 == "AMP_OUT"), default=99.0)
+    assert gap >= 0.6 - 0.02
+    (row,) = [r for r in res["isolation"] if r.get("members_only")]
+    assert row["limit"] == 0.6

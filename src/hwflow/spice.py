@@ -326,6 +326,10 @@ def is_debug(m: dict) -> bool:
 # ngspice reports a `meas` that finds no crossing as "Error: measure X ... out of interval"; when every
 # measure of the analysis still has a passing value, that line is a warning, not a design failure
 MEAS_MSG_RE = re.compile(r"out of interval|^\s*error: measure\b|no such variable", re.I)
+# A behavioural source whose expression overflows on one Newton iteration (`Error: 1.3e+238, 2 out of range for ^`
+# in line b.xu2.bio): ngspice rejects that iteration and goes on. On a run that reached its stop time with every
+# measure passing, it is a warning, not a failed run (home-thermostat-3 burst_vbat20_corner post-layout at 0 and 45 C).
+EVAL_MSG_RE = re.compile(r"out of range for\b", re.I)
 
 ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
                       r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
@@ -409,7 +413,7 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
     warnings = []
     real = [r for r in rows if not r.get("debug")]
     if not aborted and real and all(r["pass"] for r in real):
-        warnings = [e for e in errors if MEAS_MSG_RE.search(e)]
+        warnings = [e for e in errors if MEAS_MSG_RE.search(e) or EVAL_MSG_RE.search(e)]
         errors = [e for e in errors if e not in warnings]
     detail = [ln.strip() for ln in out.splitlines() if DETAIL_RE.search(ln) and "HWF" not in ln][:3]
     body = out.split("\n", 1)[-1] if out.startswith(FLAKY_MARK) else out

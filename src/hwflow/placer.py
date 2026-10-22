@@ -380,12 +380,14 @@ class Placer:
                 self.keepouts.append((*a["box"], max(0.0, 1 - n / nl)))
         from . import pcb
         net_of = {(r, p): n for n, conns in self.d.nets().items() for r, p in conns}
-        self.iso_need, self.iso_name, gid = [], [], {}
+        self.iso_need, self.iso_name, self.iso_between, gid = [], [], [], {}
         for g in pcb.isolation_needs(self.d):
             for n in g["members"]:
                 gid.setdefault(n, len(self.iso_need))
             self.iso_need.append(g["mm"] + ISO_MARGIN)
             self.iso_name.append(g.get("name") or f"isolation group {len(self.iso_name) + 1}")
+            # between_mm: two different member nets keep it (functional insulation), with the clearance margin
+            self.iso_between.append(g["between"] + CLEAR_MARGIN if g.get("between") is not None else 0.0)
         base = float(self.d.board["clearance_mm"])  # a net class with a larger clearance keeps it to every other net
         cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
         self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
@@ -410,7 +412,7 @@ class Placer:
                     self.iso_hulls.append((hull, refs, f"isolation group {gi + 1} area"))
         if not self.iso_parts:
             self.pad_grp = {}
-        self.reach = max(self.iso_need + list(cls.values()) + [0.0]) + 1.0
+        self.reach = max(self.iso_need + self.iso_between + list(cls.values()) + [0.0]) + 1.0
         self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.pad_grp else {}
         from . import floorplan
         self.regions, self.region_start = floorplan.placer_regions(self.d, self.parts)  # design.yaml floorplan.regions
@@ -589,14 +591,16 @@ class Placer:
 
     def _iso_short(self, a, b):
         """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below what they need: the creepage of a
-        board.isolation group (pads of different groups) or the net class clearance (pads of different nets); 0 on
-        the same part."""
+        board.isolation group (pads of different groups), its between_mm (pads of two different member nets) or the
+        net class clearance (pads of different nets); 0 on the same part."""
         if a[0] == b[0] or self._same(a[0], b[0]):
             return 0.0
         ga, gb = self.pad_grp[a], self.pad_grp[b]
         need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
         if self.pad_net[a] != self.pad_net[b]:
             need = max(need, self.pad_cl[a], self.pad_cl[b])
+            if ga == gb >= 0:
+                need = max(need, self.iso_between[ga])
         if need <= 0:
             return 0.0
         ba, bb = self._pad_box(self.parts[a[0]], a[1]), self._pad_box(self.parts[b[0]], b[1])
@@ -605,9 +609,12 @@ class Placer:
 
     def _iso_rule(self, a, b) -> str:
         """The rule behind _iso_short(a, b), for the message: the isolation group (between a member and a pad outside
-        the group; never between two members of one group) or the net class clearance."""
+        the group), its between_mm (two different member nets) or the net class clearance."""
         ga, gb = self.pad_grp[a], self.pad_grp[b]
         nets = f"{self.pad_net[a]} / {self.pad_net[b]}"
+        if ga == gb >= 0 and self.iso_between[ga] >= max(self.pad_cl[a], self.pad_cl[b]) and self.iso_between[ga]:
+            return (f"{nets}: isolation {self.iso_name[ga]} between_mm {self.iso_between[ga] - CLEAR_MARGIN:g} mm + "
+                    f"{CLEAR_MARGIN:g} mm margin between two of its member nets, pad bounding boxes")
         gs = [g for g in (ga, gb) if g >= 0 and ga != gb]
         if gs:
             g = max(gs, key=lambda k: self.iso_need[k])

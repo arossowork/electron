@@ -949,6 +949,10 @@ def clearance_rules(design: Design) -> list[dict]:
             if g["members"] and lim is not None:
                 out.append({"rule": g["name"], "pattern": ",".join(g["members"]), "members": set(g["members"]),
                             "min_mm": float(lim), "creepage_mm": g["creepage_mm"], "req": g["req"]})
+            if len(g["members"]) > 1 and g["between_mm"] is not None:  # between two different member nets
+                out.append({"rule": f"{g['name']} between members", "pattern": ",".join(g["members"]),
+                            "members": set(g["members"]), "min_mm": g["between_mm"], "creepage_mm": g["between_mm"],
+                            "req": None, "between": True})  # functional insulation: not the group's req
     return out
 
 
@@ -1009,7 +1013,8 @@ def _seg_dist(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 
 def group_clearances(design: Design, ex: Extraction) -> list[dict]:
     """Smallest copper-to-copper distance between the nets of each clearance rule and every other net, per rule
-    (backlog 39): the number a creepage or isolation requirement depends on, next to its limit."""
+    (backlog 39): the number a creepage or isolation requirement depends on, next to its limit. A between rule
+    (board.isolation between_mm) measures the closest pair of two different member nets."""
     import fnmatch
     rules = clearance_rules(design)
     if not rules:
@@ -1020,9 +1025,12 @@ def group_clearances(design: Design, ex: Extraction) -> list[dict]:
         best = None
         mem = r.get("members")
         inside = (lambda n: n in mem) if mem else (lambda n: fnmatch.fnmatchcase(n, r["pattern"]))  # noqa: E731
-        for layer in sorted({it[1] for it in items}):
-            A = [it for it in items if it[1] == layer and inside(it[0])]
-            B = [it for it in items if it[1] == layer and not inside(it[0])]
+        # a between rule: each member net against the other members; else the group against every other net
+        sides = [(lambda x, n=n: x == n, lambda x, n=n: x in mem and x != n) for n in sorted(mem)] if r.get("between") \
+            else [(inside, lambda x: not inside(x))]
+        for layer, (ina, inb) in [(L, sd) for L in sorted({it[1] for it in items}) for sd in sides]:
+            A = [it for it in items if it[1] == layer and ina(it[0])]
+            B = [it for it in items if it[1] == layer and inb(it[0])]
             if not A or not B:
                 continue
             Ag, Bg = np.array([it[2:6] for it in A]), np.array([it[2:6] for it in B])
@@ -1035,7 +1043,8 @@ def group_clearances(design: Design, ex: Extraction) -> list[dict]:
         if best:
             out.append({"rule": r["rule"], "pattern": r["pattern"], "limit": r["min_mm"], "mm": round(max(best[0], 0), 3),
                         "between": f"{best[1]} / {best[2]} on {best[3]}", "ok": best[0] >= r["min_mm"] - 1e-6,
-                        **({"creepage_mm": r["creepage_mm"], "req": r["req"]} if mem else {})})
+                        **({"creepage_mm": r["creepage_mm"], "req": r["req"]} if mem else {}),
+                        **({"members_only": True} if r.get("between") else {})})
     return out
 
 

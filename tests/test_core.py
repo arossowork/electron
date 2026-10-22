@@ -596,3 +596,20 @@ def test_analysis_cache_runs_ngspice_once_per_netlist(tmp_path, monkeypatch):
     assert len(calls) == 3
     spice.run_analysis(d, a, tmp_path / "w")  # no cache directory: always simulates
     assert len(calls) == 4
+
+
+def test_recovered_bsource_overflow_is_a_warning_when_rows_pass(tmp_path, monkeypatch):
+    """home-thermostat-3 burst_vbat20_corner post-layout @ 0 and 45 C: `Error: 1.3e+238, 2 out of range for ^` from a
+    B source on one Newton iteration that ngspice rejected; the run reached its stop time with every measure valid,
+    yet the analysis was reported as an error. It is a warning when every measure passes."""
+    from hwflow import spice
+    d = Design.load(EX)
+    a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
+    msg = "Error: 1.30235e+238, 2 out of range for ^\n    in line b.xu2.bio\n"
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (_fake_out(a, msg), 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["status"] == "ok" and r["errors"] == [] and len(r["warnings"]) == 1
+    bad = msg + "".join(f"HWF {m['name']} 1e9\n" for m in a["measures"])
+    monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (bad, 0))
+    r = spice.run_analysis(d, a, tmp_path)
+    assert r["status"] == "error" and r["errors"]

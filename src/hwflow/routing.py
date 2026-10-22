@@ -73,8 +73,9 @@ def _zone(name: str, layer: str, ring) -> list:
 def isolation_keepouts(groups: list[dict], board: dict, copper: list[str], via_dia: float, clearance: float,
                        nets: set[str]) -> tuple[list, list[str]]:
     """Rule areas and `.kicad_dru` rules for one pass that routes `nets`. `groups` is pcb.isolation_needs:
-    [{members, mm}]. A pass with members of a group gets the copper of every other net as an area its members may
-    not enter; a pass with other nets gets the members' copper as an area those nets may not enter. Holes in a
+    [{members, mm, between}]. A pass with members of a group gets the copper of every other net as an area its
+    members may not enter; a pass with other nets gets the members' copper as an area those nets may not enter. With
+    `between` (board.isolation between_mm), each member of the pass also gets the other members' copper grown by it. Holes in a
     grown outline are filled (a closed ring of the other side's copper leaves no way in anyway)."""
     shapes = copper_shapes(board, copper, via_dia) if groups else []
     zones, rules = [], []
@@ -100,6 +101,23 @@ def isolation_keepouts(groups: list[dict], board: dict, copper: list[str], via_d
                 cond = f"A.intersectsArea('{name}') && " + " && ".join(f"A.NetName != '{n}'" for n in sorted(M))
             if any(z[5][1] == name for z in zones):
                 rules.append(f'(rule "{name}" (constraint disallow track via) (condition "{cond}"))')
+        if g.get("between") is None:
+            continue
+        # between_mm: each member of the pass stays out of the other members' copper grown by between_mm (pads and
+        # copper of earlier passes; the tracks of this pass keep it through the isb_ class rules)
+        bgrow = max(float(g["between"]) - clearance, 0.0) + ISO_SLACK
+        for k, n in enumerate(sorted(nets & M)):
+            name = f"{ISO_ZONE}{gi}_b{k}"
+            for L in copper:
+                geo = [s for m, lay, s in shapes if lay == L and m in M and m != n]
+                if not geo:
+                    continue
+                area = unary_union(geo).buffer(bgrow, quad_segs=8)
+                for poly in getattr(area, "geoms", [area]):
+                    zones.append(_zone(name, L, poly.exterior))
+            if any(z[5][1] == name for z in zones):
+                rules.append(f'(rule "{name}" (constraint disallow track via) '
+                             f'(condition "A.intersectsArea(\'{name}\') && A.NetName == \'{n}\'"))')
     return zones, rules
 
 

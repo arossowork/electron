@@ -449,8 +449,10 @@ def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
         r = rules.get(row["rule"], {})
         inside = (lambda n: n in r["members"]) if r.get("members") else (
             lambda n: fnmatch.fnmatchcase(n, row["pattern"]))  # noqa: E731
-        hits = [x for x in drc if x["sev"] == "error" and x["type"] in ("clearance", "creepage")
-                and any(inside(n) for it in x["items"] for n in re.findall(r"\[([^\]]+)\]", str(it)))]
+        def touches(x):  # a between row: a violation between two different members; else one touching the group
+            got = {n for it in x["items"] for n in re.findall(r"\[([^\]]+)\]", str(it)) if inside(n)}
+            return len(got) > 1 if r.get("between") else bool(got)
+        hits = [x for x in drc if x["sev"] == "error" and x["type"] in ("clearance", "creepage") and touches(x)]
         row["drc_clearance"] = sum(x["type"] == "clearance" for x in hits)
         row["drc_creepage"] = sum(x["type"] == "creepage" for x in hits)
         row["ok"] = row["ok"] and not hits
@@ -819,13 +821,16 @@ def stage_fab(d: Design) -> dict:
     out = _out(d)
     fab = out / "fab"
     msgs = kicad.export_fab(out / f"{d.name}.kicad_pcb", out / f"{d.name}.kicad_sch", fab)
+    sides = {"bottom": [], "tht": []}
+    if (fab / "positions.csv").exists():  # mirrored back-face footprints: bottom side, KiCad's flipped rotation
+        sides = kicad.fix_back_positions(out / f"{d.name}.kicad_pcb", fab / "positions.csv", fab / "cpl.csv")
     with open(fab / "bom.csv", "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["Comment", "Designator", "Footprint", "MPN", "LCSC", "Qty", "UnitPriceUSD"])
         for r in d.bom():
             w.writerow([r["value"], r["refs"], (r["footprint"] or "").split(":")[-1], r["mpn"] or "",
                         r["lcsc"] or "", r["qty"], r["unit_price_usd"] or ""])
-    return {"ok": all(m.endswith("ok") for m in msgs), "steps": msgs}
+    return {"ok": all(m.endswith("ok") for m in msgs), "steps": msgs, "bottom": sides["bottom"], "tht": sides["tht"]}
 
 
 # ------------------------------------------------------------------ report
@@ -939,7 +944,8 @@ def write_report(d: Design, history: bool = False) -> str:
         for r in c.get("isolation") or []:
             creep = (f"; creepage {r['creepage_mm']} mm by DRC: {r['drc_creepage']} violations"
                      if r.get("creepage_mm") is not None else "")
-            L.append(f"  - isolation {r['rule']}{' (' + r['req'] + ')' if r.get('req') else ''}: copper to other nets "
+            L.append(f"  - isolation {r['rule']}{' (' + r['req'] + ')' if r.get('req') else ''}: copper "
+                     f"{'between its member nets' if r.get('members_only') else 'to other nets'} "
                      f"{r['mm']:.2f} mm in plan (limit {r['limit']} mm; DRC clearance {r['drc_clearance']} violations"
                      f"{creep}; closest {r['between']}){'' if r['ok'] else ' FAIL'}")
         for r in c.get("budget_widths") or []:
@@ -1002,6 +1008,10 @@ def write_report(d: Design, history: bool = False) -> str:
             fail("post", "post-layout issues")
     if "fab" in s:
         L.append(f"- fab outputs{st('fab')}: {'OK' if s['fab']['ok'] else 'FAIL'} (build/fab)")
+        if s["fab"].get("bottom"):
+            L.append(f"  - bottom side (positions.csv, cpl.csv): {', '.join(s['fab']['bottom'])}")
+        if s["fab"].get("tht"):
+            L.append(f"  - through-hole, not placed by SMT (THT or hand soldering): {', '.join(s['fab']['tht'])}")
     if t["total"]:
         L.append(f"- requirements: {t['covered']}/{t['total']} verified, {t['failing']} failing, "
                  f"{t['unverified']} unverified")

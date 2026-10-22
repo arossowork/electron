@@ -326,6 +326,26 @@ def check(design: Design, libs=None) -> list[dict]:
         edge = max(float(design.board["clearance_mm"]), pcb.EDGE_CLEARANCE_MM)
         for msg in cut_pad_findings(design, parts, edge):
             add("warn", "cut-pad", msg)
+    # board.isolation between_mm: a positive distance; pads of fixed parts of two member nets closer than it
+    between = False
+    for i, g in enumerate(design.board.get("isolation") or []):
+        v = g.get("between_mm") if isinstance(g, dict) else None
+        if v is None:
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            add("error", "isolation", f"board.isolation[{i}].between_mm must be a positive number (mm)")
+        else:
+            between = True
+    if libs is not None and between:
+        from . import placer
+        try:
+            parts = placer.build_parts(design, libs)
+            pl = placer.Placer(design, parts, float(design.board["width_mm"]), float(design.board["height_mm"]))
+            for msg in pl.fixed_violations():
+                if "between_mm" in msg:
+                    add("warn", "isolation", f"fixed parts: {msg}")
+        except Exception:  # noqa: BLE001 - a missing footprint is reported above
+            pass
     # nets.<name>.layers: known copper layers, and an SMD pad of the net on one of them
     import fnmatch
     copper = pcb.cu_layers(int(design.board["layers"]))
