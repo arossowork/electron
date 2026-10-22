@@ -357,6 +357,11 @@ def check(design: Design, libs=None) -> list[dict]:
                     add("error", "net-layers", f"{ref}.{pin} ({net}) is an SMD pad on {', '.join(cu)} only, not on "
                                                f"the net's layers {', '.join(lays)}")
                     break
+    if libs is not None and allowed:  # a disallow rule area that nets.<name>.layers overrides for a net
+        for e in pcb.net_layer_exemptions(design, libs)[1]:
+            add("warn", "net-layers", f"board.drc_rules rule {e['rule']} keeps {e['net']} out of rule area {e['area']}, "
+                                      f"but nets.{e['net']}.layers allows {', '.join(e['layers'])} there: the net's "
+                                      f"layers win (the rule does not apply to {e['net']})")
     from .budgets import check as budget_check
     f += budget_check(design)
     if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)

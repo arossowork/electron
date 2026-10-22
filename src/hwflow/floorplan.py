@@ -320,6 +320,31 @@ def outline(design, quad_segs: int | None = None):
     return rect.difference(unary_union([c["poly"] for c in cs])) if cs else rect
 
 
+def conductive_needs(design) -> list[dict]:
+    """The distance the nets of a region with `isolation_mm` and `nets` keep from every `conductive: true` keep-out
+    or cut on its board and faces (accessible metal: a screw, a frame): [{region, keepout, nets, mm, poly}], poly
+    in board coordinates (the keep-out shape, not grown). The router keeps those nets out of the shape grown by mm
+    (routing.conductive_keepouts); postlayout.conductive_clearances measures it on the routed board."""
+    if not any(isinstance(r, dict) and r.get("conductive")
+               for r in ((design.raw.get("floorplan") or {}).get("regions") or [])):
+        return []
+    try:
+        fp = parse(design)
+    except FloorplanError:
+        return []
+    names = sorted(set(design.nets()) | set(design.raw.get("nets") or {}))
+    out = []
+    for r in fp["regions"] if fp else []:
+        if not r["iso"] or not r["nets"] or r["kind"] == "keepout":
+            continue
+        nets = [n for n in names if any(fnmatch.fnmatchcase(n, g) for g in r["nets"])]
+        for k in fp["regions"]:
+            if k["kind"] == "keepout" and k["conductive"] and k["board"] == r["board"] and set(k["sides"]) & set(r["sides"]) \
+                    and nets and k["poly"] is not None and not k["poly"].is_empty:
+                out.append({"region": r["name"], "keepout": k["name"], "nets": nets, "mm": r["iso"], "poly": k["poly"]})
+    return out
+
+
 def cut_pad_findings(design, parts: dict, edge_mm: float) -> list[str]:
     """Pads of fixed parts closer than `edge_mm` (the copper-to-edge clearance) to a cut region, or inside one."""
     cs = cuts(design)
@@ -363,7 +388,7 @@ def fixed_pad_isolation(design, parts: dict, fp: dict) -> list[str]:
             if c is None or not p.fixed:
                 continue
             for num, net in c.pins.items():
-                if num not in p.pads or not any(fnmatch.fnmatchcase(net, g) for g in r["nets"]):
+                if num not in p.pads or num in getattr(p, "nocu", ()) or not any(fnmatch.fnmatchcase(net, g) for g in r["nets"]):
                     continue
                 x, y = p.pad(num)
                 w, h = (p.pad_size or {}).get(num, (0.0, 0.0))
@@ -458,7 +483,7 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         for n, conns in nets.items():
             if any(fnmatch.fnmatchcase(n, p) for p in r["nets"]):
                 for ref, pin in conns:
-                    if ref in parts and pin in parts[ref].pads:
+                    if ref in parts and pin in parts[ref].pads and pin not in parts[ref].nocu:
                         pads.setdefault(ref, []).append(pin)
         out.append(_rule(r["name"], r["poly"], r["sides"], mem[r["name"]] & set(refs), r["kind"] in EXCLUSIVE, allow, pads))
         for x in mem[r["name"]]:
@@ -574,6 +599,56 @@ def _fits(w, h, poly) -> bool:
     return False
 
 
+FIT_RES = 0.25  # mm grid of the fit search with fixed parts and conductive keep-outs (fit_anywhere)
+
+
+def fit_anywhere(part, side: str, free, pad_rules: list, margin: float) -> bool:
+    """Is there a position and rotation (0, 90, 180, 270) where the courtyard of `part` on `side` (without the
+    placer margin) lies in `free` and every pad of `pad_rules` [(pad number, polygon)] lies in its polygon? A raster
+    search on a FIT_RES grid, lenient by up to one cell (a fit within FIT_RES counts), so a miss is a proof."""
+    import numpy as np
+    import shapely
+    from shapely.prepared import prep
+
+    from . import placer
+    if free.is_empty:
+        return False
+    x0, y0, x1, y1 = free.bounds
+    res = FIT_RES
+    nx, ny = int((x1 - x0) / res) + 1, int((y1 - y0) / res) + 1
+    xs, ys = np.meshgrid(x0 + (np.arange(nx) + 0.5) * res, y0 + (np.arange(ny) + 0.5) * res, indexing="ij")
+    mask = shapely.contains_xy(free, xs, ys).astype(np.int32)
+    sat = np.zeros((nx + 1, ny + 1), dtype=np.int64)
+    sat[1:, 1:] = mask.cumsum(0).cumsum(1)
+    rules = [(n, prep(poly.buffer(res))) for n, poly in pad_rules]
+    for a in (0.0, 90.0, 180.0, 270.0):
+        q = copy.copy(part)
+        q.x, q.y, q.r = 0.0, 0.0, a
+        b = q.side_box(side)
+        if b is None:
+            return True
+        bx0, by0, bx1, by1 = b[0] + margin, b[1] + margin, b[2] - margin, b[3] - margin
+        # a box that fits holds at least floor(size / res) grid centres in a row, all in `free`: a necessary test
+        kx, ky = max(1, int((bx1 - bx0) / res + 1e-9)), max(1, int((by1 - by0) / res + 1e-9))
+        if kx > nx or ky > ny:
+            continue
+        full = sat[kx:, ky:] - sat[:-kx, ky:] - sat[kx:, :-ky] + sat[:-kx, :-ky]
+        cand = np.argwhere(full == kx * ky)
+        if not len(cand):
+            continue
+        if not rules:
+            return True
+        pads = [(placer._pad_box(q, n), pr) for n, pr in rules]
+        # a spread sample finds a fit quickly; a miss is reported only after every candidate was tried
+        step = max(1, len(cand) // 4000)
+        order = np.concatenate([cand[::step], np.delete(cand, np.s_[::step], axis=0)]) if step > 1 else cand
+        for i, j in order:
+            dx, dy = x0 + i * res - bx0, y0 + j * res - by0
+            if all(pr.contains(box(pb[0] + dx, pb[1] + dy, pb[2] + dx, pb[3] + dy)) for pb, pr in pads):
+                return True
+    return False
+
+
 # ---------------------------------------------------------------- check
 
 
@@ -647,8 +722,8 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
     mem = members(fp, design, list(parts))
     checks: list[dict] = []
 
-    def add(name, ok, msg):
-        checks.append({"name": name, "ok": ok, "msg": msg})
+    def add(name, ok, msg, back_to=None):
+        checks.append({"name": name, "ok": ok, "msg": msg, **({"back_to": back_to} if back_to else {})})
 
     real = [r for r in parts if r in design.components]
     for it in fp["items"]:
@@ -710,7 +785,11 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
                 w, h = v[0] - 2 * m, v[1] - 2 * m
                 if not _fits(w, h, r["poly"]):
                     add("fit", False, f"{x} ({w:.1f} x {h:.1f} mm) does not fit in region {r['name']} "
-                        f"({_dims(r['poly'])})")
+                        f"({_dims(r['poly'])})", "architecture")
+                else:
+                    msg = _fit_with_fixed(design, parts, fp, r, x, s, m)
+                    if msg:
+                        add("fit", False, msg, "architecture")
         regions_out.append(row)
     sides_out = []
     for b in fp["boards"]:
@@ -801,6 +880,59 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
             "fill_max": fill, "regions": regions_out, "sides": sides_out, "depth": dep, "distances": dists,
             "placement": place_out, "checks": checks, "parts": len(parts), "real_parts": len(real),
             "seconds": round(time.time() - t0, 1), "_fp": fp, "_parts": parts}
+
+
+def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
+    """Why member `x` fits nowhere in region `r` on `side` once the fixed parts already there, the keep-outs and,
+    for its pads on the nets of a mains region with isolation_mm, that region (which excludes the isolation band
+    around conductive keep-outs) are counted; None when it fits, or when none of these applies. A fixed or edge part
+    may overhang the board edge (a connector's plug and wire bend)."""
+    p = parts[x]
+    bd = next(b for b in fp["boards"] if b["name"] == r["board"])
+    fixed = {q: parts[q] for q in parts if q != x and parts[q].fixed and parts[q].side_box(side)}
+    yards = {q: box(*_side_box(o, side, m)) for q, o in fixed.items()}
+    yards = {q: g for q, g in yards.items() if g.intersects(r["poly"])}
+    c = design.components.get(x)
+    pad_rules, mains = [], []
+    for g in fp["regions"]:
+        if g["kind"] != "mains" or not g["iso"] or not g["nets"] or g["board"] != r["board"] or g["poly"].is_empty:
+            continue
+        for num, net in (c.pins.items() if c else []):
+            if num in p.pads and num not in p.nocu and any(fnmatch.fnmatchcase(net, pat) for pat in g["nets"]):
+                pad_rules.append((num, g["poly"]))
+                mains.append((net, g))
+    if not yards and not pad_rules:
+        return None
+    allowed = r["poly"]
+    if p.fixed or p.edge:  # off the board: a body may overhang the edge
+        allowed = allowed.union(bd["rect"].buffer(60, join_style="mitre").difference(bd["rect"]))
+    kos = [k for k in fp["regions"] if k["kind"] == "keepout" and k["board"] == r["board"] and side in k["sides"]]
+    areas = [a for a in getattr(parts, "areas", []) or [] if "footprints" in a["forbids"] and a["owner"] != x
+             and ({"front": "F.Cu", "back": "B.Cu"}[side] in a["layers"] or "*.Cu" in a["layers"])]
+    free = allowed.difference(unary_union([k["poly"] for k in kos] + [a["poly"] for a in areas] + list(yards.values())))
+    if fit_anywhere(p, side, free, pad_rules, m):
+        return None
+    w, h = p.sides[side][0] - 2 * m, p.sides[side][1] - 2 * m
+    why = []
+    if yards:
+        why.append("the fixed parts " + ", ".join(f"{q} ({_span(g)})" for q, g in sorted(yards.items())))
+    near = [k["name"] for k in kos if k["poly"].distance(r["poly"]) < 1e-6]
+    if near:
+        why.append("keep-outs " + ", ".join(near))
+    msg = f"{x} ({w:.1f} x {h:.1f} mm, {side}) fits nowhere in region {r['name']}: clear of " + " and ".join(why)
+    if pad_rules:
+        nets = sorted({n for n, _ in mains})
+        cond = sorted({k["name"] for _, g in mains for k in fp["regions"] if k["kind"] == "keepout" and k["conductive"]
+                       and k["board"] == g["board"] and k["poly"].distance(g["poly"]) <= g["iso"] + 1e-3})
+        g = mains[0][1]
+        msg += (f", with its {', '.join(nets)} pads inside region {g['name']}"
+                + (f" ({g['iso']:g} mm from conductive {', '.join(cond)})" if cond else ""))
+    return msg + " (back to architecture: board size, part or region change)"
+
+
+def _span(g) -> str:
+    x0, y0, x1, y1 = g.bounds
+    return f"x {x0:.2f}-{x1:.2f}, y {y0:.2f}-{y1:.2f}"
 
 
 def _band(f, fill):

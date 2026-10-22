@@ -389,8 +389,8 @@ class Placer:
         cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
         self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
         self.iso_parts = set()
-        for (r, p), n in net_of.items():
-            if r in self.parts and p in self.parts[r].pads:
+        for (r, p), n in net_of.items():  # a pad without copper (a keep-out marker's dummy pad) keeps no distance
+            if r in self.parts and p in self.parts[r].pads and p not in self.parts[r].nocu:
                 self.pad_grp[(r, p)], self.pad_net[(r, p)], self.pad_cl[(r, p)] = gid.get(n, -1), n, cls.get(n, 0.0)
                 if n in gid or n in cls:
                     self.iso_parts.add(r)
@@ -504,7 +504,8 @@ class Placer:
         for box, sides, owner, _ in self.ko_pad:
             if owner != r and not self._same(owner, r) and sides & set(p.sides or ()):
                 for n in p.pads:
-                    c += _overlap(self._pad_box(p, n), box)
+                    if n not in p.nocu:
+                        c += _overlap(self._pad_box(p, n), box)
         for hull, refs, _ in self.iso_hulls:
             if r not in refs and not any(self._same(r, q) for q in refs):
                 c += sum(_poly_overlap(b, hull) for b in (p.side_box("front"), p.side_box("back")) if b)
@@ -1101,6 +1102,8 @@ class Placer:
             ce = float(self.d.board.get("copper_edge_mm", 0.3))
             part = P[a]
             for n in part.pads:
+                if n in part.nocu:
+                    continue
                 px, py = part.pad(n)
                 w, h = (part.pad_size or {}).get(n, (0.0, 0.0))
                 if part.r % 180:
@@ -1120,7 +1123,7 @@ class Placer:
         for r in P:
             if self._ko_cost(r) > 0.01:
                 yards = [b for b in (P[r].side_box("front"), P[r].side_box("back")) if b]
-                pads = [self._pad_box(P[r], k) for k in P[r].pads]
+                pads = [self._pad_box(P[r], k) for k in P[r].pads if k not in P[r].nocu]
                 names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and (
                     any(_overlap(bx, box) > 0 and self._in_area(bx, o, n, courtyard=True) for bx in yards)
                     or any(_overlap(bx, box) > 0 and self._in_area(bx, o, n) for bx in pads))]

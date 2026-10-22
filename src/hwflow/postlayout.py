@@ -465,6 +465,44 @@ class PostLayoutNodeMap(NodeMap):
 
 # ------------------------------------------------------------ checks
 
+def conductive_clearances(design: Design, board: dict) -> list[dict]:
+    """The copper (tracks, vias, pads) of the nets of a region with isolation_mm closer than that distance to a
+    conductive keep-out or cut (floorplan.conductive_needs), on a pcb.read_board result: one row per net and keep-out
+    with the smallest distance, {net, keepout, region, mm, need, at, item}. Empty when every distance holds."""
+    from shapely.geometry import LineString, Point, box as _box
+
+    from . import floorplan
+    needs = floorplan.conductive_needs(design)
+    if not needs:
+        return []
+    vr = float(design.board["via_dia_mm"]) / 2
+    items = []  # (net, item text, geometry)
+    for s in board["segments"]:
+        g = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2, quad_segs=8)
+        items.append((s["net"], f"track on {s['layer']}", g))
+    for v in board["vias"]:
+        items.append((v["net"], "via", Point(v["x"], v["y"]).buffer(vr, quad_segs=8)))
+    for ref, fp in board["footprints"].items():
+        for p in fp["pads"]:
+            if p["net"] and any(L.endswith(".Cu") for L in p["layers"]):
+                items.append((p["net"], f"pad {ref}.{p['number']}",
+                              _box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2)))
+    out = []
+    for nd in needs:
+        worst: dict = {}
+        for net, what, g in items:
+            if net not in nd["nets"]:
+                continue
+            dist = g.distance(nd["poly"])
+            if dist < nd["mm"] - 0.01 and (net not in worst or dist < worst[net][0]):
+                c = g.centroid
+                worst[net] = (dist, what, [round(c.x, 2), round(c.y, 2)])
+        for net, (dist, what, at) in sorted(worst.items()):
+            out.append({"net": net, "keepout": nd["keepout"], "region": nd["region"], "mm": round(dist, 2),
+                        "need": nd["mm"], "at": at, "item": what})
+    return out
+
+
 def layout_checks(design: Design, ex: Extraction) -> list[dict]:
     f = []
 
@@ -482,6 +520,10 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
             add("error", "net-layer", f"{net}: {len(off)} tracks ({sum(s['len'] for s in off):.1f} mm) on "
                                       f"{', '.join(sorted({s['layer'] for s in off}))}, outside its layers "
                                       f"{', '.join(lays)}")
+    for x in conductive_clearances(design, ex.board):  # mains copper near accessible metal (a conductive keep-out)
+        add("error", "conductive-isolation", f"{x['net']}: {x['item']} at ({x['at'][0]}, {x['at'][1]}) is {x['mm']:.2f} mm "
+                                             f"from conductive keep-out {x['keepout']} (region {x['region']} needs "
+                                             f"{x['need']:g} mm)")
     # current capacity
     for net in design.nets():
         info = design.net_info(net)

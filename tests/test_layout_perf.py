@@ -195,7 +195,7 @@ def test_attempts_have_their_own_directories(tmp_path, monkeypatch):
     (out / "fp-lib-table").write_text("(fp_lib_table)")
     dirs = []
 
-    def stage(d, libs, reuse, seeds, iters, passes, seed0, workdir):
+    def stage(d, libs, reuse, seeds, iters, passes, seed0, workdir, deadline=None):
         assert workdir not in dirs
         dirs.append(workdir)
         (workdir / "perf.kicad_pcb").write_text(str(seed0))

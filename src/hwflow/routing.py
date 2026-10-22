@@ -5,6 +5,9 @@
   group (pads, tracks, vias), grown by the group distance, with a `disallow track via` rule bound to the nets of
   the pass. The router reads such rules (py_router/net_keepouts.py). The areas and rules exist only in the pass
   input and its rules file. The built board and the DRC rules never contain them.
+- Conductive keep-outs. The nets of a floorplan region with `isolation_mm` and `nets` (mains) stay that distance from
+  every `conductive: true` keep-out or cut (a screw is accessible metal): a rule area per keep-out, grown by the
+  distance, with a `disallow track via` rule bound to those nets (conductive_keepouts), in the pass input only.
 - Neck-down widening. A wide net that the router could not route at its width is routed at the board track width,
   then `widen` puts its class width back on every piece of track where the clearances allow it. The narrow
   copper is left only where a pinch (a fine-pitch pad, a gap between parts) needs it.
@@ -97,6 +100,25 @@ def isolation_keepouts(groups: list[dict], board: dict, copper: list[str], via_d
                 cond = f"A.intersectsArea('{name}') && " + " && ".join(f"A.NetName != '{n}'" for n in sorted(M))
             if any(z[5][1] == name for z in zones):
                 rules.append(f'(rule "{name}" (constraint disallow track via) (condition "{cond}"))')
+    return zones, rules
+
+
+def conductive_keepouts(needs: list[dict], copper: list[str], clearance: float, nets: set[str]) -> tuple[list, list[str]]:
+    """Rule areas and `.kicad_dru` rules that keep the nets of a region with isolation_mm out of every conductive
+    keep-out or cut (floorplan.conductive_needs) grown by that distance, on every copper layer, for a pass that routes
+    `nets`. The router keeps `clearance` from the area edge, so the area is grown by mm - clearance + ISO_SLACK."""
+    zones, rules = [], []
+    for i, nd in enumerate(needs):
+        bound = sorted(nets & set(nd["nets"]))
+        if not bound:
+            continue
+        name = f"{ISO_ZONE}c{i}"
+        area = nd["poly"].buffer(max(nd["mm"] - clearance, 0.0) + ISO_SLACK, quad_segs=8)
+        for L in copper:
+            for poly in getattr(area, "geoms", [area]):
+                zones.append(_zone(name, L, poly.exterior))
+        who = " || ".join(f"A.NetName == '{n}'" for n in bound)
+        rules.append(f'(rule "{name}" (constraint disallow track via) (condition "A.intersectsArea(\'{name}\') && ({who})"))')
     return zones, rules
 
 

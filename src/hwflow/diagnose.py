@@ -41,9 +41,11 @@ STAGES = {"parts": "stage 3 (parts)", "circuit": "stage 4 (circuit)", "architect
 # ------------------------------------------------------------------ attribution and persistence
 
 def _pads(board: dict):
+    """(ref, pad) of every pad with copper (a keep-out marker's dummy pad on a drawing layer is no part of an error)."""
     for ref, fp in board["footprints"].items():
         for p in fp["pads"]:
-            yield ref, p
+            if any(L.endswith(".Cu") for L in p.get("layers") or ["*.Cu"]):
+                yield ref, p
 
 
 def failing_parts(drc: list[dict], board: dict) -> dict[str, list[str]]:

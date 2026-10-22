@@ -452,6 +452,78 @@ def isolation_router_rules(design: Design) -> list[dict]:
     return out
 
 
+def area_layers(design: Design, libs=None) -> dict[str, list[str]]:
+    """Named rule areas (zones) of the design's footprints -> the copper layers they cover, in board order."""
+    from .routing import pad_layers
+    if libs is None:
+        from .libs import Libs
+        libs = Libs(design=design)
+    copper = cu_layers(int(design.board["layers"]))
+    out: dict[str, list[str]] = {}
+    for c in design.components.values():
+        if c.get("virtual") or not c.get("footprint"):
+            continue
+        try:
+            t = libs.footprint_tree(c.get("footprint"))
+        except Exception:  # noqa: BLE001 - a missing footprint is reported by the design check
+            continue
+        for parent in [t] + sexpr.find_all(t, "footprint"):
+            for z in sexpr.find_all(parent, "zone"):
+                nm = sexpr.value(z, "name")
+                lay = sexpr.find(z, "layers") or sexpr.find(z, "layer") or []
+                if nm is not None:
+                    got = set(out.get(str(nm), [])) | set(pad_layers([str(x) for x in lay[1:]], copper))
+                    out[str(nm)] = [L for L in copper if L in got]
+    return out
+
+
+def net_layer_exemptions(design: Design, libs=None) -> tuple[list[str], list[dict]]:
+    """`board.drc_rules` with `nets.<name>.layers` taking precedence: a `disallow` rule on a named rule area
+    (`A.intersectsArea('Z')`) no longer applies to a net whose own layers list shares a copper layer with Z (the net
+    may use those layers there; its other layers are closed to it by the list anyway). The net is excluded with
+    `&& A.NetName != '<net>'`, read the same way by KiCad DRC and the router. Only nets the rule names (NetName, or
+    NetClass: the net's class or an `iso_` isolation class holding it), or every net when the rule names none.
+    Returns (rules, [{rule, area, net, layers}] the exemptions made)."""
+    import fnmatch
+    import re
+    rules = [str(r) for r in design.board.get("drc_rules") or []]
+    lays = net_layers(design)
+    if not lays or not any("disallow" in r and "intersectsArea" in r for r in rules):
+        return rules, []
+    areas = area_layers(design, libs)
+    cls_of: dict[str, set] = {}
+    for n in lays:
+        cls_of[n] = {str(design.net_info(n).get("class", "signal"))}
+    for x in isolation_router_rules(design):
+        for n in x["members"]:
+            if n in cls_of:
+                cls_of[n].add(x["class"])
+    out, notes = [], []
+    for r in rules:
+        cond = re.search(r'\(condition\s+"([^"]*)"', r)
+        if "disallow" not in r or not cond or "intersectsArea" not in cond.group(1):
+            out.append(r)
+            continue
+        c = cond.group(1)
+        names = re.findall(r"A\.NetName\s*==\s*'([^']+)'", c)
+        classes = re.findall(r"A\.NetClass\s*==\s*'([^']+)'", c)
+        rname = (re.search(r'\(rule\s+"?([^"\s)]+)', r) or [None, "?"])[1]
+        zl = sorted({L for a in re.findall(r"intersectsArea\('([^']+)'\)", c) for L in areas.get(a, [])})
+        za = re.findall(r"intersectsArea\('([^']+)'\)", c)
+        ex = []
+        for n, allowed in lays.items():
+            named = any(fnmatch.fnmatchcase(n, p) for p in names) or bool(cls_of[n] & set(classes))
+            both = [L for L in allowed if L in zl]
+            if both and (named or not (names or classes)):
+                ex.append(n)
+                notes.append({"rule": rname, "area": ", ".join(za), "net": n, "layers": both})
+        if ex:
+            new = f"({c}) && " + " && ".join(f"A.NetName != '{n}'" for n in ex)
+            r = r[:cond.start(1)] + new + r[cond.end(1):]
+        out.append(r)
+    return out, notes
+
+
 def write_project(dirpath: Path, name: str, design: Design):
     """Minimal .kicad_pro with net classes so DRC uses our widths and clearances."""
     import json
@@ -490,7 +562,8 @@ def write_project(dirpath: Path, name: str, design: Design):
     # board.drc_rules: KiCad custom rules (class-pair clearance, creepage), applied by DRC from <name>.kicad_dru;
     # board.isolation: the same rules generated from data (backlog 38)
     dru = dirpath / f"{name}.kicad_dru"
-    rules = list(b.get("drc_rules") or []) + [r for g in isolation_groups(design) for r in g["kicad"]]
+    # board.drc_rules, with nets.<name>.layers winning over a disallow rule area (net_layer_exemptions)
+    rules = net_layer_exemptions(design)[0] + [r for g in isolation_groups(design) for r in g["kicad"]]
     rules += [x["rule"] for x in iso]
     if design.raw.get("blocks"):  # the land-pattern rules of the layout blocks
         from . import blocks
@@ -710,12 +783,17 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
         return p.stdout + p.stderr, p.returncode
 
+    cond = floorplan.conductive_needs(design)
+
     def pass_input(cur, tag, pnets):
-        """The pass input: `cur` with the isolation keep-outs of this pass, and the rules files beside it."""
+        """The pass input: `cur` with the isolation and conductive keep-outs of this pass, and the rules files beside
+        it."""
         rules = []
-        if iso:
+        if iso or cond:
             zones, rules = routing.isolation_keepouts(iso, read_board(cur), copper, b["via_dia_mm"],
-                                                      b["clearance_mm"], set(pnets))
+                                                      b["clearance_mm"], set(pnets)) if iso else ([], [])
+            cz, cr = routing.conductive_keepouts(cond, copper, b["clearance_mm"], set(pnets))
+            zones, rules = zones + cz, rules + cr
             cur = routing.pass_input(cur, workdir / f"{stem}{tag}_in.kicad_pcb", zones)
         for f in rule_files:  # the router reads net-class clearances and custom rules from the input's siblings
             dst = f.with_name(cur.stem + f.suffix)

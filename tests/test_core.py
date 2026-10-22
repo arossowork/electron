@@ -486,7 +486,7 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
     d = Design.load(proj)
     seen = []
 
-    def fake(d, libs, reuse=False, seeds=4, iters=0, passes=0, seed0=1, workdir=None):
+    def fake(d, libs, reuse=False, seeds=4, iters=0, passes=0, seed0=1, workdir=None, deadline=None):
         seen.append((reuse, seed0))
         n = len(seen)
         (workdir / f"{d.name}.kicad_pcb").write_text(f"board {n}")

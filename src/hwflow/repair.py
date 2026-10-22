@@ -19,6 +19,9 @@ _ON = re.compile(r" on (\S+?)(?:,| -|$)")
 MAX_RIPUP = 12  # nets ripped in one round, the ones named by errors first
 MAX_ERRORS = int(os.environ.get("HWFLOW_REPAIR_MAX_ERRORS", 40))  # above this many errors local repair cannot converge: skip it
 BUDGET_S = float(os.environ.get("HWFLOW_REPAIR_BUDGET_S", 120))  # wall time for the whole repair, checked after each round
+# rounds in a row without improvement before the repair stops; 1 when some errors are on fixed parts (a floor no
+# re-route lowers: home-thermostat-3 spent 598 s going 5 -> 5 on courtyard errors of fixed parts and one open net)
+MAX_STALL = int(os.environ.get("HWFLOW_REPAIR_MAX_STALL", 2))
 
 
 def errors(drc: list[dict]) -> list[dict]:
@@ -83,23 +86,30 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
 _OF = re.compile(r" of (\S+)$")
 
 
+def fixed_error(x: dict, parts: dict) -> set[str] | None:
+    """The parts a DRC error names when routing cannot cure it (no track, via or zone named, not unconnected) and
+    every part it names is fixed in the placement; else None. `parts` maps a ref to an object with a `fixed` flag."""
+    if x["type"] == "unconnected" or x["type"].startswith("parity:"):
+        return None
+    mine = set()
+    for s in x.get("items") or []:
+        if s.split(" ", 1)[0] in ("Track", "Via", "Zone"):
+            return None
+        m = re.match(r"Footprint (\S+)$", s) or _OF.search(s)
+        if m:
+            mine.add(m.group(1))
+    if not mine or any(r not in parts or not parts[r].fixed for r in mine):
+        return None
+    return mine
+
+
 def fixed_part_errors(drc: list[dict], parts: dict) -> list[str] | None:
-    """The parts named by the DRC errors when no error can be cured by routing (no track, via or zone named, nothing
-    unconnected) and every named part is fixed in the placement, so a new placement cannot move them either; else
-    None. `parts` maps a ref to an object with a `fixed` flag."""
+    """The parts named by the DRC errors when every error is a fixed_error (routing cannot cure it and a new
+    placement cannot move its parts either); else None."""
     refs: set[str] = set()
     for x in errors(drc):
-        if x["type"] == "unconnected" or x["type"].startswith("parity:"):
-            return None
-        mine = set()
-        for s in x["items"]:
-            kind = s.split(" ", 1)[0]
-            if kind in ("Track", "Via", "Zone"):
-                return None
-            m = re.match(r"Footprint (\S+)$", s) or _OF.search(s)
-            if m:
-                mine.add(m.group(1))
-        if not mine or any(r not in parts or not parts[r].fixed for r in mine):
+        mine = fixed_error(x, parts)
+        if mine is None:
             return None
         refs |= mine
     return sorted(refs) or None
@@ -248,11 +258,14 @@ def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list,
             [dict(v) for v in rb["vias"] if v["net"] and (round(v["x"], 2), round(v["y"], 2)) not in skip])
 
 
-def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Path, check, rounds: int = 3) -> dict:
+def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Path, check, rounds: int = 3,
+           deadline: float | None = None) -> dict:
     """Repair loop. `check(tracks, vias, island_removal) -> drc` writes the board and runs DRC (refilling the zones).
     `check` should be the fast DRC; the caller runs the full one on the kept board. A round is kept only if it has fewer errors (or equal errors and fewer unrouted) and no more unrouted than the
-    best board so far; the best board is left in `board`. Stops after `rounds` rounds, when nothing can be repaired,
-    or after two rounds in a row without improvement. Returns the best copper, DRC and a report."""
+    best board so far; the best board is left in `board`. Skipped when every error is on fixed parts (fixed_error).
+    Stops after `rounds` rounds, when nothing can be repaired, or after MAX_STALL rounds in a row without improvement
+    (one round when some errors are on fixed parts), or at `deadline` (time.time(), the layout wall-time budget).
+    Returns the best copper, DRC and a report."""
     t0 = time.time()
     workdir = board.parent
     best = {"tracks": tracks, "vias": vias, "drc": drc, "island": 0, "score": score(drc)}
@@ -260,14 +273,26 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     snap = (board.read_bytes(), drc_json.read_bytes() if drc_json.exists() else None)
     first, log, fails, island, done = best["score"], [], 0, 0, 0
     max_err, budget = MAX_ERRORS, BUDGET_S
-    skipped = first[0] > max_err
-    if skipped:
+    fixed = [x for x in errors(drc) if fixed_error(x, parts) is not None]  # errors no re-route can change
+    stall = 1 if fixed else MAX_STALL
+    skipped = first[0] > max_err or bool(fixed and len(fixed) == len(errors(drc)))
+    if first[0] > max_err:
         log.append(f"repair skipped: {first[0]} errors > limit {max_err}")
+    elif skipped:
+        refs = sorted(set().union(*(fixed_error(x, parts) for x in fixed)))
+        log.append(f"repair skipped: the {len(fixed)} errors are on fixed parts ({', '.join(refs)}), "
+                   "which routing cannot change")
     for r in range(0 if skipped else max(rounds, 0)):
         if not best["score"][0]:
             break
+        if not [x for x in errors(best["drc"]) if fixed_error(x, parts) is None]:
+            log.append("the errors left are on fixed parts: nothing the router can repair")
+            break
         if done and time.time() - t0 > budget:
             log.append(f"repair stopped: {time.time() - t0:.0f} s > budget {budget:.0f} s")
+            break
+        if deadline is not None and time.time() > deadline:
+            log.append("repair stopped: the layout wall-time budget is used up")
             break
         p = plan(d, best["tracks"], best["vias"], best["drc"], radius=2.0 * fails)
         if not (p["rip"] or p["islands"] or p["drop_vias"]):
@@ -296,7 +321,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             log.append(f"round {r + 1}: {type(e).__name__}: {str(e)[:100]}")
             board.write_bytes(snap[0])
             fails += 1
-            if fails >= 2:
+            if fails >= stall:
                 break
             continue
         s = score(cand)
@@ -313,7 +338,8 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             if snap[1] is not None:
                 drc_json.write_bytes(snap[1])
             fails += 1
-            if fails >= 2:
+            if fails >= stall:  # no progress `stall` rounds in a row
+                log.append(f"repair stopped: {fails} round{'s' if fails > 1 else ''} without improvement")
                 break
     for f in workdir.glob(f"{d.name}_rep*"):
         f.unlink()

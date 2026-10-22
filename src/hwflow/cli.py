@@ -316,6 +316,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
         h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())
         for f in _block_files(d):
@@ -334,9 +335,10 @@ def _cache_save(cache: Path, key: str, data: dict):
 
 
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
-                 passes: int = 30, seed0: int = 1, workdir: Path | None = None) -> dict:
+                 passes: int = 30, seed0: int = 1, workdir: Path | None = None, deadline: float | None = None) -> dict:
     """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
-    (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs."""
+    (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
+    `deadline` (time.time()) stops the repair rounds when the layout wall-time budget is used up."""
     out = workdir or _out(d)
     cache = _out(d) / "routecache"
     pj = out / "placement.json"
@@ -390,7 +392,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                 and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
             r = repair.repair(d, libs, parts, tracks, vias, drc, board,
-                              lambda *a: route_check(*a, fast=True), rounds)  # local repair, not a rebuild
+                              lambda *a: route_check(*a, fast=True), rounds, deadline=deadline)  # local repair, not a rebuild
             tracks, vias, rep, island = r["tracks"], r["vias"], r["report"], r["island"]
             if rep["rounds"] and (tracks, vias) != pre[:2]:
                 drc = kicad.drc(board, refill=True, parity=True)  # the full DRC, once, on the board kept
@@ -413,11 +415,17 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     lays = pcb.net_layers(d)  # nets.<name>.layers: a track on another layer fails the layout
     off_layer = sorted({f"{t['net']} on {t['layer']}" for t in tracks if t["net"] in lays and t["layer"] not in lays[t["net"]]})
     iso = isolation_distances(d, board, drc)
+    # mains copper (tracks, vias, pads) near a conductive keep-out: the router keeps it out, this makes sure
+    conductive = postlayout.conductive_clearances(d, pcb.read_board(board))
+    for x in conductive:
+        print(f"[layout] conductive isolation: {x['net']} {x['item']} {x['mm']:.2f} mm from {x['keepout']} "
+              f"(need {x['need']:g} mm)")
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
     from . import diagnose
     failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
-    return {"failing": failing, "ok": not errs and not viol and not off_layer and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
-            "isolation": iso, "off_layer": off_layer,
+    return {"failing": failing, "ok": not errs and not viol and not off_layer and not conductive
+            and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
+            "isolation": iso, "off_layer": off_layer, "conductive_isolation": conductive,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
@@ -485,7 +493,7 @@ def _auto_attempt(k: int) -> dict:
         shutil.copy(out / "placement.json", w / "placement.json")
     try:
         r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=c["iters"], passes=c["passes"], seed0=seed0,
-                         workdir=w)
+                         workdir=w, deadline=c.get("deadline"))
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
@@ -523,52 +531,74 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     errors, 0 unrouted and no placement violations, or when its remaining errors are on fixed parts that no
     placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias, index) of the
     attempts up to the first final one, or of all of them. Later attempts are not waited for. Each attempt's board
-    is kept in build/auto/."""
+    is kept in build/auto/. A wall-time budget (_layout_budget, HWFLOW_LAYOUT_BUDGET_S) bounds the search: past it no
+    attempt starts, running ones are stopped, the repair stops its rounds, and the best attempt done is kept and
+    diagnosed. One progress line per attempt is printed as it ends."""
     import concurrent.futures as cf
     import shutil
+    try:
+        sys.stdout.reconfigure(line_buffering=True)  # progress lines reach a pipe (`timeout ... | tee`) as they come
+    except (AttributeError, ValueError):
+        pass
     out = _out(d)
     adir = out / "auto"
     if adir.exists():
         shutil.rmtree(adir)
     adir.mkdir()
     t0 = time.time()
+    budget = _layout_budget()
+    deadline = t0 + budget
     n = max(attempts, 1)
     workers = max(1, min(n, workers if workers else (os.cpu_count() or 2) - 1))
     size0 = (d.raw.get("board") or {}).get("width_mm"), (d.raw.get("board") or {}).get("height_mm")
     _AUTO.clear()
-    _AUTO.update(d=d, libs=libs, out=out, size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=reuse)
+    _AUTO.update(d=d, libs=libs, out=out, size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=reuse,
+                 deadline=deadline)
     results: dict[int, dict] = {}
     pending: dict = {}
+
+    def progress(res):
+        print(f"[layout --auto] {res.get('line') or res.get('error')} ({time.time() - t0:.0f} s of {budget:.0f} s)",
+              flush=True)
     fixed_all = libs is not None and all(p.fixed for p in placer.build_parts(d, libs).values())
     if fixed_all:
         n = 1  # no movable part: another seed gives the same placement
     results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
+    progress(results[0])
     cutoff = 0 if _auto_final(results[0]) else None
     r0 = results[0].get("r") or {}
     hopeless = cutoff is None and r0 and r0["drc_errors"] + r0["unrouted"] > _hopeless_limit()
     if hopeless:
         n = 1  # far from routable: other seeds of the same placer and router do not close the gap (thermostat 3: 121)
+    over = n > 1 and cutoff is None and time.time() >= deadline  # the budget is used up: the attempts left are skipped
     nxt = 1
     workers = max(1, min(workers, n - 1))
-    pool = _auto_pool(workers) if n > 1 and cutoff is None else None
+    pool = _auto_pool(workers) if n > 1 and cutoff is None and not over else None
     try:
         while pool is not None:
-            while nxt < n and len(pending) < workers and (cutoff is None or nxt <= cutoff):
+            while nxt < n and len(pending) < workers and (cutoff is None or nxt <= cutoff) and time.time() < deadline:
                 pending[pool.submit(_auto_attempt, nxt)] = nxt
                 nxt += 1
             if all(k in results for k in range(n if cutoff is None else cutoff + 1)):
                 break
-            done, _ = cf.wait(pending, return_when=cf.FIRST_COMPLETED)
+            if not pending:  # nothing running and nothing may start: the budget is used up
+                over = True
+                break
+            done, _ = cf.wait(pending, timeout=max(0.0, deadline - time.time()), return_when=cf.FIRST_COMPLETED)
             for f in done:
                 k = pending.pop(f)
                 try:
                     results[k] = f.result()
                 except Exception as e:  # noqa: BLE001 - a crashed worker ends this attempt
                     results[k] = {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
+                progress(results[k])
             finals = [k for k, res in results.items() if _auto_final(res)]
             cutoff = min(finals) if finals else None
+            if not done and time.time() >= deadline:  # the running attempts are stopped (finally below)
+                over = True
+                break
     finally:
-        left = [f for f in pending if not f.done()]  # attempts after the first final one
+        left = [f for f in pending if not f.done()]  # attempts after the first final one, or past the budget
         for f in left:
             f.cancel()
         for proc in (getattr(pool, "_processes", None) or {}).values() if left else ():
@@ -616,6 +646,11 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
                    "parts, a larger board), which is a product decision")
     elif fixed_all and not r["ok"]:
         stopped = "all parts fixed: one attempt"
+    if over:
+        skipped = n - len(used)
+        stopped = ((stopped + "; ") if stopped else "") + (
+            f"stopped: wall-time budget {budget:g} s (HWFLOW_LAYOUT_BUDGET_S) used up after {len(used)} of {n} "
+            f"attempts; {skipped} attempt{'s' if skipped != 1 else ''} skipped or stopped")
     r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
              seconds=round(time.time() - t0, 1))
     if not r["ok"]:
@@ -660,6 +695,12 @@ def _record_layout(d: Design, r: dict, override: bool):
                               "ok": bool(r.get("ok")), "unrouted": r.get("unrouted"), "drc_errors": r.get("drc_errors"),
                               "persistent": g.get("persistent") or [], "blocked": bool(g.get("blocked")),
                               "override": override, "diagnosis": g})
+
+
+def _layout_budget() -> float:
+    """Wall time in seconds `layout --auto` may use for its attempts (HWFLOW_LAYOUT_BUDGET_S, default 3000: inside the
+    3600 s an agent's `timeout` gives the call, with time left for the diagnosis, status.json and REPORT.md)."""
+    return float(os.environ.get("HWFLOW_LAYOUT_BUDGET_S", 3000))
 
 
 def _hopeless_limit() -> int:
@@ -892,6 +933,9 @@ def write_report(d: Design, history: bool = False) -> str:
                  f"unrouted {c['unrouted']}")
         if c.get("repair"):
             L.append(f"  - {c['repair']['text']}")
+        for x in c.get("conductive_isolation") or []:
+            L.append(f"  - conductive isolation: {x['net']} {x['item']} at {x['at']} is {x['mm']:.2f} mm from "
+                     f"{x['keepout']} (region {x['region']} needs {x['need']:g} mm) FAIL")
         for r in c.get("isolation") or []:
             creep = (f"; creepage {r['creepage_mm']} mm by DRC: {r['drc_creepage']} violations"
                      if r.get("creepage_mm") is not None else "")
