@@ -370,6 +370,21 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         print(f"[layout] budget {r['name']}: {r['msg']}")
     name = d.name
     board = out / f"{name}.kicad_pcb"
+    corridors = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"]).corridors()
+    for c in corridors:
+        print(f"[layout] corridor {c['msg']}")
+    blocks = [v for v in viol if v.startswith("corridor ")]
+    if blocks:  # a channel the fixed parts close: no router run can join the net, so none is started
+        msg = "not routed: " + "; ".join(blocks)
+        print(f"[layout] {msg}")
+        pcb.write_project(out, name, d)
+        pcb.write_board(board, pcb.build_board(d, libs, parts, [], []))
+        return {"failing": {}, "ok": False, "blocked": msg, "isolation": [], "off_layer": [], "conductive_isolation": [],
+                "budget_widths": bud_w, "budgets": [], "board_mm": [d.board["width_mm"], d.board["height_mm"]],
+                "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
+                "corridors": corridors, "router": "-", "segments": 0, "vias": 0, "drc_errors": 0, "drc_warnings": 0,
+                "unrouted": 0, "drc": [], "repair": None, "route_cache": None, "fixed_parts_only": blocks,
+                "seconds": round(time.time() - t0, 1)}
 
     def route_check(tr, vi, island=0, fast=False):
         pcb.write_board(board, pcb.build_board(d, libs, parts, tr, vi, island_removal=island))
@@ -429,7 +444,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
-            "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
+            "corridors": corridors, "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
             "route_cache": key if hit else None, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "seconds": round(time.time() - t0, 1)}
@@ -952,6 +967,8 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - budget {r['name']} width: {r['msg']}")
         for r in c.get("budgets") or []:
             L.append(f"  - {r['msg']}")
+        for x in c.get("corridors") or []:
+            L.append(f"  - corridor {x['msg']}")
         for v in c["placement_violations"][:5]:
             L.append(f"  - placement: {v}")
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
