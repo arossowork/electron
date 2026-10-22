@@ -11,7 +11,7 @@ import numpy as np
 
 from . import sexpr, spice
 from .design import Design
-from .pcb import ipc2221_width_mm, net_classes, read_board
+from .pcb import ipc2221_width_mm, net_classes, net_layers, read_board
 from .spice import NodeMap
 
 RHO_CU = 1.72e-8
@@ -476,6 +476,12 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
     for net, n in ex.islands().items():
         if n > 1:
             add("error", "unrouted", f"net {net} is split in {n} copper islands")
+    for net, lays in net_layers(design).items():  # nets.<name>.layers: no track of the net on another layer
+        off = [s for s in ex.segs if s["net"] == net and s["layer"] not in lays]
+        if off:
+            add("error", "net-layer", f"{net}: {len(off)} tracks ({sum(s['len'] for s in off):.1f} mm) on "
+                                      f"{', '.join(sorted({s['layer'] for s in off}))}, outside its layers "
+                                      f"{', '.join(lays)}")
     # current capacity
     for net in design.nets():
         info = design.net_info(net)

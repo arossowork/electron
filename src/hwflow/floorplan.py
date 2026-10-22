@@ -143,6 +143,18 @@ def parse(design) -> dict | None:
             side = "both"
         g = _geom(r, where, errs)
         bd = board_of(r.get("board"), where)
+        cut = bool(r.get("cut", False))
+        if cut:  # a hole or notch in the board: a keep-out on both faces that no part may enter
+            if r.get("kind", "keepout") != "keepout":
+                errs.append(f"{where}: a cut region is a keep-out (kind keepout or no kind)")
+            if r.get("side", "both") != "both":
+                errs.append(f"{where}: a cut goes through the board (side both or no side)")
+            if r.get("items"):
+                errs.append(f"{where}: a cut region holds no items")
+            kind, side = "keepout", "both"
+            b0 = next((x for x in boards if x["name"] == bd), None)
+            if g is not None and b0 is not None and not g.intersects(box(0, 0, b0["w"], b0["h"])):
+                errs.append(f"{where}: the cut lies outside the board")
         iso = r.get("isolation_mm")
         if iso is not None and (not isinstance(iso, (int, float)) or iso < 0):
             errs.append(f"{where}: isolation_mm must be a number >= 0")
@@ -150,7 +162,16 @@ def parse(design) -> dict | None:
         regions.append({"name": nm, "kind": kind, "sides": SIDES[side], "side": side, "board": bd, "geom": g,
                         "iso": float(iso) if iso is not None else None, "from": _list(r.get("from")),
                         "nets": _list(r.get("nets")), "items": _list(r.get("items")), "allow": _list(r.get("allow")),
-                        "conductive": bool(r.get("conductive", False)), "source": r.get("source")})
+                        "conductive": bool(r.get("conductive", False)), "source": r.get("source"), "cut": cut,
+                        "circle": tuple(map(float, r["circle"])) if cut and g is not None and "circle" in r else None})
+    for b0 in boards:  # what the cuts leave of each board must be one piece
+        cs = [r["geom"] for r in regions if r["cut"] and r["board"] == b0["name"] and r["geom"] is not None]
+        left = box(0, 0, b0["w"], b0["h"]).difference(unary_union(cs)) if cs else None
+        if left is not None and left.area < 1e-6:
+            errs.append(f"floorplan.regions: the cut regions remove the whole board {b0['name']}")
+        elif left is not None and len(getattr(left, "geoms", [left])) > 1:
+            errs.append(f"floorplan.regions: the cut regions split board {b0['name']} into "
+                        f"{len(left.geoms)} pieces")
     rnames = {r["name"] for r in regions}
     if len(rnames) != len(regions):
         errs.append("floorplan.regions: names must be unique")
@@ -254,6 +275,8 @@ def _shape_regions(fp: dict):
         g = r["geom"]
         from shapely import affinity
         r["poly"] = affinity.translate(g, b["x"], b["y"])  # may pass the board edge (a body that overhangs)
+        if r["circle"]:
+            r["circle"] = (r["circle"][0] + b["x"], r["circle"][1] + b["y"], r["circle"][2])
     for r in fp["regions"]:
         if r["kind"] == "keepout":
             continue
@@ -268,6 +291,57 @@ def _shape_regions(fp: dict):
             r["poly"] = r["poly"].difference(unary_union(cut))
     for r in fp["regions"]:
         r["area"] = r["poly"].intersection(bd[r["board"]]["rect"]).area
+
+
+def cuts(design, quad_segs: int | None = None) -> list[dict]:
+    """The `cut: true` regions in board coordinates: [{name, poly, circle (cx, cy, r) or None, conductive}]. With
+    `quad_segs` a circle is drawn again with that many segments per quarter (the Edge.Cuts writer wants a fine one).
+    An invalid floorplan has no cuts (design check reports it)."""
+    if not any(isinstance(r, dict) and r.get("cut") for r in ((design.raw.get("floorplan") or {}).get("regions") or [])):
+        return []
+    try:
+        fp = parse(design)
+    except FloorplanError:
+        return []
+    out = []
+    for r in fp["regions"] if fp else []:
+        if r["cut"]:
+            c = r["circle"]
+            poly = Point(c[0], c[1]).buffer(c[2], quad_segs) if c and quad_segs else r["poly"]
+            out.append({"name": r["name"], "poly": poly, "circle": c, "conductive": r["conductive"]})
+    return out
+
+
+def outline(design, quad_segs: int | None = None):
+    """The board shape: the board rectangle minus the cut regions."""
+    b = design.board
+    rect = box(0, 0, float(b["width_mm"]), float(b["height_mm"]))
+    cs = cuts(design, quad_segs)
+    return rect.difference(unary_union([c["poly"] for c in cs])) if cs else rect
+
+
+def cut_pad_findings(design, parts: dict, edge_mm: float) -> list[str]:
+    """Pads of fixed parts closer than `edge_mm` (the copper-to-edge clearance) to a cut region, or inside one."""
+    cs = cuts(design)
+    if not cs:
+        return []
+    out = []
+    for ref, p in parts.items():
+        c = design.components.get(ref)
+        if c is None or not p.fixed:
+            continue
+        for num in p.pads:
+            x, y = p.pad(num)
+            w, h = (p.pad_size or {}).get(num, (0.0, 0.0))
+            if p.r % 180:
+                w, h = h, w
+            g = box(x - w / 2, y - h / 2, x + w / 2, y + h / 2)
+            for k in cs:
+                d = g.distance(k["poly"])
+                if d < edge_mm - 1e-6:
+                    out.append(f"{ref}.{num} (fixed) is {d:.2f} mm from cut {k['name']} (copper-to-edge clearance "
+                               f"{edge_mm:g} mm)")
+    return out
 
 
 def fixed_pad_isolation(design, parts: dict, fp: dict) -> list[str]:
@@ -370,6 +444,10 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         if r["poly"].is_empty:
             continue
         allow = {x for e in r["allow"] for x in (res.get(e) or [y for y in refs if fnmatch.fnmatchcase(y, e)])}
+        if r["cut"]:  # a hole in the board: every part keeps the board margin from its edge, as from the outline
+            out.append(_rule(r["name"], r["poly"].buffer(float(design.board["margin_mm"]), join_style="mitre"),
+                             r["sides"], set(), True, allow, {}))
+            continue
         if r["kind"] in ("mains", "antenna", "keepout"):
             allow |= kind_mem["barrier"]
         if r["kind"] == "barrier":

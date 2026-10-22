@@ -96,19 +96,28 @@ def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
         if r in design.components:
             x0, y0, x1, y1 = p.box()
             out[_side(design, r) if _side(design, r) in out else "front"] += (x1 - x0) * (y1 - y0)
-    return {k: v / (W * H) if W and H else 0.0 for k, v in out.items()}
+    from . import floorplan
+    area = floorplan.outline(design).area if floorplan.cuts(design) else W * H  # cut regions take board area away
+    return {k: v / area if area > 0 else 0.0 for k, v in out.items()}
 
 
 # ------------------------------------------------------------------ structure key and history
 
 def structure_key(design) -> str:
-    """What a layout cannot change: parts and footprints, the netlist, net widths and currents, board size and
-    layers. Placement anchors, weights, router and DRC settings are left out."""
+    """What a layout cannot change: parts and footprints, the netlist, net widths, currents and layers, board size,
+    cut regions and layers. Placement anchors, weights, router and DRC settings are left out."""
     comps = sorted((r, str(c.get("footprint")), sorted((str(k), str(v)) for k, v in (c.pins or {}).items()))
                    for r, c in design.components.items())
-    nets = sorted((n, str(i.get("width_mm")), str(i.get("current_a"))) for n, i in (design.raw.get("nets") or {}).items())
+    nets = sorted((n, str(i.get("width_mm")), str(i.get("current_a")))
+                  + ((str((i or {}).get("layers")),) if (i or {}).get("layers") else ())
+                  for n, i in (design.raw.get("nets") or {}).items())
     b = design.board
     board = [b.get("width_mm"), b.get("height_mm"), b.get("layers"), b.get("track_mm"), b.get("clearance_mm")]
+    from . import floorplan
+    cs = floorplan.cuts(design)  # cut regions change the board shape (keys without them stay as they were)
+    if cs:
+        import shapely
+        board.append([shapely.to_wkt(c["poly"], rounding_precision=3) for c in cs])
     return hashlib.sha256(json.dumps([comps, nets, board], default=str).encode()).hexdigest()[:12]
 
 

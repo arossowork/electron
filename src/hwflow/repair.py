@@ -197,9 +197,9 @@ def stitch_vias(d, board: Path, net: str) -> tuple[list[dict], int, bool]:
         area[g] = area.get(g, 0) + nodes[i][1].area
         held[g] = held.get(g, False) or holds[i]
     main = max(area, key=area.get)
-    W, H = b["width_mm"], b["height_mm"]
-    m = 0.3 + r + 0.1
-    inner = box(m, m, W - m, H - m)
+    from . import floorplan
+    m = pcb.EDGE_CLEARANCE_MM + r + 0.1
+    inner = floorplan.outline(d).buffer(-m, join_style="mitre")
     obst = _obstacles(d, board, net)
     for fp in rb["footprints"].values():  # no via inside a pad of the net either
         for p in fp["pads"]:

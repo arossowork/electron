@@ -313,9 +313,50 @@ def check(design: Design, libs=None) -> list[dict]:
                     and not design.net_info(net).get("external_supply"):
                 add("warn", "no-power-source", f"net {net} feeds power_in pins but no power_out pin drives it "
                                                f"(set nets.{net}.external_supply: true if it comes from a connector)")
-    from .floorplan import validate
+    from .floorplan import cut_pad_findings, cuts, validate
     for msg in validate(design):
         add("error", "floorplan", msg)
+    from . import pcb
+    if libs is not None and cuts(design):  # pads of fixed parts within the copper-to-edge clearance of a cut
+        from . import placer
+        try:
+            parts = placer.build_parts(design, libs)
+        except Exception:  # noqa: BLE001 - a missing footprint is reported above
+            parts = {}
+        edge = max(float(design.board["clearance_mm"]), pcb.EDGE_CLEARANCE_MM)
+        for msg in cut_pad_findings(design, parts, edge):
+            add("warn", "cut-pad", msg)
+    # nets.<name>.layers: known copper layers, and an SMD pad of the net on one of them
+    import fnmatch
+    copper = pcb.cu_layers(int(design.board["layers"]))
+    allowed = pcb.net_layers(design)
+    for net, lays in allowed.items():
+        pats = design.net_info(net).get("layers")
+        pats = [pats] if isinstance(pats, str) else pats
+        if not isinstance(pats, (list, tuple)) or not pats:
+            add("error", "net-layers", f"nets.{net}.layers must be a list of copper layer names")
+            continue
+        for p in pats:
+            if not any(fnmatch.fnmatchcase(L, str(p)) for L in copper):
+                add("error", "net-layers", f"nets.{net}.layers: {p} is not a copper layer of this "
+                                           f"{design.board['layers']}-layer board ({', '.join(copper)})")
+        if libs is None or not lays:
+            continue
+        from .routing import pad_layers
+        for ref, pin in nets.get(net, []):
+            c = design.components[ref]
+            if c.get("virtual"):
+                continue
+            try:
+                pads = [p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pin]
+            except Exception:  # noqa: BLE001 - reported as footprint-missing
+                continue
+            for p in pads:
+                cu = pad_layers(p["layers"], copper)
+                if p["kind"] == "smd" and cu and not set(cu) & set(lays):
+                    add("error", "net-layers", f"{ref}.{pin} ({net}) is an SMD pad on {', '.join(cu)} only, not on "
+                                               f"the net's layers {', '.join(lays)}")
+                    break
     from .budgets import check as budget_check
     f += budget_check(design)
     if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)

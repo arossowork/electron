@@ -77,6 +77,22 @@ def cu_layers(n: int) -> list[str]:
     return ["F.Cu"] + (["In1.Cu", "In2.Cu"] if n == 4 else []) + ["B.Cu"]
 
 
+def net_layers(design: Design) -> dict[str, list[str]]:
+    """`nets.<name>.layers`: the copper layers the router may use for that net (KiCad names, globs like In*.Cu), for
+    the nets that set it, in board order. A name no copper layer of the board matches is dropped (design check
+    reports it)."""
+    import fnmatch
+    copper = cu_layers(int(design.board["layers"]))
+    out = {}
+    for n, i in (design.raw.get("nets") or {}).items():
+        pats = (i or {}).get("layers")
+        if pats is None:
+            continue
+        pats = [pats] if isinstance(pats, str) else list(pats) if isinstance(pats, (list, tuple)) else []
+        out[n] = [L for L in copper if any(fnmatch.fnmatchcase(L, str(p)) for p in pats)]
+    return out
+
+
 def _quote_tokens(node: list) -> None:
     """Quote pad numbers and layer names in place. Older KiCad libraries write `(pad 1 smd ..)` and
     `(layers F.Cu F.Mask)` unquoted; KiCad reads both, but the router's board parser only finds quoted pad numbers
@@ -222,8 +238,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     for n in nets:
         tree.append(["net", netidx[n], Q(n)])
     W, H = b["width_mm"], b["height_mm"]
-    tree.append(["gr_rect", ["start", 0, 0], ["end", W, H], ["stroke", ["width", 0.1], ["type", "default"]],
-                 ["fill", "no"], ["layer", Q("Edge.Cuts")], ["uuid", uid()]])
+    tree += edge_cuts(design)
     tree.append(["gr_text", Q(f"{design.name} rev {design.raw.get('revision', 'A')}"), ["at", 1.5, H - 1.2, 0],
                  ["layer", Q("F.SilkS")], ["uuid", uid()],
                  ["effects", ["font", ["size", 0.8, 0.8], ["thickness", 0.12]], ["justify", "left"]]])
@@ -264,6 +279,75 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
                              ["polygon", ["pts", ["xy", 0.3, 0.3], ["xy", W - 0.3, 0.3], ["xy", W - 0.3, H - 0.3],
                                           ["xy", 0.3, H - 0.3]]]])
     return tree
+
+
+EDGE_CLEARANCE_MM = 0.3  # min_copper_edge_clearance written by write_project
+ARC_QUAD_SEGS = 256  # circle cuts on Edge.Cuts: a chord sags r x 5e-6 under the arc, so the edge points are on it
+
+
+def edge_cuts(design: Design) -> list:
+    """Edge.Cuts: the board rectangle, or with floorplan cut regions the rectangle minus their union as gr_line, gr_arc
+    where the edge follows a circle cut, and gr_circle for a hole that is a whole circle."""
+    from shapely.ops import unary_union
+
+    from . import floorplan
+    b = design.board
+    W, H = b["width_mm"], b["height_mm"]
+    stroke = ["stroke", ["width", 0.1], ["type", "default"]]
+    cs = floorplan.cuts(design, ARC_QUAD_SEGS)
+    if not cs:
+        return [["gr_rect", ["start", 0, 0], ["end", W, H], stroke, ["fill", "no"], ["layer", Q("Edge.Cuts")], ["uuid", uid()]]]
+    shape = box(0, 0, W, H).difference(unary_union([c["poly"] for c in cs]))
+    circles = [c["circle"] for c in cs if c["circle"]]
+    out = []
+    for poly in getattr(shape, "geoms", [shape]):
+        for ring in (poly.exterior, *poly.interiors):
+            out += _ring_items(list(ring.coords)[:-1], circles, stroke)
+    return out
+
+
+def _ring_items(pts: list, circles: list, stroke: list) -> list:
+    """One closed outline ring as gr_line, gr_arc (runs of chords of a circle cut) or one gr_circle."""
+    def on(k, q):
+        cx, cy, r = circles[k]
+        return abs(math.hypot(q[0] - cx, q[1] - cy) - r) < 1e-4 + r * 1e-5
+
+    def circle_of(a, q):  # the circle cut an edge is a chord of, or None
+        return next((k for k in range(len(circles)) if on(k, a) and on(k, q)
+                     and math.dist(a, q) < circles[k][2] * 0.02 + 1e-6), None)
+
+    def xy(q):
+        return [round(q[0], 4), round(q[1], 4)]
+
+    n = len(pts)
+    lab = [circle_of(pts[i], pts[(i + 1) % n]) for i in range(n)]
+    layer = ["layer", Q("Edge.Cuts")]
+    if lab[0] is not None and all(x == lab[0] for x in lab):
+        cx, cy, r = circles[lab[0]]
+        return [["gr_circle", ["center", *xy((cx, cy))], ["end", *xy((cx + r, cy))], stroke, ["fill", "no"], layer,
+                 ["uuid", uid()]]]
+    i0 = next((i for i in range(n) if lab[i] != lab[i - 1]), 0)  # start where a run starts
+    out, i = [], 0
+    while i < n:
+        k, run = lab[(i0 + i) % n], [pts[(i0 + i) % n]]
+        while i < n and lab[(i0 + i) % n] == k:
+            i += 1
+            run.append(pts[(i0 + i) % n])
+            if k is None:
+                break  # a straight edge is one line
+        if k is None or math.dist(run[0], run[-1]) < 0.01:
+            out.append(["gr_line", ["start", *xy(run[0])], ["end", *xy(run[-1])], stroke, layer, ["uuid", uid()]])
+            continue
+        if len(run) > 2:
+            mid = run[len(run) // 2]
+        else:  # one chord: its midpoint pushed out onto the circle
+            cx, cy, r = circles[k]
+            mx, my = (run[0][0] + run[1][0]) / 2, (run[0][1] + run[1][1]) / 2
+            d = math.hypot(mx - cx, my - cy) or 1.0
+            mid = (cx + (mx - cx) * r / d, cy + (my - cy) * r / d)
+        out.append(["gr_arc", ["start", *xy(run[0])], ["mid", *xy(mid)], ["end", *xy(run[-1])], stroke, layer,
+                    ["uuid", uid()]])
+    return out
 
 
 def board_text(tree: list) -> str:
@@ -394,7 +478,7 @@ def write_project(dirpath: Path, name: str, design: Design):
     pro = {
         "board": {"design_settings": {"rules": {"min_clearance": min(b["clearance_mm"], 0.15),
                                                 "min_track_width": 0.15, "min_via_diameter": 0.45,
-                                                "min_through_hole_diameter": 0.2, "min_copper_edge_clearance": 0.3,
+                                                "min_through_hole_diameter": 0.2, "min_copper_edge_clearance": EDGE_CLEARANCE_MM,
                                                 "min_hole_clearance": 0.25, "min_hole_to_hole": 0.25,
                                                 "min_via_annular_width": 0.1}}},
         "meta": {"filename": f"{name}.kicad_pro", "version": 3},
@@ -462,7 +546,15 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     structure = ["structure"]
     for i, L in enumerate(layers):
         structure.append(["layer", L, ["type", "power" if False else "signal"], ["property", ["index", i]]])
-    structure.append(["boundary", ["path", "pcb", 0, 0, 0, _um(W), 0, _um(W), -_um(H), 0, -_um(H), 0, 0]])
+    from . import floorplan
+    shape = floorplan.outline(design, 16)
+    if shape.geom_type == "Polygon" and floorplan.cuts(design):  # cut regions: the outline ring, holes as keep-outs
+        ring = [c for x, y in shape.exterior.coords for c in (_um(x), -_um(y))]
+        structure.append(["boundary", ["path", "pcb", 0] + ring])
+        for h in shape.interiors:
+            structure.append(["keepout", Q(""), ["polygon", "signal", 0] + [c for x, y in h.coords for c in (_um(x), -_um(y))]])
+    else:
+        structure.append(["boundary", ["path", "pcb", 0, 0, 0, _um(W), 0, _um(W), -_um(H), 0, -_um(H), 0, 0]])
     via_name = f"Via[0-{len(layers) - 1}]_{_um(b['via_dia_mm']):g}:{_um(b['via_drill_mm']):g}_um"
     structure.append(["via", Q(via_name)])
     structure.append(["rule", ["width", _um(b["track_mm"])], ["clearance", _um(b["clearance_mm"])]])
@@ -505,12 +597,14 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     for net, conns in nets.items():
         pins = [f"{r}-{p}" for r, p in conns if r in parts]
         network.append(["net", Q(net), ["pins"] + pins])
+    only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(layers)}
     groups: dict[tuple, list] = {}
     for net, cl in classes.items():
-        groups.setdefault((cl["width"], cl["clearance"]), []).append(net)
-    for i, ((w, cl), ns) in enumerate(sorted(groups.items())):
+        groups.setdefault((cl["width"], cl["clearance"], only.get(net, ())), []).append(net)
+    for i, ((w, cl, lays), ns) in enumerate(sorted(groups.items())):
+        circuit = ["circuit", ["use_via", Q(via_name)]] + ([["use_layer", *lays]] if lays else [])  # nets.<name>.layers
         network.append(["class", Q(f"c{i}")] + [Q(n) for n in ns] +
-                       [["circuit", ["use_via", Q(via_name)]], ["rule", ["width", _um(w)], ["clearance", _um(cl)]]])
+                       [circuit, ["rule", ["width", _um(w)], ["clearance", _um(cl)]]])
     tree = ["pcb", Q(str(path)), ["parser", ["string_quote", Q('"')], ["space_in_quoted_tokens", "on"],
                                   ["host_cad", Q("hwflow")], ["host_version", Q("0.1")]],
             ["resolution", "um", 10], ["unit", "um"], structure, placement, library, network, wiring]
@@ -577,9 +671,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     of routing.isolation_keepouts. A net a pass wider than the board track width leaves open is routed again as a
     router power net (neck-down for at most 2 mm at a pad entry), then at the track width and widened where it fits
     (routing.widen); a net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the
-    neck-down off.
+    neck-down off. Nets with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
     Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
-    from . import keepout, routing
+    from . import floorplan, keepout, routing
     b = design.board
     name = design.name
     src, workdir = Path(src).resolve(), Path(workdir).resolve()  # the router runs with cwd=KRT_DIR (a relative project path would not be found)
@@ -588,14 +682,17 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     gnds = design.ground_nets() if b["gnd_pour"] else set()
     iso = isolation_needs(design)
     members = {n for g in iso for n in g["members"]}
+    copper = cu_layers(b["layers"])
+    # nets.<name>.layers: those nets route in passes of their own, the other layers forbidden (router --layer-costs -1:
+    # an obstacle that through vias may cross, with no track on it)
+    only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(copper)}
     groups: dict[tuple, list[str]] = {}
     for net, cl in classes.items():
         if net not in gnds and (nets is None or net in nets):
-            groups.setdefault((net not in members, -cl["width"]), []).append(net)
-    passes = [(-k[1], groups[k]) for k in sorted(groups)]  # isolation members first, then widest first
+            groups.setdefault((net not in members, -cl["width"], net not in only, only.get(net, ())), []).append(net)
+    passes = [(-k[1], groups[k], k[3]) for k in sorted(groups)]  # isolation members first, then widest first
     neck = float(b["track_mm"])
     neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
-    copper = cu_layers(b["layers"])
     env = dict(os.environ, KICAD_CLI=_kicad_cli())
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
     # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
@@ -631,7 +728,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 shutil.copy(f, dst)
         return cur
 
-    def run_pass(cur, tag, pnets, args, i):
+    def run_pass0(cur, tag, pnets, args, i):
         base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:
             base.append("--keep-input-copper")
@@ -650,18 +747,22 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         for a in keepout._rule_areas(sexpr.loads(path.read_text()), ("tracks",)):
             for L in routing.pad_layers(a["layers"], copper):
                 ko.setdefault(L, []).append(a["poly"])
-        edge = 0.3  # min_copper_edge_clearance written by write_project
-        outline = box(edge, edge, b["width_mm"] - edge, b["height_mm"] - edge)
+        outline = floorplan.outline(design).buffer(-EDGE_CLEARANCE_MM, join_style="mitre")
         stats = routing.widen(path, read_board(path), {n: w for n in fnets},
                               _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko)
         text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow, longest neck {s[2]:.1f} mm"
                          for n, s in sorted(stats.items()))
         return all(s[2] <= routing.NECK_MAX_MM for s in stats.values()), text
 
-    def route_group(cur, tag, pnets, w, i):
+    def route_group(cur, tag, pnets, w, i, lays=()):
         """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
-        at the track width, widened back where they fit. Returns ((board, summary, unrouted), notes)."""
+        at the track width, widened back where they fit. `lays`: the only layers the nets may use (all when empty).
+        Returns ((board, summary, unrouted), notes)."""
         wide = neckdown and w > neck + 1e-9
+        largs = layer_args(copper, lays)
+
+        def run_pass(cur, tag, pnets, args, i):
+            return run_pass0(cur, tag, pnets, args + largs, i)
         best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
         notes = [f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried)] if len(tried) > 1 else []
         # neck-down, only for the nets left open (a board that routes at full width keeps that copper): first the
@@ -693,14 +794,14 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         return best, notes
 
-    for i, (w, gnets) in enumerate(passes):
-        best, notes = route_group(cur, i, gnets, w, i)
-        got = {f"{i}: {w} mm": best[1]}
+    for i, (w, gnets, lays) in enumerate(passes):
+        best, notes = route_group(cur, i, gnets, w, i, lays)
+        got = {f"{i}: {w} mm" + (f" on {' '.join(lays)}" if lays else ""): best[1]}
         open_nets = sorted(set(krt_open_nets(best[1])) & set(gnets)) if best[2] else []
         if open_nets and len(open_nets) < len(gnets):
             # a net walled in by the others of its pass (a pin between two pins of a wider net): route it first
-            first, n1 = route_group(cur, f"{i}p", open_nets, w, i)
-            rest, n2 = route_group(first[0], f"{i}q", [n for n in gnets if n not in open_nets], w, 1)
+            first, n1 = route_group(cur, f"{i}p", open_nets, w, i, lays)
+            rest, n2 = route_group(first[0], f"{i}q", [n for n in gnets if n not in open_nets], w, 1, lays)
             if first[2] + rest[2] < best[2]:
                 best = (rest[0], rest[1], first[2] + rest[2])
                 got = {f"{i}: {w} mm, open nets first": first[1], f"{i}: {w} mm, the others": rest[1]}
@@ -711,6 +812,15 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
     return cur, last, retried, len(passes)
+
+
+def layer_args(copper: list[str], lays) -> list[str]:
+    """Router arguments that keep a pass on `lays`: every board layer listed, the others with cost -1 (forbidden:
+    an obstacle, crossed only by through vias). The router's default costs otherwise (F.Cu 1, the others 3)."""
+    if not lays or set(lays) >= set(copper):
+        return []
+    costs = ["-1" if L not in lays else "1.0" if L == "F.Cu" else "3.0" for L in copper]
+    return ["--layers", *copper, "--layer-costs", *costs]
 
 
 def krt_open_nets(summary: dict) -> list[str]:

@@ -68,7 +68,10 @@ nets:
   ADC_IN: {class: signal, sensitive: true}
   CLK: {class: clock}                    # clock, switching, high_speed count as aggressors
   RF: {impedance_ohm: 50, width_mm: 1.1}
+  AC_L: {class: power, current_a: 2, layers: [B.Cu]}   # the router may use only these layers for the net
 ```
+
+`layers` lists the copper layers the router may use for the net (KiCad names; globs such as `In*.Cu` match the board's layers). KiCadRoutingTools routes those nets in passes of their own, with every other layer forbidden (`--layers <all> --layer-costs`, -1 on the others: an obstacle that through vias may cross, no track on it); repair reroutes keep the same passes. The Freerouting path writes the net class with `(circuit (use_layer ...))`. `hwflow check` fails on a name that matches no copper layer of the board, and on an SMD pad of the net that sits only on layers outside the list (through-hole pads reach every layer). A track of the net on another layer is a layout failure (`off_layer` in the layout status) and a post-layout error (`net-layer`), so the build cannot pass with it.
 
 `class: fast` or `edge_ns: <rise time>` keeps the full trace R and C network of that net in post-layout transients (see `post_tran_lump`). `edge_ns` also turns on the signal-integrity screen in post-layout (`si` findings, no SPICE): the delay of the longest pad-to-pad copper path against t_r/6 (warn: electrically long, terminate it or rely on the full transient), the vias and branch points of the net, the trace length with no pour on the adjacent copper layer (own via and pad antipads excluded), and for every IC on such a net (or with `edge_ns:` on the component) the extracted inductance of each decap path as impedance at 0.35/t_r against `board.si_pdn_z_ohm` (default 1 ohm). `current_a` sizes the track with IPC-2221 (10 C rise). A net wider than `board.track_mm` that cannot enter a fine-pitch pad at its width necks down: each narrow stretch (a neck at a pad) at most 3 mm long, at `board.track_mm` or else at 0.15 mm (the build report names the net and the narrow length); a longer narrow stretch leaves the net open instead. `external_supply` marks a rail that enters through a connector. `sensitive` turns on crosstalk and return-path checks for that net.
 
@@ -261,6 +264,7 @@ floorplan:
     extra: [{name: cover sheet and air, mm: 1.0, source: R2}]
   regions:
     - {name: notch_l, kind: keepout, circle: [2.25, 23, 4], conductive: true}   # a screw is accessible metal
+    - {name: post, cut: true, circle: [0, 46, 5]}  # the board is cut away here (a notch for a housing post)
     - {name: mains, kind: mains, rect: [0, 0, 20, 46], nets: ["AC_*"], isolation_mm: 6.0, source: R10}
     - {name: hv_parts, kind: barrier, rect: [0, 0, 26, 46], items: [relays, terminals]}
     - {name: battery, kind: battery, rect: [27, 0, 82, 28.5], items: [cells]}
@@ -280,6 +284,7 @@ Coordinates are board millimetres, as in `placement: {x, y}` (origin top left, y
   - `selv`, `battery`, `other` only hold their members.
   - `items` lists the members (item names or ref patterns); an item's `region` does the same. A member stays inside. `allow` lets other parts into an exclusive region. `nets` (globs) are the nets whose pads stay inside the region.
   - `isolation_mm` is the distance to the other regions on the same board (by default every other kind except barrier and keepout; `from` names kinds or regions). A `conductive` keep-out is cut out of every region with `isolation_mm`, grown by that distance.
+  - `cut: true` removes the region's shape from the board: a notch where it crosses the board edge, a hole where it lies inside. Edge.Cuts becomes the board rectangle minus the union of the cut regions (lines, arcs along a circle cut, a circle for a round hole), so the router (KiCadRoutingTools reads Edge.Cuts; the Freerouting DSN gets the outline as its boundary and inner holes as keep-outs), the GND pour (KiCad clips the fill at the copper-to-edge clearance, 0.3 mm), the area and fill arithmetic and the feasibility proofs all see the real edge. A cut region is a keep-out on both faces (no `kind` other than keepout, no `side` other than both, no `items`); the placer keeps every part `board.margin_mm` from it, as from the board edge. `conductive: true` on a cut measures isolation to its edge. `hwflow check` fails when a cut lies outside the board, removes all of it or splits it in pieces, and warns when a pad of a fixed part lies within the copper-to-edge clearance (`max(board.clearance_mm, 0.3)`) of a cut.
 - An item is a placeholder (`size_mm: [w, h]`, `count`, `side`, `at: [x, y]` centre, `edge`) or real parts (`refs` and `groups`, patterns on refs and component groups; a ref named in `refs` wins over a group). `height_mm` (or `height_mm` on the component) enters the depth stack, `protrusion_mm` adds the through-hole pins on the other face. `area_mm2` replaces the courtyard area in the fill (a holder on wire leads leaves the board under it free). Later, a pre-laid-out block is an item with a size too.
 
 The check, written to `build/FLOORPLAN.md`, `build/floorplan.svg` and `status.json` (`floorplan`):

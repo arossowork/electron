@@ -410,11 +410,14 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         print(f"[layout] removed {pruned} dangling tracks or vias")
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
+    lays = pcb.net_layers(d)  # nets.<name>.layers: a track on another layer fails the layout
+    off_layer = sorted({f"{t['net']} on {t['layer']}" for t in tracks if t["net"] in lays and t["layer"] not in lays[t["net"]]})
     iso = isolation_distances(d, board, drc)
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
     from . import diagnose
     failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
-    return {"failing": failing, "ok": not errs and not viol and all(r["ok"] for r in iso) and all(r["ok"] for r in bud), "isolation": iso,
+    return {"failing": failing, "ok": not errs and not viol and not off_layer and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
+            "isolation": iso, "off_layer": off_layer,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
