@@ -187,3 +187,30 @@ def test_no_floorplan_no_regions(tmp_path):
     d = Design.load(tmp_path)
     pl = placer.Placer(d, placer.build_parts(d, Libs(design=d)), 20, 20)
     assert pl.regions == [] and pl.region_start == {}
+
+
+def test_fixed_mains_pad_keeps_isolation_from_a_conductive_keepout():
+    from types import SimpleNamespace
+
+    from shapely.geometry import box
+
+    from hwflow import floorplan
+    notch = box(0, 10, 3, 16)
+    mains = box(0, 0, 20, 46).difference(notch.buffer(6))
+    fp = {"boards": [{"name": "main", "x": 0, "y": 0}],
+          "regions": [{"name": "notch", "kind": "keepout", "conductive": True, "board": "main", "poly": notch},
+                      {"name": "mains", "kind": "mains", "nets": ["AC_*"], "iso": 6.0, "board": "main",
+                       "poly": mains, "conductive": False}]}
+    comp = SimpleNamespace(pins={"1": "AC_L", "2": "AC_N"})
+    design = SimpleNamespace(components={"F1": comp})
+
+    def part(x):
+        return SimpleNamespace(fixed=True, r=0, pads={"1": (0, 0), "2": (0, 5)}, pad_size={"1": (1, 1), "2": (1, 1)},
+                               pad=lambda n, x=x: (x, {"1": 30.0, "2": 35.0}[n]) if x is None else (x, 13.0 + 5 * (n == "2")))
+    near = part(6.0)                                    # pad 1 at (6, 13): 2.5 mm from the notch edge
+    msgs = floorplan.fixed_pad_isolation(design, {"F1": near}, fp)
+    assert len(msgs) == 2 and "F1.1 (AC_L, fixed) is 2.50 mm from conductive keep-out notch" in msgs[0]
+    far = part(12.0)                                    # 8.5 mm away
+    assert floorplan.fixed_pad_isolation(design, {"F1": far}, fp) == []
+    design.components["F1"] = SimpleNamespace(pins={"1": "GND", "2": "SIG"})  # not a mains net: not checked
+    assert floorplan.fixed_pad_isolation(design, {"F1": near}, fp) == []

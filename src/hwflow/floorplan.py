@@ -270,6 +270,41 @@ def _shape_regions(fp: dict):
         r["area"] = r["poly"].intersection(bd[r["board"]]["rect"]).area
 
 
+def fixed_pad_isolation(design, parts: dict, fp: dict) -> list[str]:
+    """Pads of fixed parts on the nets of a mains region with isolation_mm: each must lie inside the region (which
+    already excludes the isolation band around conductive keep-outs) and keep isolation_mm from every conductive
+    keep-out. A fixed part is where the design puts it, so a pad in the band is a floorplan failure, not a placement
+    task."""
+    out = []
+    bd = {b["name"]: b for b in fp["boards"]}
+    for r in fp["regions"]:
+        if r["kind"] != "mains" or not r["nets"] or not r["iso"]:
+            continue
+        ox, oy = bd[r["board"]]["x"], bd[r["board"]]["y"]
+        cond = [k for k in fp["regions"] if k["kind"] == "keepout" and k["conductive"] and k["board"] == r["board"]]
+        for ref, p in parts.items():
+            c = design.components.get(ref)
+            if c is None or not p.fixed:
+                continue
+            for num, net in c.pins.items():
+                if num not in p.pads or not any(fnmatch.fnmatchcase(net, g) for g in r["nets"]):
+                    continue
+                x, y = p.pad(num)
+                w, h = (p.pad_size or {}).get(num, (0.0, 0.0))
+                if p.r % 180:
+                    w, h = h, w
+                g = box(x + ox - w / 2, y + oy - h / 2, x + ox + w / 2, y + oy + h / 2)
+                near = [(g.distance(k["poly"]), k["name"]) for k in cond]
+                bad = [(d, n) for d, n in near if d < r["iso"] - 1e-6]
+                if bad:
+                    d, n = min(bad)
+                    out.append(f"{ref}.{num} ({net}, fixed) is {d:.2f} mm from conductive keep-out {n} "
+                               f"(region {r['name']} needs {r['iso']:g} mm)")
+                elif not r["poly"].buffer(1e-3).contains(g):
+                    out.append(f"{ref}.{num} ({net}, fixed) lies outside region {r['name']} or in its isolation band")
+    return out
+
+
 # ---------------------------------------------------------------- membership
 
 
@@ -659,6 +694,8 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
     dists = region_distances(fp)
     for x in dists:
         add("isolation", x["ok"], f"region {x['a']} to {x['b']}: {x['mm']:.2f} mm (need {x['need']:g} mm)")
+    for msg in fixed_pad_isolation(design, parts, fp):
+        add("isolation", False, msg)
     for r in fp["regions"]:
         if r["kind"] != "keepout" and r["poly"].is_empty:
             add("geometry", False, f"region {r['name']} has no area left after the keep-outs and the board outline")
