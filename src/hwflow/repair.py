@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -18,7 +19,7 @@ _NET = re.compile(r"\[([^\]]+)\]")
 _ON = re.compile(r" on (\S+?)(?:,| -|$)")
 MAX_RIPUP = 12  # nets ripped in one round, the ones named by errors first
 MAX_ERRORS = int(os.environ.get("HWFLOW_REPAIR_MAX_ERRORS", 40))  # above this many errors local repair cannot converge: skip it
-BUDGET_S = float(os.environ.get("HWFLOW_REPAIR_BUDGET_S", 120))  # wall time for the whole repair, checked after each round
+BUDGET_S = float(os.environ.get("HWFLOW_REPAIR_BUDGET_S", 120))  # wall time for the whole repair, router calls included
 # rounds in a row without improvement before the repair stops; 1 when some errors are on fixed parts (a floor no
 # re-route lowers: home-thermostat-3 spent 598 s going 5 -> 5 on courtyard errors of fixed parts and one open net)
 MAX_STALL = int(os.environ.get("HWFLOW_REPAIR_MAX_STALL", 2))
@@ -245,13 +246,16 @@ def _thermal_keys(d, libs, parts) -> set:
     return {(round(v["x"], 2), round(v["y"], 2)) for v in pcb.thermal_vias(d, libs, parts)}
 
 
-def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list, attempt: int, island: int) -> tuple[list, list]:
-    """Re-route `nets` on a board that keeps `tracks` and `vias` (the copper of every other net)."""
+def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list, attempt: int, island: int,
+            deadline: float | None = None) -> tuple[list, list]:
+    """Re-route `nets` on a board that keeps `tracks` and `vias` (the copper of every other net). `deadline`
+    (time.time()) stops the router calls (subprocess.TimeoutExpired)."""
     src = workdir / f"{d.name}_rep.kicad_pcb"
     pcb.write_board(src, pcb.build_board(d, libs, parts, tracks, vias, island_removal=island))
     n = len(pcb.KRT_VARIANTS)
     variants = [pcb.KRT_VARIANTS[(attempt + j) % n] for j in range(1 + int(d.board.get("router_retries", 3)))]
-    cur, _, _, _ = pcb.krt_route(d, src, workdir, f"{d.name}_rep{attempt}_", nets=set(nets), keep_first=True, variants=variants)
+    cur, _, _, _ = pcb.krt_route(d, src, workdir, f"{d.name}_rep{attempt}_", nets=set(nets), keep_first=True, variants=variants,
+                                  deadline=deadline)
     rb = pcb.read_board(cur)
     skip = _thermal_keys(d, libs, parts)  # build_board adds the declared thermal vias itself
     return ([dict(s) for s in rb["segments"] if s["net"]],
@@ -288,7 +292,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
         if not [x for x in errors(best["drc"]) if fixed_error(x, parts) is None]:
             log.append("the errors left are on fixed parts: nothing the router can repair")
             break
-        if done and time.time() - t0 > budget:
+        if time.time() - t0 > budget:
             log.append(f"repair stopped: {time.time() - t0:.0f} s > budget {budget:.0f} s")
             break
         if deadline is not None and time.time() > deadline:
@@ -299,6 +303,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             log.append("nothing the router can repair")
             break
         t1, done = time.time(), done + 1
+        stop = t0 + budget if deadline is None else min(t0 + budget, deadline)
         keep_v = [v for v in best["vias"] if v["net"] not in p["rip"]
                   and not any(abs(v["x"] - a[0]) < 0.05 and abs(v["y"] - a[1]) < 0.05 for a in p["drop_vias"])]
         keep_t = [t for t in best["tracks"] if t["net"] not in p["rip"]]
@@ -314,10 +319,14 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             note.append(f"{len(new)} stitching vias" + (f", {left} islands without room" if left else ""))
         try:
             if p["rip"]:
-                keep_t, keep_v = reroute(d, libs, parts, workdir, keep_t, keep_v, p["rip"], r + fails, new_isl)
+                keep_t, keep_v = reroute(d, libs, parts, workdir, keep_t, keep_v, p["rip"], r + fails, new_isl, stop)
                 note.append(f"re-routed {len(p['rip'])} nets ({', '.join(p['rip'][:4])}{'...' if len(p['rip']) > 4 else ''})")
             cand = check(keep_t, keep_v, new_isl)
         except Exception as e:  # noqa: BLE001 - a router failure rejects the round
+            if isinstance(e, subprocess.TimeoutExpired) and time.time() >= stop - 1e-3:
+                log.append(f"round {r + 1}: stopped at the repair budget ({time.time() - t0:.0f} s, budget {budget:.0f} s)")
+                board.write_bytes(snap[0])
+                break
             log.append(f"round {r + 1}: {type(e).__name__}: {str(e)[:100]}")
             board.write_bytes(snap[0])
             fails += 1

@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -766,10 +767,12 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
 
 
 def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, keep_first: bool = False,
-              variants: list | None = None, timeout: int = 1800, libs=None) -> tuple[Path, dict, list, int]:
+              variants: list | None = None, timeout: int = 1800, libs=None,
+              deadline: float | None = None) -> tuple[Path, dict, list, int]:
     """The router invocation: one KiCadRoutingTools pass per track-width class (widest first) on the board `src`.
     `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
-    in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS).
+    in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS). `deadline` (time.time())
+    bounds every router call: a call past it raises subprocess.TimeoutExpired (the repair rejects that round).
     The rules files `<name>.kicad_pro` and `.kicad_dru` in `workdir` are copied next to every pass input.
 
     With `board.isolation` groups, the member nets route first, and every pass input gets the isolation keep-outs
@@ -834,7 +837,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
 
     def run(args):
-        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=KRT_DIR, env=env)
+        t = timeout
+        if deadline is not None:
+            t = min(t, deadline - time.time())
+            if t <= 0:
+                raise subprocess.TimeoutExpired(args, 0)
+        p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=KRT_DIR, env=env)
         return p.stdout + p.stderr, p.returncode
 
     cond = floorplan.conductive_needs(design)
