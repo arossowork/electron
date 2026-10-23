@@ -1,0 +1,31 @@
+{"round": 2, "questions": [
+ {"id": "q1",
+  "text": "With a remote check every 60 minutes, the batteries last about 13 months with ordinary Wi-Fi firmware: more than 1 year, but with a thin safety margin (9 % instead of 15 %). How do we keep a comfortable margin?",
+  "options": [
+   "(recommended) Require fast-reconnect firmware (remembers the network, resumes the secure session): about 15 months, no extra cost, measured on the first prototype",
+   "Accept about 13 months with ordinary firmware and the thinner margin",
+   "Check every 70 minutes instead of 60: about 14 months with ordinary firmware, commands can take up to 70 minutes",
+   "Add a tiny low-power helper chip that does the minute-by-minute control: about 16 months even with ordinary firmware, +1 USD and a second firmware to write"],
+  "why": "Conflict C6: 1 year with 15 % margin allows 80 uA average; the budget is 85 uA at 60 uAh per Wi-Fi check-in, 75 uA at 50 uAh."},
+ {"id": "q2",
+  "text": "What should happen to the heating when the batteries run out?",
+  "options": [
+   "(recommended) Shortly before the batteries are empty, the device switches both rooms OFF, sends a 'battery empty' message and stops. If someone pulls the batteries while a room is heating, that room stays ON until new batteries go in (the label already says to switch off the heating breaker first). No extra cost",
+   "Both rooms switch OFF even if the batteries are pulled out suddenly: needs a large energy-storage part, about +1.5 USD, a slightly shorter battery life (about 2-5 %) and a taller part on the board",
+   "Shortly before the batteries are empty, switch both rooms ON (keeps the rooms warm, wastes heating) instead of OFF"],
+  "why": "Conflict C7: switching both relays off from stored energy alone needs a 22-33 mF supercapacitor; a firmware cut-off at 2.0 V uses the cells instead (3.7 uAh)."},
+ {"id": "q3",
+  "text": "How accurate must the room temperature reading be (the electronics only; the probe itself adds its own error)?",
+  "options": [
+   "(recommended) Within 0.3 C, guaranteed by design: adds a small precision measuring chip, about +1.5 USD; we confirm the total stays under 25 USD when parts are priced",
+   "Within 0.3 C, but each unit calibrated once on a test jig: no extra cost, accuracy only proven by measuring every unit, behaviour over temperature less certain",
+   "Within about 1 C: no extra cost, no calibration"],
+  "why": "Conflict C8: the Wi-Fi chip's own ADC gives +-0.95 C; an external 16-bit ADC gives +-0.07 C."},
+ {"id": "q4",
+  "text": "The only small relays with the safety insulation we need use slightly more energy per switch than planned (7-9 mJ instead of 5 mJ). This costs about 0.25 % of battery life. Is that acceptable?",
+  "options": [
+   "(recommended) Yes: keep the full switching pulse for reliable switching even with old or cold relays; about 1 day less battery life per year, no cost",
+   "No: shorten the pulse to stay at 5 mJ, with less safety margin for reliable switching",
+   "Search for another relay: may be taller (size) or more expensive"],
+  "why": "Conflict C9: Panasonic ADW1103HLW 45 ohm coil, 30 ms pulse = 7.2 mJ nominal, 8.5 mJ worst case; +0.2 uA average."}
+]}
