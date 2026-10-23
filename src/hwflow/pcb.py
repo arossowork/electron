@@ -817,6 +817,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         """The nets of `pnets` that may neck to width `nw`."""
         return [n for n in pnets if minw.get(n, 0.0) <= nw + 1e-9]
     necked = _neck_needed(design, src, libs) if neckdown else {}
+    # combined flow (HWFLOW_FLOW=asic, asicflow.router): nets with a pad without an exit at their width route narrow
+    # first too, and every pass tries the pin-access order (fewest exits first) first
+    from . import asicflow
+    asic = asicflow.router(design, libs, src, nets)
+    if asic:
+        necked = {**asic["necked"], **necked}
     necked = {n: v for n, v in necked.items() if minw.get(n, 0.0) <= floor + 1e-9}
     # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)
     seedable = set()
@@ -878,6 +884,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         vv = variants
         if groute is not None:  # the global route's order (most constrained first) is tried first
             pnets = globalroute.order(groute, pnets)
+            vv = globalroute.variants(variants or KRT_VARIANTS[:1 + max(retries, 0)])
+        elif asic and asic["rank"] is not None:  # pin-access order first, the same number of tries
+            pnets = asicflow.order(asic["rank"], pnets)
             vv = globalroute.variants(variants or KRT_VARIANTS[:1 + max(retries, 0)])
         base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:

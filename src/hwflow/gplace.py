@@ -146,6 +146,7 @@ class Global:
             first.setdefault(int(i), k)
         self.edge = [(first[i], u.edge) for i, u in enumerate(movable) if getattr(u, "edge", None) and i in first]
         self.x0 = np.concatenate([ux, uy])
+        self.infl = np.ones(len(self.mbi))  # courtyard side inflation of the density term (asicflow routability feedback)
 
     # ---- cost ----------------------------------------------------------------------------------------------------
 
@@ -180,15 +181,16 @@ class Global:
         c = self._wl(x, y, gx, gy, gamma)
         cx, cy = x[self.mbi] + self.mox, y[self.mbi] + self.moy
         gbx, gby = np.zeros(len(cx)), np.zeros(len(cx))
+        ihw, ihh = self.mhw * self.infl, self.mhh * self.infl
         if len(self.mm):
             a, b = self.mm[:, 0], self.mm[:, 1]
-            area, gax, gay = self._ov(cx[a], cy[a], self.mhw[a], self.mhh[a], cx[b], cy[b], self.mhw[b], self.mhh[b], soft)
+            area, gax, gay = self._ov(cx[a], cy[a], ihw[a], ihh[a], cx[b], cy[b], ihw[b], ihh[b], soft)
             c += lam * area.sum()
             np.add.at(gbx, a, lam * gax); np.add.at(gbx, b, -lam * gax)
             np.add.at(gby, a, lam * gay); np.add.at(gby, b, -lam * gay)
         if len(self.mf):
             a, f = self.mf[:, 0], self.mf[:, 1]
-            area, gax, gay = self._ov(cx[a], cy[a], self.mhw[a], self.mhh[a], self.fcx[f], self.fcy[f], self.fhw[f],
+            area, gax, gay = self._ov(cx[a], cy[a], ihw[a], ihh[a], self.fcx[f], self.fcy[f], self.fhw[f],
                                       self.fhh[f], soft)
             c += lam * area.sum()
             np.add.at(gbx, a, lam * gax)
@@ -222,7 +224,10 @@ class Global:
         np.add.at(gy, self.mbi, gby)
         return c, np.concatenate([gx, gy])
 
-    def run(self, rounds: int = 8, maxiter: int = 150):
+    def run(self, rounds: int = 8, maxiter: int = 150, feedback=None):
+        """`feedback(self)` (asicflow): called with the units at the current solution after rounds FB_START,
+        FB_START + FB_EVERY, ... (not after the last); it may raise self.infl."""
+        from .asicflow import FB_EVERY, FB_START
         from scipy.optimize import minimize
         pl = self.pl
         n = self.n
@@ -233,10 +238,15 @@ class Global:
         a = sorted(4 * hw * hh for hw, hh in zip(self.mhw, self.mhh)) or [1.0]
         u = math.sqrt(a[len(a) // 2])
         lam, gamma, soft = 0.05, 1.6 * u, 0.4 * u
-        for _ in range(rounds):
+        for rnd in range(rounds):
             res = minimize(self.cost, v, args=(lam, gamma, soft), jac=True, method="L-BFGS-B", bounds=bounds,
                            options={"maxiter": maxiter})
             v = res.x
+            if feedback is not None and rnd >= FB_START and (rnd - FB_START) % FB_EVERY == 0 and rnd < rounds - 1:
+                for i, un in enumerate(self.mv):
+                    un.x, un.y = float(v[i]), float(v[n + i])
+                    pl._refs(un)
+                feedback(self)
             lam *= 4.0
             gamma = max(0.2 * u, gamma * 0.7)
             soft = max(0.04 * u, soft * 0.6)

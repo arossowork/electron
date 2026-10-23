@@ -332,9 +332,15 @@ class Placer:
                 self.group_members.setdefault(p.group, []).append(p)
         self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
         self.rudy_pads = _switch("rudy_pads", design)  # RUDY capacity minus the pads under it (docs/asic-ideas.md)
+        from . import asicflow
+        self.pa = None  # pin access term of the combined flow (HWFLOW_FLOW=asic, asicflow.PinAccess)
+        self.t_pa = 0.0
         self._init_rules(getattr(parts, "areas", ()))
         self._init_seps()
         self._init_corridors()
+        if asicflow.on(design) and asicflow.opt("access"):
+            self.pa = asicflow.PinAccess(self)
+            self.wt.setdefault("access", asicflow.ACCESS_W)
 
     # ---- separation terms (L12): aggressor/sensitive, heat/sensor, antenna/relay+mains --------------------------
 
@@ -730,8 +736,8 @@ class Placer:
         # layer it is on; self.ecap is the capacity left, the overflow is measured against it
         self.blk = np.zeros((self.nx, self.ny))
         self.part_blk = {}
+        self._blk_pitch, self._blk_layers = pitch, max(1, int(b.get("layers", 2)))
         if self.rudy_pads:
-            self._blk_pitch, self._blk_layers = pitch, max(1, int(b.get("layers", 2)))
             for r in self.parts:
                 e = self.part_blk[r] = self._pad_blockage(r)
                 if e is not None:
@@ -1083,6 +1089,7 @@ class Placer:
         for k in range(len(self.cor)):
             self.cor_val[k], _, self.cor_zone[k] = self._cor_eval(k, self.buckets)
         self.t_cor = sum(self.cor_val)
+        self.t_pa = self.pa.init(self.buckets) if self.pa else 0.0
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
@@ -1103,7 +1110,7 @@ class Placer:
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
         saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-                 self.t_iso, self.t_sep, self.t_cor)
+                 self.t_iso, self.t_sep, self.t_cor, self.t_pa)
         old_bk = {r: self.part_buckets[r] for r in moved} if self.cor else {}
         nets, decs, groups, seps = set(), set(), set(), set()
         for r in moved:
@@ -1176,6 +1183,8 @@ class Placer:
             for bk in self.part_buckets[r]:
                 self.buckets.setdefault(bk, set()).add(r)
             log.append(("bucket", r, old_b))
+        if self.pa:
+            self.t_pa += self.pa.update(moved, log)
         done = set()
         for r in moved:
             done.add(r)
@@ -1204,6 +1213,10 @@ class Placer:
                     self._grid_add(*self.net_dem[k], -1)
                     self._grid_add(*od, 1)
                 self.net_len[k], self.net_dem[k] = ol, od
+            elif kind == "pa":
+                self.pa.val[e[1]] = e[2]
+            elif kind == "pa_ext":
+                self.pa.ext[e[1]] = e[2]
             elif kind == "blk":
                 self._blk_move(e[3], e[2])
                 self.part_blk[e[1]] = e[2]
@@ -1247,14 +1260,14 @@ class Placer:
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
         (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-         self.t_iso, self.t_sep, self.t_cor) = self._saved
+         self.t_iso, self.t_sep, self.t_cor, self.t_pa) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
                 + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso
-                + self.t_sep + w["corridor"] * self.t_cor)
+                + self.t_sep + w["corridor"] * self.t_cor + w.get("access", 0.0) * self.t_pa)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -1291,6 +1304,8 @@ class Placer:
                 c += self.wt["isolation"] * self._iso_short(a, b)
         bk = self._bucket_map() if self.cor else {}
         c += self.wt["corridor"] * sum(self._cor_eval(k, bk)[0] for k in range(len(self.cor)))
+        if self.pa:
+            c += self.wt["access"] * self.pa.full(self._bucket_map())
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
@@ -1304,6 +1319,9 @@ class Placer:
         if not movable:
             return self.cost()
         t0 = max(self.W, self.H) * 2
+        from . import asicflow
+        if asicflow.on(self.d):  # the combined flow (docs/asic-ideas.md "Combined flow")
+            return asicflow.place(self, movable, iters, t0)
         if _switch("macro_first", self.d):
             self._macro_first(movable, iters, t0)
             return self._finish(movable)
@@ -1344,6 +1362,7 @@ class Placer:
         wt = dict(self.wt)
         self.cost()
         STAGES.append({"stage": name, "s": round(dt, 2), "hpwl": round(self.t_wire, 1), "overflow": round(self.t_cong, 2),
+                       "access": self.pa.flagged() if self.pa else None,
                        "overlap": round(sum(v for (a, b), v in self.pairs.items()
                                             if not (self._unit(self.parts[a]).fixed and self._unit(self.parts[b]).fixed)), 2)})
         self.wt.update(wt)
@@ -1562,9 +1581,10 @@ class Placer:
                 break
         return self.cost()
 
-    def legalize(self, rounds: int = 200):
-        """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board."""
-        P = [p for p in self.parts.values()]
+    def legalize(self, rounds: int = 200, refs=None):
+        """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board. `refs`: only
+        these parts move and only they and the fixed parts count (the macro legalization of asicflow)."""
+        P = [p for p in self.parts.values() if refs is None or p.ref in refs or self._unit(p).fixed]
         m = self.d.board["margin_mm"]
         for _ in range(rounds):
             moved = False
@@ -1756,8 +1776,9 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
             cost, v, key = cost2, v2, (len(v2), cost2)
         else:
             pl._restore(before)
-    if _switch("analytic_dp", design):  # flow 3: no annealing at all; the refine pass is a detailed pass
-        refine = 0
+    from . import asicflow
+    if _switch("analytic_dp", design) or asicflow.on(design):  # flow 3 and the combined flow: no refine pass (the
+        refine = 0                                                # combined flow has its own short anneal)
     if refine > 0 and any(not p.fixed for p in parts.values()):
         before = pl._state()
         cost2 = pl.refine(extra)

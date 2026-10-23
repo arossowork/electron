@@ -520,3 +520,178 @@ The full home-thermostat-4 route was not run: the synthetic results favour neith
 
   Next step: measure the router calls the `necked` change saves on these designs, and try the pin-access order as
   one more `KRT_VARIANTS` entry (after MPS, not before) for the passes that still leave nets open.
+
+## Combined flow (`HWFLOW_FLOW=asic`)
+
+Experiment of 2026-10-23, same branch. One flow built from the pieces above, off by default: env `HWFLOW_FLOW=asic`
+or `placement: {flow: asic}` in design.yaml. Code: `src/hwflow/asicflow.py` (stages, density maps, pin access term,
+router helper), hooks in `Placer.run`, `gplace.Global.run` (`feedback`, `infl`), `Placer.legalize(refs=)` and
+`pcb.krt_route`. Tests: `tests/test_asic_ideas.py` (incremental pin access term with undo, walled pad, stage list,
+inflation). Harness: `scripts/asic_flow_bench.py` (one proxy sample per process, `--table` for the medians). Nothing
+in it names a design; every input is the board's rules and placement.
+
+```
+ placement (per placer seed)                                     routing (pcb.krt_route, every call)
+ ---------------------------                                     -----------------------------------
+ 1 macro      blocks / units >= 10x median courtyard?            5b pin access (globalroute.pin_access, 0.1-0.7 s)
+              yes: mixed-size GP -> legalize macros ->              nets with a pad with 0 exits at its width but
+              hold them -> GP of the rest                           >= 1 at the board minimum -> `necked` set
+ 2 global     L-BFGS analytic GP, 8 rounds; after rounds            (narrow-first pass, no full-width pass)
+              2, 4, 6 a congestion map inflates courtyards       6  KRT passes; each pass tries first
+              (a) RUDY - pad blockage   (b) PathFinder g-cells      `--ordering original` on the pin-access order
+ 3 legalize   push-apart (Placer.legalize)                          (fewest exits first), then the usual orders
+ 4 detailed   local moves (Placer.detailed), then a short           (same number of tries); GR layer hints off
+              anneal: 0.25 x iters at 0.03 x T0, no ramp
+ 5a access    placer term: 3 per pad with <= 1 of 8 exits
+              at its net width (6 with none), in 4
+```
+
+Stage switches (all on by default inside the flow): `HWFLOW_ASIC_MACRO`, `HWFLOW_ASIC_DP`, `HWFLOW_ASIC_ANNEAL`,
+`HWFLOW_ASIC_ACCESS` (placer term), `HWFLOW_ASIC_NECK`, `HWFLOW_ASIC_ORDER`; `HWFLOW_ASIC_DENSITY` = `rudy`
+(default), `groute` or `none`; `HWFLOW_ASIC_GR_TARGET` (default 1: only overflow inflates). The route cache keys
+include these knobs.
+
+Parameters (documented defaults, not tuned per design):
+
+| parameter | value |
+|---|---|
+| macro | a layout block, or a unit with a courtyard >= 10 x the median movable one |
+| feedback | after GP rounds 2, 4 and 6 of 8 |
+| inflation | per courtyard: mean of max(1, demand / capacity) over its cells, at most 2x area; all inflation together at most 25 % of the free board area; never shrinks |
+| RUDY map (a) | 1 mm cells, capacity minus pad blockage (each pad grown by half a pitch), as `HWFLOW_RUDY_PADS` |
+| PathFinder map (b) | `globalroute.build` + 10 PathFinder iterations on the current GP; per g-cell the largest use / capacity of its edges and via edge |
+| short anneal | 0.25 x the per-seed iterations, start 0.03 x 2 max(W, H), the existing terms (corridor, isolation, regions, plain RUDY); no refine pass after |
+| pin access term | rectangle model of `globalroute.pin_access`: 8 rays from the pad centre to 0.3 mm + width beyond the pad corner radius, 5 samples each, foreign pads grown by the larger class clearance + w/2, board rectangle inset by copper_edge + w/2; best layer counts; incremental with undo |
+
+The pin access term ignores isolation distances, keep-outs and outline notches (the corridor term already covers
+the constrained nets). The router's pin access is the exact shapely model.
+
+### Proxies
+
+Each sample: `placer.place(seeds=4, iters=30000)`, 5 samples per cell (seed0 1, 5, 9, 13, 17), measured with every
+switch off: HPWL, RUDY overflow without and with pad blockage, global-route overflow at the derived pitch (shapely
+model, after placement), pads with <= 1 exit at their net width, pads with 0 exits (and >= 1 at the minimum),
+placement violations (sum over the 5 samples). Medians, [min-max]. 12 samples ran in parallel on 16 cores and another
+worktree ran ngspice and builds at the same time (load 12-20), so times compare only within a design.
+
+Designs: ht4 (`projects/home-thermostat-4`, 4 layers, 41 movable), sensor_preamp (`examples/`, 13 parts, at its
+declared 40 x 30 mm board: no area search in the proxies), synth24 (`make_synth_board.py --profile synth60 --parts 24 --seed 11`), synth60
+(`evals/bench/synth60`).
+
+| design | variant | place s | HPWL | ovf | ovf+pads | GR overflow | pads <= 1 exit | 0-exit pads | violations |
+|---|---|---|---|---|---|---|---|---|---|
+| ht4 | baseline | 168 | 1379 [1299-1496] | 9.2 | 42.6 [23.3-59.3] | 0 | 15 | 1 | 0 |
+| ht4 | asic, density (a) RUDY | 300 | **1235 [1202-1306]** | 9.4 | **22.7** [18.5-31.6] | 0 | 14 | 1 | 0 |
+| ht4 | asic, density (b) PathFinder | 254 | 1235 (identical placements) | 9.4 | 22.7 | 0 | 14 | 1 | 0 |
+| ht4 | asic (a), no pin access term | **102** | 1214 [1192-1280] | 9.3 | 22.3 [20.5-23.8] | 0 | 15 | 2 | 2 |
+| sensor_preamp | baseline | 47 | 72.6 [70-101] | 0 | 1.0 | 0 | 0 | 0 | 0 |
+| sensor_preamp | asic (a) | 52 | **56.9** [51.5-65] | 0 | 1.24 | 0 | 0 | 0 | 0 |
+| sensor_preamp | asic (b) | 57 | 55.7 [51.1-66.4] | 0 | 1.26 | 0 | 0 | 0 | 0 |
+| sensor_preamp | asic (a), no access term | 14 | 56.9 (identical) | 0 | 1.24 | 0 | 0 | 0 | 0 |
+| synth24 | baseline | 44 | 152 [135-188] | 0 | 1.02 | 0 | 6 | 6 | 0 |
+| synth24 | asic (a) | 97 | **103** [99-106] | 0 | **0.43** | 0 | 6 | 6 | 0 |
+| synth24 | asic (b) | 99 | 105 [100-108] | 0 | 0.42 | 0 | 6 | 6 | 0 |
+| synth24 | asic (a), no access term | 48 | 103 (identical) | 0 | 0.43 | 0 | 6 | 6 | 0 |
+| synth60 | baseline | 80 | 1258 [1174-1518] | 79 | 259 [177-289] | 0 | 39 | 6 | 0 |
+| synth60 | asic (a) | 266 | **947** [932-1072] | **54** | **189** [163-285] | 0 | 39 | 6 | 0 |
+| synth60 | asic (b) | 343 | 854 [837-889] | 71 | 242 [208-286] | 0 | 39 | 6 | 0 |
+| synth60 | asic (a), no access term | 151 | 1064 [930-1070] | 58 | 191 [166-277] | 0 | 39 | 6 | 0 |
+
+Per-stage contribution on the proxies: the median change when the stage is turned off, against asic (a).
+
+| stage off | ht4 | sensor_preamp | synth24 | synth60 |
+|---|---|---|---|---|
+| macro (`MACRO=0`) | no macro on this board | no macro | HPWL 0, ovf+pads 0.43 -> 0.84 | HPWL +11 %, ovf+pads -5 % |
+| routability density (`DENSITY=none`) | no change (0 courtyards inflated: the overflow is over fixed parts) | HPWL -2 % | HPWL +1 %, ovf+pads 0 | HPWL **-10 %**, ovf+pads **+28 %**, ovf +31 % |
+| density (b) instead of (a) | identical to none | identical to none | identical to none | identical to none |
+| local moves (`DP=0`) | HPWL 0 | +3 % | +6 % | +13 % |
+| short anneal (`ANNEAL=0`) | HPWL 0 | -8 % (the anneal hurts) | 0 | +13 % (*) |
+| pin access term (`ACCESS=0`) | flagged pads 14 -> 15, 0-exit pads 1 -> 2, 2 of 5 samples with an overlap left; place time **-66 %** | no flagged pad, no change, -73 % time | no change (the 6 flagged pads are +3V3 at QFN pins), -50 % time | no change in flagged pads, -43 % time |
+
+(*) synth60 samples are bimodal (about 935 or about 1065 for every asic variant), so a 5-sample median moves by
+13 % on one sample; read the synth60 HPWL rows with that spread.
+
+**PathFinder feedback against RUDY.** The global router found no overflow at any feedback point on any design: 0
+of 60-120 feedback calls inflated a courtyard, so variant (b) gives exactly the placements of `DENSITY=none`, at
+0.3-2.5 s per call. This is the result of the earlier routing experiment again: at g-cell scale these boards have
+channel capacity to spare, and the bottleneck is the pin escape that the global model counts as pin access. With
+the target lowered to 70 % use (`HWFLOW_ASIC_GR_TARGET=0.7`, not a spec value, run to give it a chance) it inflates
+on the synthetic boards and gives synth60 HPWL 932 / ovf+pads 219: less than RUDY (189), and nothing on ht4.
+RUDY with pad blockage is the density source that acts, and only where movable parts sit in congested cells
+(synth24, synth60, sensor_preamp; not ht4).
+
+### Full routing
+
+`uv run hwflow layout <proj> --auto` (4 attempts, seed0 1), one baseline run and one run of the best combined variant
+(asic, density (a), every stage on) per design, one at a time. Comparability caveat: the baseline ht4 run met load
+15-20 from another worktree, the combined run load 3-15. Wall times are therefore biased towards the combined flow;
+router tries, repair rounds, vias, track, DRC and unrouted are not.
+
+| home-thermostat-4 | baseline | combined (a) | combined (a), no access term (ablation) |
+|---|---|---|---|
+| attempts run / first clean | 4 / 3 | 3 / 3 | 2 / **2** |
+| layout wall time | 1310 s | **750 s** | **733 s** |
+| CPU time of the command | 2996 s | **2314 s** | 2109 s |
+| placement per attempt | 46-54 s | 82-105 s | 31-60 s |
+| route group rest per attempt | 217-442 s | **154-262 s** | 226-281 s |
+| repair, attempt 1 | 3 -> 1 in 3 rounds, 148 s | 5 -> 2 in 3 rounds, 36 s | 5 -> 3 in 3 rounds, 43 s |
+| repair, kept attempt | 2 -> 0 in 1 round | 1 -> 0 in 1 round | none needed |
+| router tries, kept board | 12 | **10** | 12 |
+| neck-downs, kept board | 3 | 3 (SW_BOOST narrow first) | 3 |
+| kept board: unrouted / DRC / vias / track | 0 / 0 / 98 / 1491 mm | 0 / 0 / **78** / **1279 mm** | 0 / 0 / **73** / **1197 mm** |
+| track, all attempts | 1414-1525 mm | 1275-1288 mm | 1197-1334 mm |
+| verdict | OK | OK | OK |
+
+| sensor_preamp (area search on) | baseline | combined (a) |
+|---|---|---|
+| layout wall time | 243 s | **141 s** |
+| final board | 18 x 13 mm | 18 x 13 mm |
+| repair | 1 -> 0 in 1 round | **none needed** |
+| unrouted / DRC / vias | 0 / 0 / 7 | 0 / 0 / **3** |
+| verdict | OK | OK |
+
+Router stages on ht4:
+- **Pin-access necked (5b).** It flagged one net, SW_BOOST (0 exits at 0.6 mm, the boost switch node at a
+  small pad), in every call. SW_BOOST then skipped the full-width pass and closed with one pad-entry neck-down call;
+  the baseline routed it in the shared 0.6 mm pass, whose 4 tries all left nets open. On sensor_preamp it flagged
+  nothing. Its cost is 0.1-0.7 s per `krt_route` call.
+- **Pin-access order (6).** In every pass of every attempt the `--ordering original` try on the pin-access order
+  left exactly as many nets open as the default order after it. It changed no result, and it pushes `--direction
+  backward` out of the tries.
+
+### Win criteria
+
+- **Combined flow against today's flow: a win on both routed designs.** On ht4 the router used 10 tries instead of 12
+  on the kept board, the first attempt's repair took 36 s instead of 148 s, and the kept board has 20 % fewer vias
+  and 14 % less track. On sensor_preamp no repair was needed (baseline: 1 round), with 3 vias instead of 7. DRC,
+  unrouted and the verdict are the same (0, 0, OK). Wall time fell on both (750 s vs 1310 s, 141 s vs 243 s), with
+  the load caveat on ht4. One run per design: the number of attempts to the first clean board (3 in both on ht4) did
+  not improve.
+- **Per stage:**
+  - Global placement and the local moves carry the win: HPWL -10 % to -32 % against the baseline, and the earlier flow-2
+    route.
+  - RUDY density (a) acts only on the dense synthetic boards (synth60: -22 % overflow with pads for +11 % HPWL). It
+    had no effect on either routed design, so the routed win does not depend on it, and it is not proven on routing.
+  - PathFinder density (b): no effect at all (no overflow).
+  - Macro: no macro on the two routed designs; mixed on the synthetic ones.
+  - Short anneal: neutral to harmful except on synth60.
+  - Pin access placer term: no gain on any proxy, 2-3x placement time, and on ht4 the ablation without it routed as
+    well or better (clean at attempt 2 with no repair, 73 vias). Not a win.
+  - Pin-access necked: a plausible saving of one width-class pass for one net on ht4, too small to isolate in tries.
+  - Pin-access order: no effect.
+
+### Recommendation
+
+- **Make `HWFLOW_FLOW=asic` the default, trimmed**: global placement with RUDY-plus-pad-blockage density feedback,
+  legalization, local moves, the short anneal, and the pin-access `necked` routing.
+  - Turn the pin access placer term off by default (`ACCESS`). It triples placement time for no measured gain.
+  - Drop the pin-access net order (`ORDER`). It never changed a result and costs a retry order.
+  - Drop the PathFinder density source. It never fired on these boards.
+  - Do it after one more routed seed set (seed0 17) on ht4 under equal load, because each routed comparison here
+    is a single run.
+- **Keep macro-first inside the flow.** It is a no-op without macros and helps the layout-block case of the earlier
+  experiment, but it is not yet routed on a design with blocks.
+- **Next:**
+  - a real legalizer: ht4 still leaves 2-11 mm2 of overlap after detailed placement, cleared by the anneal and
+    `_finish`;
+  - the PathFinder map only on boards where channel capacity is the limit (BGA fan-out, 1-layer boards).

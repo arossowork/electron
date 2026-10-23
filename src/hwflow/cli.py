@@ -338,7 +338,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         for f in _block_files(d):
             h.update(f.read_bytes())
     knobs = sorted((k, v) for k, v in os.environ.items()
-                   if k.startswith(("KICAD_", "KRT_")) and k != "KICAD_CLI" or k == "HWFLOW_NECKDOWN")
+                   if k.startswith(("KICAD_", "KRT_", "HWFLOW_ASIC_")) and k != "KICAD_CLI"
+                   or k in ("HWFLOW_NECKDOWN", "HWFLOW_FLOW"))
     h.update(json.dumps(knobs).encode())  # router environment knobs (KICAD_RIP_PREEXISTING and the like)
     return h.hexdigest()[:24]
 
