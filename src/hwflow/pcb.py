@@ -746,7 +746,7 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
         nets = set(design.nets()) - closed if closed else None
         keep = any(blocks.copper(design, parts))
     cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", nets=nets, keep_first=keep,
-                                            timeout=timeout)
+                                            timeout=timeout, libs=libs)
     routed = read_board(cur)
     tracks = [dict(s) for s in routed["segments"] if s["net"]]
     vias = [dict(v) for v in routed["vias"] if v["net"]]
@@ -756,7 +756,7 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
 
 
 def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, keep_first: bool = False,
-              variants: list | None = None, timeout: int = 1800) -> tuple[Path, dict, list, int]:
+              variants: list | None = None, timeout: int = 1800, libs=None) -> tuple[Path, dict, list, int]:
     """The router invocation: one KiCadRoutingTools pass per track-width class (widest first) on the board `src`.
     `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
     in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS).
@@ -764,9 +764,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
 
     With `board.isolation` groups, the member nets route first, and every pass input gets the isolation keep-outs
     of routing.isolation_keepouts. A net a pass wider than the board track width leaves open is routed again as a
-    router power net (neck-down for at most 2 mm at a pad entry), then at the track width and widened where it fits
-    (routing.widen); a net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the
-    neck-down off. Nets with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
+    router power net (neck-down for at most 2 mm at a pad entry); then any net a pass leaves open (signal or power)
+    is routed at the track width and at routing.neck_floor and widened where it fits (routing.widen), accepted when
+    no narrow stretch is over NECK_MAX_MM. Nets the corridor proof connects only with a neck (corridor.neck_needed)
+    route in a pass of their own ahead of the other nets of their isolation side, narrow first (no full-width pass).
+    A net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the neck-down off. Nets
+    with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
     Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
     from . import floorplan, keepout, routing
     b = design.board
@@ -781,13 +784,18 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     # nets.<name>.layers: those nets route in passes of their own, the other layers forbidden (router --layer-costs -1:
     # an obstacle that through vias may cross, with no track on it)
     only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(copper)}
+    neck = float(b["track_mm"])
+    floor = routing.neck_floor(b)
+    neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
+    # nets the corridor proof connects only with a neck: a full-width pass cannot route them, so they route narrow
+    # first (then widened), in a pass of their own ahead of the other nets of their isolation side
+    necked = _neck_needed(design, src, libs) if neckdown else {}
     groups: dict[tuple, list[str]] = {}
     for net, cl in classes.items():
         if net not in gnds and (nets is None or net in nets):
-            groups.setdefault((net not in members, -cl["width"], net not in only, only.get(net, ())), []).append(net)
-    passes = [(-k[1], groups[k], k[3]) for k in sorted(groups)]  # isolation members first, then widest first
-    neck = float(b["track_mm"])
-    neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
+            groups.setdefault((net not in members, net not in necked, -cl["width"], net not in only,
+                               only.get(net, ())), []).append(net)
+    passes = [(-k[2], groups[k], k[4]) for k in sorted(groups)]  # isolation members first, then necked, then widest
     env = dict(os.environ, KICAD_CLI=_kicad_cli())
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
     # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
@@ -849,22 +857,33 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 ko.setdefault(L, []).append(a["poly"])
         outline = floorplan.outline(design).buffer(-EDGE_CLEARANCE_MM, join_style="mitre")
         stats = routing.widen(path, read_board(path), {n: w for n in fnets},
-                              _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko)
+                              _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko, floor)
+        # the widened width is the class width (never under the IPC width of its current), so a stretch under the
+        # IPC width is part of a narrow stretch: a neck within NECK_MAX_MM keeps track-current a warning
         text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow, longest neck {s[2]:.1f} mm"
                          for n, s in sorted(stats.items()))
         return all(s[2] <= routing.NECK_MAX_MM for s in stats.values()), text
 
     def route_group(cur, tag, pnets, w, i, lays=()):
         """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
-        at the track width, widened back where they fit. `lays`: the only layers the nets may use (all when empty).
-        Returns ((board, summary, unrouted), notes)."""
+        (any net, signal or power) at the track width and at the neck floor, widened back where they fit. Nets the
+        corridor proof marks as needing a neck skip the full-width pass. `lays`: the only layers the nets may use
+        (all when empty). Returns ((board, summary, unrouted), notes)."""
         wide = neckdown and w > neck + 1e-9
+        widths = [x for x in dict.fromkeys((neck, floor)) if x < w - 1e-9] if neckdown else []
         largs = layer_args(copper, lays)
 
         def run_pass(cur, tag, pnets, args, i):
             return run_pass0(cur, tag, pnets, args + largs, i)
-        best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
-        notes = [f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried)] if len(tried) > 1 else []
+        notes = []
+        if widths and set(pnets) <= set(necked):
+            # every net open at the start: the board as it is, its summary listing them as failed
+            best = (cur, {"failed_single": list(pnets), "failed": len(pnets)}, len(pnets))
+            notes.append(f"{w} mm: {', '.join(pnets)} routed narrow first (corridor proof: "
+                         + ", ".join(f"{n} {necked[n]['plain_mm']:g} mm without a neck" for n in pnets) + ")")
+        else:
+            best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
+            notes += [f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried)] if len(tried) > 1 else []
         # neck-down, only for the nets left open (a board that routes at full width keeps that copper): first the
         # router's own pad-entry neck (power nets, at most 2 mm narrow), then the nets at the track width (then at
         # the board's minimum width), back to their width wherever it fits
@@ -879,12 +898,13 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                     notes.append(f"{w} mm: {', '.join(open_nets)} routed with the router's pad-entry neck-down: {text}")
                 else:
                     notes.append(f"{w} mm: router pad-entry neck-down rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
-        for k, nw in enumerate(x for x in dict.fromkeys((neck, routing.NECK_FLOOR)) if x <= neck):
-            open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if wide and best[2] else []
+        for k, nw in enumerate(widths):
+            open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if best[2] else []
             if not open_nets:
                 break
             nb, _ = run_pass(best[0], f"{tag}n{k}", open_nets, ["--track-width", str(nw)], 1)
             if nb[2] >= best[2]:
+                notes.append(f"{w} mm: neck-down to {nw:g} mm: {', '.join(open_nets)} still open")
                 continue
             ok, text = fit(nb[0], open_nets, w)
             if ok:
@@ -912,6 +932,21 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
     return cur, last, retried, len(passes)
+
+
+def _neck_needed(design: Design, src: Path, libs=None) -> dict[str, dict]:
+    """corridor.neck_needed at the placement of the board `src` ({} when the design has no constrained net or the
+    proof cannot be built: the nets then route at full width first, as before)."""
+    from . import corridor
+    if not corridor.constrained(design):
+        return {}
+    try:
+        if libs is None:
+            from .libs import Libs
+            libs = Libs(design=design)
+        return corridor.neck_needed(design, libs, board=read_board(Path(src)))
+    except Exception:  # noqa: BLE001 - a board or footprint the proof cannot read: no reordering
+        return {}
 
 
 def layer_args(copper: list[str], lays) -> list[str]:

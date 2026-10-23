@@ -316,6 +316,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    for f in ("corridor.py", "barrier.py"):  # corridor.neck_needed: which nets route narrow first
+        h.update((Path(pcb.__file__).with_name(f)).read_bytes())
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
         h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())

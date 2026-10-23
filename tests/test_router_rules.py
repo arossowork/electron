@@ -279,6 +279,82 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     assert diagnose.structure_key(d) != k0
 
 
+class _PadLibs:
+    """footprint id -> [(number, kind, x, y, w, h, layers)], drawn in board coordinates (parts placed at (0, 0)): the
+    pads for the corridor proof (footprint) and the footprint text for the board (footprint_tree)."""
+
+    def __init__(self, fps):
+        self.fps = fps
+
+    def footprint(self, fid):
+        return {"pads": [{"number": n, "kind": k, "shape": "rect", "x": x, "y": y, "rot": 0.0, "w": w, "h": h,
+                          "layers": list(L), "drill": None, "rratio": 0.25, "hull": None}
+                         for n, k, x, y, w, h, L in self.fps[fid]], "bbox": (-1, -1, 1, 1), "sides": {}}
+
+    def footprint_tree(self, fid):
+        from hwflow import sexpr
+        pads = " ".join(f'(pad "{n}" {k} rect (at {x} {y}) (size {w} {h}) (layers {" ".join(chr(34) + v + chr(34) for v in L)}))'
+                        for n, k, x, y, w, h, L in self.fps[fid])
+        return sexpr.loads(f'(footprint "{fid}" (layer "F.Cu") (property "Reference" "REF" (at 0 0 0) (layer "F.SilkS")) '
+                           f'(property "Value" "V" (at 0 0 0) (layer "F.Fab")) {pads})')
+
+
+@needs_router
+def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, monkeypatch):
+    """AC_ROOM (a mains member at the board track width, so no power-net neck-down, kept on F.Cu) passes a 1 mm long
+    slit between two other members' pads: 2.55 mm wide, so with between_mm 1.0 a 0.55 mm corridor, under its 0.6 mm
+    width. Before, its pass left it open (no neck-down for a net at the track width); now the corridor proof marks it,
+    it routes at the neck floor and is widened back to 0.6 mm except at the slit, keeping between_mm and its layer."""
+    from types import SimpleNamespace
+
+    import yaml
+    from shapely.geometry import LineString, box
+
+    from hwflow import corridor, routing
+    F = ("F.Cu",)
+    lo, hi = 10 - 2.55 / 2, 10 + 2.55 / 2
+    libs = _PadLibs({"A": [("1", "smd", 5, 10, 1, 1, F)], "B": [("1", "smd", 25, 10, 1, 1, F)],
+                     "W": [("1", "smd", 15, lo / 2, 1.0, lo, F), ("2", "smd", 15, (hi + 20) / 2, 1.0, 20 - hi, F)]})
+    raw = {"project": "neck", "board": {"layers": 2, "width_mm": 30, "height_mm": 20, "track_mm": 0.6,
+                                        "clearance_mm": 0.2, "via_dia_mm": 0.6, "gnd_pour": False,
+                                        "isolation": [{"name": "mains", "nets": ["AC_*"], "clearance_mm": 6.0,
+                                                       "between_mm": 1.0}]},
+           "nets": {"AC_ROOM": {"layers": ["F.Cu"]}}, "components": {}}
+    for ref, fid, pins in (("U1", "A", {"1": "AC_ROOM"}), ("U2", "B", {"1": "AC_ROOM"}),
+                           ("W1", "W", {"1": "AC_L", "2": "AC_N"})):
+        raw["components"][ref] = {"footprint": fid, "pins": pins, "placement": {"x": 0, "y": 0, "rot": 0, "fixed": True}}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    src = out / "neck_unrouted.kicad_pcb"
+    parts = {r: SimpleNamespace(x=0.0, y=0.0, r=0.0, fixed=True) for r in raw["components"]}
+    pcb.write_board(src, pcb.build_board(d, libs, parts))
+    pcb.write_project(out, d.name, d)
+    (need,) = corridor.neck_needed(d, libs, board=pcb.read_board(src)).items()
+    assert need[0] == "AC_ROOM" and need[1]["need_mm"] == 0.6 and 0.5 <= need[1]["plain_mm"] < 0.6
+    # without the neck-down (as before for a net at the track width): open
+    monkeypatch.setenv("HWFLOW_NECKDOWN", "0")
+    d.raw["board"]["router_retries"] = 0
+    _, last, _, _ = pcb.krt_route(d, src, out, "y_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 1
+    monkeypatch.delenv("HWFLOW_NECKDOWN")
+    cur, last, notes, _ = pcb.krt_route(d, src, out, "x_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 0, notes
+    b = pcb.read_board(cur)
+    segs = [s for s in b["segments"] if s["net"] == "AC_ROOM"]
+    assert segs and {s["layer"] for s in segs} == {"F.Cu"} and not [v for v in b["vias"] if v["net"] == "AC_ROOM"]
+    assert max(s["w"] for s in segs) == 0.6 and min(s["w"] for s in segs) == routing.NECK_FLOOR
+    thin = [((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in segs if s["w"] < 0.6]
+    assert routing.longest_neck(thin) <= routing.NECK_MAX_MM
+    wall = [box(14.5, 0, 15.5, lo), box(14.5, hi, 15.5, 20)]
+    gap = min(LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2).distance(p)
+              for s in segs for p in wall)
+    assert gap >= 1.0 - 0.01
+    text = " ".join(notes)
+    assert "AC_ROOM routed narrow first" in text and "neck-down to 0.15 mm: AC_ROOM" in text and "longest neck" in text
+
+
 @needs_router
 def test_router_keeps_between_mm_between_members(tmp_path):
     """A real KiCadRoutingTools run: two member nets of one group keep between_mm track to track (the isb_ class

@@ -8,9 +8,10 @@
 - Conductive keep-outs. The nets of a floorplan region with `isolation_mm` and `nets` (mains) stay that distance from
   every `conductive: true` keep-out or cut (a screw is accessible metal): a rule area per keep-out, grown by the
   distance, with a `disallow track via` rule bound to those nets (conductive_keepouts), in the pass input only.
-- Neck-down widening. A wide net that the router could not route at its width is routed at the board track width,
-  then `widen` puts its class width back on every piece of track where the clearances allow it. The narrow
-  copper is left only where a pinch (a fine-pitch pad, a gap between parts) needs it.
+- Neck-down widening. A net that the router could not route at its width (any net, signal or power) is routed
+  narrower (the board track width, then neck_floor), then `widen` puts its class width back on every piece of track
+  where the clearances allow it. The narrow copper is left only where a pinch (a fine-pitch pad, a gap between
+  parts) needs it.
 """
 
 from __future__ import annotations
@@ -181,10 +182,16 @@ def _pieces(x1, y1, x2, y2) -> list[tuple]:
     return list(zip(pts, pts[1:]))
 
 
+def neck_floor(board: dict) -> float:
+    """The narrowest track a neck may have: NECK_FLOOR (the DRC min_track_width), or the board's min_track_mm when
+    larger."""
+    return max(NECK_FLOOR, float(board.get("min_track_mm") or 0.0))
+
+
 def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: list[str], via_dia: float,
-          outline, keepouts: dict[str, list]) -> dict[str, tuple[float, float]]:
+          outline, keepouts: dict[str, list], floor: float = NECK_FLOOR) -> dict[str, tuple[float, float]]:
     """Fit every track of the nets of `widths`, in place in the board file `path`: each piece gets the widest of
-    (the net's width, its own width, NECK_FLOOR) that keeps its clearances, so narrow copper is widened where it
+    (the net's width, its own width, `floor`) that keeps its clearances, so narrow copper is widened where it
     fits and copper the router shipped too wide at a pinch is narrowed. `clearance(a, b)` is the copper distance
     two nets keep; `outline` the area copper may use (board inset by the edge clearance); `keepouts` layer ->
     geometries no track may enter. A segment that does not fit as a whole is split into pieces of at most
@@ -213,7 +220,7 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
             g = LineString([a, b]).buffer(width / 2, quad_segs=8)
             return outline.contains(g) and not g.intersects(obst)
 
-        cands = sorted({w, cur} | {f for f in (NECK_FLOOR,) if f < cur}, reverse=True)
+        cands = sorted({w, cur} | {f for f in (floor,) if f < cur}, reverse=True)
         whole = next((c for c in cands if c >= w and fits((x1, y1), (x2, y2), c)), None)
         if whole is not None:
             runs = [[(x1, y1), (x2, y2), whole]]

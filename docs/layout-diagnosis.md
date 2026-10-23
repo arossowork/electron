@@ -155,6 +155,8 @@ The region outline itself is no barrier. Copper outside the region is only a `re
 
 The verdict is back to `architecture` when all blockers are fixed, else to `layout`. After placement, `fixed` says whether the finding holds with fixed copper alone. `corridor.margin(...)` lists every constrained net's widest corridor, failing or not.
 
+**Neck needed, as data for the router.** `corridor.neck_needed(...)` returns the constrained nets that connect at their width only with necks: net -> `{need_mm, plain_mm}`. `pcb.krt_route` computes it on the board it routes. Such a net gets a pass of its own, ahead of the other nets of its isolation side. It skips the full-width pass, which cannot route it, and routes at the board track width (when narrower than the net), then at `routing.neck_floor` (0.15 mm, or `min_track_mm` when larger). `routing.widen` then widens it back to its width wherever the clearances allow. The pass is accepted when no narrow stretch is longer than `NECK_MAX_MM`. The same neck-down runs for any net a pass leaves open, signal or power, not only for nets wider than the board track. The net's `layers` and its isolation keep-outs (between_mm included) apply to every neck pass. The layout notes give each necked net's narrow length, total length and longest neck, and say when a neck width left it open.
+
 **Calibration.**
 - **home-thermostat-3, before placement** (0.6 s; 1.0 s with `margin`): it fires on AC_ROOM1. The net is 1.0 mm wide, F.Cu only, and runs from K1.14 to J1.2.
   - There are three ways across the row at y ≈ 13.

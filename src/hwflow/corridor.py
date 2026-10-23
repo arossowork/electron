@@ -31,7 +31,8 @@ corridor: the net's pads are cut apart at its track width w (class, width_mm, cu
   else `layout` (the placement of a movable part closes it).
 
 Interface: findings(design, libs, parts=None, board=None) -> [{check, back_to, refs, nets, need_mm, have_mm, msg,
-at, fixed, layer, blockers}]; margin(...) gives the widest track per constrained net, failing or not.
+at, fixed, layer, blockers}]; margin(...) gives the widest track per constrained net, failing or not; neck_needed(...)
+gives the nets that connect only with necks (the router routes them narrow first).
 """
 
 from __future__ import annotations
@@ -264,6 +265,31 @@ def _finding(model, design, net, nodes, w, fixed_only=False) -> dict:
     return {"check": NAME, "back_to": back, "refs": refs, "nets": [net], "need_mm": round(w, 3),
             "have_mm": round(have, 3), "plain_mm": round(plain, 3), "msg": msg, "at": at, "layer": layer,
             "fixed": alone, "blockers": [{k: v for k, v in x.items() if k != "d"} for x in blk]}
+
+
+def neck_needed(design, libs, parts=None, board=None) -> dict[str, dict]:
+    """The constrained nets whose pads the corridor proof connects at their track width only with necks (a track
+    narrowed to the board minimum for at most routing.NECK_MAX_MM per stretch): net -> {need_mm, plain_mm}, plain_mm
+    the widest track that connects without a neck. A full-width router pass cannot route such a net (the room is an
+    upper bound), so pcb.krt_route routes it narrow first and widens it back (routing.widen)."""
+    def run():
+        nets = constrained(design)
+        if not nets:
+            return {}
+        model = Model(design, libs, parts, board)
+        forced = barrier._forced(design, libs) if model.pre else {}
+        out = {}
+        for net in nets:
+            nodes = _nodes(model, design, net, forced)
+            if nodes is None or len(nodes) < 2:
+                continue
+            w = model.width(net)
+            if w <= model.floor + EPS or _connects(model, net, nodes, w, False) \
+                    or not _connects(model, net, nodes, w, True):
+                continue
+            out[net] = {"need_mm": round(w, 3), "plain_mm": round(_have(model, net, nodes, w, False), 3)}
+        return out
+    return barrier.with_budgets(design, parts, run)
 
 
 def margin(design, libs, parts=None, board=None) -> list[dict]:
