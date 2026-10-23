@@ -39,7 +39,7 @@ def ipc2221_width_mm(current_a: float, copper_oz: float = 1.0, dtemp: float = 10
 
 
 def net_classes(design: Design) -> dict[str, dict]:
-    """net -> {width, clearance, class}"""
+    """net -> {width, clearance, class}, and min_width for a net with `min_width_mm` (net_min_widths)"""
     b = design.board
     out = {}
     for net in design.nets():
@@ -52,7 +52,15 @@ def net_classes(design: Design) -> dict[str, dict]:
         w = max(w, (getattr(design, "budget_widths", None) or {}).get(net, 0.0))  # budgets.widths, set by the layout stage
         out[net] = {"width": w, "clearance": float(info.get("clearance_mm", b["clearance_mm"])),
                     "class": info.get("class", "signal")}
+        if info.get("min_width_mm") is not None:
+            out[net]["min_width"] = float(info["min_width_mm"])
     return out
+
+
+def net_min_widths(design: Design) -> dict[str, float]:
+    """`nets.<name>.min_width_mm`: the narrowest copper the net may have (no neck under it; a narrower track fails the
+    layout), for the nets that set it."""
+    return {n: c["min_width"] for n, c in net_classes(design).items() if "min_width" in c}
 
 
 # ------------------------------------------------------------------ board writer
@@ -794,12 +802,18 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
     # nets the corridor proof connects only with a neck: a full-width pass cannot route them, so they route narrow
     # first (then widened), in a pass of their own ahead of the other nets of their isolation side
+    minw = net_min_widths(design)  # nets.<name>.min_width_mm: no neck under it
+
+    def neckable(pnets, nw):
+        """The nets of `pnets` that may neck to width `nw`."""
+        return [n for n in pnets if minw.get(n, 0.0) <= nw + 1e-9]
     necked = _neck_needed(design, src, libs) if neckdown else {}
+    necked = {n: v for n, v in necked.items() if minw.get(n, 0.0) <= floor + 1e-9}
     # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)
     seedable = set()
     if neckdown and os.environ.get("HWFLOW_SEEDROUTE", "1") != "0":
         from . import corridor
-        seedable = set(corridor.constrained(design))
+        seedable = set(neckable(corridor.constrained(design), floor))
     groups: dict[tuple, list[str]] = {}
     for net, cl in classes.items():
         if net not in gnds and (nets is None or net in nets):
@@ -898,7 +912,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         # neck-down, only for the nets left open (a board that routes at full width keeps that copper): first the
         # router's own pad-entry neck (power nets, at most 2 mm narrow), then the nets at the track width (then at
         # the board's minimum width), back to their width wherever it fits
-        open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if wide and best[2] else []
+        open_nets = neckable(sorted(set(krt_open_nets(best[1])) & set(pnets)), neck) if wide and best[2] else []
         if open_nets:
             pb, _ = run_pass(best[0], f"{tag}w", open_nets, ["--track-width", str(neck), "--power-nets", *open_nets,
                                                            "--power-nets-widths", *[str(w)] * len(open_nets)], 1)
@@ -910,7 +924,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 else:
                     notes.append(f"{w} mm: router pad-entry neck-down rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         for k, nw in enumerate(widths):
-            open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets)) if best[2] else []
+            open_nets = neckable(sorted(set(krt_open_nets(best[1])) & set(pnets)), nw) if best[2] else []
             if not open_nets:
                 break
             nb, _ = run_pass(best[0], f"{tag}n{k}", open_nets, ["--track-width", str(nw)], 1)
