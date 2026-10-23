@@ -1,0 +1,49 @@
+{
+  "round": 1,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Fast charging four devices needs much more power than a computer's USB port can give (a computer port gives 2.5-15 W; four ports charging fast need about 60 W). Where should the charging power come from, and how fast should the ports charge?",
+      "options": [
+        "Recommended: a second USB-C socket on the keyboard for a 65 W USB-C laptop-style charger. With it: each USB-C port fast-charges a phone at up to 20 W and each USB-A port at 7.5 W, all at the same time. Without it: the ports still work for data and slow charging. Adds about $8-10 in parts and one extra cable.",
+        "A round DC power socket with its own 60 W power brick. Same charging speeds as above, about $1 cheaper in parts, but needs a special adapter instead of any USB-C charger.",
+        "No extra power cable: all power from the computer. Ports charge slowly (about 2 phones at 7.5 W at most, and only if the computer gives 15 W). Cheapest, but not real fast charging.",
+        "Faster USB-C charging (up to 45-60 W per port, enough for a laptop): needs a 100 W+ adapter, larger and hotter parts, adds about $10-15 more."
+      ],
+      "why": "Blocks the whole power design: the charger input, the parts on each port, the board heat and the cost (conflicts.md C1)."
+    },
+    {
+      "id": "q2",
+      "text": "What should the sound card connect, and how good should it sound?",
+      "options": [
+        "Recommended: headphone output and microphone input as two 3.5 mm jacks, hi-fi quality (silent background even on sensitive earphones, about 110 dB signal-to-noise, 24-bit/96 kHz). About $8-12 in parts and a 4-layer board.",
+        "Same jacks, plus a single 4-pole headset jack (phone-style headsets with one plug). Adds about $1 and 10 mm of front width.",
+        "Same jacks, good 'gaming headset' quality (about 90-95 dB, quiet background on most headphones, faint hiss on sensitive earphones). About $2-3 in parts.",
+        "Studio/audiophile quality (about 120 dB, extra isolation from the USB and chargers), optionally with line in/out. About $20-30 in parts and more board space."
+      ],
+      "why": "Sets the audio chips, the noise isolation from the chargers and key scanning, and whether the board must be 4-layer (conflicts.md C2)."
+    },
+    {
+      "id": "q3",
+      "text": "Which keyboard size do you want? (Front connectors need a strip of about 15 mm in front of the space bar; we propose the audio jacks there and the 4 USB ports on the back edge. If you want the USB ports on the front too, say so: it adds about 10 mm more depth and the cables lie under your wrists.)",
+      "options": [
+        "Recommended: tenkeyless (TKL, 87 keys, no number pad), about 360 x 155 mm with the front strip. Good balance of size and cost.",
+        "Full size (104/105 keys with number pad), about 440 x 155 mm. Larger board, about $3-5 more per board.",
+        "75% compact (84 keys, function row kept, no separate arrow block), about 325 x 135 mm. Smallest board, less room for the hub and chargers.",
+        "65% compact (68 keys, no function row), about 320 x 115 mm. Tightest fit for the hub, charger and sound card parts."
+      ],
+      "why": "Sets the board size, the space available for the hub, charger and audio parts, and the connector strip depth (conflicts.md C4)."
+    },
+    {
+      "id": "q4",
+      "text": "How fast should the USB ports transfer data, and what is the target cost and quantity?",
+      "options": [
+        "Recommended: USB 3 (5 Gbit/s, a 1 GB file in about 3-4 s, good for external SSDs and card readers), board cost target about $60-80 per keyboard (electronics only, without switches and case), 10-100 units.",
+        "USB 3 as above, with a production run of 1000+ units: lower cost per board (about $40-55) but parts must be chosen for long availability.",
+        "USB 2.0 (480 Mbit/s, a 1 GB file in about 30 s; fine for phones, mice, dongles, headsets): saves about $5-10 per board, and a cheaper 2-layer board is possible only with the 'gaming headset' audio option.",
+        "Cost is not a constraint, prototype quantity (1-5 units): best parts everywhere."
+      ],
+      "why": "USB 3 needs a 4-layer board and different hub chips; the cost target and volume decide between quality tiers in every block (conflicts.md C3)."
+    }
+  ]
+}
