@@ -69,12 +69,13 @@ def _inputs_hash(d) -> str:
     (backlog 27)."""
     import hashlib
 
-    from .libs import project_lib_dirs
+    from .libs import project_lib_dirs, shared_lib_files
     h = hashlib.sha1(_design_hash(d).encode())
     files = [d.dir / f for f in (d.raw.get("sim") or {}).get("includes") or []]
     files += [d.dir / c.get("spice")["lib"] for c in d.components.values()
               if isinstance(c.get("spice"), dict) and c.get("spice").get("lib")]
     files += _block_files(d)
+    files += shared_lib_files(d)  # library/: only the shared libraries this design uses
     for f in sorted(set(files)):
         h.update(str(f).encode() + (f.read_bytes() if f.is_file() else b"-"))
     for root in project_lib_dirs(d):

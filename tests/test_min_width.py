@@ -60,3 +60,13 @@ def test_layout_requirement_with_evidence_only_is_flagged(tmp_path):
                  {"id": "R1", "text": "fits the box", "verification": "layout", "evidence": "notes/x.md"}])
     st = {r["id"]: r["status"] for r in t["rows"]}
     assert st == {"R13": "pass", "R1": "layout?"} and t["evidence_only"] == ["R1"]
+
+
+def test_shared_library_is_searched_after_project_libraries():
+    from hwflow.libs import Libs, SHARED_LIB, shared_lib_dirs
+    if not (SHARED_LIB / "footprints" / "hw.pretty").is_dir():
+        return
+    libs = Libs()
+    assert SHARED_LIB / "footprints" in shared_lib_dirs() and SHARED_LIB / "footprints" in libs.extra
+    assert libs.footprint("hw:Relay_Panasonic_ADW1_1coil")["pads"]
+    assert "hw:Relay_Panasonic_ADW1_1coil" in libs.search_footprints("ADW1")

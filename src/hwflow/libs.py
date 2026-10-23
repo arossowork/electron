@@ -28,6 +28,31 @@ def share_dir() -> Path:
 
 
 PROJECT_LIB_DIRS = ("lib", "libs", "kicad_share")
+# The repository's shared library: parts drawn for one project and kept for every other (symbols/<lib>.kicad_sym,
+# footprints/<lib>.pretty). Searched after the project libraries and before KiCad's own.
+SHARED_LIB = Path(__file__).resolve().parents[2] / "library"
+
+
+def shared_lib_dirs() -> list[Path]:
+    return [d for d in (SHARED_LIB / "symbols", SHARED_LIB / "footprints") if d.is_dir()]
+
+
+def shared_lib_files(design) -> list[Path]:
+    """The shared-library files a design uses (its symbol and footprint library nicknames), for the stage hash."""
+    nicks = set()
+    for c in design.components.values():
+        for k in ("symbol", "footprint"):
+            v = c.get(k)
+            if isinstance(v, str) and ":" in v:
+                nicks.add(v.split(":", 1)[0])
+    out = []
+    for n in sorted(nicks):
+        for f in (SHARED_LIB / "symbols" / f"{n}.kicad_sym", SHARED_LIB / "footprints" / f"{n}.pretty"):
+            if f.is_file():
+                out.append(f)
+            elif f.is_dir():
+                out += sorted(f.glob("*.kicad_mod"))
+    return out
 
 
 def project_lib_dirs(design) -> list[Path]:
@@ -49,6 +74,7 @@ class Libs:
     def __init__(self, extra_dirs: list[Path] | None = None, design=None):
         self.root = share_dir()
         self.extra = [Path(p) for p in (extra_dirs or [])] + (project_lib_dirs(design) if design is not None else [])
+        self.extra += [d for d in shared_lib_dirs() if d not in self.extra]
 
     # ------------------------------------------------------------ symbols
     def _sym_lib_path(self, lib: str) -> Path:
@@ -131,13 +157,14 @@ class Libs:
         import json
         cache = Path.home() / ".cache" / "hwflow" / "symbol_index.json"
         sym_dir = self.root / "symbols"
-        stamp = f"{sym_dir}:{sym_dir.stat().st_mtime}"
+        stamp = f"{sym_dir}:{sym_dir.stat().st_mtime}" + "".join(
+            f";{f}:{f.stat().st_mtime}" for d in shared_lib_dirs() for f in sorted(d.iterdir()))
         if cache.exists():
             data = json.loads(cache.read_text())
             if data.get("stamp") == stamp:
                 return [tuple(x) for x in data["items"]]
         items = []
-        for f in sorted(sym_dir.iterdir()):
+        for f in sorted(list(sym_dir.iterdir()) + [x for d in shared_lib_dirs() for x in d.iterdir()]):
             if f.suffix not in (".kicad_sym", ".kicad_symdir"):
                 continue
             lib = f.name.split(".")[0]
@@ -239,7 +266,7 @@ class Libs:
     def search_footprints(self, query: str, limit: int = 40) -> list[str]:
         q = query.lower().split()
         res = []
-        for d in sorted((self.root / "footprints").glob("*.pretty")):
+        for d in [x for s in shared_lib_dirs() for x in sorted(s.glob("*.pretty"))] + sorted((self.root / "footprints").glob("*.pretty")):
             for f in sorted(d.glob("*.kicad_mod")):
                 hay = f"{d.stem}:{f.stem}".lower()
                 if all(t in hay for t in q):

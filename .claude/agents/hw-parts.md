@@ -19,7 +19,7 @@ For each block:
 3. Choose the footprint with `uv run hwflow lib fp <package>`, and make sure that pad numbers match the symbol pins (`hwflow lib show` and `hwflow lib pads`).
 4. Get the vendor SPICE model when the manufacturer publishes one. Store it in `models/`, and set `spice.lib` and `spice.source: vendor`. Otherwise fit a model to the datasheet and set `spice.source: fit`.
 5. Read the datasheet (text, see above) for the values that the SPICE model needs (see docs/design-yaml.md), the absolute maximum ratings, and the recommended application circuit.
-6. For each datasheet that you read, write the facts the design needs (absolute maximum ratings, application circuit values, SPICE parameters, page numbers) to `notes/datasheets/<mpn>.md`, so later stages and the reviewer do not fetch it again.
+6. For each datasheet that you read, write the facts the design needs (absolute maximum ratings, application circuit values, SPICE parameters, page numbers) to `notes/datasheets/<mpn>.md`, so later stages and the reviewer do not fetch it again. Check `library/datasheets/<mpn>.md` and the shared `hw:` library (`library/README.md`) first: a part another project already drew and checked is reused, not drawn again. A symbol or footprint you draw that another product could use goes into `library/` (symbols/hw.kicad_sym, footprints/hw.pretty) with a README row (source, verified against).
 7. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
 
 Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model).
