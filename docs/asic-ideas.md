@@ -307,3 +307,216 @@ baseline above.
   - routing on a synthetic board: the synth60 routes did not finish;
   - a second seed set for the final route;
   - routing of the bound-block design.
+
+## Global and detailed routing
+
+Idea: route like an ASIC flow. A global router on coarse g-cells (FastRoute / CUGR style, PathFinder negotiated
+congestion) runs first. A detailed router (KiCadRoutingTools, KRT) then follows its guides. Idea 6 is pin access
+analysis in the style of TritonRoute: for each pad, which directions a track of the net's width can leave it in.
+
+Code: `src/hwflow/globalroute.py` (model, router, pin access, CLI `python -m hwflow.globalroute <proj> [--board B]
+[--access] [--pitch P]`), `tests/test_globalroute.py`, and the harness `scripts/groute_bench.py` (prep / route /
+predict). The module is generic. It contains no design names or design constants; every input comes from the
+board's rules and placement through `corridor.Model`. The hook in `pcb.krt_route` is off by default:
+
+| switch | effect |
+|---|---|
+| `HWFLOW_GROUTE=1` | global route of each `krt_route` input; every pass first tries `--ordering original` with `--nets` sorted most constrained first. The order takes the first of the `router_retries` tries, and the other orders follow. |
+| `HWFLOW_GROUTE_LAYERS=1` | also: a net the global route keeps on one layer with no via routes in a pass restricted to that layer (`layer_args`) |
+| `HWFLOW_GROUTE_ACCESS=1` | the global route starts each net from its pin access points |
+| `HWFLOW_GROUTE_PITCH`, `HWFLOW_GROUTE_ITERS` | override the g-cell side and the PathFinder iteration cap |
+
+`repair.py` needs no hook of its own, because `repair.reroute` calls `krt_route`.
+
+### Model and parameters
+
+- **G-cells.** The side is `TRACKS_PER_CELL (3) x (track + clearance)` of the board, clamped to 0.75-2.5 mm and
+  rounded to 0.05 mm. That is 1.35 mm for 0.25/0.2 mm rules. Every copper layer gets a grid, and a via edge joins
+  any two layers of a cell (a through via).
+- **Planar capacity.** It is measured on the boundary line between two cells, sampled every 0.025 mm. Each free run
+  f holds `floor((f + clearance) / (track + clearance))` tracks. Obstacles, grown by the clearance:
+  - pads on that layer (a through-hole pad is on every layer) and non-plated holes;
+  - keep-out rule areas that forbid tracks on the layer;
+  - cuts and the outline (the 0.3 mm edge inset).
+
+  A boundary closed by keep-outs, cuts or the outline even at the minimum track is impassable. A boundary closed only
+  by pads has capacity 0, so any use is overflow, because the net's own pads are part of the obstacles there.
+- **Per-net rules.** These become forbidden cells: board.isolation `mm` (member vs non-member pads), `between_mm`
+  (member vs other members' pads), `.kicad_dru` disallow rules that name the net, conductive isolation, and
+  `nets.<n>.layers` (the other layers are forbidden). A cell is forbidden only when the region covers it whole.
+  Nets with the same rule signature share one mask.
+- **Via capacity.** Via sites in the cell (centres at via_dia/2 + clearance from every pad, inside the outline,
+  outside via keep-outs), divided by (via_dia + clearance)^2.
+- **Demand.** A net uses `(w + clr) / (track + clr)` units of an edge, so wide nets use more. The demand is capped
+  at an empty boundary's capacity, because a track wider than a g-cell fills the boundary. Edges that touch a cell
+  of one of the net's pad centres are pin access and count no usage.
+- **Router.** Each net is a Steiner tree grown with Prim's method: a multi-source A* from the tree to the nearest
+  terminal, in the terminals' bounding box + 6 cells (the full board as fallback). PathFinder then rips up only the
+  nets on overflowed edges. The cost of an edge is `(1 + history) * (1 + pres * overflow)`, with pres 0.5 x 1.5 per
+  iteration, history += overflow, and at most 30 iterations. A via costs 4 planar steps. These are documented
+  defaults, not tuned per design.
+- **Output per net.** Its g-cells (the route guide), layers, vias, overflow, and a criticality: overflow, then peak
+  use/capacity, then detour.
+- **Pin access.** For each pad, 8 directions are tried on each of its copper layers. A centre line of the net's
+  width, and separately of the board minimum width, runs from the pad centre to 0.3 mm beyond the pad's edge. It
+  must stay in the configuration space: the outline inset by w/2, minus foreign pads and holes grown by the pair's
+  clearance + w/2 (net class, isolation, between_mm), minus the net's keep-outs. This is `partescape._Part.free`
+  carried from the part's own pads to the whole board. An SMD pad with no direction at either width is
+  `no_access`. With access on, the global router starts each pad from the g-cells of its valid directions.
+
+### Validation set
+
+Six designs:
+
+| design | parts / routed nets | board | layers | density |
+|---|---|---|---|---|
+| home-thermostat-4 | 39 routed nets | 88 x 46 mm | 4 | sparse, mains isolation, between_mm, layer-restricted nets, keep-outs, notches |
+| synth60 s1, s2, s3 (make_synth_board seeds 1-3) | 60 / about 80 | 63 x 48 mm | 2 | medium |
+| synth60 dense d4 (seed 4, board sides x 0.85) | 60 / 76 | 54 x 41 mm | 2 | high |
+| synth150 b7 (seed 7) | 150 / 170 | 85 x 64 mm | 2 | large, poorly placed (short placer run): KRT fails 2/3 of the nets |
+
+The synthetic boards were placed with the hwflow placer (1 seed: 20000 iterations for synth60, 4000 for synth150).
+
+KRT ground truth for each design:
+
+- thermostat: its last full layout (`build/krt.log` and REPORT notes).
+- s1-s3: full `krt_route` (all passes, neck-downs, retries). The truth is the nets open after the first try of the
+  power and signal passes, and the necks from the `krt_route` notes.
+- d4, b7: one KRT call over every routed net at the board track width (default order). This is cheaper: a full
+  `krt_route` takes about 50 min on synth60 on the shared machine, and the single call on b7 already took 40 min.
+
+The machine was shared with the placer experiment (load about 20 on 16 cores), so absolute router times are
+inflated. Two router calls in the s1 and s2 `HWFLOW_GROUTE=1` and `layers` runs were killed from outside
+(SIGTERM, "failed (exit -15)").
+
+### Speed
+
+The target was under 30 s on home-thermostat-4.
+
+| design | global route (derived pitch) | + pin access start | pin access alone | 0.75 mm pitch |
+|---|---|---|---|---|
+| home-thermostat-4 | 1-3 s | 4.5 s | 1.8 s | 9-12 s |
+| synth60 s1-s3, d4 | 1.0-1.7 s | 2.1-4.9 s | 1.1-2.0 s | 1.2-4.9 s |
+| synth150 b7 | 4.5 s | 9.2 s | 1.0-4.5 s | 12-27 s |
+
+On the thermostat, the build (raster capacity, masks) takes 0.8-1.8 s and PathFinder 0.15 s (6 iterations). At a
+0.5 mm pitch PathFinder takes about 1 min (python A*), so cells finer than about 3 tracks are not practical.
+
+### (a) Feasibility: does global-route overflow predict the nets KRT fails?
+
+Nets the global route flags, true positives in brackets:
+
+| design | nets KRT fails | GR, derived pitch | GR + access start | GR 0.75 mm | GR 0.75 mm + access |
+|---|---|---|---|---|---|
+| home-thermostat-4 | 7 | 0 | 0 | 4 (0): mains nets | 1 (1): VIN_BST |
+| synth60 s1 | 18 | 0 | 0 | 0 | 0 |
+| synth60 s2 | 15 | 0 | 0 | 0 | 0 |
+| synth60 s3 | 22 | 0 | 0 | 0 | 0 |
+| synth60 dense d4 | 19+ | 0 | 0 | 0 | 0 |
+| synth150 b7 | 113 | 0 | 0 | 0 | 0 |
+
+The global route does not predict KRT failures on any design. Recall is 0, apart from 1 of 7 on the thermostat at
+0.75 mm. At g-cell scale these boards have plenty of channel capacity, even the dense one. KRT fails where a net
+leaves a pad: QFN and SOIC pins, or a wide power net at a small pad. The global model counts that as pin access.
+On the thermostat a fine grid flags the four mains nets. That is a real constraint, since the corridor proof also
+says "a neck may be needed" for AC_L and AC_ROOM1, but KRT routes those nets, so the flags are false positives.
+Inside the nets that pin access flags, GR criticality does not separate the failures from the rest (AUC 0.51 on
+s1). Starting the global route from access points changes no prediction, except VIN_BST at 0.75 mm on the
+thermostat. **No win.**
+
+### Idea 6: pin access as a predictor
+
+A net is flagged when one of its pads has at most 1 of the 8 directions open at the net's width:
+
+| design | flagged / routed nets | precision | recall | base rate | neck-down recall | 0 directions at net width |
+|---|---|---|---|---|---|---|
+| home-thermostat-4 | 11 / 37 | 0.55 | 0.86 (6/7) | 0.19 | 0.75 (3/4) | SW_BOOST (necked) |
+| synth60 s1 | 32 / 80 | 0.56 | 1.00 | 0.22 | 1.00 (8/8) | +3V3 (necked) |
+| synth60 s2 | 31 / 75 | 0.35 | 0.73 | 0.20 | 0.73 | +3V3 (necked) |
+| synth60 s3 | 33 / 77 | 0.64 | 0.95 (21/22 named) | 0.29 | 1.00 | +3V3 (necked) |
+| synth60 dense d4 | 30 / 76 | 0.63 | 1.00 (19/19 named) | 0.25 | - | +3V3 |
+| synth150 b7 | 63 / 170 | >= 0.24 (*) | 0.68 (15/22 named) | 0.66 | - | +3V3 |
+
+(*) KRT names only 22 of the 113 open nets on b7 ("+N more"), so precision there is a lower bound. The board is
+saturated (base rate 0.66), so lift cannot be measured on it.
+
+The win holds on the five designs where it can be measured. On the five that are not saturated, recall is 0.73-1.0
+and precision 0.35-0.64, which is 1.7-2.9 times the base rate, in about 2 s (4.5 s at 150 parts) before any
+routing. On the saturated b7, recall over the named failures is 0.68. "0 directions at net width, at least one at the board minimum" picked exactly one
+net per design, and that net needed a neck-down every time it was routed (precision 1.0; it covers 1 of the 4-19
+necks per design). `no_access` (an SMD pad that no track leaves at any width) fired only on QFN exposed pads (GND,
+a via-in-pad pocket, correct). Before a fix to the search window it also fired on 9.5 mm battery-holder pads.
+
+### (b) Net order and layer hints for KRT
+
+Unrouted nets after one KRT try with each net order, on the same input board:
+
+| design | KRT default (MPS) | global-route order | pin-access order (fewest directions first) |
+|---|---|---|---|
+| synth60 s1 (signal pass) | 17 | 20 | 17 |
+| synth60 s2 (signal pass) | 17 | 18 | 17 |
+| synth60 s3 (signal pass) | 24 | 26 | 27 |
+| synth60 dense d4 (all nets, one call) | 24 | 25 | 19 |
+| synth150 b7 (all nets, one call) | 113 | 101 | 99 |
+
+Full `krt_route`, baseline against `HWFLOW_GROUTE=1` (same number of tries per pass):
+
+| design | unrouted base / groute | router calls base / groute | time s base / groute | vias base / groute |
+|---|---|---|---|---|
+| synth60 s1 | 4 / 0 | 32 / 16 | 2991 / 2110 | 138 / 137 |
+| synth60 s2 | 0 / 14 (*) | 15 / 33 | 2124 / 3090 | 190 / 190 |
+| synth60 s3 | 0 / 0 | 15 / 15 | 2114 / 2116 | 123 / 116 |
+| median | 0 / 0 | 15 / 16 | 2124 / 2116 | 138 / 137 |
+
+(*) In s2 the neck-down pass lost its `--ordering inside_out` try to an outside kill. That try routed all 18 nets
+in the baseline.
+
+`HWFLOW_GROUTE_LAYERS=1` (s1): 20 unrouted (base 4), 8 vias (base 138). The signal pass left 48 of 74 nets open.
+
+- **The global-route order lost on four designs and won on one.** It lost on s1, s2, s3 and d4 (single tries: 17 vs
+  20, 17 vs 18, 24 vs 26, 24 vs 25). It won only on the saturated b7 (101 vs 113 open), where any change of order
+  moves a large number.
+- **The full-flow medians are equal.** s1 improved and s2 got worse, both by run-to-run KRT variance and the
+  shifted retry list, not by the hint. The hint also costs one of the retries: `--direction backward` drops out.
+- **The pin-access order is mixed.** It is better on d4 (19 vs 24) and b7 (99 vs 113), equal on s1 and s2, and
+  worse on s3 (27 vs 24). That is no consistent win, but it is the best candidate for an extra retry order.
+- **The layer hints hurt badly.** On a 2-layer board with SMD parts on F.Cu, "the global route keeps the net on
+  one layer" means F.Cu, and forbidding B.Cu takes away KRT's way around.
+
+### (c) Guides
+
+KRT cannot restrict a net to a region within one multi-net call. `--keepout` (polygons on a User layer) applies to
+every net of the call. `--guide-corridor` is one waypoint polyline for every routed net, meant for a single net. A
+per-net guide would need one KRT call per net (about 80-200 calls of tens of seconds each). The other way is a
+per-pass keep-out, the board minus the union of the pass's guides plus a margin, but on these boards that union
+covers nearly the whole board, so it restricts nothing. Skipped.
+
+The full home-thermostat-4 route was not run: the synthetic results favour neither (b) nor (c).
+
+### What worked, what did not
+
+- **Worked:** a generic global router (every rule type through the generic inputs; unit tests for slit capacity,
+  wide nets, keep-out barriers, single-layer nets, the derived pitch) that runs in 1-3 s on home-thermostat-4 and
+  2 s on the synthetic boards.
+- **Worked, on every design where it can be measured:** pin access. It predicts KRT failures and neck-downs before routing, with recall
+  0.73-1.0 and 2-3x lift. "0 directions at net width" is a precise neck-down predictor.
+- **Did not work:** global-route overflow as a predictor of KRT failures. On these boards the bottleneck is pin
+  escape, not channel capacity. A finer grid adds false positives (wide isolated nets) before true ones, and its
+  run time grows quickly.
+- **Did not work:** the global-route net order (it wins on 1 of 5 designs) and the layer hints (harmful). The
+  pin-access order is mixed (2 wins, 2 ties, 1 loss). Guides are not possible with KRT's interface.
+
+### Recommendation
+
+- Do not put the global router in the flow. Keep `globalroute.py` behind `HWFLOW_GROUTE` as an experimental
+  feasibility view. It is worth a second look only on boards where channel capacity is the limit (BGA fan-out, many
+  wide nets, 1-layer routing).
+- Adopt pin access as a pre-route check, generic and cheap:
+  - report the pads with 0 directions at net width;
+  - send those nets through `krt_route`'s existing narrow-first path, the corridor proof's `necked` set, which skips
+    a full-width pass and its retries, each a router call of minutes;
+  - list pads with at most 1 direction as placement risk (spread or rotate the part), and feed that list to the
+    placer's congestion term.
+
+  Next step: measure the router calls the `necked` change saves on these designs, and try the pin-access order as
+  one more `KRT_VARIANTS` entry (after MPS, not before) for the passes that still leave nets open.
