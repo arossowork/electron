@@ -244,9 +244,28 @@ CORRIDOR_CAP = 2.0  # mm beyond the track width: a channel that wide is open, co
 CORRIDOR_MAX_PADS = 16  # a constrained net with more pads has no corridor term (a spread net, not a channel)
 
 
+def _switch(name: str, design=None) -> bool:
+    """Experiment switch (docs/asic-ideas.md): env HWFLOW_<NAME>=1, or `placement: {<name>: true}` in design.yaml.
+    Off by default."""
+    import os
+    v = os.environ.get(f"HWFLOW_{name.upper()}")
+    if v is not None:
+        return v.strip().lower() not in ("", "0", "false", "no", "off")
+    return bool(((getattr(design, "raw", None) or {}).get("placement") or {}).get(name.lower()))
+
+
+STAGES: list = []  # per run of the analytic flows: {stage, s, hpwl, overflow, overlap} (docs/asic-ideas.md)
+DP_PASSES = 4  # detailed placement passes at most
+DP_STEPS = (0.25, 0.5, 1.0, 2.0)  # detailed placement shifts, in track pitches (board track + clearance)
+DP_RADIUS = 3.0  # detailed placement swap and window neighbourhood (Manhattan), in typical part sizes (_unit_size)
+ANNEAL = {"moves": 0, "s": 0.0}  # annealing moves and seconds in this process (the anneal rate, docs/asic-ideas.md)
 _REPORTED: set = set()  # fixed-part violations already printed, once per process
 _BLOCKS: dict = {}  # corridor block verdicts per net and fixed-part placement (the corridor proof is slow)
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
+MACRO_AREA = 2.5  # a part whose courtyard (with margin) exceeds this many times the median movable courtyard is a macro
+MACRO_SPLIT = (0.4, 0.4)  # shares of the moves of the macro pass and of the small-part pass; the rest: all parts
+MACRO_T0 = 0.06  # start temperature of the small-part and final passes, as a share of the usual start 2 x max(W, H)
+ANALYTIC_T0 = 0.03  # start temperature after the global placement, as a share of 2 x max(W, H) (HWFLOW_ANALYTIC_T0)
 
 
 class Placer:
@@ -312,6 +331,7 @@ class Placer:
             if p.group:
                 self.group_members.setdefault(p.group, []).append(p)
         self.bucket = 4.0  # mm, spatial hash cell for the overlap pairs
+        self.rudy_pads = _switch("rudy_pads", design)  # RUDY capacity minus the pads under it (docs/asic-ideas.md)
         self._init_rules(getattr(parts, "areas", ()))
         self._init_seps()
         self._init_corridors()
@@ -706,6 +726,68 @@ class Placer:
             j0, j1 = max(0, int(y0 // self.cell)), min(self.ny, math.ceil(y1 / self.cell))
             self.cap[i0:i1, j0:j1] *= frac
         self.grid = np.zeros((self.nx, self.ny))
+        # pad blockage (HWFLOW_RUDY_PADS): a pad grown by half a pitch takes its share of the capacity of every
+        # layer it is on; self.ecap is the capacity left, the overflow is measured against it
+        self.blk = np.zeros((self.nx, self.ny))
+        self.part_blk = {}
+        if self.rudy_pads:
+            self._blk_pitch, self._blk_layers = pitch, max(1, int(b.get("layers", 2)))
+            for r in self.parts:
+                e = self.part_blk[r] = self._pad_blockage(r)
+                if e is not None:
+                    self.blk[e[0]:e[0] + e[2].shape[0], e[1]:e[1] + e[2].shape[1]] += e[2]
+        self.ecap = np.maximum(self.cap - self.blk, 0.0)
+
+    def _pad_blockage(self, r):
+        """(i0, j0, array) of the capacity (mm of wire per cell) that the pads of `r` take, or None: each copper pad,
+        grown by half a track pitch, removes its covered share of the cell from each layer it is on (a through-hole
+        pad all layers, an SMD pad one)."""
+        p = self.parts[r]
+        boxes = []
+        h = self._blk_pitch / 2
+        for n in p.pads:
+            if n in p.nocu:
+                continue
+            cu = p.cu.get(n) if p.cu else None
+            nl = self._blk_layers if cu is None or "*" in cu else min(self._blk_layers, len(cu))
+            b = _pad_box(p, n)
+            boxes.append((b[0] - h, b[1] - h, b[2] + h, b[3] + h, nl))
+        if not boxes:
+            return None
+        c = self.cell
+        i0 = min(self.nx - 1, max(0, int(min(b[0] for b in boxes) // c)))
+        i1 = min(self.nx, max(i0 + 1, math.ceil(max(b[2] for b in boxes) / c)))
+        j0 = min(self.ny - 1, max(0, int(min(b[1] for b in boxes) // c)))
+        j1 = min(self.ny, max(j0 + 1, math.ceil(max(b[3] for b in boxes) / c)))
+        ex, ey = np.arange(i0, i1 + 1) * c, np.arange(j0, j1 + 1) * c
+        out = np.zeros((i1 - i0, j1 - j0))
+        per = c * c / self._blk_pitch * CONG_UTIL / (c * c)  # capacity per mm2 of one layer
+        for x0, y0, x1, y1, nl in boxes:
+            ox = np.clip(np.minimum(ex[1:], x1) - np.maximum(ex[:-1], x0), 0, None)
+            oy = np.clip(np.minimum(ey[1:], y1) - np.maximum(ey[:-1], y0), 0, None)
+            out += (nl * per) * np.outer(ox, oy)
+        return i0, j0, out
+
+    def _blk_move(self, old, new):
+        """Swap one part's pad blockage `old` for `new` in self.blk / self.ecap and the overflow total."""
+        sls = []
+        for e, sign in ((old, -1), (new, 1)):
+            if e is None:
+                continue
+            sl = (slice(e[0], e[0] + e[2].shape[0]), slice(e[1], e[1] + e[2].shape[1]))
+            sls.append(sl)
+            self.blk[sl] += sign * e[2]
+        if not sls:
+            return
+        i0 = min(s[0].start for s in sls); i1 = max(s[0].stop for s in sls)
+        j0 = min(s[1].start for s in sls); j1 = max(s[1].stop for s in sls)
+        sl = (slice(i0, i1), slice(j0, j1))
+        g = self.grid[sl]
+        o = np.maximum(g - self.ecap[sl], 0).ravel()
+        before = o @ o
+        self.ecap[sl] = np.maximum(self.cap[sl] - self.blk[sl], 0.0)
+        o = np.maximum(g - self.ecap[sl], 0).ravel()
+        self.t_cong += o @ o - before
 
     def _rudy(self, xs, ys):
         """(i0, j0, demand array) of a net: HPWL spread uniformly over its bounding box, in mm of wire per cell."""
@@ -728,7 +810,7 @@ class Placer:
 
     def _grid_add(self, i0, j0, dem, sign):
         sl = (slice(i0, i0 + dem.shape[0]), slice(j0, j0 + dem.shape[1]))
-        g, cp = self.grid[sl], self.cap[sl]
+        g, cp = self.grid[sl], self.ecap[sl]
         o = np.maximum(g - cp, 0).ravel()
         before = o @ o
         g += sign * dem
@@ -743,12 +825,20 @@ class Placer:
                 xs, ys = zip(*(self.parts[r].pad(p) for r, p in conns))
                 i0, j0, dem = self._rudy(xs, ys)
                 grid[i0:i0 + dem.shape[0], j0:j0 + dem.shape[1]] += dem
-        return float(np.square(np.clip(grid - self.cap, 0, None)).sum())
+        cap = self.cap
+        if self.rudy_pads:
+            blk = np.zeros_like(cap)
+            for r in self.parts:
+                e = self._pad_blockage(r)
+                if e is not None:
+                    blk[e[0]:e[0] + e[2].shape[0], e[1]:e[1] + e[2].shape[1]] += e[2]
+            cap = np.maximum(cap - blk, 0.0)
+        return float(np.square(np.clip(grid - cap, 0, None)).sum())
 
     def max_overflow(self) -> float:
         """Largest per-cell wire demand above capacity (mm of wire), from scratch."""
         self.cost()
-        return float(np.clip(self.grid - self.cap, 0, None).max())
+        return float(np.clip(self.grid - self.ecap, 0, None).max())
 
     # ---- cost -------------------------------------------------------------------------------------------------
 
@@ -1022,6 +1112,13 @@ class Placer:
             seps.update(self.part_seps[r])
             if self.parts[r].group:
                 groups.add(self.parts[r].group)
+        if self.rudy_pads:
+            for r in moved:
+                old = self.part_blk.get(r)
+                new = self._pad_blockage(r)
+                self._blk_move(old, new)
+                self.part_blk[r] = new
+                log.append(("blk", r, old, new))
         for k in nets:
             old_len, old_dem = self.net_len[k], self.net_dem[k]
             self.net_len[k], xs, ys = self._net_len(k)
@@ -1107,6 +1204,9 @@ class Placer:
                     self._grid_add(*self.net_dem[k], -1)
                     self._grid_add(*od, 1)
                 self.net_len[k], self.net_dem[k] = ol, od
+            elif kind == "blk":
+                self._blk_move(e[3], e[2])
+                self.part_blk[e[1]] = e[2]
             elif kind == "part":
                 self.part_bnd[e[1]], self.part_edge[e[1]] = e[2], e[3]
             elif kind == "ko":
@@ -1203,8 +1303,150 @@ class Placer:
             self._refs(p)
         if not movable:
             return self.cost()
-        self._anneal(movable, iters, max(self.W, self.H) * 2, 0.01)
+        t0 = max(self.W, self.H) * 2
+        if _switch("macro_first", self.d):
+            self._macro_first(movable, iters, t0)
+            return self._finish(movable)
+        dp = _switch("analytic_dp", self.d)
+        if dp or _switch("analytic", self.d):  # ASIC flow: (a) global placement, (b) legalization, then (c)
+            import os                           # detailed placement (analytic_dp) or a cooler anneal (analytic)
+            import time
+            from . import gplace
+            ts = time.perf_counter()
+            g = gplace.Global(self, movable)
+            g.run()
+            self._stage("global", ts)
+            ts = time.perf_counter()
+            self.legalize()
+            self._stage("legalize", ts)
+            ts = time.perf_counter()
+            if dp:
+                self.detailed(movable)
+                self._stage("detailed", ts)
+                return self._finish(movable)
+            t0 *= float(os.environ.get("HWFLOW_ANALYTIC_T0", ANALYTIC_T0))
+            self._anneal(movable, iters, t0, 0.01)
+            self._stage("anneal", ts)
+            return self._finish(movable)
+        self._anneal(movable, iters, t0, 0.01)
         return self._finish(movable)
+
+    @staticmethod
+    def _unit_size(movable) -> float:
+        """Typical part size (mm): the square root of the median courtyard area of the movable units."""
+        a = sorted(getattr(u, "yard", u).w * getattr(u, "yard", u).h for u in movable) or [1.0]
+        return math.sqrt(a[len(a) // 2])
+
+    def _stage(self, name, ts):
+        """Record a placement stage: seconds and the proxies (HPWL, RUDY overflow, overlap area of courtyards)."""
+        import time
+        dt = time.perf_counter() - ts
+        wt = dict(self.wt)
+        self.cost()
+        STAGES.append({"stage": name, "s": round(dt, 2), "hpwl": round(self.t_wire, 1), "overflow": round(self.t_cong, 2),
+                       "overlap": round(sum(v for (a, b), v in self.pairs.items()
+                                            if not (self._unit(self.parts[a]).fixed and self._unit(self.parts[b]).fixed)), 2)})
+        self.wt.update(wt)
+
+    def detailed(self, movable, passes: int = DP_PASSES):
+        """Detailed placement in the style of OpenDP: local moves only, greedy acceptance (a move is kept when the
+        cost falls). Per unit: shifts of DP_STEPS track pitches in x and y, the three other rotations, a swap with each unit of
+        about the same courtyard area within DP_RADIUS typical part sizes; then window reordering: every permutation of three
+        same-size units that are neighbours. Passes repeat until nothing improves."""
+        import itertools
+        cur = self.cost()
+        radius = DP_RADIUS * self._unit_size(movable)
+        pitch = float(self.d.board["track_mm"]) + float(self.d.board["clearance_mm"])
+        steps = [k * pitch for k in DP_STEPS]
+
+        def area(u):
+            y = getattr(u, "yard", u)
+            return y.w * y.h
+
+        def same(a, b):
+            return abs(area(a) - area(b)) <= 0.15 * max(area(a), area(b))
+
+        def near(a, b):
+            return abs(a.x - b.x) + abs(a.y - b.y) <= radius
+
+        def trial(units, pos):
+            nonlocal cur
+            old = [(u.x, u.y, u.r) for u in units]
+            for u, (x, y, r) in zip(units, pos):
+                u.x, u.y, u.r = x, y, r
+            refs = [r for u in units for r in self._refs(u)]
+            new = self._update(refs)
+            if new < cur - 1e-6:
+                cur = new
+                return True
+            for u, (x, y, r) in zip(units, old):
+                u.x, u.y, u.r = x, y, r
+                self._refs(u)
+            self._undo()
+            return False
+
+        for _ in range(passes):
+            gain = cur
+            for u in movable:
+                for d in steps:
+                    for dx, dy in ((d, 0), (-d, 0), (0, d), (0, -d)):
+                        trial([u], [(min(self.W, max(0.0, u.x + dx)), min(self.H, max(0.0, u.y + dy)), u.r)])
+                for dr in (90, 180, 270):
+                    trial([u], [(u.x, u.y, (u.r + dr) % 360)])
+                for v in movable:
+                    if v is not u and same(u, v) and near(u, v):
+                        trial([u, v], [(v.x, v.y, u.r), (u.x, u.y, v.r)])
+            for u in movable:  # window reordering: three same-size neighbours, every order of their places
+                win = [v for v in movable if v is not u and same(u, v) and near(u, v)][:2]
+                if len(win) == 2:
+                    units = [u] + win
+                    spots = [(w.x, w.y) for w in units]
+                    for perm in itertools.permutations(range(3)):
+                        if perm != (0, 1, 2):
+                            trial(units, [(spots[k][0], spots[k][1], w.r) for k, w in zip(perm, units)])
+            self.cost()
+            cur = self._total()
+            if cur > gain - 1e-6 * max(1.0, abs(gain)):
+                break
+        return cur
+
+    def _macro_first(self, movable, iters, t0):
+        """Macro-first schedule (HWFLOW_MACRO_FIRST, docs/asic-ideas.md): (1) anneal the blocks and the parts with a
+        courtyard above MACRO_AREA x the median one alone, the small parts left out of the cost (a placer on the fixed and
+        large parts only); (2) put each small part at the mean of the pads it shares a non-ground net with, and
+        anneal the small parts alone with the large ones held; (3) a short low-temperature anneal of everything."""
+        def area(u):
+            y = getattr(u, "yard", u)
+            return y.w * y.h
+        cut = MACRO_AREA * self._unit_size(movable) ** 2
+        big = [u for u in movable if isinstance(u, Rigid) or area(u) >= cut]
+        small = [u for u in movable if not (isinstance(u, Rigid) or area(u) >= cut)]
+        n1, n2 = int(iters * MACRO_SPLIT[0]), int(iters * MACRO_SPLIT[1])
+        n3 = iters - n1 - n2
+        if big and small:
+            keep = {r for r, p in self.parts.items() if r not in self.unit_of and (p.fixed or p in big)}
+            keep |= {r for u in self.units if u.fixed or u in big for r, *_ in u.members}
+            sub = Parts({r: p for r, p in self.parts.items() if r in keep})
+            sub.areas, sub.libs = getattr(self.parts, "areas", ()), getattr(self.parts, "libs", None)
+            sub.blocks = [u for u in self.units if u.fixed or u in big]
+            sp = Placer(self.d, sub, self.W, self.H, seed=self.rng.randrange(1 << 30), weights=None,
+                        keepouts=[k for k in self.keepouts])
+            sp.wt.update({k: v for k, v in self.wt.items()})
+            sp._anneal([u for u in sp._movable()], n1, t0, 0.01)
+            self._restore({**self._state(), **{r: v for r, v in sp._state().items() if r in self.parts}})
+            gn = self.d.ground_nets()
+            smallref = {u.ref for u in small}
+            for u in small:
+                pts = [self.parts[q].pad(n) for net, conns in self.d.nets().items() if net not in gn
+                       and any(r == u.ref for r, _ in conns) for q, n in conns
+                       if q != u.ref and q in self.parts and q not in smallref and n in self.parts[q].pads]
+                if pts:
+                    u.x = min(self.W, max(0.0, sum(x for x, _ in pts) / len(pts) + self.rng.gauss(0, 1.0)))
+                    u.y = min(self.H, max(0.0, sum(y for _, y in pts) / len(pts) + self.rng.gauss(0, 1.0)))
+            self._anneal(small, n2, MACRO_T0 * t0, 0.01)
+        else:
+            n3 = iters
+        self._anneal(movable, n3, MACRO_T0 * t0 if big and small else t0, 0.01, ramp=not (big and small))
 
     def refine(self, iters: int, t0: float = 0.6) -> float:
         """Short low-temperature anneal from the current placement (weights as the last run left them)."""
@@ -1215,6 +1457,15 @@ class Placer:
         return self._finish(movable)
 
     def _anneal(self, movable, iters, t0, t1, ramp=True):
+        import time
+        ts = time.perf_counter()
+        try:
+            self._anneal_(movable, iters, t0, t1, ramp)
+        finally:
+            ANNEAL["moves"] += iters
+            ANNEAL["s"] += time.perf_counter() - ts
+
+    def _anneal_(self, movable, iters, t0, t1, ramp=True):
         cur = self.cost()
         best, best_state = cur, self._state()
         base = {k: self.wt[k] for k in ("overlap", "bounds", "keepout", "isolation")}
@@ -1505,6 +1756,8 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
             cost, v, key = cost2, v2, (len(v2), cost2)
         else:
             pl._restore(before)
+    if _switch("analytic_dp", design):  # flow 3: no annealing at all; the refine pass is a detailed pass
+        refine = 0
     if refine > 0 and any(not p.fixed for p in parts.values()):
         before = pl._state()
         cost2 = pl.refine(extra)

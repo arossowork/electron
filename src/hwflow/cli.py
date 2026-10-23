@@ -401,6 +401,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         viol, cost = pl.violations(), pl.cost()
     else:
         parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
+    tm = {"place_s": round(time.time() - t0, 1)}  # wall time per step (experiment metrics, docs/asic-ideas.md)
     pj.write_text(json.dumps({"__design_board__": list(declared), **{r: [p.x, p.y, p.r] for r, p in parts.items()}},
                              indent=1))
     d.budget_widths, bud_w = budgets.widths(d, parts)  # requirement budgets: track widths on this placement
@@ -425,8 +426,12 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                 "seconds": round(time.time() - t0, 1)}
 
     def route_check(tr, vi, island=0, fast=False):
+        t = time.time()
         pcb.write_board(board, pcb.build_board(d, libs, parts, tr, vi, island_removal=island))
-        return kicad.drc_fast(board) if fast else kicad.drc(board, refill=True, parity=True)
+        try:
+            return kicad.drc_fast(board) if fast else kicad.drc(board, refill=True, parity=True)
+        finally:
+            tm["drc_s"] = round(tm.get("drc_s", 0.0) + time.time() - t, 1)
 
     pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for the router and DRC
     key = _route_key(d, libs, parts, out, passes)
@@ -441,10 +446,12 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     else:
         if not pre:
             d.route_groups = groups  # regionroute: the group rows land in this list
+            t = time.time()
             try:
                 tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
             finally:
                 d.route_groups = None
+                tm["route_s"] = round(time.time() - t, 1)
         seeds = seedroute.load(out)  # the seed copper of this route (pcb.krt_route)
         drc = route_check(tracks, vias)
         if any(g["cache"] == "hit" for g in groups):  # reused group copper: the joined board's DRC judges it
@@ -455,9 +462,11 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
                 and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
+            t = time.time()
             r = repair.repair(d, libs, parts, tracks, vias, drc, board,
                               lambda *a: route_check(*a, fast=True), rounds, deadline=deadline)  # local repair, not a rebuild
             tracks, vias, rep, island = r["tracks"], r["vias"], r["report"], r["island"]
+            tm["repair_s"] = round(time.time() - t, 1)  # router calls and fast DRC of the repair included
             if rep["rounds"] and (tracks, vias) != pre[:2]:
                 drc = kicad.drc(board, refill=True, parity=True)  # the full DRC, once, on the board kept
                 if len([x for x in drc if x["sev"] == "error"]) > len([x for x in pre[2] if x["sev"] == "error"]):
@@ -513,7 +522,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "route_cache": key if hit else None, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
-            "seconds": round(time.time() - t0, 1)}
+            "timing": tm, "seconds": round(time.time() - t0, 1)}
 
 
 def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
@@ -570,7 +579,7 @@ def _auto_attempt(k: int) -> dict:
         if (out / f).exists():
             shutil.copy(out / f, w / f)
     seeds = c["seeds"]
-    seed0 = 1 + k * seeds
+    seed0 = int(os.environ.get("HWFLOW_SEED0", 1)) + k * seeds  # HWFLOW_SEED0: first placer seed (A/B spread runs)
     use_saved = c["reuse"] and k == 0 and (out / "placement.json").exists()
     if use_saved:
         shutil.copy(out / "placement.json", w / "placement.json")
@@ -580,6 +589,15 @@ def _auto_attempt(k: int) -> dict:
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
+    try:  # per-attempt numbers for the placer experiments (docs/asic-ideas.md); build/auto/attempt<k>.metrics.json
+        keep = ("ok", "placement_cost", "placement_violations", "router", "segments", "vias", "drc_errors", "unrouted",
+                "repair", "timing", "seconds", "route_groups", "post_warnings")
+        m = {key: r.get(key) for key in keep}
+        m["track_mm"] = round(sum(v.get("length_mm", 0) for v in (r.get("nets") or {}).values()), 1)
+        m["drc_types"] = sorted(x["type"] for x in r.get("drc") or [] if x["sev"] == "error")
+        (out / "auto" / f"attempt{k + 1}.metrics.json").write_text(json.dumps(m, indent=1))
+    except Exception:  # noqa: BLE001 - metrics only
+        pass
     how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
