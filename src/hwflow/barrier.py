@@ -492,10 +492,11 @@ def _nodes(model: Model, design, net: str, regions: dict) -> list[dict]:
     """Own pads of `net` with known position, plus (before placement) one node per floorplan region a pad of the net
     must lie in (the whole region counts as reached: an over-estimate, so a finding still holds)."""
     nodes = [dict(p, region=False) for p in model.pads if p["net"] == net]
+    own = {(r, p) for r, p in design.nets().get(net, [])} if regions else set()  # once, not per region pad
     for (ref, pin), poly in regions.items():
         if ref in model.pos:
             continue
-        if any(r == ref and p == pin for r, p in design.nets().get(net, [])):
+        if (ref, pin) in own:
             nodes.append({"ref": ref, "number": pin, "net": net, "layers": list(model.copper),
                           "own": poly.intersection(model.outline), "obst": None, "fixed": False, "region": True})
     return [n for n in nodes if not n["own"].is_empty]

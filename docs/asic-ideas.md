@@ -720,3 +720,32 @@ Router stages on ht4:
   - a real legalizer: ht4 still leaves 2-11 mm2 of overlap after detailed placement, cleared by the anneal and
     `_finish`;
   - the PathFinder map only on boards where channel capacity is the limit (BGA fan-out, 1-layer boards).
+
+## Confirmation runs of the single flow (2026-10-23, branch `integrate`)
+
+The flow of `docs/layout-flow.md` is the default, with every removed piece gone from the code. Each design had one
+`uv run hwflow build <proj> --until layout --auto` run on a quiet machine (load 3-4). The route caches were cold,
+because `pcb.py` changed.
+
+| home-thermostat-4 | baseline (annealing) | combined (a) | combined (a), no access term | single flow |
+|---|---|---|---|---|
+| attempts run / first clean | 4 / 3 | 3 / 3 | 2 / 2 | 2 / **2** |
+| layout wall time | 1310 s | 750 s | 733 s | **445 s** (whole command 545 s) |
+| placement, kept attempt | 46-54 s | 82-105 s | 31-60 s | 56 s |
+| repair, attempt 1 | 3 -> 1 in 3 rounds, 148 s | 5 -> 2 in 3 rounds, 36 s | 5 -> 3 in 3 rounds, 43 s | 5 -> 3 in 3 rounds, 34 s |
+| repair, kept attempt | 2 -> 0 in 1 round | 1 -> 0 in 1 round | none needed | **none needed** |
+| kept board: unrouted / DRC / vias / track | 0 / 0 / 98 / 1491 mm | 0 / 0 / 78 / 1279 mm | 0 / 0 / 73 / 1197 mm | 0 / 0 / **73** / **1197 mm** |
+| pin access `necked` | - | SW_BOOST | SW_BOOST | SW_BOOST (and VIN_BST in attempt 1) |
+| verdict | OK | OK | OK | **PASS** |
+
+| sensor_preamp (area search on) | baseline | combined (a) | single flow |
+|---|---|---|---|
+| layout wall time | 243 s | 141 s | **54 s** |
+| final board | 18 x 13 mm | 18 x 13 mm | 18 x 13 mm |
+| repair | 1 -> 0 in 1 round | none needed | none needed |
+| unrouted / DRC / vias / track | 0 / 0 / 7 / - | 0 / 0 / 3 / - | 0 / 0 / **3** / 45 mm |
+| verdict | OK | OK | **PASS** |
+
+On ht4 the kept board is the same as in the earlier ablation without the pin-access term: that ablation ran the same
+configuration. The wall times are lower than in the earlier runs, partly because the machine was quiet. The router
+tries, repair rounds, vias and track length are not affected by load.
