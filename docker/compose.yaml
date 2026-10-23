@@ -1,0 +1,31 @@
+# docker compose -f docker/compose.yaml up -d ui      # web UI on the host's 127.0.0.1:8765 (SSH tunnel to reach it)
+# docker compose -f docker/compose.yaml run --rm hw uv run pytest -q
+# docker compose -f docker/compose.yaml run --rm hw scripts/hw-run.sh my-product opus
+name: hwflow
+x-hw: &hw
+  image: hwflow
+  build: {context: .., dockerfile: docker/Dockerfile}
+  init: false  # tini is the entrypoint
+  shm_size: 1g
+  environment:
+    # `claude setup-token` on any machine with a browser prints a 1-year subscription token; put it in docker/.env
+    CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+  volumes:
+    - ../projects:/app/projects
+    - ../evals/runs:/app/evals/runs
+    - claude-home:/home/hw/.claude   # sessions, transcripts, an interactive /login if no token is set
+    - hw-cache:/home/hw/.cache       # hwflow symbol index
+services:
+  hw:
+    <<: *hw
+    profiles: [cli]
+    stdin_open: true
+    tty: true
+  ui:
+    <<: *hw
+    command: ["uv", "run", "python", "ui/server.py", "--host", "0.0.0.0"]
+    ports: ["127.0.0.1:8765:8765"]  # never 0.0.0.0: the UI has no login and runs an agent with Bash
+    restart: unless-stopped
+volumes:
+  claude-home:
+  hw-cache:

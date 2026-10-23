@@ -1,0 +1,18 @@
+# Cluster-wide settings shared by the apps on this single-node k3s.
+# Who dies first when memory runs out: the kubelet evicts pods that use more than their memory request, lowest
+# priority first; the kernel OOM killer prefers the pod with the smaller request (higher oom_score_adj). hwflow is
+# apps-high with a large request; singing is apps-low with a small request and its own limit, so a song import that
+# runs out of memory takes down singing, never an hwflow design run.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: {name: apps-high}
+value: 1000
+preemptionPolicy: PreemptLowerPriority
+description: Long-running agent work (hwflow). Evicted last.
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: {name: apps-low}
+value: 100
+preemptionPolicy: Never
+description: Interactive apps that can restart (singing). Evicted first.

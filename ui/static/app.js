@@ -9,7 +9,7 @@ async function api(path, body) {
   const j = await r.json(); if (!r.ok) { alert(j.error || 'error'); throw new Error(j.error); } return j;
 }
 async function loadProjects() {
-  const ps = await api('/api/projects');
+  const ps = await api('api/projects');
   $('#projects').innerHTML = '';
   for (const p of ps) {
     const li = document.createElement('li');
@@ -68,7 +68,7 @@ function renderUsage() {
     `<tr><td>${mdEsc(k)}</td><td>${a.launches || ''}</td><td>${a.turns}</td><td>${tm(a.seconds)}</td><td>${(tok(a) / 1e6).toFixed(2)} M</td><td>${mdEsc(models(a))}</td></tr>`).join('');
 }
 async function loadEarlier() {
-  const pg = await api(`/api/projects/${cur}/history?before=${firstIdx}&limit=300`);
+  const pg = await api(`api/projects/${cur}/history?before=${firstIdx}&limit=300`);
   firstIdx = pg.start; $('#more').hidden = firstIdx <= 0;
   const log = $('#log'), old = [...log.children].filter(c => c.id !== 'more');
   old.forEach(c => c.remove()); toolBox = null;
@@ -78,7 +78,7 @@ async function loadEarlier() {
 }
 async function open(name) {
   cur = name; history.replaceState(null, '', '#' + name); $('#pname').textContent = name; $('#side').classList.remove('open');
-  const info = await api(`/api/projects/${name}/info`);
+  const info = await api(`api/projects/${name}/info`);
   $('#log').innerHTML = '<button id="more" type="button" hidden>Load earlier messages</button>'; toolBox = null;
   $('#more').onclick = loadEarlier; firstIdx = info.start; $('#more').hidden = firstIdx <= 0;
   info.history.forEach(e => add(e)); usage = info.usage || {}; renderUsage();
@@ -86,7 +86,7 @@ async function open(name) {
   renderTabs(info.files); show(info.files.includes(tab) ? tab : info.files[0]);
   renderQuestions(info.questions);
   if (es) es.close();
-  es = new EventSource(`/api/projects/${name}/events`); es.onmessage = (m) => add(JSON.parse(m.data));
+  es = new EventSource(`api/projects/${name}/events`); es.onmessage = (m) => add(JSON.parse(m.data));
   loadProjects();
 }
 function renderTabs(files) {
@@ -99,7 +99,7 @@ function renderTabs(files) {
 async function show(f) {
   if (!f || !cur) return; tab = f;
   [...$('#tabs').children].forEach(b => b.classList.toggle('active', b.textContent === (LABELS[f]||f)));
-  const url = `/api/projects/${cur}/file/${f}?t=${Date.now()}`;
+  const url = `api/projects/${cur}/file/${f}?t=${Date.now()}`;
   if (/\.(svg|png)$/.test(f)) { $('#view').innerHTML = `<img src="${url}" alt="${LABELS[f]}">`; return; }
   if (/\.pdf$/.test(f)) { $('#view').innerHTML = `<object data="${url}" type="application/pdf" width="100%" height="100%"></object>`; return; }
   const txt = await (await fetch(url)).text();
@@ -108,7 +108,7 @@ async function show(f) {
   if (isMd) { pre.className = 'md'; pre.innerHTML = renderMarkdown(txt); }
   $('#view').innerHTML = '';
   if (f === 'build/REPORT.md') {
-    const s = await (await fetch(`/api/projects`)).json(); const p = s.find(x => x.name === cur);
+    const s = await (await fetch(`api/projects`)).json(); const p = s.find(x => x.name === cur);
     if (p && p.score) $('#view').append(scoreCard(p.score));
   }
   $('#view').append(pre);
@@ -135,28 +135,28 @@ function renderQuestions(q) {
   f.onsubmit = async (e) => {
     e.preventDefault(); const fd = new FormData(f), answers = {};
     for (const x of q.questions) answers[x.id] = (fd.get(x.id + '__free') || fd.get(x.id) || '').toString();
-    f.hidden = true; await api(`/api/projects/${cur}/answer`, {answers, model: model()});
+    f.hidden = true; await api(`api/projects/${cur}/answer`, {answers, model: model()});
   };
 }
 $('#composer').onsubmit = async (e) => {
   e.preventDefault(); if (!cur) return alert('Pick or create a product first');
   const text = $('#msg').value.trim(); if (!text) return;
-  await api(`/api/projects/${cur}/message`, {text, model: model()}); $('#msg').value = '';
+  await api(`api/projects/${cur}/message`, {text, model: model()}); $('#msg').value = '';
 };
 $('#interrupt').onclick = async () => {
   const text = $('#msg').value.trim(); if (!cur || !text) return alert('Type the message to send first');
-  await api(`/api/projects/${cur}/message`, {text, model: model(), interrupt: true}); $('#msg').value = '';
+  await api(`api/projects/${cur}/message`, {text, model: model(), interrupt: true}); $('#msg').value = '';
 };
-$('#stop').onclick = () => cur && api(`/api/projects/${cur}/stop`, {});
-$('#build').onclick = () => cur && api(`/api/projects/${cur}/build`, {});
+$('#stop').onclick = () => cur && api(`api/projects/${cur}/stop`, {});
+$('#build').onclick = () => cur && api(`api/projects/${cur}/build`, {});
 $('#new').onclick = () => $('#newdlg').showModal();
 $('#menu').onclick = () => $('#side').classList.toggle('open');
 $('#newform').onsubmit = async (e) => {
   if (e.submitter && e.submitter.value === 'cancel') return;
   const fd = new FormData(e.target);
-  const r = await api('/api/projects', {name: fd.get('name'), brief: fd.get('brief'), model: model()});
+  const r = await api('api/projects', {name: fd.get('name'), brief: fd.get('brief'), model: model()});
   await open(r.name);
 };
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 loadProjects(); setInterval(loadProjects, 10000);
 if (location.hash.length > 1) open(decodeURIComponent(location.hash.slice(1)));

@@ -1,0 +1,71 @@
+# hwflow web UI on a single-node k3s. The image is imported into k3s's containerd (docker/k8s/deploy.sh), so it is
+# never pulled. The Service is ClusterIP only: the host nginx reaches it through cluster DNS and adds the login.
+apiVersion: v1
+kind: Namespace
+metadata: {name: hwflow}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: projects, namespace: hwflow}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 10Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: eval-runs, namespace: hwflow}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 5Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: claude-home, namespace: hwflow}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 2Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: cache, namespace: hwflow}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 1Gi}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: hwflow, namespace: hwflow}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}  # RWO volumes and one claude session per project
+  selector: {matchLabels: {app: hwflow}}
+  template:
+    metadata: {labels: {app: hwflow}}
+    spec:
+      priorityClassName: apps-high  # docker/k8s/cluster.yaml: evicted after singing
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000}
+      containers:
+        - name: ui
+          image: hwflow:IMAGE_TAG
+          imagePullPolicy: Never
+          args: ["uv", "run", "--no-sync", "python", "ui/server.py", "--host", "0.0.0.0"]
+          ports: [{name: http, containerPort: 8765}]
+          env:
+            - name: CLAUDE_CODE_OAUTH_TOKEN  # `claude setup-token`; without it, log in once with kubectl exec
+              valueFrom: {secretKeyRef: {name: hwflow-claude, key: token, optional: true}}
+          readinessProbe: {httpGet: {path: /, port: http}, periodSeconds: 10}
+          resources:
+            requests: {cpu: 500m, memory: 1536Mi}  # reserved: an agent session plus a build fit in it
+            limits: {memory: 3Gi}
+          volumeMounts:
+            - {name: projects, mountPath: /app/projects}
+            - {name: eval-runs, mountPath: /app/evals/runs}
+            - {name: claude-home, mountPath: /home/hw/.claude}
+            - {name: cache, mountPath: /home/hw/.cache}
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - {name: projects, persistentVolumeClaim: {claimName: projects}}
+        - {name: eval-runs, persistentVolumeClaim: {claimName: eval-runs}}
+        - {name: claude-home, persistentVolumeClaim: {claimName: claude-home}}
+        - {name: cache, persistentVolumeClaim: {claimName: cache}}
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: hwflow, namespace: hwflow}
+spec:
+  type: ClusterIP
+  selector: {app: hwflow}
+  ports: [{name: http, port: 8765, targetPort: http}]
