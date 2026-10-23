@@ -1457,6 +1457,8 @@ def main(argv=None):
                                                                            help="key=value server filters")
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
     sub.add_parser("trace").add_argument("project")
+    sub.add_parser("fw", help="firmware board header build/fw/board.h from design.yaml and the HW/SW contract "
+                              "interface.yaml (docs/hwsw-codesign.md)").add_argument("project")
     p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
                                     "layers, vias")
     p.add_argument("project"); p.add_argument("net", nargs="*", help="net names or globs (default: all)")
@@ -1563,6 +1565,16 @@ def main(argv=None):
         return 0
 
     libs = Libs(design=d)
+    if a.cmd == "fw":
+        from . import fw
+        path, findings = fw.run(d, libs, _out(d))
+        for f in findings:
+            print(f"{f['severity']:<8} {f['code']:<24} {f['message']}")
+        nerr = sum(f["severity"] == "error" for f in findings)
+        print(f"{path if path.exists() else 'no board.h'}: {nerr} errors, {len(findings) - nerr} warnings")
+        _save_status(d, "fw", {"errors": nerr, "warnings": len(findings) - nerr, "findings": findings,
+                               "design_hash": _design_hash(d), "at": time.time()})
+        return 1 if nerr else 0
     if a.cmd == "floorplan":
         from . import floorplan
         text, data = floorplan.run(d, libs, _out(d), a.iters, a.seeds)
