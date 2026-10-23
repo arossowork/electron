@@ -1,0 +1,1 @@
+A mechanical keyboard PCB with a USB hub (2 full size, 2 usb-c, also with fast charge) and great quality sound card for input and output with connectors on the front (towards user)

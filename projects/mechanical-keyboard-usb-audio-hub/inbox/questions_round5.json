@@ -1,0 +1,24 @@
+{
+  "round": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Without the power adapter, there is one heavy case: you record with the mic and listen loudly at the same time while all four ports hold fast USB 3 devices. The sound card then uses more power than estimated, and each port gets about 60 mA instead of the 75 mA you approved in round 4. In normal use (listening only, or fewer devices) every port still gets 90 mA or more. What should we do?",
+      "options": [
+        "Recommended: accept about 60 mA per port in that heavy case only. Mice, keyboards and wireless dongles still work; to protect the computer, the board's safety cut-off is set near 1.0 A, which almost every computer port tolerates. No cost.",
+        "Without the adapter, while the mic is recording, the headphone maximum volume is 6 dB lower (still loud on most headphones): about 70 mA per port in the heavy case. No cost.",
+        "Use a lower-power USB sound chip (see q2): about 70-75 mA per port in the heavy case; same sound quality on paper, because the converter chips that set the quality stay the same."
+      ],
+      "why": "Must-level requirement R19 (round 4 q2: >= 75 mA per port) misses by about 15 mA in the worst case with the verified audio and keyboard-chip currents (conflicts.md C14)."
+    },
+    {
+      "id": "q2",
+      "text": "The USB chip that connects the studio sound card to the computer (XMOS XU316, the best-known studio interface chip) has no stock right now: about 12 weeks' wait, not the 1-3 weeks expected. Which do you prefer?",
+      "options": [
+        "Recommended: use a USB sound chip that is available now, keeping the same studio converter chips, so the measured sound quality stays the same. It uses about 20 mA less (helps q1). If none meets the studio spec, we come back to you.",
+        "Wait about 12 weeks for the XU316: the most flexible chip (firmware updates, best support for high sample rates), longer time to the first board."
+      ],
+      "why": "Lead time and supply risk on the one chip with no alternative in the current design (conflicts.md C14)."
+    }
+  ]
+}

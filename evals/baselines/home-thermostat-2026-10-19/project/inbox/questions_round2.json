@@ -1,0 +1,46 @@
+{
+  "round": 2,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "When the battery is about to run out, what should the two heating outputs do?",
+      "options": [
+        "Switch both outputs OFF and send a low-battery alarm to the app (recommended: no uncontrolled heating; rooms can get cold if the battery is not replaced)",
+        "Switch both outputs ON and send an alarm (frost protection; rooms can overheat until the battery is replaced)",
+        "Keep the last state (no alarm reserve needed; heating may run on without control for days)"
+      ],
+      "why": "The relays hold their position without power to save the battery. A reserve that is already in the design (about 11 mJ) can switch them once more before shutdown. Without a choice, a dead battery can leave the heating on (conflicts.md C2)."
+    },
+    {
+      "id": "q2",
+      "text": "What cost target and production volume should the electronics be designed for (parts cost, without housing and battery)?",
+      "options": [
+        "Under $15 per unit at about 1,000 units per year (recommended)",
+        "Under $10 per unit at 10,000 or more units per year (needs cheaper relays and module, and custom sourcing)",
+        "Under $25 per unit for a pilot of about 100 units",
+        "No fixed target yet"
+      ],
+      "why": "The relays, Wi-Fi module and battery buffer are about two thirds of the cost. The target decides between certified parts that are in stock and cheaper parts with long lead times (R19)."
+    },
+    {
+      "id": "q3",
+      "text": "Which front plates must the device work behind?",
+      "options": [
+        "Plastic plates only (recommended: internal antenna, no extra cost)",
+        "Metal plates too (needs an external antenna and an antenna lead out of the plate, about $2 more and a harder installation)",
+        "I do not know which plates customers will use"
+      ],
+      "why": "A metal plate blocks 2.4 GHz Wi-Fi, so the device cannot connect behind it (conflicts.md C7)."
+    },
+    {
+      "id": "q4",
+      "text": "When a design choice trades one quality against another, which comes first?",
+      "options": [
+        "Battery life first, then cost, then size (recommended: the 503 box already fixes the size)",
+        "Cost first, then battery life, then size",
+        "Size first (more room for wires in the box), then battery life, then cost"
+      ],
+      "why": "This sets the optimizer weights (3, 2, 1). For example, a better boost converter adds about $0.5 and about 1 month of battery life."
+    }
+  ]
+}

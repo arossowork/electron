@@ -9,3 +9,8 @@ evals/runs/
 fp-info-cache
 tools/KiCadRoutingTools/
 .claude/worktrees/
+.ui_history.jsonl
+docker/.env
+projects/*/scratch/
+.usage*.json*
+.session

@@ -11,7 +11,7 @@ import numpy as np
 
 from . import sexpr, spice
 from .design import Design
-from .pcb import ipc2221_width_mm, net_classes, read_board
+from .pcb import ipc2221_width_mm, net_classes, net_layers, read_board
 from .spice import NodeMap
 
 RHO_CU = 1.72e-8
@@ -115,28 +115,124 @@ def _on_segment(px, py, s, tol):
     return t if math.hypot(px - qx, py - qy) <= tol else None
 
 
-def _split_tjunctions(segs):
-    """Split segments where another segment's endpoint touches their interior."""
-    changed = True
-    while changed:
-        changed = False
-        for s in list(segs):
-            for o in segs:
-                if o is s or o["layer"] != s["layer"] or o["net"] != s["net"]:
+def _pad_geom(p: dict):
+    """Copper shape of a pad from pcb.read_board: a disc or capsule for round and oval pads, else its rectangle."""
+    from shapely.geometry import LineString, Point, box
+    if p.get("shape") in ("circle", "oval"):
+        r = min(p["w"], p["h"]) / 2
+        ax, ay = max(p["w"] / 2 - r, 0), max(p["h"] / 2 - r, 0)
+        if ax < 1e-9 and ay < 1e-9:
+            return Point(p["x"], p["y"]).buffer(r, quad_segs=8)
+        return LineString([(p["x"] - ax, p["y"] - ay), (p["x"] + ax, p["y"] + ay)]).buffer(r, quad_segs=8)
+    return box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2)
+
+
+def _pad_copper(p: dict, layers: list[str]) -> list[str]:
+    return layers if "*.Cu" in p["layers"] else [L for L in p["layers"] if L.endswith(".Cu")]
+
+
+def _split_crossings(segs):
+    """Split two segments of one net and layer where their centre lines cross inside both (KiCad connects copper
+    that overlaps, not only at track ends)."""
+    groups: dict = {}
+    for k, s in enumerate(segs):
+        groups.setdefault((s["net"], s["layer"]), []).append(k)
+    cuts: dict = {}
+    for ks in groups.values():
+        for i, a in enumerate(ks):
+            s = segs[a]
+            for b in ks[i + 1:]:
+                o = segs[b]
+                dx1, dy1 = s["x2"] - s["x1"], s["y2"] - s["y1"]
+                dx2, dy2 = o["x2"] - o["x1"], o["y2"] - o["y1"]
+                den = dx1 * dy2 - dy1 * dx2
+                if abs(den) < 1e-12:
                     continue
-                for px, py in ((o["x1"], o["y1"]), (o["x2"], o["y2"])):
-                    t = _on_segment(px, py, s, max(s["w"], o["w"]) / 2)
+                t = ((o["x1"] - s["x1"]) * dy2 - (o["y1"] - s["y1"]) * dx2) / den
+                u = ((o["x1"] - s["x1"]) * dy1 - (o["y1"] - s["y1"]) * dx1) / den
+                if 1e-6 < t < 1 - 1e-6 and 1e-6 < u < 1 - 1e-6:
+                    px, py = s["x1"] + t * dx1, s["y1"] + t * dy1
+                    cuts.setdefault(a, []).append((t, px, py))
+                    cuts.setdefault(b, []).append((u, px, py))
+    if not cuts:
+        return segs
+    out = []
+    for k, s in enumerate(segs):
+        x, y = s["x1"], s["y1"]
+        for _, px, py in sorted(cuts.get(k, ())):
+            out.append(dict(s, x1=x, y1=y, x2=px, y2=py))
+            x, y = px, py
+        out.append(dict(s, x1=x, y1=y))
+    return out
+
+
+def _split_at_pads(segs, pads, layers):
+    """Split each track whose copper overlaps a pad of its net on the track's layer at the point of its centre line
+    closest to the pad centre, so a track that crosses a pad without an end on it joins the pad there, as in KiCad.
+    `pads` is [((ref, number), pad)]. Returns (segments, [(pad key, x, y, layer)] joins)."""
+    from shapely.geometry import LineString
+    by_net: dict = {}
+    for key, p in pads:
+        by_net.setdefault(p["net"], []).append((key, p, _pad_geom(p), _pad_copper(p, layers)))
+    out, joins = [], []
+    for s in segs:
+        hits = []
+        for key, p, g, cu in by_net.get(s["net"], ()):
+            if s["layer"] not in cu:
+                continue
+            x0, y0, x1, y1 = g.bounds
+            r = s["w"] / 2
+            if min(s["x1"], s["x2"]) - r > x1 or max(s["x1"], s["x2"]) + r < x0 \
+                    or min(s["y1"], s["y2"]) - r > y1 or max(s["y1"], s["y2"]) + r < y0:
+                continue
+            line = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]) if (s["x1"], s["y1"]) != (s["x2"], s["y2"]) \
+                else None
+            if line is None or line.distance(g) > r + 1e-6:
+                continue
+            dx, dy = s["x2"] - s["x1"], s["y2"] - s["y1"]
+            t = min(max(((p["x"] - s["x1"]) * dx + (p["y"] - s["y1"]) * dy) / (dx * dx + dy * dy), 0.0), 1.0)
+            hits.append((t, s["x1"] + t * dx, s["y1"] + t * dy, key))
+        if not hits:
+            out.append(s)
+            continue
+        x, y = s["x1"], s["y1"]
+        for t, px, py, key in sorted(hits):
+            joins.append((key, px, py, s["layer"]))
+            if math.hypot(px - x, py - y) >= 1e-3 and math.hypot(px - s["x2"], py - s["y2"]) >= 1e-3:
+                out.append(dict(s, x1=x, y1=y, x2=px, y2=py))
+                x, y = px, py
+        out.append(dict(s, x1=x, y1=y))
+    return out, joins
+
+
+def _split_tjunctions(segs):
+    """Split segments where another segment's endpoint touches their interior. One pass over a grid of the
+    endpoints per net and layer (a split makes no endpoint that was not there before), so it is bounded."""
+    cell = 1.0
+    pts: dict = {}
+    for k, o in enumerate(segs):
+        for px, py in ((o["x1"], o["y1"]), (o["x2"], o["y2"])):
+            pts.setdefault((o["net"], o["layer"], int(px // cell), int(py // cell)), []).append((px, py, o["w"], k))
+    reach = max((s["w"] for s in segs), default=0.0) / 2
+    out = []
+    for k, s in enumerate(segs):
+        cuts = []
+        for i in range(int((min(s["x1"], s["x2"]) - reach) // cell), int((max(s["x1"], s["x2"]) + reach) // cell) + 1):
+            for j in range(int((min(s["y1"], s["y2"]) - reach) // cell), int((max(s["y1"], s["y2"]) + reach) // cell) + 1):
+                for px, py, w, o in pts.get((s["net"], s["layer"], i, j), ()):
+                    t = _on_segment(px, py, s, max(s["w"], w) / 2) if o != k else None
                     if t is not None:
-                        segs.remove(s)
-                        segs.append(dict(s, x2=px, y2=py))
-                        segs.append(dict(s, x1=px, y1=py))
-                        changed = True
-                        break
-                if changed:
-                    break
-            if changed:
-                break
-    return segs
+                        cuts.append((t, px, py))
+        if not cuts:
+            out.append(s)
+            continue
+        x, y = s["x1"], s["y1"]
+        for _, px, py in sorted(cuts):
+            if (px, py) != (x, y):
+                out.append(dict(s, x1=x, y1=y, x2=px, y2=py))
+                x, y = px, py
+        out.append(dict(s, x1=x, y1=y))
+    return out
 
 
 class Extraction:
@@ -169,22 +265,22 @@ class Extraction:
         segs = [dict(s) for s in b["segments"] if s["net"]]
         # 1. split traces where a via ring sits on their interior, so the via has a node to attach to
         for v in b["vias"]:
-            changed = True
-            while changed:
-                changed = False
-                for s in segs:
-                    if s["net"] != v["net"]:
-                        continue
-                    t = _on_segment(v["x"], v["y"], s, s["w"] / 2 + via_r)
-                    if t is None:
-                        continue
+            rest = []
+            for s in segs:
+                t = _on_segment(v["x"], v["y"], s, s["w"] / 2 + via_r) if s["net"] == v["net"] else None
+                if t is not None:
                     px, py = s["x1"] + t * (s["x2"] - s["x1"]), s["y1"] + t * (s["y2"] - s["y1"])
-                    if min(math.hypot(px - s["x1"], py - s["y1"]), math.hypot(px - s["x2"], py - s["y2"])) < 1e-3:
+                    if min(math.hypot(px - s["x1"], py - s["y1"]), math.hypot(px - s["x2"], py - s["y2"])) >= 1e-3:
+                        rest += [dict(s, x2=px, y2=py), dict(s, x1=px, y1=py)]
                         continue
-                    segs.remove(s)
-                    segs += [dict(s, x2=px, y2=py), dict(s, x1=px, y1=py)]
-                    changed = True
-                    break
+                rest.append(s)
+            segs = rest
+        # 1b. tracks of one net that cross, and tracks whose body crosses a pad of their net without an end on it:
+        # copper overlap connects in KiCad, so the R network gets a node there
+        segs = _split_crossings(segs)
+        pads = [((ref, p["number"]), p) for ref, fp in b["footprints"].items() for p in fp["pads"]
+                if p["number"] and p["net"]]
+        segs, pad_joins = _split_at_pads(segs, pads, layers)
         segs = _split_tjunctions(segs)
         self.segs = segs
         fills = [z for z in _zone_fills(self.path) if z["net"] in self.grounds] if self.path else []
@@ -208,16 +304,20 @@ class Extraction:
             s["z0"] = z0
             R = RHO_CU * (L * 1e-3) / (s["w"] * 1e-3 * self.t_mm * 1e-3)
             self.elements.append({"net": s["net"], "a": a, "b": c, "R": R, "L": td * z0, "C": td / z0, "len": L,
-                                  "Z0": z0})
-        # 2. trace ends that touch (closer than half the narrower width) are one node
+                                  "Z0": z0, "layer": s["layer"], "w": s["w"]})
+        # 2. trace ends whose copper touches (closer than the sum of the half widths) are one node
         ends = []
         for s in segs:
             for x, y in ((s["x1"], s["y1"]), (s["x2"], s["y2"])):
                 ends.append((s["net"], s["layer"], x, y, s["w"], self._key(x, y, s["layer"])))
-        for i, e1 in enumerate(ends):
-            for e2 in ends[i + 1:]:
-                if e1[0] == e2[0] and e1[1] == e2[1] and math.hypot(e1[2] - e2[2], e1[3] - e2[3]) <= min(e1[4], e2[4]) / 2:
-                    self.uf.union(e1[5], e2[5])
+        by_net: dict = {}
+        for e in ends:
+            by_net.setdefault((e[0], e[1]), []).append(e)
+        for grp in by_net.values():
+            for i, e1 in enumerate(grp):
+                for e2 in grp[i + 1:]:
+                    if math.hypot(e1[2] - e2[2], e1[3] - e2[3]) <= (e1[4] + e2[4]) / 2:
+                        self.uf.union(e1[5], e2[5])
         # 3. vias: a barrel joins its own layer nodes; any trace end inside the ring joins the via
         drill = self.b["via_drill_mm"]
         hv = self.b["thickness_mm"]
@@ -231,7 +331,9 @@ class Extraction:
             for net, layer, x, y, w, key in ends:
                 if net == v["net"] and math.hypot(x - v["x"], y - v["y"]) <= via_r + w / 2:
                     self.uf.union(key, self._key(v["x"], v["y"], layer))
-        # 4. pads: a trace end whose copper (half width) reaches the pad rectangle joins the pad
+        # 4. pads: a trace end whose copper (half width) reaches the pad rectangle joins the pad, and so does a
+        # track that crosses the pad (step 1b) and a via whose ring touches it, on the pad's copper layers (a
+        # through-hole pad joins its layers)
         self.pad_nodes = {}
         for ref, fp in b["footprints"].items():
             for p in fp["pads"]:
@@ -240,16 +342,18 @@ class Extraction:
                 pn = ("pad", ref, p["number"])
                 self.uf.find(pn)
                 self.pad_nodes[(ref, p["number"])] = pn
-                cu = layers if "*.Cu" in p["layers"] else [l for l in p["layers"] if l.endswith(".Cu")]
+                cu = _pad_copper(p, layers)
                 for net, layer, x, y, w, key in ends:
                     if net == p["net"] and layer in cu and abs(x - p["x"]) <= p["w"] / 2 + w / 2 \
                             and abs(y - p["y"]) <= p["h"] / 2 + w / 2:
                         self.uf.union(pn, key)
-                if p["kind"] == "thru_hole":
-                    for v_layer in cu:
-                        for v in b["vias"]:
-                            if v["net"] == p["net"] and abs(v["x"] - p["x"]) <= p["w"] / 2 and abs(v["y"] - p["y"]) <= p["h"] / 2:
-                                self.uf.union(pn, self._key(v["x"], v["y"], v_layer))
+                for v in b["vias"]:
+                    if v["net"] == p["net"] and abs(v["x"] - p["x"]) <= p["w"] / 2 + via_r \
+                            and abs(v["y"] - p["y"]) <= p["h"] / 2 + via_r:
+                        for v_layer in cu:
+                            self.uf.union(pn, self._key(v["x"], v["y"], v_layer))
+        for (ref, num), x, y, layer in pad_joins:
+            self.uf.union(self.pad_nodes[(ref, num)], self._key(x, y, layer))
         for e in self.elements:
             ra, rb = self.uf.find(e["a"]), self.uf.find(e["b"])
             self.adj.setdefault(ra, []).append((rb, e))
@@ -309,10 +413,11 @@ class Extraction:
 
 
 class PostLayoutNodeMap(NodeMap):
-    def __init__(self, design: Design, ex: Extraction, with_l: bool = True):
+    def __init__(self, design: Design, ex: Extraction, with_l: bool = True, lump: bool | None = None):
         super().__init__(design)
         self.ex = ex
         self.with_l = with_l
+        self.lump = lump  # None: board.post_tran_lump decides
 
     def _is_ideal(self, net):
         return net in self.grounds and self.d.board["gnd_pour"]
@@ -340,30 +445,223 @@ class PostLayoutNodeMap(NodeMap):
         # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
         kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
         use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
+        lump = self.d.board.get("post_tran_lump", True) if self.lump is None else self.lump
+        if kind == "tran" and not use_l and lump:
+            fast = self.fast_nets()
+            lines = self._lumped(skip=fast)
+            if fast:  # nets declared fast keep their full trace network (backlog 47)
+                lines.append(f"* full R and C network kept for fast nets: {', '.join(sorted(fast))}")
+                lines += self._full([(i, e) for i, e in enumerate(self.ex.elements) if e["net"] in fast], False, "f")
+            return self._tie_islands(lines)
         lines = ["* --- post-layout parasitics ---" + ("" if use_l else " (R and C only)")]
-        for i, e in enumerate(self.ex.elements):
+        lines += self._full(list(enumerate(self.ex.elements)), use_l, "p")
+        return self._tie_islands(lines)
+
+    def fast_nets(self) -> set[str]:
+        """Nets whose edges matter in transients (`class: fast`, `edge_ns` or `post_full: true` in nets:)."""
+        out = set()
+        for net in self.d.nets():
+            info = self.d.net_info(net)
+            if info.get("class") == "fast" or info.get("edge_ns") is not None or info.get("post_full"):
+                out.add(net)
+        return out
+
+    def _full(self, elems, use_l: bool, tag: str) -> list[str]:
+        lines = []
+        for i, e in elems:
             if self._is_ideal(e["net"]):
                 continue
             a, b = self.ex.node_name(e["a"]), self.ex.node_name(e["b"])
             if a == b:
                 continue
             if use_l and e["L"] > 0:
-                mid = f"m{i}"
-                lines.append(f"Rpx{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
-                lines.append(f"Lpx{i} {mid} {b} {e['L']:.6g}")
+                t2 = "" if tag == "p" else tag
+                mid = f"m{t2}{i}"
+                lines.append(f"R{tag}x{i} {a} {mid} {max(e['R'], 1e-6):.6g}")
+                lines.append(f"L{tag}x{i} {mid} {b} {e['L']:.6g}")
                 # damping across the trace inductance: kills the GHz LC ringing of nH/fF segments,
                 # which made switching transients stall, and leaves behaviour below ~1 GHz unchanged
-                lines.append(f"Rdx{i} {mid} {b} {e.get('Z0', 50):.6g}")
+                lines.append(f"Rd{t2}x{i} {mid} {b} {e.get('Z0', 50):.6g}")
             else:
-                lines.append(f"Rpx{i} {a} {b} {max(e['R'], 1e-6):.6g}")
+                lines.append(f"R{tag}x{i} {a} {b} {max(e['R'], 1e-6):.6g}")
             if e["C"] > 0:
-                lines.append(f"Cpxa{i} {a} 0 {e['C'] / 2:.6g}")
-                lines.append(f"Cpxb{i} {b} 0 {e['C'] / 2:.6g}")
-        # tie unrouted nets' fallback node to every pad that the fallback serves is implicit (same name)
+                lines.append(f"C{tag}xa{i} {a} 0 {e['C'] / 2:.6g}")
+                lines.append(f"C{tag}xb{i} {b} 0 {e['C'] / 2:.6g}")
+        return lines
+
+    def _tie_islands(self, lines: list[str]) -> list[str]:
+        """Every pad node of a net must exist in the netlist and reach the other pads (backlog 46). Copper islands
+        joined only through a pour, a pad whose island holds no other pad (dropped by the lumping), or a pad that
+        falls back to the ideal net node are tied with 1 mOhm, so a testbench probe on any pad (`v(BT1.2)`) finds
+        its node and the circuit is not split. Split nets are still reported by layout_checks."""
+        uf = UF()
+        for ln in lines:
+            t = ln.split()
+            if len(t) >= 4 and t[0][:1] in "RLC" and not t[0].startswith("C"):
+                uf.union(t[1], t[2])
+        ties = []
+        for net, conns in self.d.nets().items():
+            if self._is_ideal(net):
+                continue
+            names = sorted({self.pin(r, p) for r, p in conns})
+            for a, b in zip(names, names[1:]):
+                if uf.find(a) != uf.find(b):
+                    uf.union(a, b)
+                    ties.append(f"Rtie{len(ties)} {a} {b} 1e-3")
+        if ties:
+            lines = lines + ["* pads on separate copper islands of one net (pour or unrouted): ideal tie"] + ties
+        return lines
+
+    def _lumped(self, skip: set | frozenset = frozenset()) -> list[str]:
+        """Transient parasitics reduced to the pads: per copper island, the trace R network is Kron-reduced
+        to its pad nodes (exact DC resistance between every pad pair). Trace C is left out: pF on nodes
+        joined by mOhm gives 1e-14 s time constants that stall long transients and change nothing at
+        transient time scales. AC and noise runs keep the full RC(L) network."""
+        lines = ["* --- post-layout parasitics --- (trace R reduced to pads, no C, for transients)"]
+        find = self.ex.uf.find
+        pad_roots = {find(pn) for pn in self.ex.pad_nodes.values()}
+        nets: dict[str, list] = {}
+        for e in self.ex.elements:
+            if self._is_ideal(e["net"]) or e["net"] in skip:
+                continue
+            a, b = find(e["a"]), find(e["b"])
+            if a != b:
+                nets.setdefault(e["net"], []).append((a, b, e))
+        k = 0
+        for net, elems in nets.items():
+            uf = UF()
+            for a, b, _ in elems:
+                uf.union(a, b)
+            islands: dict = {}
+            for a, b, e in elems:
+                islands.setdefault(uf.find(a), []).append((a, b, e))
+            for isl in islands.values():
+                nodes = sorted({n for a, b, _ in isl for n in (a, b)}, key=str)
+                ports = [n for n in nodes if n in pad_roots]
+                if not ports:
+                    continue
+                inner = [n for n in nodes if n not in pad_roots]
+                idx = {n: i for i, n in enumerate(ports + inner)}
+                G = np.zeros((len(idx), len(idx)))
+                for a, b, e in isl:
+                    g = 1.0 / max(e["R"], 1e-6)
+                    i, j = idx[a], idx[b]
+                    G[i, i] += g
+                    G[j, j] += g
+                    G[i, j] -= g
+                    G[j, i] -= g
+                p = len(ports)
+                if inner:
+                    G = G[:p, :p] - G[:p, p:] @ np.linalg.solve(G[p:, p:], G[p:, :p])
+                names = [self.ex.node_name(n) for n in ports]
+                for i in range(p):
+                    for j in range(i + 1, p):
+                        g = -G[i, j]
+                        if g > 1e-9 and names[i] != names[j]:
+                            lines.append(f"Rpx{k} {names[i]} {names[j]} {1.0 / g:.6g}")
+                            k += 1
         return lines
 
 
 # ------------------------------------------------------------ checks
+
+def pad_shape(p: dict):
+    """A pcb.read_board pad as copper: a circle pad as a circle, an oval as a stadium, any other as its box (a
+    rotation off 0/90 degrees as the box read_board gives)."""
+    from shapely.geometry import LineString, Point, box as _box
+    w, h = p["w"], p["h"]
+    if p.get("shape") == "circle":
+        return Point(p["x"], p["y"]).buffer(min(w, h) / 2, quad_segs=16)
+    if p.get("shape") == "oval":
+        r, d = min(w, h) / 2, abs(w - h) / 2
+        a, b = ((p["x"] - d, p["y"]), (p["x"] + d, p["y"])) if w >= h else ((p["x"], p["y"] - d), (p["x"], p["y"] + d))
+        return LineString([a, b]).buffer(r, quad_segs=16) if d > 0 else Point(p["x"], p["y"]).buffer(r, quad_segs=16)
+    return _box(p["x"] - w / 2, p["y"] - h / 2, p["x"] + w / 2, p["y"] + h / 2)
+
+
+def conductive_clearances(design: Design, board: dict) -> list[dict]:
+    """The copper (tracks, vias, pads) of the nets of a region with isolation_mm closer than that distance to a
+    conductive keep-out or cut (floorplan.conductive_needs), on a pcb.read_board result: one row per net and keep-out
+    with the smallest distance, {net, keepout, region, mm, need, at, item}. Empty when every distance holds."""
+    from shapely.geometry import LineString, Point, box as _box
+
+    from . import floorplan
+    needs = floorplan.conductive_needs(design)
+    if not needs:
+        return []
+    vr = float(design.board["via_dia_mm"]) / 2
+    items = []  # (net, item text, geometry)
+    for s in board["segments"]:
+        g = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2, quad_segs=8)
+        items.append((s["net"], f"track on {s['layer']}", g))
+    for v in board["vias"]:
+        items.append((v["net"], "via", Point(v["x"], v["y"]).buffer(vr, quad_segs=8)))
+    for ref, fp in board["footprints"].items():
+        for p in fp["pads"]:
+            if p["net"] and any(L.endswith(".Cu") for L in p["layers"]):
+                items.append((p["net"], f"pad {ref}.{p['number']}", pad_shape(p)))
+    out = []
+    for nd in needs:
+        worst: dict = {}
+        for net, what, g in items:
+            if net not in nd["nets"]:
+                continue
+            dist = g.distance(nd["poly"])
+            if dist < nd["mm"] - 0.01 and (net not in worst or dist < worst[net][0]):
+                c = g.centroid
+                worst[net] = (dist, what, [round(c.x, 2), round(c.y, 2)])
+        for net, (dist, what, at) in sorted(worst.items()):
+            out.append({"net": net, "keepout": nd["keepout"], "region": nd["region"], "mm": round(dist, 2),
+                        "need": nd["mm"], "at": at, "item": what})
+    return out
+
+
+def region_excursions(design: Design, board: dict) -> list[dict]:
+    """Copper (tracks, vias, pads) of the nets of a floorplan region with `nets` that lies outside the region's
+    shape, on a pcb.read_board result: one row per region and net, {region, net, mm, at, item, items}, mm the largest
+    distance of that copper from the region (its farthest copper edge), at the centre of the worst item. The placer
+    keeps the pads of those nets inside; the router does not see the region, so a track can leave it."""
+    from shapely.geometry import LineString, Point
+    from shapely.geometry import box as _box
+
+    from . import floorplan
+    regs = floorplan.net_regions(design)
+    if not regs:
+        return []
+    vr = float(design.board["via_dia_mm"]) / 2
+    items = []  # (net, item text, geometry)
+    for s in board["segments"]:
+        line = LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]) if (s["x1"], s["y1"]) != (s["x2"], s["y2"]) \
+            else Point(s["x1"], s["y1"])
+        items.append((s["net"], f"track on {s['layer']}", line.buffer(s["w"] / 2, quad_segs=8)))
+    for v in board["vias"]:
+        items.append((v["net"], "via", Point(v["x"], v["y"]).buffer(vr, quad_segs=8)))
+    for ref, fp in board["footprints"].items():
+        for p in fp["pads"]:
+            if p["net"] and any(L.endswith(".Cu") for L in p["layers"]):
+                items.append((p["net"], f"pad {ref}.{p['number']}", pad_shape(p)))
+    out = []
+    for r in regs:
+        nets, poly = set(r["nets"]), r["poly"]
+        worst: dict = {}
+        for net, what, g in items:
+            if net not in nets or poly.contains(g):
+                continue
+            rest = g.difference(poly)
+            if rest.is_empty or rest.area < 1e-6:
+                continue
+            pts = [q for part in getattr(rest, "geoms", [rest]) for q in part.exterior.coords]
+            mm = max(poly.distance(Point(q)) for q in pts)
+            w = worst.setdefault(net, [0.0, None, None, 0])
+            w[3] += 1
+            if mm > w[0]:
+                c = g.centroid
+                w[:3] = [mm, what, [round(c.x, 2), round(c.y, 2)]]
+        for net, (mm, what, at, n) in sorted(worst.items()):
+            if mm >= 0.01:
+                out.append({"region": r["region"], "net": net, "mm": round(mm, 2), "at": at, "item": what, "items": n})
+    return out
+
 
 def layout_checks(design: Design, ex: Extraction) -> list[dict]:
     f = []
@@ -376,6 +674,19 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
     for net, n in ex.islands().items():
         if n > 1:
             add("error", "unrouted", f"net {net} is split in {n} copper islands")
+    for net, lays in net_layers(design).items():  # nets.<name>.layers: no track of the net on another layer
+        off = [s for s in ex.segs if s["net"] == net and s["layer"] not in lays]
+        if off:
+            add("error", "net-layer", f"{net}: {len(off)} tracks ({sum(s['len'] for s in off):.1f} mm) on "
+                                      f"{', '.join(sorted({s['layer'] for s in off}))}, outside its layers "
+                                      f"{', '.join(lays)}")
+    for x in conductive_clearances(design, ex.board):  # mains copper near accessible metal (a conductive keep-out)
+        add("error", "conductive-isolation", f"{x['net']}: {x['item']} at ({x['at'][0]}, {x['at'][1]}) is {x['mm']:.2f} mm "
+                                             f"from conductive keep-out {x['keepout']} (region {x['region']} needs "
+                                             f"{x['need']:g} mm)")
+    for x in region_excursions(design, ex.board):  # region nets: copper outside the region (pads are placer-held)
+        add("warn", "region-nets", f"{x['net']}: {x['items']} copper item(s) outside floorplan region {x['region']}, "
+                                   f"up to {x['mm']:.2f} mm out ({x['item']} at ({x['at'][0]}, {x['at'][1]}))")
     # current capacity
     for net in design.nets():
         info = design.net_info(net)
@@ -386,8 +697,16 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         if segs:
             wmin = min(s["w"] for s in segs)
             if wmin + 1e-6 < need:
-                add("error", "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
-                                              f"{info['current_a']} A at 10C rise (IPC-2221)")
+                from .routing import NECK_MAX_MM, longest_neck
+                thin = [s for s in segs if s["w"] + 1e-6 < need]
+                narrow = sum(s["len"] for s in thin)
+                neck = longest_neck([((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in thin])
+                # a short neck at a pad heats no more than the pad it enters (copper on both sides spreads the heat)
+                sev = "warn" if neck <= NECK_MAX_MM else "error"
+                add(sev, "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
+                                          f"{info['current_a']} A at 10C rise (IPC-2221), for {narrow:.1f} mm"
+                                          + (f" (necks of at most {NECK_MAX_MM:g} mm each)" if sev == "warn"
+                                             else f" (a stretch of {neck:.1f} mm)"))
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
     declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
@@ -403,29 +722,18 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                     add("warn", "via-in-pad", f"via on {v['net']} {'inside' if inside else 'touching'} pad "
                                               f"{ref}.{p['number']}: needs filled and capped vias (IPC-4761 VII)")
     # decoupling distance
-    for c in design.components.values():
-        ic = c.get("decouples")
-        if not ic or ic not in design.components:
-            continue
-        lim = float(c.get("decap_max_mm", b.get("decap_max_mm", 4.0)))
-        for cpin, net in c.pins.items():
-            if net in ex.grounds:
-                continue
-            best = None
-            for ipin, inet in design.components[ic].pins.items():
-                if inet != net:
-                    continue
-                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((ic, ipin))
-                if pa and pb:
-                    d = ex.path_len(pa, pb)
-                    if d is not None:
-                        best = d if best is None else min(best, d)
-            if best is None:
-                continue
-            if best > lim:
-                add("warn", "decap-distance", f"{c.ref} is {best:.1f} mm of copper from {ic} on {net} (limit {lim} mm)")
-            else:
-                add("info", "decap-distance", f"{c.ref} -> {ic} on {net}: {best:.1f} mm")
+    for r in decap_paths(design, ex):
+        if r["mm"] > r["limit"]:
+            add("warn", "decap-distance", f"{r['cap']} is {r['mm']:.1f} mm of copper from {r['ic']} on {r['net']} "
+                                          f"(limit {r['limit']} mm)")
+        else:
+            add("info", "decap-distance", f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm")
+    # requirement budgets on the routed copper (design.yaml budgets:)
+    from .budgets import findings as budget_findings
+    f += budget_findings(design, ex)
+    # signal integrity without SPICE, for nets with a declared edge rate (backlog 48)
+    for r in si_screen(design, ex):
+        add(r["sev"], "si", r["msg"])
     # impedance
     for net in design.nets():
         z = design.net_info(net).get("impedance_ohm")
@@ -465,6 +773,293 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
     return f
 
 
+def _ref_layers(layer: str, n_layers: int) -> list[str]:
+    """Copper layers next to `layer` that carry its return current."""
+    if n_layers == 4:
+        return {"F.Cu": ["In1.Cu"], "In1.Cu": ["F.Cu", "In2.Cu"], "In2.Cu": ["In1.Cu", "B.Cu"],
+                "B.Cu": ["In2.Cu"]}.get(layer, [])
+    return {"F.Cu": ["B.Cu"], "B.Cu": ["F.Cu"]}.get(layer, [])
+
+
+def _inside(px: np.ndarray, py: np.ndarray, poly: np.ndarray) -> np.ndarray:
+    """Even-odd point in polygon (KiCad's fractured fills: slits cancel out)."""
+    x, y = poly[0], poly[1]
+    x2, y2 = np.roll(x, -1), np.roll(y, -1)
+    X, Y = px[:, None], py[:, None]
+    cross = ((y > Y) != (y2 > Y)) & (X < (x2 - x) * (Y - y) / np.where(y2 != y, y2 - y, 1e-12) + x)
+    return (cross.sum(1) % 2) == 1
+
+
+def _path(ex: Extraction, a, b) -> tuple[float, float, int] | None:
+    """Shortest copper path a -> b: (mm, series inductance in H from the extraction, vias)."""
+    a, b = ex.uf.find(a), ex.uf.find(b)
+    best = {a: 0.0}
+    pq = [(0.0, 0.0, 0, str(a), a)]
+    while pq:
+        d, L, nv, _, n = heapq.heappop(pq)
+        if n == b:
+            return d, L, nv
+        if d > best.get(n, 1e18):
+            continue
+        for m, e in ex.adj.get(n, []):
+            nd = d + e["len"] + (0 if e["len"] else 1e-6)
+            if nd < best.get(m, 1e18):
+                best[m] = nd
+                heapq.heappush(pq, (nd, L + e.get("L", 0), nv + (0 if e["len"] else 1), str(m), m))
+    return None
+
+
+def si_screen(design: Design, ex: Extraction, fills: list | None = None) -> list[dict]:
+    """Signal-integrity screen without SPICE (backlog 48), for nets with `edge_ns` (rise time) in nets:.
+
+    - electrical length: the longest pad-to-pad copper path, with the delay of the extracted lines, against the
+      rise-time rule (a line is electrically long when its delay is above t_r/6; it then needs a termination
+      or a full transient);
+    - vias and branch points (stubs) on the net;
+    - gaps in the reference plane: trace length whose adjacent copper layer has no pour under it;
+    - decoupling loops: for an IC with an edge-rate net (or `edge_ns` on the component), the inductance of the
+      decap path from the extraction, as impedance at the knee frequency 0.35/t_r, against `board.si_pdn_z_ohm`
+      (default 1 ohm; the C5 case: 10.6 mm of copper is about 10 nH).
+    Returns rows {net, sev, msg, ...}."""
+    b = design.board
+    edge = {n: float(design.net_info(n)["edge_ns"]) for n in design.nets()
+            if design.net_info(n).get("edge_ns") is not None}
+    ic_edge = {}
+    for ref, c in design.components.items():
+        es = [edge[n] for n in c.pins.values() if n in edge]
+        if c.get("edge_ns") is not None:
+            es.append(float(c.get("edge_ns")))
+        if es:
+            ic_edge[ref] = min(es)
+    if not edge and not ic_edge:
+        return []
+    if fills is None:
+        fills = _zone_fills(ex.path) if getattr(ex, "path", None) else []
+    rows = []
+    for net, tr in sorted(edge.items()):
+        els = [e for e in ex.elements if e["net"] == net and e["len"] > 0]
+        if not els:
+            continue
+        mm = sum(e["len"] for e in els)
+        td_mm = sum(math.sqrt(e["L"] * e["C"]) for e in els) / mm            # s per mm of this net's lines
+        pads = [ex.pad_nodes[(r, p)] for r, p in design.nets().get(net, []) if (r, p) in ex.pad_nodes]
+        longest = 0.0
+        for i, pa in enumerate(pads):
+            for pb in pads[i + 1:]:
+                q = _path(ex, pa, pb)
+                if q:
+                    longest = max(longest, q[0])
+        delay_ns = longest * td_mm * 1e9
+        vias = sum(1 for v in ex.board["vias"] if v["net"] == net)
+        deg: dict = {}
+        for e in els:
+            for n in (ex.uf.find(e["a"]), ex.uf.find(e["b"])):
+                deg[n] = deg.get(n, 0) + 1
+        stubs = sum(1 for n, k in deg.items() if k >= 3 and n[0] != "pad")
+        long_ = delay_ns > tr / 6
+        rows.append({"net": net, "check": "length", "sev": "warn" if long_ else "info", "edge_ns": tr,
+                     "mm": round(longest, 2), "delay_ns": round(delay_ns, 4), "vias": vias, "stubs": stubs,
+                     "msg": f"{net}: {longest:.1f} mm longest path, delay {delay_ns * 1e3:.0f} ps against t_r/6 = "
+                            f"{tr / 6 * 1e3:.0f} ps ({'electrically long: terminate it or run the full transient' if long_ else 'short'}); "
+                            f"{vias} vias, {stubs} branch points"})
+        # reference plane under the trace
+        gap = {}
+        clr = float(b.get("clearance_mm", 0.2))
+        holes = [(v["x"], v["y"], b.get("via_dia_mm", 0.6) / 2 + 2 * clr) for v in ex.board["vias"] if v["net"] == net]
+        holes += [(p["x"], p["y"], max(p["w"], p["h"]) / 2 + 2 * clr) for fp in ex.board.get("footprints", {}).values()
+                  for p in fp["pads"] if p["net"] == net and p["kind"] == "thru_hole"]   # own antipads: not gaps
+        for sgm in [x for x in ex.segs if x["net"] == net and x.get("len", 0) > 0]:
+            refs = _ref_layers(sgm["layer"], b["layers"])
+            polys = [z["pts"] for z in fills if z["layer"] in refs and z["net"] != net]
+            n = max(int(sgm["len"] / 0.25), 1)
+            t = (np.arange(n) + 0.5) / n
+            px, py = sgm["x1"] + t * (sgm["x2"] - sgm["x1"]), sgm["y1"] + t * (sgm["y2"] - sgm["y1"])
+            ok = np.zeros(n, bool)
+            for hx, hy, hr in holes:
+                ok |= np.hypot(px - hx, py - hy) <= hr
+            for poly in polys:
+                ok |= _inside(px, py, poly)
+            if (~ok).any():
+                gap[sgm["layer"]] = gap.get(sgm["layer"], 0.0) + float((~ok).sum()) / n * sgm["len"]
+        for layer, g in sorted(gap.items()):
+            if g >= 0.5:
+                rows.append({"net": net, "check": "plane-gap", "sev": "warn", "layer": layer, "mm": round(g, 2),
+                             "msg": f"{net}: {g:.1f} mm on {layer} without a reference plane on "
+                                    f"{'/'.join(_ref_layers(layer, b['layers']))} (return path detour)"})
+    zmax = float(b.get("si_pdn_z_ohm", 1.0))
+    for r in decap_paths(design, ex):
+        tr = ic_edge.get(r["ic"])
+        if tr is None:
+            continue
+        c = design.components[r["cap"]]
+        L = None
+        for cpin, net in c.pins.items():
+            if net != r["net"]:
+                continue
+            for ipin, inet in design.components[r["ic"]].pins.items():
+                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((r["ic"], ipin))
+                if inet == net and pa and pb:
+                    q = _path(ex, pa, pb)
+                    if q and (L is None or q[1] < L):
+                        L = q[1]
+        if L is None:
+            continue
+        x = 2 * math.pi * 0.35 / (tr * 1e-9) * L
+        rows.append({"net": r["net"], "check": "decap-loop", "sev": "warn" if x > zmax else "info",
+                     "cap": r["cap"], "ic": r["ic"], "nH": round(L * 1e9, 2), "z_ohm": round(x, 3),
+                     "msg": f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm, {L * 1e9:.1f} nH, "
+                            f"{x:.2f} ohm at {0.35 / tr * 1e3:.0f} MHz (t_r {tr} ns; limit {zmax} ohm)"})
+    return rows
+
+
+def decap_paths(design: Design, ex: Extraction) -> list[dict]:
+    """Shortest copper path from each decoupling capacitor to its IC, per supply net (decouples: <IC>)."""
+    b = design.board
+    rows = []
+    for c in design.components.values():
+        ic = c.get("decouples")
+        if not ic or ic not in design.components:
+            continue
+        lim = float(c.get("decap_max_mm", b.get("decap_max_mm", 4.0)))
+        for cpin, net in c.pins.items():
+            if net in ex.grounds:
+                continue
+            best = None
+            for ipin, inet in design.components[ic].pins.items():
+                if inet != net:
+                    continue
+                pa, pb = ex.pad_nodes.get((c.ref, cpin)), ex.pad_nodes.get((ic, ipin))
+                if pa and pb:
+                    d = ex.path_len(pa, pb)
+                    if d is not None:
+                        best = d if best is None else min(best, d)
+            if best is not None:
+                rows.append({"cap": c.ref, "ic": ic, "net": net, "mm": round(best, 2), "limit": lim})
+    return rows
+
+
+# --------------------------------------------------------------- clearance between net groups
+
+_RULE_NAME = re.compile(r'\(rule\s+"([^"]+)"')
+_RULE_CLR = re.compile(r"\(constraint\s+clearance\s+\(min\s+([\d.]+)\s*mm\)")
+_RULE_COND = re.compile(r"A\.NetName\s*==\s*'([^']+)'\s*&&\s*B\.NetName\s*!=\s*'([^']+)'")
+
+
+def clearance_rules(design: Design) -> list[dict]:
+    """Group clearance rules from board.drc_rules of the form
+    (rule "name" (constraint clearance (min X mm)) (condition "A.NetName == 'P' && B.NetName != 'P'"))."""
+    out = []
+    for r in design.board.get("drc_rules") or []:
+        c, m = _RULE_CLR.search(r), _RULE_COND.search(r)
+        if c and m and m.group(1) == m.group(2):
+            n = _RULE_NAME.search(r)
+            out.append({"rule": n.group(1) if n else r[:40], "pattern": m.group(1), "min_mm": float(c.group(1))})
+    from .pcb import isolation_groups
+    if hasattr(design, "nets"):
+        for g in isolation_groups(design):
+            lim = g["clearance_mm"] if g["clearance_mm"] is not None else g["creepage_mm"]
+            if g["members"] and lim is not None:
+                out.append({"rule": g["name"], "pattern": ",".join(g["members"]), "members": set(g["members"]),
+                            "min_mm": float(lim), "creepage_mm": g["creepage_mm"], "req": g["req"]})
+            if len(g["members"]) > 1 and g["between_mm"] is not None:  # between two different member nets
+                out.append({"rule": f"{g['name']} between members", "pattern": ",".join(g["members"]),
+                            "members": set(g["members"]), "min_mm": g["between_mm"], "creepage_mm": g["between_mm"],
+                            "req": None, "between": True})  # functional insulation: not the group's req
+    return out
+
+
+def _copper_items(ex: Extraction) -> list[tuple]:
+    """Copper as (net, layer, x1, y1, x2, y2, radius): traces as capsules, pads and zone fills as edges, vias as discs."""
+    b = ex.d.board
+    layers = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] if b["layers"] == 4 else ["F.Cu", "B.Cu"]
+    items = []
+    for s in ex.board["segments"]:
+        if s["net"]:
+            items.append((s["net"], s["layer"], s["x1"], s["y1"], s["x2"], s["y2"], s["w"] / 2))
+    for v in ex.board["vias"]:
+        for L in layers:
+            items.append((v["net"], L, v["x"], v["y"], v["x"], v["y"], b["via_dia_mm"] / 2))
+    for fp in ex.board["footprints"].values():
+        for p in fp["pads"]:
+            if not p["net"]:
+                continue
+            cu = layers if "*.Cu" in p["layers"] else [l for l in p["layers"] if l.endswith(".Cu")]
+            x0, x1, y0, y1 = p["x"] - p["w"] / 2, p["x"] + p["w"] / 2, p["y"] - p["h"] / 2, p["y"] + p["h"] / 2
+            if p.get("shape") in ("circle", "oval"):   # round pads as a disc or capsule, not their bounding box
+                r = min(p["w"], p["h"]) / 2
+                ax, ay = max(p["w"] / 2 - r, 0), max(p["h"] / 2 - r, 0)
+                for L in cu:
+                    items.append((p["net"], L, p["x"] - ax, p["y"] - ay, p["x"] + ax, p["y"] + ay, r))
+                continue
+            for L in cu:
+                for e in ((x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)):
+                    items.append((p["net"], L, *e, 0.0))
+    if ex.path:
+        for z in _zone_fills(ex.path):
+            pts = z["pts"].T
+            for (xa, ya), (xb, yb) in zip(pts, np.roll(pts, -1, axis=0)):
+                items.append((z["net"], z["layer"], xa, ya, xb, yb, 0.0))
+    return items
+
+
+def _seg_dist(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """Pairwise distance between 2-D segments A (n,4) and B (m,4) -> (n,m); 0 where they cross."""
+    def pt_seg(px, py, s):
+        x1, y1, x2, y2 = (s[..., i] for i in range(4))
+        dx, dy = x2 - x1, y2 - y1
+        L2 = dx * dx + dy * dy
+        t = np.where(L2 > 0, ((px - x1) * dx + (py - y1) * dy) / np.where(L2 > 0, L2, 1), 0).clip(0, 1)
+        return np.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+    a, b = A[:, None, :], B[None, :, :]
+    d = np.minimum.reduce([pt_seg(a[..., 0], a[..., 1], b), pt_seg(a[..., 2], a[..., 3], b),
+                           pt_seg(b[..., 0], b[..., 1], a), pt_seg(b[..., 2], b[..., 3], a)])
+
+    def orient(px, py, qx, qy, rx, ry):
+        return np.sign((qx - px) * (ry - py) - (qy - py) * (rx - px))
+    o1 = orient(a[..., 0], a[..., 1], a[..., 2], a[..., 3], b[..., 0], b[..., 1])
+    o2 = orient(a[..., 0], a[..., 1], a[..., 2], a[..., 3], b[..., 2], b[..., 3])
+    o3 = orient(b[..., 0], b[..., 1], b[..., 2], b[..., 3], a[..., 0], a[..., 1])
+    o4 = orient(b[..., 0], b[..., 1], b[..., 2], b[..., 3], a[..., 2], a[..., 3])
+    return np.where((o1 * o2 < 0) & (o3 * o4 < 0), 0.0, d)
+
+
+def group_clearances(design: Design, ex: Extraction) -> list[dict]:
+    """Smallest copper-to-copper distance between the nets of each clearance rule and every other net, per rule
+    (backlog 39): the number a creepage or isolation requirement depends on, next to its limit. A between rule
+    (board.isolation between_mm) measures the closest pair of two different member nets."""
+    import fnmatch
+    rules = clearance_rules(design)
+    if not rules:
+        return []
+    items = _copper_items(ex)
+    out = []
+    for r in rules:
+        best = None
+        mem = r.get("members")
+        inside = (lambda n: n in mem) if mem else (lambda n: fnmatch.fnmatchcase(n, r["pattern"]))  # noqa: E731
+        # a between rule: each member net against the other members; else the group against every other net
+        sides = [(lambda x, n=n: x == n, lambda x, n=n: x in mem and x != n) for n in sorted(mem)] if r.get("between") \
+            else [(inside, lambda x: not inside(x))]
+        for layer, (ina, inb) in [(L, sd) for L in sorted({it[1] for it in items}) for sd in sides]:
+            A = [it for it in items if it[1] == layer and ina(it[0])]
+            B = [it for it in items if it[1] == layer and inb(it[0])]
+            if not A or not B:
+                continue
+            Ag, Bg = np.array([it[2:6] for it in A]), np.array([it[2:6] for it in B])
+            ra, rb = np.array([it[6] for it in A]), np.array([it[6] for it in B])
+            for i in range(0, len(A), 256):
+                d = _seg_dist(Ag[i:i + 256], Bg) - ra[i:i + 256, None] - rb[None, :]
+                k = np.unravel_index(np.argmin(d), d.shape)
+                if best is None or d[k] < best[0]:
+                    best = (float(d[k]), A[i + k[0]][0], B[k[1]][0], layer)
+        if best:
+            out.append({"rule": r["rule"], "pattern": r["pattern"], "limit": r["min_mm"], "mm": round(max(best[0], 0), 3),
+                        "between": f"{best[1]} / {best[2]} on {best[3]}", "ok": best[0] >= r["min_mm"] - 1e-6,
+                        **({"creepage_mm": r["creepage_mm"], "req": r["req"]} if mem else {}),
+                        **({"members_only": True} if r.get("between") else {})})
+    return out
+
+
 def _parallel(ex: Extraction, n1: str, n2: str):
     best = None
     for s in ex.segs:
@@ -492,7 +1087,35 @@ def _parallel(ex: Extraction, n1: str, n2: str):
 
 
 def ir_drop(design: Design, ex: Extraction, workdir: Path) -> list[dict]:
-    """Operating point on extracted copper: voltage spread across pads of each power net."""
+    """Copper voltage drop of each net with `current_a` and of each power net.
+
+    A net with `current_a`: that current through the routed copper (vias included) between the pad pair with the
+    largest resistance, the worst case of where the load and the source sit (`budgets` measures a named path the same
+    way). The operating point of the testbench circuit does not do: a sleeping board draws micro-amps, so its pads all
+    read the same voltage. A power net without `current_a`: the voltage spread of its pads at the operating point of
+    the circuit on the extracted copper."""
+    from .budgets import _leg_r
+    rows = []
+    split = ex.islands()
+    op_nets = []
+    for netname in design.nets():
+        info = design.net_info(netname)
+        if (netname in ex.grounds and design.board["gnd_pour"]) or not (info.get("current_a") or info.get("class") == "power"):
+            continue
+        if split.get(netname, 1) > 1:  # the islands are joined by ideal 1 mOhm ties: a drop read there means nothing
+            rows.append({"net": netname, "drop_mv": None, "worst_pin": None, "v_max": None, "islands": split[netname]})
+            continue
+        if not info.get("current_a"):
+            op_nets.append(netname)
+            continue
+        r = _leg_r(ex, {"text": netname, "net": netname, "a": None, "b": None}, design)
+        if r is None:
+            continue
+        i = float(info["current_a"])
+        rows.append({"net": netname, "drop_mv": round(float(r[0]) * i * 1e3, 3), "worst_pin": r[2].split(" -> ")[-1],
+                     "v_max": None, "current_a": i, "mohm": round(float(r[0]) * 1e3, 3), "path": r[2]})
+    if not op_nets:
+        return rows
     nm = PostLayoutNodeMap(design, ex, with_l=False)
     sim = design.raw.get("sim") or {}
     a = {"name": "ir_drop", "cmd": sim.get("derating_cmd", "op"), "control": ["print all"]}
@@ -501,10 +1124,8 @@ def ir_drop(design: Design, ex: Extraction, workdir: Path) -> list[dict]:
     vals = {}
     for m in re.finditer(rf"^\s*(?:v\()?(\S+?)\)?\s*=\s*({spice._NUM})\s*$", out, re.M):
         vals[m.group(1).lower()] = float(m.group(2))
-    rows = []
-    for netname, conns in design.nets().items():
-        if design.net_info(netname).get("class") != "power":
-            continue
+    for netname in op_nets:
+        conns = design.nets()[netname]
         vs = {}
         for ref, pin in conns:
             node = nm.pin(ref, pin)

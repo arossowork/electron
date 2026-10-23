@@ -1,0 +1,63 @@
+name: pfet_switch_rc
+description: >-
+  SOT-23 P-FET series switch (drain IN, source OUT) with a delayed turn-on: RG from the active-low EN to the gate,
+  CG and RGS from the gate to the source (home-thermostat-3: AO3413, 100 k, 10 nF, 1 M, tau about 1 ms).
+source: >-
+  Hand layout for M4 / R41 / C23 / R42 of home-thermostat-3 (notes/circuit.md "Series body diode M4", R35, 2026-10-22;
+  symbol Transistor_FET:AO3401A: 1 G, 2 S, 3 D, the AO3413 pinout). Split from the reverse-battery guard: the two
+  parallel guard FETs are the seed block rev_guard_2pfet (round 8 binds M1/M2 to it), and this block holds only the
+  series stage. The round-8 copper of this stage is not extracted: R42 sits 8 mm from M4 and VIN_BST runs through two
+  vias and In2.Cu between the RC parts.
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+# IN = drain side (VBAT_P), OUT = source side (VIN_BST), EN = active-low enable (VBAT_EN); G (gate) is internal.
+ports: [IN, OUT, EN]
+roles:
+  M: {ref: M4, symbol: Transistor_FET:AO3401A, footprint: Package_TO_SOT_SMD:SOT-23, value: AO3413,
+      pins: {'1': G, '2': OUT, '3': IN}}
+  RG: {ref: R41, symbol: Device:R, footprint: Resistor_SMD:R_0402_1005Metric, value: 100k, pins: {'1': EN, '2': G}}
+  CG: {ref: C23, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 10n, pins: {'1': G, '2': OUT}}
+  RGS: {ref: R42, symbol: Device:R, footprint: Resistor_SMD:R_0402_1005Metric, value: 1meg, pins: {'1': G, '2': OUT}}
+# Pads from `hwflow lib pads`: SOT-23 1 (-0.94, -0.95), 2 (-0.94, 0.95), 3 (0.94, 0), 1.475 x 0.6, courtyard
+# +-1.92 x +-1.7; R 0402 pads +-0.51 (0.54 x 0.64), courtyard +-0.93 x 0.47; C 0402 pads +-0.48 (0.56 x 0.62),
+# courtyard +-0.91 x 0.46. Rotation maps (x, y) to (y, -x) at 90, (-x, -y) at 180, (-y, x) at 270.
+# M rot 270 at the origin: drain (0, 0.94) down, source (-0.95, -0.94), gate (0.95, -0.94); courtyard x +-1.7,
+# y +-1.92.
+# CG and RGS rot 180 (pad 1 = G on the right) between the source and gate columns: CG y = -2.9 (courtyard -3.37..-2.43,
+# 0.51 mm above M's -1.92), RGS y = -3.95 (courtyard -4.42..-3.48, 0.11 mm from CG); pads CG 1 (0.48, -2.9),
+# 2 (-0.48, -2.9); RGS 1 (0.51, -3.95), 2 (-0.51, -3.95).
+# RG rot 270 at (2.0, -3.4): pad 1 (EN) (2.0, -3.91), pad 2 (G) (2.0, -2.89); courtyard x 1.53..2.47, 0.6 mm right
+# of the CG / RGS courtyards (0.91 / 0.93).
+placement:
+  M: {x: 0, y: 0, rot: 270, side: front}
+  CG: {x: 0, y: -2.9, rot: 180, side: front}
+  RGS: {x: 0, y: -3.95, rot: 180, side: front}
+  RG: {x: 2.0, y: -3.4, rot: 270, side: front}
+copper:
+  tracks:
+  # IN: drain stub down to the port end at y = 2.4, 0.6 mm (pad width)
+  - {net: IN, layer: F.Cu, w: 0.6, pts: [[0.0, 0.94], [0.0, 2.4]]}
+  # OUT: source up the x = -0.95 column (0.6 mm, pad width), stubs into CG and RGS pad 2 (a track end on each pad),
+  # then 1.0 mm to the port end at y = -5.0. The column edge x = -0.65 is 0.85 mm from the G pads (x >= 0.20).
+  - {net: OUT, layer: F.Cu, w: 0.6, pts: [[-0.95, -0.94], [-0.95, -2.9], [-0.95, -3.95], [-0.95, -4.6]]}
+  - {net: OUT, layer: F.Cu, w: 0.4, pts: [[-0.95, -2.9], [-0.48, -2.9]]}
+  - {net: OUT, layer: F.Cu, w: 0.4, pts: [[-0.95, -3.95], [-0.51, -3.95]]}
+  - {net: OUT, layer: F.Cu, w: 1.0, pts: [[-0.95, -4.6], [-0.95, -5.0]]}
+  # G: gate up the x = 0.95 column (0.3 mm, edge x = 0.80; the OUT pads end at x -0.20 / -0.24, 1.0 mm away; the
+  # G pads of CG / RGS reach x 0.76 / 0.78 and are the same net), stubs into CG and RGS pad 1 and RG pad 2
+  - {net: G, layer: F.Cu, w: 0.3, pts: [[0.95, -0.94], [0.95, -2.9], [0.95, -3.95]]}
+  - {net: G, layer: F.Cu, w: 0.3, pts: [[0.95, -2.9], [0.48, -2.9]]}
+  - {net: G, layer: F.Cu, w: 0.3, pts: [[0.95, -3.95], [0.51, -3.95]]}
+  - {net: G, layer: F.Cu, w: 0.3, pts: [[0.95, -2.9], [2.0, -2.89]]}
+  # EN: RG pad 1 up to the port end at y = -5.0
+  - {net: EN, layer: F.Cu, w: 0.3, pts: [[2.0, -3.91], [2.0, -5.0]]}
+  vias: []
+# x from -1.75 (M courtyard -1.7) to 2.5 (RG courtyard 2.47); y from -5.5 (OUT port end -5.0 - 0.5) to 2.7 (IN
+# port end 2.4 + 0.3)
+courtyard: [-1.75, -5.5, 2.5, 2.7]
+# 1 oz copper, 0.491 mOhm per square at 20 C. IN port to OUT port (FET Rds(on) not included): drain stub 1.46 / 0.6
+# = 2.4 sq, source column 3.66 / 0.6 = 6.1 sq, port track 0.4 / 1.0 = 0.4 sq; 8.9 sq = 4.4 mOhm at 20 C, 4.8 at 45 C.
+resistance_mohm: {IN-OUT copper at 20 C: 4.4, IN-OUT copper at 45 C: 4.8}
+notes: >-
+  4.25 x 8.2 mm. The RC sets only the turn-on delay and carries no current, so its parts sit on 0.3 mm tracks; the
+  IN / OUT path is 0.6 mm (pad width) inside the block, and the router takes the nets' own width outside.

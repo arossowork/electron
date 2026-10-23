@@ -1,0 +1,52 @@
+{
+ "score": {
+  "check_errors": 0,
+  "erc_errors": 0,
+  "sim_pass_ratio": 1.0,
+  "sim_measures": 163,
+  "derating_issues": 0,
+  "generic_models": 11,
+  "mc_min_yield": 0.99,
+  "drc_errors": 0,
+  "unrouted": 0,
+  "post_pass_ratio": 1.0,
+  "post_warnings": 1,
+  "area_mm2": 5200,
+  "vias": 94,
+  "cost_usd": 27.9413,
+  "unpriced_lines": 0,
+  "parts": 82,
+  "req_total": 21,
+  "req_unverified": 0,
+  "req_failing": 0
+ },
+ "trace": {
+  "total": 21,
+  "covered": 21,
+  "failing": 0,
+  "unverified": 0
+ },
+ "check": {
+  "ok": true,
+  "errors": 0,
+  "warnings": 0,
+  "design_hash": "a9db1d5cdf6c"
+ },
+ "layout": {
+  "ok": true,
+  "area_search": null,
+  "placement_cost": 7419.5,
+  "router": "0 unrouted, krt 4 pass(es)",
+  "segments": 529,
+  "vias": 94,
+  "drc_errors": 0,
+  "drc_warnings": 77,
+  "unrouted": 0,
+  "seconds": 42.9,
+  "design_hash": "a9db1d5cdf6c"
+ },
+ "post": {
+  "ok": true,
+  "design_hash": "a9db1d5cdf6c"
+ }
+}

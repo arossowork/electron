@@ -1,0 +1,15 @@
+{
+  "round": 3,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "The studio sound card needs about 140-185 mA from the computer cable. Without the power adapter, an ordinary USB 3 computer port gives 900 mA in total; the USB rules say each of the 4 ports should then get 150 mA (600 mA), which leaves 300 mA for the hub, the keyboard and the sound card, and we expect about 280-515 mA. What should happen when the adapter is not connected?",
+      "options": [
+        "Recommended: keyboard and full-quality sound always work; the 4 ports share what is left (about 400-600 mA together, at least 100 mA each when all are used, so mice, dongles and flash drives work). On a USB-C computer port that offers more power (most recent laptops), every port gets the full amount. No extra cost. Not strictly by the USB rules for bus-powered hubs (no USB logo planned anyway).",
+        "Follow the USB rule strictly (150 mA on every port from any computer): lowest-power chips and the headphone volume limited without the adapter (still loud on most headphones). About $1-3 more, and it may still not fit; we would know after the chip selection and come back to you.",
+        "The 4 ports are powered only with the adapter or a USB-C computer port that offers more power; on an older 900 mA port only the keyboard and the sound card work (ports pass data but give no power). No extra cost, simplest."
+      ],
+      "why": "Your round 1 answer was that everything except fast charging works without the adapter. With the studio sound card the computer's 900 mA is not enough for full audio plus full USB power on all 4 ports at once (conflicts.md C10). This decides the power-sharing circuit and requirement R19/R21."
+    }
+  ]
+}

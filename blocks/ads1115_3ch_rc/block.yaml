@@ -1,0 +1,99 @@
+name: ads1115_3ch_rc
+description: >-
+  ADS1115 VSSOP-10 with its 100 nF VDD decoupling and three single-ended inputs, each behind a 1 k / 100 nF RC
+  (AIN0 = reference from VDD through RREF, AIN1 / AIN2 = two NTC dividers); ADDR and AIN3 to GND (address 0x48).
+source: >-
+  Hand layout for the U3 sensing front end of home-thermostat-3 (parts U3, C11, R13/C14, R11/C12, R12/C13; values from
+  its design.yaml and notes/parts-mcu-sensing.md). Pins from `hwflow lib show Analog_ADC:ADS1115IDGS` (1 ADDR, 2
+  ALERT/RDY, 3 GND, 4-7 AIN0-3, 8 VDD, 9 SDA, 10 SCL). Layout rules from the general practice of the TI ADS1115 data
+  sheet SBAS444 (https://www.ti.com/lit/ds/symlink/ads1115.pdf, Layout section: 0.1 uF from VDD to GND as close to the
+  pin as possible, input filter capacitors at the input pins, solid ground); the project's datasheet note
+  (notes/datasheets/ADS1115.md) does not quote that section, so check it against the PDF before relying on numbers.
+  The round-8 board copper is not extracted: the router took AIN_NTC1/AIN_NTC2 through In1/In2 under the part, AIN_REF
+  diagonally under the package, and the RC parts sit 3-9 mm from the pins.
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+# VDD = ADC supply (SENS_EN in home-thermostat-3, a switched GPIO rail) and the top of the reference RC; NTC1 / NTC2 =
+# the divider mid-points (NTC1_A, NTC2_A); AIN0..AIN2 are internal (filtered pin nets).
+ports: [VDD, GND, SDA, SCL, NTC1, NTC2]
+roles:
+  U: {ref: U3, symbol: Analog_ADC:ADS1115IDGS, footprint: Package_SO:VSSOP-10_3x3mm_P0.5mm, value: ADS1115,
+      pins: {'1': GND, '3': GND, '4': AIN0, '5': AIN1, '6': AIN2, '7': GND, '8': VDD, '9': SDA, '10': SCL}}
+  CVDD: {ref: C11, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 100n, pins: {'1': VDD, '2': GND}}
+  RREF: {ref: R13, symbol: Device:R, footprint: Resistor_SMD:R_0402_1005Metric, value: 1k, pins: {'1': VDD, '2': AIN0}}
+  CREF: {ref: C14, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 100n, pins: {'1': AIN0, '2': GND}}
+  RN1: {ref: R11, symbol: Device:R, footprint: Resistor_SMD:R_0402_1005Metric, value: 1k, pins: {'1': NTC1, '2': AIN1}}
+  CN1: {ref: C12, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 100n, pins: {'1': AIN1, '2': GND}}
+  RN2: {ref: R12, symbol: Device:R, footprint: Resistor_SMD:R_0402_1005Metric, value: 1k, pins: {'1': NTC2, '2': AIN2}}
+  CN2: {ref: C13, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 100n, pins: {'1': AIN2, '2': GND}}
+# Pads from `hwflow lib pads`: VSSOP-10 pins 1-5 at x = -2.2, 6-10 at x = 2.2, y = -1.0 .. 1.0 by 0.5, 1.45 x 0.30
+# (pad ends x = -/+2.925), courtyard +-3.18 x +-1.75. R 0402 pads +-0.51 (0.54 x 0.64), courtyard +-0.93 x 0.47;
+# C 0402 pads +-0.48 (0.56 x 0.62), courtyard +-0.91 x 0.46. Rotation maps (x, y) to (y, -x) at 90, (-x, -y) at 180,
+# (-y, x) at 270.
+# CVDD rot 270 at (4.0, 0.48): pad 1 (VDD) (4.0, 0.0) on the pin 8 axis, pad 2 (GND) (4.0, 0.96); courtyard x
+# 3.54..4.46, 0.36 mm right of U's (3.18). Pin 8 to CVDD pad 1: 1.8 mm centre to centre.
+# Input caps rot 0 / 180 on y = 2.6 (courtyard 2.14..3.06, 0.39 mm below U's 1.75), pad 1 on the AIN column:
+# AIN1 column x = -2.6 (inside pin 5), CN1 at (-2.12, 2.6) rot 0: pad 1 (-2.6, 2.6), pad 2 (-1.64, 2.6);
+# AIN0 column x = -3.8 (left of the pin 5 end -2.925), CREF at (-4.28, 2.6) rot 180: pad 1 (-3.8, 2.6), pad 2 (-4.76, 2.6);
+# AIN2 column x = 2.6 (inside pin 6), CN2 at (3.08, 2.6) rot 0: pad 1 (2.6, 2.6), pad 2 (3.56, 2.6).
+# Courtyards CN1 x -3.03..-1.21, CREF -5.19..-3.37 (0.34 mm apart), CN2 2.17..3.99.
+# Series resistors rot 90 below their cap at y = 4.05 (courtyard 3.12..4.98, 0.06 mm below the caps' 3.06): pad 2
+# (AIN) up at y = 3.54, pad 1 (outer) down at y = 4.56: RN1 x = -2.6, RREF x = -3.8 (courtyards 0.26 mm apart), RN2 x = 2.6.
+placement:
+  U: {x: 0, y: 0, rot: 0, side: front}
+  CVDD: {x: 4.0, y: 0.48, rot: 270, side: front}
+  CN1: {x: -2.12, y: 2.6, rot: 0, side: front}
+  CREF: {x: -4.28, y: 2.6, rot: 180, side: front}
+  CN2: {x: 3.08, y: 2.6, rot: 0, side: front}
+  RN1: {x: -2.6, y: 4.05, rot: 90, side: front}
+  RREF: {x: -3.8, y: 4.05, rot: 90, side: front}
+  RN2: {x: 2.6, y: 4.05, rot: 90, side: front}
+copper:
+  tracks:
+  # VDD: pin 8 to CVDD pad 1 (0.25 mm; past the pad ends at x = 2.925 it is 0.23 mm from pins 7 and 9), on to a
+  # via at (5.3, 0) (0.39 mm right of the CVDD pad); the via is also the VDD port end
+  - {net: VDD, layer: F.Cu, w: 0.25, pts: [[2.2, 0.0], [4.0, 0.0], [5.3, 0.0]]}
+  # VDD to RREF pad 1 on B.Cu: down x = 5.3 (0.4 mm clear of the GND via at (4.45, 2.6)), across y = 5.4 under the
+  # NTC ports, up through a via at (-3.8, 5.4) (0.27 mm below the RREF pad 1 edge 4.83)
+  - {net: VDD, layer: B.Cu, w: 0.3, pts: [[5.3, 0.0], [5.3, 5.4], [-3.8, 5.4]]}
+  - {net: VDD, layer: F.Cu, w: 0.3, pts: [[-3.8, 4.56], [-3.8, 5.4]]}
+  # GND right: pin 7 (AIN3) out to the right then into CVDD pad 2 (0.225 mm from the VDD track; 0.35 mm from the
+  # CVDD pad 1 corner), CVDD pad 2 to the via at (4.45, 2.6) next to CN2 pad 2 (via edge 0.31 mm right of the pad)
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[2.2, 0.5], [3.2, 0.5], [3.66, 0.96], [4.0, 0.96]]}
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[4.0, 0.96], [4.45, 1.41], [4.45, 2.6]]}
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[3.56, 2.6], [4.45, 2.6]]}
+  # GND left: pin 3 out to x = -3.4, up to pin 1 (ADDR = GND), via at (-3.9, -0.5) (0.35 mm from the pin 2 end)
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[-2.2, 0.0], [-3.4, 0.0], [-3.4, -1.0], [-2.2, -1.0]]}
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[-3.4, -0.5], [-3.9, -0.5]]}
+  # input cap grounds to a via each (via edge 0.31 mm from the pad)
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[-1.64, 2.6], [-0.75, 2.6]]}
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[-4.76, 2.6], [-5.65, 2.6]]}
+  # AIN1: pin 5 straight down x = -2.6 to CN1 pad 1 and RN1 pad 2
+  - {net: AIN1, layer: F.Cu, w: 0.25, pts: [[-2.6, 1.0], [-2.6, 2.6], [-2.6, 3.54]]}
+  # AIN0: pin 4 left along y = 0.5 (0.225 mm from pin 5 and from the pin 3 GND track at y = 0), down x = -3.8 (0.55 mm
+  # from the pin 5 end) to CREF pad 1 and RREF pad 2
+  - {net: AIN0, layer: F.Cu, w: 0.25, pts: [[-2.2, 0.5], [-3.8, 0.5], [-3.8, 2.6], [-3.8, 3.54]]}
+  # AIN2: pin 6 straight down x = 2.6 to CN2 pad 1 and RN2 pad 2
+  - {net: AIN2, layer: F.Cu, w: 0.25, pts: [[2.6, 1.0], [2.6, 2.6], [2.6, 3.54]]}
+  # NTC ports: RN1 / RN2 pad 1 down to y = 6.0
+  - {net: NTC1, layer: F.Cu, w: 0.25, pts: [[-2.6, 4.56], [-2.6, 6.0]]}
+  - {net: NTC2, layer: F.Cu, w: 0.25, pts: [[2.6, 4.56], [2.6, 6.0]]}
+  # SCL: pin 10 up x = 2.7 (inside the pad) to y = -2.4; SDA: pin 9 right to x = 3.3 (0.225 mm from pin 10, 0.32 mm
+  # from the CVDD pad 1 corner), up to y = -2.4; the two columns are 0.35 mm apart
+  - {net: SCL, layer: F.Cu, w: 0.25, pts: [[2.2, -1.0], [2.7, -1.0], [2.7, -2.4]]}
+  - {net: SDA, layer: F.Cu, w: 0.25, pts: [[2.2, -0.5], [3.3, -0.5], [3.3, -2.4]]}
+  vias:
+  - {net: VDD, x: 5.3, y: 0.0}
+  - {net: VDD, x: -3.8, y: 5.4}
+  - {net: GND, x: 4.45, y: 2.6}
+  - {net: GND, x: -3.9, y: -0.5}
+  - {net: GND, x: -0.75, y: 2.6}
+  - {net: GND, x: -5.65, y: 2.6}
+# x from -6.0 (GND via edge -5.95) to 5.65 (VDD via edge 5.6); y from -2.6 (I2C port ends -2.525) to 6.2 (NTC port
+# ends 6.125)
+courtyard: [-6.0, -2.6, 5.65, 6.2]
+notes: >-
+  11.65 x 8.8 mm. The NTC divider top resistors (R9, R10 in home-thermostat-3), the ESD diodes at the probe terminal,
+  and the I2C pull-ups stay outside the block: they belong at the connector or on the bus. Every input cap is 1.6 mm
+  of track from its pin, CVDD 1.8 mm from VDD. One B.Cu track (VDD to RREF) cuts the bottom ground pour under the
+  block; on a 4-layer board the inner GND plane is unbroken.

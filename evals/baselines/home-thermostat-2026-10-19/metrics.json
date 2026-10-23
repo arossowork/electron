@@ -1,0 +1,161 @@
+{
+ "name": "home-thermostat",
+ "date": "2026-10-19/20",
+ "outcome": {
+  "verdict": "PASS",
+  "requirements": "21/21 verified",
+  "spice": "163/163 pre-layout and post-layout",
+  "monte_carlo": "100 runs, 99-100% yield",
+  "drc_errors": 0,
+  "unrouted": 0,
+  "layers": 4,
+  "board_mm": [
+   130,
+   40
+  ],
+  "stack_mm": 28.6,
+  "bom_usd_per_unit_at_10": 27.94,
+  "open_items": [
+   "notes/compliance.md missing",
+   "C8 decap 4.3 mm (limit 4.0)",
+   "reverse_tran Monte Carlo 99%"
+  ]
+ },
+ "tokens": {
+  "project": "home-thermostat",
+  "session": "5afb4eb5-f951-4ac6-b654-0326136cf5d0",
+  "first_message": "2026-10-19T12:28:28.689Z",
+  "last_message": "2026-10-19T22:52:41.316Z",
+  "total_tokens": 222800439,
+  "cache_read_share": 0.977,
+  "by_model": {
+   "claude-opus-5-5": 104812827,
+   "<synthetic>": 0,
+   "claude-sonnet-5-5": 117987612
+  },
+  "by_agent": {
+   "orchestrator": {
+    "launches": 0,
+    "turns": 168,
+    "tokens": {
+     "input_tokens": 334,
+     "cache_creation_input_tokens": 631251,
+     "cache_read_input_tokens": 26668360,
+     "output_tokens": 120583
+    },
+    "total": 27420528
+   },
+   "hw-parts": {
+    "launches": 2,
+    "turns": 242,
+    "tokens": {
+     "input_tokens": 484,
+     "cache_creation_input_tokens": 528574,
+     "cache_read_input_tokens": 34057490,
+     "output_tokens": 9603
+    },
+    "total": 34596151
+   },
+   "hw-circuit": {
+    "launches": 7,
+    "turns": 458,
+    "tokens": {
+     "input_tokens": 916,
+     "cache_creation_input_tokens": 1423554,
+     "cache_read_input_tokens": 59191902,
+     "output_tokens": 31263
+    },
+    "total": 60647635
+   },
+   "hw-requirements": {
+    "launches": 3,
+    "turns": 23,
+    "tokens": {
+     "input_tokens": 46,
+     "cache_creation_input_tokens": 87703,
+     "cache_read_input_tokens": 388375,
+     "output_tokens": 1844
+    },
+    "total": 477968
+   },
+   "web-fetch": {
+    "launches": 3,
+    "turns": 12,
+    "tokens": {
+     "input_tokens": 24,
+     "cache_creation_input_tokens": 120748,
+     "cache_read_input_tokens": 174229,
+     "output_tokens": 2312
+    },
+    "total": 297313
+   },
+   "hw-layout": {
+    "launches": 5,
+    "turns": 641,
+    "tokens": {
+     "input_tokens": 1282,
+     "cache_creation_input_tokens": 1184597,
+     "cache_read_input_tokens": 82077004,
+     "output_tokens": 128578
+    },
+    "total": 83391461
+   },
+   "hw-reviewer": {
+    "launches": 3,
+    "turns": 86,
+    "tokens": {
+     "input_tokens": 172,
+     "cache_creation_input_tokens": 412454,
+     "cache_read_input_tokens": 7342346,
+     "output_tokens": 4435
+    },
+    "total": 7759407
+   },
+   "hw-architect": {
+    "launches": 2,
+    "turns": 70,
+    "tokens": {
+     "input_tokens": 140,
+     "cache_creation_input_tokens": 427634,
+     "cache_read_input_tokens": 7767877,
+     "output_tokens": 14325
+    },
+    "total": 8209976
+   }
+  }
+ },
+ "wall": {
+  "first_message_utc": "2026-10-19T12:28:28.689Z",
+  "last_message_utc": "2026-10-19T22:52:41.316Z",
+  "note": "elapsed time includes pauses (KiCad installs, waiting for answers, two killed builds)",
+  "agent_turn_seconds_sum": 22504,
+  "ui_agent_turns": 14
+ },
+ "events": {
+  "user_messages_in_ui": 13,
+  "tool_events_in_ui": 2346,
+  "hwflow_build_calls_in_ui": 80,
+  "product_person_rounds": 6
+ },
+ "score_card": {
+  "check_errors": 0,
+  "erc_errors": 0,
+  "sim_pass_ratio": 1.0,
+  "sim_measures": 163,
+  "derating_issues": 0,
+  "generic_models": 11,
+  "mc_min_yield": 0.99,
+  "drc_errors": 0,
+  "unrouted": 0,
+  "post_pass_ratio": 1.0,
+  "post_warnings": 1,
+  "area_mm2": 5200,
+  "vias": 94,
+  "cost_usd": 27.9413,
+  "unpriced_lines": 0,
+  "parts": 82,
+  "req_total": 21,
+  "req_unverified": 0,
+  "req_failing": 0
+ }
+}

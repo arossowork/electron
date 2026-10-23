@@ -1,0 +1,45 @@
+{
+  "round": 4,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "With real part prices, studio-quality sound does not fit the $80 per keyboard limit (electronics only, 100 units). The studio sound card alone costs $39-51 in parts, and the power and charging parts came out about $15 higher than estimated. Which do you prefer?",
+      "options": [
+        "Recommended (sound quality is your first priority): keep studio sound (120 dB) and raise the limit to about $125 per keyboard at 100 units (expected $110-125; about $150 at 10 units). Four of the sound chips are not stocked by the assembly factory and are bought through its global sourcing: about 1-3 weeks more lead time.",
+        "Hi-fi sound (110 dB, the round 2 recommendation: silent background even on sensitive earphones, quieter than most commercial sound cards): about $80-90 per keyboard; may still exceed $80 by a few dollars. All chips in stock. Also fixes the computer-only power problem in q2.",
+        "Gaming-headset sound (90-95 dB, faint hiss on sensitive earphones): $63-78, inside $80. All chips in stock, fixes q2.",
+        "Keep studio sound and $80 by removing other features: not enough. Even without hot-swap (-$9) and with USB 2.0 instead of USB 3 (-$10) the board is about $95-105."
+      ],
+      "why": "Must-level conflict (conflicts.md C13): requirement R17 (<= $80) and R10 (studio 120 dB) cannot both hold. The answer fixes the sound card chips and the cost limit for every later stage."
+    },
+    {
+      "id": "q2",
+      "text": "Only if you keep studio sound in q1: without the power adapter, the studio sound card and the USB 3 hub use more of the computer's power than estimated. With all four ports busy, each port gets about 80-92 mA instead of the 100 mA you approved in round 3 (about 230-240 mA instead of 250 mA on a laptop USB-C port that gives 1.5 A). What should we do?",
+      "options": [
+        "Recommended: accept at least 75 mA per port on a regular computer port and 225 mA on a 1.5 A laptop port. Mice, keyboards, wireless dongles and headsets work; flash drives, SSDs and phone charging need the power adapter or a laptop USB-C port that gives 3 A (there every port gets 600 mA). No cost.",
+        "Without the adapter, the headphone output gets 6 dB quieter at full volume (still loud on most headphones) and the sound card sleeps when nothing is plugged in: about 92-106 mA per port, so the 100 mA goal is reached in the typical case but not with every port and the sound card at full load. No cost, but 'full audio always' is reduced without the adapter.",
+        "Not needed: I chose hi-fi or gaming sound in q1 (the lower-power sound card leaves more than 100 mA per port)."
+      ],
+      "why": "Must-level requirements R19/R21 (round 3 q1) miss by 8-20 mA per port with the studio sound card (conflicts.md C12). Engineering savings (slower keyboard chip clock, sound parts off when unused) are already applied and do not close the gap."
+    },
+    {
+      "id": "q3",
+      "text": "Hot-swap sockets: 100 keyboards need 10,400 sockets, and the assembly factory confirms only about 400 in stock today. How should we get them?",
+      "options": [
+        "Recommended: the factory orders the sockets for the batch through its global sourcing. Same price (about $8-9 per keyboard), about 2-4 weeks more lead time.",
+        "You buy the sockets yourself (e.g. from Kailh or a keyboard shop) and ship them to the factory. Possibly cheaper in bulk, but you handle the purchase and shipping.",
+        "Drop hot-swap: switches are soldered to the board. Saves about $9 per keyboard and the sourcing risk, but changing switches later needs soldering."
+      ],
+      "why": "Sourcing risk on 104 parts per board (conflicts.md C13); it decides the footprint (socket or solder-in) and the build lead time."
+    },
+    {
+      "id": "q4",
+      "text": "Volume knob: a knob that faces you on the front edge needs a sideways-mounted part that the factory does not stock. Where should the knob go?",
+      "options": [
+        "Recommended: on top of the front strip, turning around an upright shaft (like most keyboards with a knob). In stock, about $1, easy to reach with the thumb.",
+        "On the front edge, facing you, as first described: the part is bought through global sourcing or hand-soldered, about $1-2 more and 1-3 weeks more lead time, and its depth must fit in the 22 mm strip."
+      ],
+      "why": "Requirement R28 says the shaft faces the user; no such part is stocked (conflicts.md C13)."
+    }
+  ]
+}

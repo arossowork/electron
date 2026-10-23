@@ -1,0 +1,164 @@
+* power_fit.lib: averaged / behavioural models for the POWER / USB PD group (stage 4 pass B).
+* Parameters come from notes/datasheets/*.md; estimates are marked [E] in notes/circuit.md.
+* DC (op) models: no switching ripple, no loop dynamics.
+* Every threshold is a continuous ramp (no ?: steps) and every limit a smooth minimum
+* smin(a,b) = a*b/(a^8+b^8)^(1/8) (9 % below min() at a = b only), so that the Newton operating point
+* converges.
+
+* ------------------------------------------------------------------ buck with a feedback pin (averaged)
+* ports: vin sw fb en gnd. Voltage-mode: an error amplifier (gain 1e4, 0.05 % FB error at 5 V) drives the SW
+* node through 5 mohm, clipped to the duty headroom DMAX*vin; it sources current only (FPWM negative current
+* not modelled), output current limited to ILIM (smooth minimum). VEN is the FALLING enable threshold: the
+* DC state is a converter that has started (LM61460 EN 1.263 V rising, 28 % hysteresis: 0.91 V falling). Input current = Pout / eff + IQ; eff = EFF5 below VSPLIT output, EFF9 above.
+* kon = enable (EN above VEN, ramp 0.2 V) x input UVLO (VUV, ramp 0.5 V).
+* Internal nodes: xU.ploss = loss in W, xU.tj = temper + LFRAC*ploss*THETA (junction estimate, C).
+.subckt BUCK_FB vin sw fb en gnd params: VREF=1.0 EFF5=0.95 EFF9=0.95 VSPLIT=7 ILIM=6 IQ=1u VEN=1.263
++ THETA=35 LFRAC=1 DMAX=0.95 VUV=3.5 ROUT=5m
+Bkon kon gnd V = min(max((v(en,gnd)-{VEN})/0.2+0.5, 0), 1)*min(max((v(vin,gnd)-{VUV})/0.5, 0), 1)
+* voltage-mode error amplifier (gain 1e4) clipped to [0, DMAX*vin], 5 mohm source; sources current only
+Bv nv gnd V = v(kon,gnd)*min(max(1e4*({VREF}-v(fb,gnd)), 0), {DMAX}*max(v(vin,gnd),0))
+Bxi nxi gnd V = max((v(nv,gnd)-v(sw,gnd))/{ROUT}, 0)
+Bi ni gnd V = ((v(nxi,gnd))*({ILIM})/pwr(pwr(v(nxi,gnd),8)+pwr({ILIM},8)+1e-60,0.125))
+Bout gnd sw I = v(ni,gnd)
+Beff neff gnd V = {EFF5} + ({EFF9}-{EFF5})*min(max((v(sw,gnd)-{VSPLIT})/0.5+0.5, 0), 1)
+Bin vin gnd I = v(ni,gnd)*max(v(sw,gnd),0)/max(v(vin,gnd),{VUV})/v(neff,gnd) + {IQ}*v(kon,gnd)
+Bp ploss gnd V = v(ni,gnd)*max(v(sw,gnd),0)*(1/v(neff,gnd)-1) + {IQ}*v(vin,gnd)*v(kon,gnd)
+Btj tj gnd V = temper + {LFRAC}*v(ploss,gnd)*{THETA}
+.ends BUCK_FB
+
+* ------------------------------------------------------------------ TPS65131 boost + inverter (averaged)
+* ports: vin vpos fbp vneg fbn vref gnd. VPOS regulated so that V(fbp) = 1.213 V, VNEG so that V(fbn) = 0 V
+* (FBN divider between VNEG and VREF), VREF pin = 1.213 V through 10 ohm. Switch current limit not modelled.
+.subckt TPS65131_FIT vin vpos fbp vneg fbn vref gnd params: EFFP=0.85 EFFN=0.80 ILIM=1.0 IQ=0.5m THETA=40 VUV=2.7
++ ROUT=50m
+Bkuv kuv gnd V = min(max((v(vin,gnd)-{VUV})/0.5, 0), 1)
+Vvr vri gnd DC 1.213
+Rvr vri vref 10
+* voltage-mode outputs (gain 1e4), clipped to +-15 V, 50 mohm source; each stage sources (VPOS) / sinks (VNEG) only
+Bvp nvp gnd V = v(kuv,gnd)*min(max(1e4*(1.213-v(fbp,gnd)), 0), 15)
+Bip nip gnd V = max((v(nvp,gnd)-v(vpos,gnd))/{ROUT}, 0)
+Bpos gnd vpos I = v(nip,gnd)
+Bvn nvn gnd V = -v(kuv,gnd)*min(max(1e4*v(fbn,gnd), 0), 15)
+Bin2 nin gnd V = max((v(vneg,gnd)-v(nvn,gnd))/{ROUT}, 0)
+Bneg vneg gnd I = v(nin,gnd)
+Bvin vin gnd I = (v(nip,gnd)*max(v(vpos,gnd),0)/{EFFP} + v(nin,gnd)*max(-v(vneg,gnd),0)/{EFFN})/max(v(vin,gnd),{VUV}) + {IQ}*v(kuv,gnd)
+Bp ploss gnd V = v(nip,gnd)*max(v(vpos,gnd),0)*(1/{EFFP}-1) + v(nin,gnd)*max(-v(vneg,gnd),0)*(1/{EFFN}-1) + {IQ}*v(vin,gnd)*v(kuv,gnd)
+Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
+.ends TPS65131_FIT
+
+* ------------------------------------------------------------------ adjustable current-limited switch
+* ports: in out en ilim gnd. ILIM pin held at 1 V; the external network sets I_pin = 1/R; the limit is
+* K * (R/1k)^-XP [A] = K * (1000*I_pin)^XP. Reverse current blocked (max(v(in,out),0)). Used for TPS2553
+* (K 24.23, XP 0.978: fit of the p.7 points 20 k 1295 mA, 49.9 k 520 mA, 210 k 130 mA).
+* Corner selector (stage 5, M2): global node klim (testbench source VKLIM, 0 = typical): klim > 0.5 uses the
+* datasheet MAXIMUM limit, klim < -0.5 the MINIMUM. TPS2553 p.7 min/max columns fitted as power laws through
+* 49.9 k and 210 k: max = 18.86 / R^0.904 A, min = 28.56 / R^1.0397 A (R in kohm; 49.9 k 550 / 490 mA,
+* 210 k 150 / 110 mA).
+.subckt ISW_LIM in out en ilim gnd params: RON=0.085 K=24.23 XP=0.978 VEN=1.1 IQ=120u THETA=200
++ KMAX=18.86 XPMAX=0.904 KMIN=28.56 XPMIN=1.0397
+Vil ilim gnd DC 1
+Bken ken gnd V = min(max((v(en,gnd)-{VEN})/0.2+0.5, 0), 1)
+Iq in gnd {IQ}
+Blim nlim gnd V = v(klim) > 0.5 ? {KMAX}*pwr(max(-1000*i(Vil),1e-9), {XPMAX}) : (v(klim) < -0.5 ? {KMIN}*pwr(max(-1000*i(Vil),1e-9), {XPMIN}) : {K}*pwr(max(-1000*i(Vil),1e-9), {XP}))
+Bxs nxs gnd V = max(v(in,out),0)/{RON}
+Bisw nisw gnd V = v(ken,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),8)+pwr(v(nlim,gnd),8)+1e-60,0.125))
+Bsw in out I = v(nisw,gnd)
+Bp ploss gnd V = v(nisw,gnd)*v(in,out) + {IQ}*v(in,gnd)
+Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
+.ends ISW_LIM
+
+* TPS25940A eFuse: IOS = 87.5/R(kohm) A (p.5), EN/UVLO 0.99 V rising / 0.92 V falling, OVP pin < 0.99 V to conduct.
+.subckt EFUSE_FIT in out en ovp ilim gnd params: RON=0.042 K=87.5 IQ=210u THETA=50
+Vil ilim gnd DC 1
+Iq in gnd {IQ}
+Blim nlim gnd V = {K}*max(-1000*i(Vil),1e-9)
+* steady state after start-up: EN/UVLO at its falling threshold 0.92 V (rising 0.99 V), OVP at its rising
+* threshold 0.99 V (p.5); ramps EN 0.90-0.94 V, OVP 0.95-0.99 V
+Bon non gnd V = min(max((v(en,gnd)-0.90)/0.04, 0), 1)*min(max((0.99-v(ovp,gnd))/0.04, 0), 1)
+Bxs nxs gnd V = max(v(in,out),0)/{RON}
+Bisw nisw gnd V = v(non,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),8)+pwr(v(nlim,gnd),8)+1e-60,0.125))
+Bsw in out I = v(nisw,gnd)
+Bp ploss gnd V = v(nisw,gnd)*v(in,out) + {IQ}*v(in,gnd)
+Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
+.ends EFUSE_FIT
+
+* TPS2546: switch with two ILIM pins (ILIM_SEL high picks ILIM_HI), IOS = 50250/R(kohm) mA typ (p.31).
+* ports: in out en sel ilim_hi ilim_lo gnd
+.subckt TPS2546_FIT in out en sel ilim_hi ilim_lo gnd params: RON=0.073 IQ=200u THETA=46
+Vhi ilim_hi gnd DC 1
+Vlo ilim_lo gnd DC 1
+Iq in gnd {IQ}
+Bks ks gnd V = min(max((v(sel,gnd)-1.0)/0.2+0.5, 0), 1)
+Bken ken gnd V = min(max((v(en,gnd)-1.0)/0.2+0.5, 0), 1)
+* x = 1/R(kohm) of the selected pin; typ 50.25 x A; corners (global klim, see ISW_LIM) per p.32 eq. 2/3 as
+* reconstructed in notes/datasheets/tps2546.md: max = 1.0139 x 50.25 x + 0.030 A, min = 45.271 x^0.98437 - 0.030 A
+Blim nlim gnd V = v(klim) > 0.5 ? 1.0139*50.25*(v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9))+0.03 : (v(klim) < -0.5 ? max(45.271*pwr((v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9)),0.98437)-0.03, 1e-3) : 50.25*(v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9)))
+Bxs nxs gnd V = max(v(in,out),0)/{RON}
+Bisw nisw gnd V = v(ken,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),8)+pwr(v(nlim,gnd),8)+1e-60,0.125))
+Bsw in out I = v(nisw,gnd)
+Bp ploss gnd V = v(nisw,gnd)*v(in,out) + {IQ}*v(in,gnd)
+Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
+.ends TPS2546_FIT
+
+* ------------------------------------------------------------------ power MOSFETs with body diode
+* AO4407A P-ch 30 V SO-8: about 12 mohm at Vgs -10..-12 V (LCSC listing class); body diode drain -> source
+.subckt AO4407A_FIT d g s
+M1 d g s s PM_AO4407A
+Dbd d s DBODY_P
+.model PM_AO4407A PMOS(LEVEL=1 VTO=-2.0 KP=12 LAMBDA=0.005 RD=2m RS=2m)
+.model DBODY_P D(IS=1e-12 N=1.0 RS=10m BV=40)
+.ends AO4407A_FIT
+
+* AO3401A P-ch 30 V SOT-23: about 50 mohm at Vgs -5 V
+.subckt AO3401A_FIT d g s
+M1 d g s s PM_AO3401A
+Dbd d s DBODY_P3
+.model PM_AO3401A PMOS(LEVEL=1 VTO=-0.9 KP=6 LAMBDA=0.005 RD=5m RS=5m)
+.model DBODY_P3 D(IS=1e-12 N=1.0 RS=50m BV=40)
+.ends AO3401A_FIT
+
+* AO4406A N-ch 30 V SO-8: about 14 mohm at Vgs 5 V; body diode source -> drain
+.subckt AO4406A_FIT d g s
+M1 d g s s NM_AO4406A
+Dbd s d DBODY_N
+.model NM_AO4406A NMOS(LEVEL=1 VTO=1.8 KP=25 LAMBDA=0.005 RD=1m RS=1m)
+.model DBODY_N D(IS=1e-12 N=1.0 RS=10m BV=40)
+.ends AO4406A_FIT
+
+* zener diodes (BZT52 class), Schottky 40 V 1 A (B5819W class), testbench switch
+.model DZ12 D(IS=1e-14 N=1.0 RS=5 BV=12 IBV=5m)
+.model DSCH40 D(IS=5u RS=0.05 N=1.05 BV=40 IBV=100u CJO=100p)
+.model SW_TB SW(VT=0.5 VH=0.1 RON=10 ROFF=1e9)
+* testbench plug / unplug switch (PD adapter cable, sink Rd): 1 mohm closed
+.model SW_PD SW(VT=0.5 VH=0.1 RON=1m ROFF=1e9)
+
+* ------------------------------------------------------------------ quad open-drain comparator (LMV339 class)
+* ports in KiCad pin order: out1 in1- in1+ out2 in2- in2+ out3 in3- in3+ out4 in4- in4+ vcc gnd.
+* Output k sinks to gnd through RON when in- > in+ (2 mV linear band, 1 us delay); off below 1.5 V supply.
+* IQ 140 uA for the four comparators (LMV339 class) [E]. No input bias, no hysteresis.
+.subckt LMV339_OD o1 m1 p1 o2 m2 p2 o3 m3 p3 o4 m4 p4 vcc gnd params: RON=60 TAU=1u IQ=140u
+Bkv kv gnd V = min(max((v(vcc,gnd)-1.5)/0.3, 0), 1)
+Iq vcc gnd {IQ}
+B1 a1 gnd V = v(kv,gnd)*min(max(v(m1,p1)/2m+0.5, 0), 1)
+R1 a1 c1 1k
+C1 c1 gnd {TAU/1k}
+Bo1 o1 gnd I = v(c1,gnd)*max(v(o1,gnd),0)/{RON}
+B2 a2 gnd V = v(kv,gnd)*min(max(v(m2,p2)/2m+0.5, 0), 1)
+R2 a2 c2 1k
+C2 c2 gnd {TAU/1k}
+Bo2 o2 gnd I = v(c2,gnd)*max(v(o2,gnd),0)/{RON}
+B3 a3 gnd V = v(kv,gnd)*min(max(v(m3,p3)/2m+0.5, 0), 1)
+R3 a3 c3 1k
+C3 c3 gnd {TAU/1k}
+Bo3 o3 gnd I = v(c3,gnd)*max(v(o3,gnd),0)/{RON}
+B4 a4 gnd V = v(kv,gnd)*min(max(v(m4,p4)/2m+0.5, 0), 1)
+R4 a4 c4 1k
+C4 c4 gnd {TAU/1k}
+Bo4 o4 gnd I = v(c4,gnd)*max(v(o4,gnd),0)/{RON}
+.ends LMV339_OD
+
+* inductor in the DC operating point: its winding resistance only (the converter efficiencies already
+* hold the inductor loss, so the default is 1 mohm); keeps the LC filters out of the transient-op fallback
+.subckt LDCR a b params: R=1m
+R1 a b {R}
+.ends LDCR

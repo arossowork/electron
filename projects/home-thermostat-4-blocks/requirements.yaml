@@ -1,0 +1,261 @@
+product: Battery-only Wi-Fi (MQTT) thermostat for an Italian 503 wall box, 2 NTC probes, 2 latching relays switching 230 V valve heads, 10 prototypes
+# Round 1 answered (inbox/answers.md): q1 boost converter, q2 60 min command interval, q3 cells face the user behind the plate, q4 price scope = board + relays + holder + 2 probes.
+optimize_for:
+  - {criterion: size, weight: 3}
+  - {criterion: cost, weight: 2}
+  - {criterion: battery_life, weight: 1}
+requirements:
+  # ---------------- Mechanical ----------------
+  - id: R1
+    priority: must
+    text: "The board fits the footprint of a 503 box (inner 96 x 50 mm, frame screw bosses at 83.5 mm centres)"
+    acceptance: "Board outline <= 88 x 46 mm with two 8 mm diameter notches centred +-41.75 mm on the long axis, or <= 74 x 46 mm without notches"
+    verification: layout
+    evidence: "Vimar V71303 data sheet (inner 96 x 59 x 50 mm); BTicino 503E (ext. 108 x 74 x 53.5, inner depth 50 mm); conflicts.md reference table"
+    source: "brief; PM round 4 q1 (88 x 46 mm with the two notches)"
+  - id: R2
+    priority: must
+    text: "Total device thickness leaves room for the frame clips and the cable loops in the 50 mm deep box"
+    acceptance: "PCB thickness + tallest part on face A + tallest part on face B <= 30.0 mm (from footprint 3D heights / part datasheets)"
+    verification: layout
+    evidence: "50 mm inner depth - 10 mm frame intrusion (BTicino 503SA depth 17 mm) - 10 mm cable reserve; conflicts.md C4"
+    source: "brief"
+  # ---------------- Power ----------------
+  - id: R3
+    priority: must
+    text: "Runs only from two AAA cells in series over their whole discharge, through a boost converter to a 3.3 V rail"
+    acceptance: "3.3 V rail within 3.2-3.46 V for loaded battery voltage 2.0 V (firmware cut-off, R23) to 3.4 V (alkaline) and up to 3.7 V (lithium, R35), load 0-350 mA, including a 350 mA, 5 ms Wi-Fi TX burst at 2.0 V with 1 ohm source resistance (ESP32-C3 TX peak 335 mA); no relay pulse during TX"
+    verification: simulation
+    evidence: ""
+    source: "brief; PM round 1, q1; PM round 3, q1 (2.0 V, 350 mA, keep the small capacitors); PM decision 2026-10-22: ceiling 3.4 -> 3.46 V for the MAX17227A light-load offset (3.452 V worst case, ESP32-C3 abs max 3.6 V); PM decision 2026-10-22: verified with typical datasheet values; the maximum light-load offset with ULPM ripple (+3V3 peak 3.475-3.486 V with 2 x 47 uF, sw_ulpm_li37_ofsmax_info) is a known risk, checked in prototype test 7"
+  - id: R4
+    priority: must
+    text: "Cells inserted backwards cause no damage and no current"
+    acceptance: "Battery at -3.4 V (-3.7 V lithium) for 1 h: reverse current <= 1 uA, no part above its absolute maximum; forward drop of the protection <= 55 mV at 0.7 A battery current, at the AO3413 RDS(on) maximum (simulated at typical values plus the copper budget sized for the maximum, budgets: guard_copper). Reversed insertion within 30 s of a removal (bulk caps still charged): simulated peak per guard FET recorded; AO3413 single-pulse rating covers the dead-board insertion surge (data sheet Fig. 10); confirmed by test: 20 reversed insertions on a prototype, guard drop and reverse current unchanged afterwards"
+    verification: simulation
+    evidence: "first-prototype test for the charged-cap reversed insertion (operator 2026-10-20)"
+    source: "brief; review 1 finding 1; operator 2026-10-20; PM D4 2026-10-22: guard FETs AO3413 (surge covered by the data sheet, conflicts.md D4); PM D7 2026-10-22: forward drop relaxed 50 -> 55 mV, held at RDS(on) max (conflicts.md D7)"
+  - id: R5
+    priority: must
+    text: "Battery life >= 1 year on two alkaline AAA cells with a 60 min Wi-Fi interval"
+    acceptance: "Average battery current <= 80 uA at 2.6 V, computed over 24 h with one Wi-Fi wake per 60 min (usable capacity 825 mAh = 1000 mAh x 0.85 x 0.97, 15 % margin)"
+    verification: analysis
+    evidence: "conflicts.md C2 energy budget; to be refined in architecture.md power budget with datasheet currents"
+    source: "brief; PM round 1, q2"
+  - id: R6
+    priority: must
+    text: "Sleep floor leaves room for Wi-Fi in the energy budget"
+    acceptance: "Battery current <= 26 uA averaged over 1 min with Wi-Fi off (SoC deep sleep + boost quiescent + one 20 ms control wake per minute); about 1 % battery life against 25 uA, still > 1 year"
+    verification: analysis
+    evidence: "ESP32-C3 datasheet deep sleep 5 uA; boost converter datasheet quiescent current; conflicts.md C2; sleep_floor simulation"
+    source: "brief (derived from R5); PM decision 2026-10-21 (limit 26 uA); PM decision 2026-10-22: verified with typical datasheet values (MAX17227A IQ 350 nA typ); the maximum-IQ case (about 26.4 uA) is a known risk"
+  - id: R7
+    priority: must
+    text: "Remote commands over MQTT take effect, and status is reported, within 60 minutes"
+    acceptance: "Wi-Fi wake interval <= 60 min; energy per wake <= 50 uAh at the battery with fast-reconnect firmware (stored channel/BSSID, kept IP lease, MQTT persistent session, TLS session resumption); control wake <= 20 ms (conflicts.md C2, C6)"
+    verification: analysis
+    evidence: "conflicts.md C2/C6 tables; Espressif connect-time measurements; to be confirmed by bench test on the prototype"
+    source: "brief; PM round 1, q2; PM round 2, q1"
+  # ---------------- 230 V switching ----------------
+  - id: R8
+    priority: must
+    text: "Two independent 230 V AC outputs, one per room, for thermal valve heads up to 1.5 A each"
+    acceptance: "Each relay contact rated >= 3 A at 250 VAC (2x margin over 1.5 A) and inrush >= 5 A peak per datasheet; each channel switched by its own GPIO"
+    verification: datasheet
+    evidence: "relay datasheet (stage 3)"
+    source: "brief"
+  - id: R9
+    priority: must
+    text: "Bistable (latching) relays: no holding current while a valve head is ON"
+    acceptance: "Holding current 0 uA per relay datasheet; set/reset pulse at the minimum rail voltage gives coil voltage >= 110 % of must-operate voltage for >= 2x the datasheet operate time; pulse energy <= 9 mJ"
+    verification: simulation
+    evidence: ""
+    source: "brief (latching allowed); conflicts.md C2: monostable < 1 day, SSR ~10 days of battery; PM round 2, q4 (9 mJ, conflicts.md C9)"
+  - id: R10
+    priority: must
+    text: "Reinforced isolation between the 230 V side and every low-voltage part (cells, NTC terminals, MCU)"
+    acceptance: "PCB creepage >= 6.0 mm and clearance >= 5.5 mm between any 230 V net and any SELV net, on both faces and through board-edge and slot paths"
+    verification: layout
+    evidence: "IEC 60664-1 / IEC 60730-1: 250 V, PD2, material group III, reinforced = 5.0 mm creepage, 3.0 mm (OVC II) / 5.5 mm (OVC III) clearance; conflicts.md C3"
+    source: "brief"
+  - id: R11
+    priority: must
+    text: "Relay coil-to-contact insulation is reinforced"
+    acceptance: "Relay datasheet states reinforced insulation coil-contact (or dielectric strength >= 4 kVrms and creepage >= 6 mm coil-contact) at 250 VAC"
+    verification: datasheet
+    evidence: "relay datasheet (stage 3)"
+    source: "brief"
+  - id: R12
+    priority: must
+    text: "230 V terminals accept house wiring and stay finger-safe when the cover plate is removed"
+    acceptance: "Terminal rated >= 250 VAC, >= 4 A, wire 0.5-1.5 mm2 per datasheet; 3 poles: L in, room 1 out, room 2 out; finger safety by location: J1 (face B, toward the box) is not reachable by the IEC 61032 test finger with the cover plate removed, checked by inspection on the prototype"
+    verification: inspection
+    evidence: "KF128-5.08-3P datasheet (notes/footprints.md, rating and wire range); first-prototype test-finger inspection with the plate removed (SUMMARY.md bench test 16)"
+    source: "brief; PM 2026-10-22 review 2b M3: the KF128 is not IP2X, finger safety argued by location (D8); conflicts.md D12"
+  - id: R13
+    priority: should
+    text: "230 V copper carries 1.5 A per channel and 3 A on the common L with low temperature rise"
+    acceptance: "Trace width >= 1.0 mm on 35 um copper for all 230 V nets (IPC-2152: <= 10 C rise at 3 A)"
+    verification: layout
+    evidence: "IPC-2152 chart; every 230 V net has min_width_mm 1.0, so the layout fails on any narrower track (hwflow too_narrow); 1.0 mm melt I2t 102 A2s against F1 98 A2s (review 2c)"
+    source: "brief; conflicts.md D15 (reverts D14)"
+  # ---------------- Radio ----------------
+  - id: R14
+    priority: must
+    text: "Wi-Fi 2.4 GHz link for MQTT remote control"
+    acceptance: "Radio supports IEEE 802.11 b/g/n 2.4 GHz with WPA2/WPA3 and TLS, per datasheet"
+    verification: datasheet
+    evidence: "Wi-Fi module datasheet (stage 3)"
+    source: "brief"
+  - id: R15
+    priority: must
+    text: "Wi-Fi antenna kept away from the relays and the 230 V copper"
+    acceptance: "No copper on any layer under the antenna area (module datasheet keep-out); >= 15 mm from the antenna to relays and 230 V copper; >= 11 mm from the antenna to battery contacts and cells; antenna at a board edge"
+    verification: layout
+    evidence: "Espressif hardware design guidelines (antenna clearance); battery distance confirmed by a range test on the first prototype"
+    source: "brief; battery distance relaxed from 15 to 11 mm by the product person on 2026-10-21 (46 mm board height leaves at most 14.6 mm next to the two AAA holders, conflicts.md)"
+  - id: R16
+    priority: should
+    text: "Wi-Fi module carries its own CE/RED test reports"
+    acceptance: "Module datasheet or certificate lists CE RED (EN 300 328) and the design keeps the module's certified antenna configuration"
+    verification: datasheet
+    evidence: "module certificate (stage 3)"
+    source: "brief (certification)"
+  # ---------------- Sensing and timekeeping ----------------
+  - id: R17
+    priority: must
+    text: "Two NTC probe inputs on cables up to 2 m, room temperature range"
+    acceptance: "10 kOhm (B ~3950) NTC inputs; electronics error (divider tolerance, ADC reference, offset) <= +-0.3 C over 0-40 C in Monte Carlo 50 runs; resolution <= 0.1 C; 2 m cable resistance error < 0.01 C; guaranteed by design with an external ratiometric ADC (no per-unit calibration)"
+    verification: simulation
+    evidence: ""
+    source: "brief; PM round 2, q3 (conflicts.md C8)"
+  - id: R18
+    priority: must
+    text: "NTC terminals survive electrostatic discharge on the probe cables"
+    acceptance: "Standard 3.3 V TVS on each NTC line rated for IEC 61000-4-2 +-8 kV contact, plus a series resistor that limits the current into the ADC pin during the clamp to at most the ADC datasheet input-current limit (clamp voltage / series R <= limit)"
+    verification: datasheet
+    evidence: "TVS and ADC datasheets (stage 3); EN 301 489-1 requires +-4 kV contact / +-8 kV air"
+    source: "brief (2 m cables); operator 2026-10-20 (reworded: no 3.3 V TVS clamps below VDD+0.3 V)"
+  - id: R19
+    priority: should
+    text: "A broken or shorted probe is detected"
+    acceptance: "ADC reading outside 2-98 % of full scale flags open or short; simulated with the probe open and shorted"
+    verification: simulation
+    evidence: ""
+    source: "brief"
+  - id: R20
+    priority: must
+    text: "Real-time clock keeps the heating schedule running offline"
+    acceptance: "32.768 kHz timebase with total error <= +-30 ppm over 0-45 C (<= 1.3 min per month offline), per crystal datasheet"
+    verification: datasheet
+    evidence: "crystal datasheet (stage 3)"
+    source: "brief"
+  - id: R21
+    priority: must
+    text: "Heating control works without Wi-Fi"
+    acceptance: "Schedule and set-points stored in on-chip non-volatile memory; control loop, NTC reading and relay drive run on the device MCU with no network dependency (architecture review)"
+    verification: inspection
+    evidence: "architecture.md block diagram (stage 2)"
+    source: "brief"
+  # ---------------- Battery management ----------------
+  - id: R22
+    priority: should
+    text: "Battery level is measured and reported"
+    acceptance: "Battery voltage measured within +-50 mV; low-battery MQTT warning at a voltage that leaves >= 30 days of operation"
+    verification: simulation
+    evidence: ""
+    source: "brief (1-year battery)"
+  - id: R23
+    priority: should
+    text: "Defined relay state when the battery runs out"
+    acceptance: "At loaded VBAT <= 2.0 V the firmware resets both relays OFF from the cells, sends 'battery empty' over MQTT and stops switching; the reset pulse at VBAT 2.0 V meets R9 (coil >= 110 % must-operate). Cells pulled with a relay ON leave it ON (R34 covers it)"
+    verification: simulation
+    evidence: ""
+    source: "PM round 2, q2 (conflicts.md C7)"
+  - id: R24
+    priority: could
+    text: "Clock survives a battery change"
+    acceptance: "RTC keeps time for >= 60 s with the cells removed (hold-up capacitance >= I_rtc x 60 s / allowed droop)"
+    verification: simulation
+    evidence: ""
+    source: "brief (offline schedule)"
+  - id: R25
+    priority: could
+    text: "Also runs on rechargeable NiMH AAA cells"
+    acceptance: "Full function at 2.0-2.8 V input (covered by R3 range 2.0-3.7 V)"
+    verification: simulation
+    evidence: ""
+    source: "proposal"
+  # ---------------- Access and safety ----------------
+  - id: R26
+    priority: must
+    text: "Cells are changed by pulling off the cover plate, without touching 230 V parts"
+    acceptance: "With the cover plate removed, the cell face points outward behind a screw-fixed battery cover, and no 230 V conductor is reachable by the IEC 61032 test finger (IP2X); relays and 230 V parts on the box-facing side; low-profile relays (R2)"
+    verification: inspection
+    evidence: "mechanical drawing (stage 2); conflicts.md C3, C4, D2; notes/insulating-sheet.md (MP1 Formex GK-17 sheet over the 230 V solder joints on face A)"
+    source: "brief; PM round 1, q3"
+  - id: R27
+    priority: should
+    text: "Prototypes pass a dielectric test between the 230 V and the low-voltage side"
+    acceptance: "3.75 kVrms for 60 s between shorted 230 V terminals and shorted SELV nets, no breakdown (IEC 60730-1 reinforced, 250 V working voltage)"
+    verification: test
+    evidence: "bench hipot record per unit"
+    source: "brief (reinforced isolation)"
+  - id: R28
+    priority: should
+    text: "Design follows the EU CE route; the 10 prototypes are not placed on the market and carry no CE mark"
+    acceptance: "Compliance checklist in notes/ covers LVD (EN 60730-1, EN 60730-2-9), RED (EN 300 328, EN 301 489-1/-17, EN 62311, EN 18031-1), RoHS; every item mapped to a requirement or marked as later test"
+    verification: inspection
+    evidence: "notes/compliance.md (stage 2)"
+    source: "brief (EU); assumption, confirm in PM round 2"
+  # ---------------- Environment ----------------
+  - id: R29
+    priority: must
+    text: "Works indoors in a wall box (assumption: 0 to +45 C, non-condensing)"
+    acceptance: "Every part rated for operation over at least 0 to +50 C and storage -20 to +60 C per datasheet; 10-90 % RH non-condensing; pollution degree 2; overvoltage category II"
+    verification: datasheet
+    evidence: "part datasheets (stage 3)"
+    source: "brief (indoor wall box); temperature range is an assumption"
+  # ---------------- Cost and volume ----------------
+  - id: R30
+    priority: must
+    text: "Unit cost about 33-38 USD at 10 prototype units (25 USD stays the production target; cheaper parts are a production task)"
+    acceptance: "Scope: board + parts + relays + battery holder + 2 NTC probes + PCB, assembly and shipping shared over 10 units <= 38.79 USD (JLCPCB/LCSC/Mouser prices; Panasonic ADW1 relays kept)"
+    verification: analysis
+    evidence: "conflicts.md C5, C10, C11; notes/parts.md section 2 (stage 3)"
+    source: "brief; PM round 1, q4; operator 2026-10-20; PM round 3, q4; PM decision 2026-10-22: limit 38.00 -> 38.50 USD for the MAX17227A boost (escape proof on the TPS61299); PM decision 2026-10-22: limit 38.50 -> 38.60 USD for the 2 x 47 uF output capacitors (delta review, VIN near VOUT); PM, review-2 round, 2026-10-22 (conflicts.md D1, D2): limit 38.60 -> 38.79 USD = central estimate with the third 47 uF output cap C22 (+0.168) and the R26 insulating sheet MP1 (+0.02); the AAA clip pairs (same round) bring the central estimate to 36.86 USD (hwflow BOM 20.79 USD)"
+  - id: R31
+    priority: should
+    text: "Cheap, simple board"
+    acceptance: "4-layer FR4 (inner GND and power), 1.6 mm, 35 um outer copper, JLCPCB standard capabilities"
+    verification: inspection
+    evidence: "design.yaml board section"
+    source: "brief (price priority 2); PM decision 2026-10-21 (4 layers approved, cost accepted; conflicts.md C15)"
+  - id: R32
+    priority: could
+    text: "Wi-Fi setup button and status LED"
+    acceptance: "One push button for Wi-Fi provisioning, read at the once-a-minute control wake (no deep-sleep wake pin needed; operator 2026-10-20), one LED driven <= 5 ms pulses (<= 0.1 uA average contribution)"
+    verification: analysis
+    evidence: "power budget (stage 2)"
+    source: "proposal"
+  - id: R33
+    priority: must
+    text: "NTC probe tips are insulated"
+    acceptance: "Probe tip and cable insulated (epoxy or PVC/silicone sleeved tip, no exposed metal); cable insulation rated 300/500 V, or a 300/500 V rated sleeve over the probe cable inside the box (IEC 60364-5-52 / CEI 64-8); probes connect through a screw terminal an installer can wire, on the low-voltage side"
+    verification: datasheet
+    evidence: "NTC probe and sleeve datasheets, terminal datasheet (stage 3)"
+    source: "PM round 1, q3; PM round 3, q3"
+  - id: R34
+    priority: must
+    text: "Battery change instruction"
+    acceptance: "User instruction (label on the battery cover and in SUMMARY.md) says to switch off the heating breaker before changing the batteries"
+    verification: inspection
+    evidence: "SUMMARY.md, battery cover label"
+    source: "PM round 1, q3"
+  - id: R35
+    priority: must
+    text: "Also runs on lithium AAA cells (e.g. Energizer Ultimate Lithium)"
+    acceptance: "With a battery voltage up to 3.7 V (two fresh lithium cells, open circuit), +3V3 stays <= 3.45 V (ESP32-C3 abs max 3.6 V with margin) and the relay coils see <= 3.4 V; the added voltage-limiting part costs <= 0.3 USD and its quiescent current is counted in R6"
+    verification: simulation
+    evidence: ""
+    source: "PM round 3, q2 (review 1 finding 7); PM decision 2026-10-22: verified with typical datasheet values; the MAX17227A maximum light-load offset (rail 3.452 V, coil about 3.45 V with lithium cells) is a known risk, checked on the prototype; PM D4 2026-10-22: with the AO3413 guard the limiter is M4 + R41 + C23 + R42 (0.098 USD, notes/circuit.md)"

@@ -6,8 +6,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 P="$1"; MODEL="${2:-opus}"; EXTRA="${3:-}"
 DIR="projects/$P"; mkdir -p "$DIR"
-unset ANTHROPIC_API_KEY
+unset ANTHROPIC_API_KEY CLAUDE_EFFORT CLAUDE_CODE_EFFORT_LEVEL  # an inherited effort overrides the agents' `effort:`
 export HWFLOW_HEADLESS=1
+# Same lean context and 400k auto-compact window as evals/harness.py (designer_args, headless_env).
+export CLAUDE_CODE_AUTO_COMPACT_WINDOW="${HWFLOW_AUTOCOMPACT_WINDOW:-400000}"
+export CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL="${CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL:-1h}"
+ARGS=(--model "$MODEL" --setting-sources project,local --strict-mcp-config
+      --tools "Bash,Read,Write,Edit,Agent,Skill,WebSearch,WebFetch" --permission-mode acceptEdits --output-format json)
+[ -n "${HWFLOW_EFFORT:-}" ] && ARGS+=(--effort "$HWFLOW_EFFORT")
 LOG="$DIR/.runs.jsonl"
 SID_FILE="$DIR/.session"
 for i in $(seq 1 "${MAX_ROUNDS:-8}"); do
@@ -21,9 +27,9 @@ for i in $(seq 1 "${MAX_ROUNDS:-8}"); do
   fi
   if [ -s "$SID_FILE" ]; then
     MSG="Continue the /hw-design flow from state.md. Answers, if any, are in inbox/answers.md. $EXTRA"
-    OUT=$(claude -p "$MSG" --resume "$(cat "$SID_FILE")" --model "$MODEL" --permission-mode acceptEdits --output-format json)
+    OUT=$(claude -p "$MSG" --resume "$(cat "$SID_FILE")" "${ARGS[@]}")
   else
-    OUT=$(claude -p "/hw-design continue $P . $EXTRA" --model "$MODEL" --permission-mode acceptEdits --output-format json)
+    OUT=$(claude -p "/hw-design continue $P . $EXTRA" "${ARGS[@]}")
   fi
   echo "$OUT" >> "$LOG"
   # Subscription usage window exhausted: wait for the reset, then retry the same round.

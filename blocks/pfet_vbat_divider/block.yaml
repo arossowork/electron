@@ -1,0 +1,54 @@
+name: pfet_vbat_divider
+description: >-
+  Switched battery-voltage divider: a SOT-23 P-FET (active-low EN) feeds a 2:1 resistive divider (0603) with a filter
+  cap on the tap, so the divider draws nothing while the ADC is idle.
+source: >-
+  Hand layout for M3 / R15 / R16 / C15 of home-thermostat-3 (design.yaml: M3 CJ2305 1 VBAT_EN, 2 VBAT_P, 3 VDIV_TOP;
+  R15 20 k, R16 10 k, C15 1 nF; symbol Transistor_FET:AO3401A: 1 G, 2 S, 3 D). The round-8 copper is not extracted:
+  C15 sits 9 mm from the divider tap. No layout-critical rule beyond short, low-capacitance high-impedance nodes.
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+# VIN = battery side (VBAT_P), EN = active-low enable (VBAT_EN), OUT = divider tap to the ADC (VBAT_ADC); TOP (FET
+# drain to the divider) is internal.
+ports: [VIN, EN, OUT, GND]
+roles:
+  M: {ref: M3, symbol: Transistor_FET:AO3401A, footprint: Package_TO_SOT_SMD:SOT-23, value: CJ2305,
+      pins: {'1': EN, '2': VIN, '3': TOP}}
+  RTOP: {ref: R15, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, value: 20k, pins: {'1': TOP, '2': OUT}}
+  RBOT: {ref: R16, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, value: 10k, pins: {'1': OUT, '2': GND}}
+  CF: {ref: C15, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 1n, pins: {'1': OUT, '2': GND}}
+# Pads from `hwflow lib pads`: SOT-23 1 (-0.94, -0.95), 2 (-0.94, 0.95), 3 (0.94, 0), 1.475 x 0.6, courtyard
+# +-1.92 x +-1.7; R 0603 pads +-0.82 (0.8 x 0.95), courtyard +-1.48 x +-0.73; C 0402 pads +-0.48 (0.56 x 0.62),
+# courtyard +-0.91 x +-0.46. Rot 90 maps (x, y) to (y, -x), rot 270 to (-y, x).
+# M rot 90 at the origin: drain up (0, -0.94), gate (-0.95, 0.94), source (0.95, 0.94); courtyard x +-1.7, y +-1.92.
+# RTOP rot 0 at (0.82, -2.9): pad 1 (TOP) (0, -2.9) on the drain axis, pad 2 (OUT) (1.64, -2.9); courtyard y
+# -3.63..-2.17, 0.25 mm above M's -1.92. RBOT rot 0 at (3.98, -2.9): pad 1 (OUT) (3.16, -2.9), pad 2 (GND) (4.8, -2.9);
+# courtyard x 2.50..5.46, 0.2 mm right of RTOP's 2.30. CF rot 270 at (3.16, -1.2): pad 1 (OUT) (3.16, -1.68), pad 2
+# (GND) (3.16, -0.72); courtyard y -2.11..-0.29 (0.06 mm below RBOT's -2.17), x 2.70..3.62 (1.0 mm right of M's 1.7).
+placement:
+  M: {x: 0, y: 0, rot: 90, side: front}
+  RTOP: {x: 0.82, y: -2.9, rot: 0, side: front}
+  RBOT: {x: 3.98, y: -2.9, rot: 0, side: front}
+  CF: {x: 3.16, y: -1.2, rot: 270, side: front}
+copper:
+  tracks:
+  # TOP: drain straight up into RTOP pad 1
+  - {net: TOP, layer: F.Cu, w: 0.3, pts: [[0.0, -0.94], [0.0, -2.9]]}
+  # OUT: RTOP pad 2 to RBOT pad 1, down into CF pad 1; port up x = 2.4 to y = -4.2 (0.235 mm from both pads)
+  - {net: OUT, layer: F.Cu, w: 0.25, pts: [[1.64, -2.9], [2.4, -2.9], [3.16, -2.9], [3.16, -1.68]]}
+  - {net: OUT, layer: F.Cu, w: 0.25, pts: [[2.4, -2.9], [2.4, -4.2]]}
+  # GND: RBOT pad 2 down x = 4.8 to CF pad 2 and a via at (4.8, 0.2)
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[4.8, -2.9], [4.8, -0.72], [3.16, -0.72]]}
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[4.8, -0.72], [4.8, 0.2]]}
+  # VIN (source) and EN (gate) ports down to y = 2.4
+  - {net: VIN, layer: F.Cu, w: 0.4, pts: [[0.95, 0.94], [0.95, 2.4]]}
+  - {net: EN, layer: F.Cu, w: 0.25, pts: [[-0.95, 0.94], [-0.95, 2.4]]}
+  vias:
+  - {net: GND, x: 4.8, y: 0.2}
+# x from -1.75 (M courtyard) to 5.5 (RBOT courtyard 5.46); y from -4.4 (OUT port end -4.2 - 0.125) to 2.6 (port ends
+# 2.4 + 0.2)
+courtyard: [-1.75, -4.4, 5.5, 2.6]
+notes: >-
+  7.25 x 7.0 mm. The divider ratio and the FET value are the home-thermostat-3 ones; another design may bind other
+  values (check warns on a value difference). CF filters the tap at the divider; if the ADC pin is far away, a second
+  small cap at the pin is the designer's call.

@@ -1,0 +1,271 @@
+# Round 3 draft. Round 1 and 2 answers are in (source "PM round N, qM").
+# R19 waits for round 3 q1 (conflicts.md C10); its text is the recommended option, not a decision.
+# R23 (2-layer board) dropped: PM round 2, q1 chose a 4-layer board (R34).
+product: "Full-size ANSI 104-key hot-swap mechanical keyboard PCB with a built-in USB 3 hub (2x USB-A, 2x USB-C, fast charge from an optional 65 W USB-C PD input) and a studio-grade (120 dB) USB sound card (headphone out, mic in); all USB ports, audio jacks and a volume knob on the front edge"
+optimize_for: [{criterion: noise, weight: 3}, {criterion: cost, weight: 2}, {criterion: size, weight: 1}]
+requirements:
+  # ---------- Keyboard ----------
+  - id: R1
+    priority: must
+    text: "Mechanical-switch key matrix; every key is reported to the host as a USB HID keyboard"
+    acceptance: "schematic has one switch footprint per key of the layout in R2, each in a unique matrix row/column position with a diode; MCU has a USB full-speed device port"
+    verification: inspection
+    evidence: "schematic netlist key count vs layout table"
+    source: "brief"
+  - id: R2
+    priority: must
+    text: "US ANSI 104-key full-size layout, no backlight; board about 440 x 155 mm including the front connector strip"
+    acceptance: "104 switch footprints at the ANSI 104 positions (19.05 mm key pitch); no LED footprints; board outline <= 440 x 155 mm"
+    verification: layout
+    evidence: "hwflow layout outline and footprint count"
+    source: "PM round 1, q3 (full size); PM round 2, q3 (ANSI 104, no backlight)"
+  - id: R27
+    priority: must
+    text: "Hot-swap switch sockets: switches change without soldering"
+    acceptance: "every one of the 104 key positions uses an MX hot-swap socket footprint (Kailh CPG151101S11 or equal), SMD-soldered on the bottom side"
+    verification: inspection
+    evidence: "schematic/footprint list; socket datasheet"
+    source: "PM round 2, q3; PM round 4, q3 (the PM buys the sockets and ships them to the factory: consigned part, kept in the cost at ~$8-9 per board)"
+  - id: R28
+    priority: must
+    text: "Volume knob with mute press on the front strip"
+    acceptance: "rotary encoder with push switch inside the R24 strip, shaft upright (vertical, in-stock EC11-class part, knob on top of the strip) or facing the user (either is accepted); firmware maps rotation to HID consumer Volume Up/Down and press to Mute; encoder A/B/switch on MCU GPIOs"
+    verification: inspection
+    evidence: "schematic netlist, encoder datasheet, hwflow layout position"
+    source: "PM round 2, q3; PM round 4, q4 (both orientations valid, a preference only: the in-stock upright encoder is chosen)"
+
+  # ---------- USB hub ----------
+  - id: R3
+    priority: must
+    text: "USB hub with 4 user ports: 2 full-size USB-A and 2 USB-C"
+    acceptance: "2 USB-A and 2 USB-C receptacles, each wired to its own hub downstream port (D+/D- and both SuperSpeed pairs)"
+    verification: inspection
+    evidence: "schematic netlist"
+    source: "brief; PM round 1, q4 (USB 3)"
+  - id: R4
+    priority: must
+    text: "Keyboard, sound card and hub reach the computer through one upstream cable; the optional power input is the only other cable"
+    acceptance: "keyboard MCU and audio device sit on internal hub downstream ports; hub (single or cascade) has >= 6 downstream ports (4 user + 2 internal)"
+    verification: inspection
+    evidence: "schematic netlist, hub datasheet port count"
+    source: "brief; PM round 1, q1"
+  - id: R5
+    priority: must
+    text: "USB 3.2 Gen 1 (5 Gbit/s) on the 4 user ports"
+    acceptance: "hub datasheet rates 5 Gbit/s per downstream port; every SuperSpeed pair is 90 ohm +/-10% differential by the stack-up calculation; intra-pair length mismatch and trace length within the hub vendor layout guide; continuous L2 ground under every SuperSpeed pair over its whole length (no split, no crossing trace on the reference layer)"
+    verification: layout
+    evidence: "hub datasheet and layout guide; stack-up impedance calculation in notes/; hwflow layout length and reference-plane report"
+    source: "PM round 1, q4"
+  - id: R6
+    priority: must
+    text: "Over-current protection on every user port (USB specification requires downstream current limiting)"
+    acceptance: "each user port VBUS passes a current-limit switch or PD source path whose trip current is below 5 A and above the port's rated current in R7/R8/R19"
+    verification: datasheet
+    evidence: "power-switch / PD-source datasheet current-limit value"
+    source: "USB 2.0 specification 7.2.1.2.1"
+  - id: R14
+    priority: must
+    text: "All 4 USB user ports on the front edge, facing the user"
+    acceptance: "every USB receptacle face lies within 0.5 mm of the front board edge, opening toward the user"
+    verification: layout
+    evidence: "hwflow floorplan/layout connector positions"
+    source: "PM round 1, q3"
+  - id: R20
+    priority: must
+    text: "Upstream (computer) USB-C socket on the back edge, next to the power input"
+    acceptance: "upstream USB-C receptacle face within 0.5 mm of the back edge; no other connector between it and the R9 power socket; centre distance <= 25 mm"
+    verification: layout
+    evidence: "hwflow floorplan/layout connector positions"
+    source: "PM round 2, q3"
+
+  # ---------- Fast charge and power ----------
+  - id: R7
+    priority: must
+    text: "With the power input connected: USB PD fast charge up to 20 W on each USB-C user port (5 V/3 A, 9 V/2.22 A)"
+    acceptance: "each USB-C user port advertises and sources these PD contracts; VBUS within USB PD vSrcNew tolerance (+/-5%) at full rated current, both ports loaded at once"
+    verification: simulation
+    evidence: ""
+    source: "PM round 1, q1"
+  - id: R8
+    priority: must
+    text: "With the power input connected: 7.5 W charging on each USB-A user port (BC1.2, 5 V/1.5 A)"
+    acceptance: "each USB-A port supplies 1.5 A with VBUS >= 4.75 V at the connector, both ports loaded at once; BC1.2 CDP/DCP detection by hub or charge-port controller"
+    verification: simulation
+    evidence: ""
+    source: "PM round 1, q1"
+  - id: R9
+    priority: must
+    text: "Optional USB-C PD power input for a 65 W adapter, on the back edge"
+    acceptance: "PD sink requests a contract the 65 W adapter offers (20 V/3.25 A); input power at full rated load (R7 + R8 + internal loads incl. R29 full-scale audio, all at once) <= 65 W by the power budget (estimate 57.5 W / 0.92 = 62.5 W, conflicts.md C1); socket face within 0.5 mm of the back edge"
+    verification: analysis
+    evidence: "power budget in architecture.md from datasheet currents and efficiencies; hwflow layout connector position"
+    source: "PM round 1, q1"
+  - id: R19
+    priority: must
+    text: "Without the power input, everything except fast charging works from the computer cable: keyboard and full audio always powered, the 4 user ports share the rest of the host budget"
+    acceptance: "with the power input absent: port limits keep the host draw <= 900 mA nominal; the host fault limit (eFuse) trips near 1.0 A (typ ~1.0 A, max <= 1.1 A) and never below the 900 mA of legitimate load (TPS25940A, R_ILIM 88.7 k: 0.90 / 0.99 / 1.07 A min/typ/max, notes/parts-power.md); keyboard, hub and audio (R10, R29 at full scale) always run; user ports share 900 mA - internal loads, >= 75 mA per port with VBUS >= 4.45 V when all four are loaded (internal <= 600 mA), except the heavy case (4 SuperSpeed devices + mic recording + loud headphones, internal ~650 mA): >= 60 mA per port"
+    verification: analysis
+    evidence: "power budget in architecture.md from datasheet currents; current-limit datasheet"
+    source: "PM round 1, q1 (optional input, everything else works); PM round 3, q1 (keyboard + full audio always on, ports share the rest, >= 100 mA each; not USB-IF bus-powered compliant, no logo planned); PM round 4, q2 (floor lowered to >= 75 mA per port, conflicts.md C12); PM round 5, q1 (heavy case >= 60 mA per port, fault cut-off near 1.0 A, conflicts.md C14)"
+  - id: R21
+    priority: must
+    text: "Without the power input, extra host current is shared among the user ports when the host offers it (USB-C host advertising 1.5 A or 3 A)"
+    acceptance: "upstream CC detection reads the host Rp; total downstream limit set to (host current - internal loads <= 600 mA); with a 1.5 A host each user port gets >= 225 mA ((1500-600)/4; heavy case of R19 >= 210 mA, (1500-650)/4), with a 3 A host >= 500 mA ((3000-650)/4 = 587, USB 2.0 default level)"
+    verification: analysis
+    evidence: "power-path controller datasheet; power budget in architecture.md"
+    source: "PM round 4, q2 (>= 225 mA on a 1.5 A host); PM round 5, q1 (heavy-case relief applied to the 1.5 A host by the same arithmetic); PM round 3, q1 ('on a USB-C computer port that offers more power, every port gets the full amount'; full amount read as the 500 mA default port level, the most a 3 A host can give to 4 ports)"
+
+  # ---------- Audio: headphone output ----------
+  # Studio tier: 120 dB re 1 Vrms (full scale into 32 ohm) -> floor 1 V x 10^(-120/20) = 1.0 uVrms A-weighted.
+  - id: R10
+    priority: must
+    text: "Headphone output noise floor <= 1.0 uVrms A-weighted, 20 Hz - 20 kHz (SNR/DNR >= 120 dB A-weighted re 1 Vrms; = 126 dB re the 2 Vrms full scale into 300 ohm), intrinsic plus coupled (R22)"
+    acceptance: "SPICE noise analysis of the analog chain (DAC output noise from its datasheet as a source, I/V and reconstruction filter, headphone amplifier, LDO noise through the PSRR path), A-weighted and integrated 20 Hz - 20 kHz into 32 ohm and 300 ohm loads, at maximum volume with digital silence: total <= 1.0 uVrms"
+    acceptance_note: "intrinsic limit re-allocated from the C11 0.944 uV to sqrt(1.0^2 - coupled_sim_worst^2) = 0.9999 uVrms with the simulated coupled noise 1.553e-4 uVrms (R22 hp_coupled); total measured directly against 1.0 uV; post-layout coupled noise must stay <= 0.256 uV (40 C, 300 ohm)"
+    acceptance_note_source: "re-allocation, notes/noise-allocation.md"
+    verification: simulation
+    evidence: ""
+    source: "brief ('great quality'); PM round 1, q2 (simulate); PM round 2, q2 (studio, about 120 dB)"
+  - id: R29
+    priority: must
+    text: "Headphone output level at 0 dBFS, 1 kHz: >= 1.0 Vrms into 32 ohm (31 mW) and >= 2.0 Vrms into 300 ohm per channel, both channels driven (in bus-powered mode subject to round 3 q1)"
+    acceptance: "transient simulation of the amplifier stage on its designed rails into 32 ohm and 300 ohm: output reaches the level with >= 0.5 V headroom to each rail and no current-limit"
+    verification: simulation
+    evidence: ""
+    source: "engineering definition of the PM round 2, q2 studio tier (reference level of R10)"
+  - id: R30
+    priority: must
+    text: "Headphone output THD+N <= 0.0005% (-106 dB), A-weighted, 20 Hz - 20 kHz bandwidth, at 1 kHz, 1 Vrms into 32 ohm and 2 Vrms into 300 ohm"
+    acceptance: "RSS of the DAC THD+N and the headphone amplifier THD+N at the stated load and level, each from its datasheet curve, <= -106 dB (amplifier macromodels are not trustworthy below -100 dB, so not by SPICE)"
+    verification: datasheet
+    evidence: "DAC and headphone amplifier datasheet THD+N curves; sum in notes/audio-budget.md"
+    source: "engineering definition of the PM round 2, q2 studio tier"
+  - id: R31
+    priority: must
+    text: "Headphone frequency response 20 Hz - 20 kHz within +/-0.1 dB at 48 kHz and 96 kHz sample rates, into 32 ohm and 300 ohm"
+    acceptance: "AC simulation of the analog filter, output network and coupling into both loads: deviation <= +/-0.1 dB minus the DAC digital filter ripple from its datasheet"
+    verification: simulation
+    evidence: "DAC datasheet digital filter passband ripple (added to the simulated analog part)"
+    source: "engineering definition of the PM round 2, q2 studio tier"
+  - id: R32
+    priority: must
+    text: "Headphone output impedance <= 1 ohm, 20 Hz - 20 kHz (keeps multi-driver in-ear monitors within the R31 response)"
+    acceptance: "AC simulation with a 1 mA test current into the jack tip/ring: |Zout| <= 1 ohm over 20 Hz - 20 kHz, including series and protection parts"
+    verification: simulation
+    evidence: ""
+    source: "engineering definition of the PM round 2, q2 studio tier"
+
+  # ---------- Audio: microphone input ----------
+  - id: R11
+    priority: must
+    text: "Microphone input, 120 dB tier: dynamic range >= 120 dB A-weighted at minimum gain (full scale 1 Vrms, input-referred noise <= 1.0 uVrms A-weighted); equivalent input noise <= -120 dBV (1.0 uVrms) A-weighted at maximum gain (>= +40 dB, 10 mVrms full scale) with a 150 ohm source"
+    acceptance: "SPICE noise analysis of the mic front end (bias network, preamp, anti-alias filter) plus the ADC noise from its datasheet as an input-referred source, A-weighted 20 Hz - 20 kHz, at both gain settings"
+    acceptance_note: "minimum-gain intrinsic limit re-allocated from the C11 0.944 uV to sqrt(1.0^2 - coupled_sim_worst^2) = 0.9999 uVrms with the simulated coupled noise 1.194e-5 uVrms (R22 mic_coupled_min_gain)"
+    acceptance_note_source: "re-allocation, notes/noise-allocation.md"
+    verification: simulation
+    evidence: "ADC datasheet dynamic range"
+    source: "brief ('input'); PM round 2, q2 (studio, about 120 dB)"
+  - id: R33
+    priority: must
+    text: "Plug-in power for PC electret microphones on the 3.5 mm mic jack (no 48 V phantom; not used on 3.5 mm)"
+    acceptance: "bias 2.0-3.0 V through 2.2 kohm on the mic signal contact; bias supply noise included in the R11 simulation"
+    verification: simulation
+    evidence: ""
+    source: "engineering definition of the PM round 2, q2 (mic in jack)"
+
+  # ---------- Audio: system ----------
+  - id: R22
+    priority: must
+    text: "Hub, chargers, key scanning and USB traffic do not affect the audio: coupled noise raises the floor by <= 0.5 dB, i.e. <= 0.33 uVrms A-weighted at the headphone output (sqrt(10^0.05 - 1) x 0.944 uV; conflicts.md C11) and <= 0.33 uVrms input-referred at the mic input (minimum gain)"
+    acceptance: "with all 4 ports at full charge load (R7, R8), key matrix scanning and all converters running: simulated coupled noise from converter ripple and host VBUS noise (100 mV audio band) through the audio supply PSRR chain, plus ground drop from the post-layout extracted shared ground impedance x charge currents, RSS over all sources including discrete tones, <= 0.33 uVrms A-weighted; no charge return current path through the audio ground region in the layout"
+    verification: simulation
+    evidence: ""
+    source: "PM round 1, q2 ('EM should not affect audio'); PM round 2, q2 (extra isolation)"
+  - id: R12
+    priority: must
+    text: "Sound card is a standard USB audio device (works without a driver on Windows 10+, macOS, Linux), 24-bit at 44.1, 48, 88.2 and 96 kHz for playback and recording"
+    acceptance: "audio bridge datasheet states USB Audio Class 2 (or class 1 with 96 kHz/24-bit) compliance on USB 2.0 high speed and supports the listed rates and 24-bit for both directions; DAC and ADC datasheets support the same rates"
+    verification: datasheet
+    evidence: "audio bridge, DAC and ADC datasheets"
+    source: "brief ('sound card'); PM round 2, q2 (studio tier)"
+  - id: R13
+    priority: must
+    text: "Two 3.5 mm audio jacks (headphone out, mic in) on the front edge, facing the user"
+    acceptance: "both jack openings lie within 0.5 mm of the front board edge, pointing toward the user"
+    verification: layout
+    evidence: "hwflow floorplan/layout connector positions"
+    source: "brief; PM round 1, q3; PM round 2, q2"
+  - id: R35
+    priority: should
+    text: "Audio isolation layout rules for coupling paths hwflow does not simulate (magnetic, radiated); costs ~30 mm of front strip width"
+    acceptance: "audio analog parts and both jacks >= 30 mm from every switching inductor and switch node and from the nearest USB-C charge port; no key-matrix, USB or PD trace inside or within 5 mm of the audio region on any layer; audio ground region joined to system ground at one point; converters forced-PWM >= 400 kHz with shielded inductors"
+    verification: layout
+    evidence: "hwflow floorplan regions and layout distance report; converter datasheets (forced PWM, frequency)"
+    source: "derived from PM round 1, q2 and round 2, q2 (conflicts.md C11)"
+  - id: R36
+    priority: could
+    text: "Line-level input and output jacks (not planned; ~$3 and 24 mm of front edge)"
+    acceptance: "two extra 3.5 mm jacks, line out 2 Vrms, line in 2 Vrms full scale, same noise class as R10/R11"
+    verification: simulation
+    evidence: ""
+    source: "PM round 2, q2 (two jacks only); left as could"
+
+  # ---------- Board, mechanics, cost ----------
+  - id: R34
+    priority: must
+    text: "4-layer 1.6 mm board with solid ground planes"
+    acceptance: "stack-up has 4 copper layers, 1.6 mm (JLC7628 or equal); L2 is an unbroken ground plane under the SuperSpeed pairs and the audio region"
+    verification: layout
+    evidence: "hwflow board layers and plane report"
+    source: "PM round 2, q1"
+  - id: R24
+    priority: must
+    text: "Front connector strip fits the keyboard case: 4 USB + 2 jacks + knob in a strip in front of the bottom key row, not under the switch plate"
+    acceptance: "front strip depth <= 25 mm (so R2 holds); no front connector inside the plate outline; tallest front part <= 7.5 mm above the PCB top except the knob shaft"
+    verification: layout
+    evidence: "hwflow floorplan regions and connector datasheet heights"
+    source: "derived from PM round 1, q3 and round 2, q3 (conflicts.md C7)"
+  - id: R17
+    priority: must
+    text: "Electronics cost <= $125 per keyboard (PCB + parts + assembly + consigned hot-swap sockets, without switches and case) at 100 units"
+    acceptance: "hwflow BOM + JLCPCB PCB + standard PCBA + global-sourcing parts + consigned sockets, per board at 100 units <= $125.00 (expected $110-125, conflicts.md C13); cost at 10 units reported (~$150)"
+    verification: analysis
+    evidence: "hwflow BOM cost; JLCPCB quote"
+    source: "PM round 4, q1 (studio sound kept, limit raised from $80 to ~$125); PM round 1, q4 (10-100 units)"
+  - id: R25
+    priority: should
+    text: "Electronics cost toward the low end of the expected range: <= $110 per keyboard at 100 units"
+    acceptance: "hwflow cost per board at 100 units <= $110.00"
+    verification: analysis
+    evidence: "hwflow BOM cost"
+    source: "PM round 4, q1 (expected $110-125; replaces the round 1 $60 target)"
+  - id: R26
+    priority: must
+    text: "Board assembled at JLCPCB: 4-layer 440 x 155 mm needs standard PCBA"
+    acceptance: "outline within the JLCPCB standard PCBA limit (<= 500 x 400 mm); economic 4-layer (<= 350 x 320 mm) does not fit and is not used"
+    verification: analysis
+    evidence: "JLCPCB capabilities page"
+    source: "PM round 1, q4; PM round 2, q1"
+
+  # ---------- Protection, environment, certification ----------
+  - id: R15
+    priority: must
+    text: "ESD protection on every external connector: IEC 61000-4-2 +/-8 kV contact, +/-15 kV air"
+    acceptance: "each external signal and VBUS line (6 front connectors, 2 back sockets, encoder if metal shaft is not grounded) has a TVS rated IEC 61000-4-2 +/-8 kV contact and +/-15 kV air; SuperSpeed TVS capacitance <= 0.3 pF; audio TVS leakage and capacitance included in R10/R11/R32 simulations"
+    verification: datasheet
+    evidence: "TVS datasheets"
+    source: "PM round 2, q4"
+  - id: R16
+    priority: must
+    text: "Operating temperature 0 to 40 C (office desk)"
+    acceptance: "all parts rated for 0-40 C; converter and PD-source junction temperatures within rating at 40 C ambient and full charge load (R7 + R8)"
+    verification: analysis
+    evidence: "thermal estimate in notes/ from datasheet theta-JA and losses"
+    source: "PM round 2, q4"
+  - id: R18
+    priority: must
+    text: "Designed to FCC Part 15B / CE EMC class B; no lab test, no USB-IF logo"
+    acceptance: "hw-reviewer class B checklist passes: ESD (R15), every cable-port line filtered or referenced at the connector, no high-speed trace without a continuous L2 reference (R5, R34), converter hot loops minimal, shield/ground stitching along the front and back edges"
+    verification: analysis
+    evidence: "hw-reviewer EMC checklist"
+    source: "PM round 2, q4"

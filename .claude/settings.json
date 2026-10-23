@@ -1,4 +1,5 @@
 {
+  "autoCompactWindow": 400000,
   "permissions": {
     "allow": [
       "Bash(uv run hwflow:*)",
@@ -19,6 +20,7 @@
       "Bash(python3 -c:*)",
       "Bash(uv run python -c:*)",
       "Read(//Users/**/Applications/KiCad/**)",
+      "Read(//usr/share/kicad/**)",
       "Edit(evals/runs/**)",
       "Write(evals/runs/**)",
       "Bash(mkdir -p evals/runs/:*)"

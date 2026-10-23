@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Pre-commit guardrail: the fast test tier (tests marked slow are skipped; the full suite runs before a merge).
+# Enable in one worktree: cp scripts/pre-commit "$(git rev-parse --git-path hooks)/pre-commit"
+# (the hooks folder is shared by every worktree of this repository).
+set -e
+cd "$(git rev-parse --show-toplevel)"
+git diff --cached --name-only | grep -qE '^(src|tests)/' || exit 0
+uv run pytest -q -x -m "not slow"

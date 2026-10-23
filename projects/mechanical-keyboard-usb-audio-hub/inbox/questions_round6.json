@@ -1,0 +1,15 @@
+{
+  "round": 6,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "As agreed in round 5, we looked for a USB sound chip available now. No ready-made chip meets the studio spec (high-resolution playback and recording, no driver needed on Windows/macOS/Linux). The only available route is a general-purpose chip (STM32) running sound software that we write ourselves. Which do you prefer?",
+      "options": [
+        "Recommended: order the original XU316 now and keep it. It arrives around 7 January 2027, and the board design, review and prototype order take several weeks anyway, so the wait mostly overlaps work that has to happen regardless. Ready-made, proven studio USB-audio software from the chip maker. Same sound quality, no extra cost.",
+        "Use the available STM32 chip with our own USB-audio software: no parts wait, same sound quality up to 192 kHz, about $1.40 more per board and about 35 mA less power. But the sound software is new work (roughly 4-8 weeks for an experienced firmware engineer, with risk on recording and clock sync), and the chip is hand-supplied to the factory.",
+        "Use the keyboard's own chip type (RP2040) as a simpler USB sound bridge: about $9 cheaper, simpler software (still some weeks), but limited to 24-bit/96 kHz (beyond audible, but not the 'high resolution 192 kHz' some studio users expect)."
+      ],
+      "why": "Round 5 q2 asked for an available chip with the same quality and said to come back if none qualifies. The only available one needs new firmware, which costs time and risk (conflicts.md C15)."
+    }
+  ]
+}

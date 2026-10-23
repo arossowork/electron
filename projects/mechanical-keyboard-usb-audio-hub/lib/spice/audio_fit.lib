@@ -1,0 +1,161 @@
+* audio_fit.lib: datasheet-fit behavioural models for the AUDIO group (spice.source: fit), pass C 2026-10-23.
+* Why fits: the TI vendor PSpice models (SBOM396 OPA161x, SBOM958 OPA1622) were unpacked and translated for ngspice
+* (lib/spice/opa161x_ti.lib, opa1622_ti.lib: VSWITCH->SW, IF()->?:, TEMP->temper, R_NOISELESS->noisy=0), but their
+* transient run did not converge in ngspice-42 (timestep too small in the ESD/OL switches, 900 s timeout): unused.
+* Tags: [V] TI product page (2026-10-22), [M] recalled datasheet figure, not re-read, [E] estimate.
+* Node 0 is the audio ground (AGND and GND are both ground nets in hwflow, node 0).
+
+* min/max/clamps are smooth (0.5(a+b +- sqrt((a-b)^2+e))): kinks stalled the board transients (timestep too small)
+
+* ---------------------------------------------------------------- one op-amp section
+* ports: inp inn vpos vneg out en   (en: 1 = on; tie to vpos through kon for parts without EN)
+* RN: input series resistor, its thermal noise is the input voltage noise en = sqrt(4kT RN)
+* AOL, GBW: single-pole open loop. VS0: output swing limit to each rail at no load. ROUT: output resistance
+* outside the loop (sets the swing loss at current, ROUT x Iout, and the open-loop Zout).
+* ILP / ILN: datasheet source / sink current limit [A], NOT enforced (Newton convergence): R29 measures the peak current against it. K0, FZ: supply rejection, input-referred error
+* K0 x (1 + f/FZ) x (V+ - V-), i.e. PSRR = -20log(K0) dB below FZ, falling 20 dB/dec above.
+* IQ: quiescent current per section, drawn from vpos to vneg (times en).  Output current is drawn from the rails.
+.subckt OPA_SEC inp inn vpos vneg out kon params: RN=73.7 AOL=3.16e6 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03
++ K0=1e-6 FZ=1e3 IQ=3.6m
+Rn inp ip {RN}
+Rcm ip 0 1e12 noisy=0
+Rcm2 inn 0 1e12 noisy=0
+* supply-rejection path (lead network, noiseless G resistors)
+Bps a1 0 V = v(vpos)-v(vneg)
+G1 a1 a2 a1 a2 {K0}
+C1 a1 a2 {K0/(6.2832*FZ)}
+G2 a2 0 a2 0 1
+* transconductance stage into the dominant pole (1 mS into AOL/1m || 1m/(2 pi GBW)), swing clamped by sharp diodes
+* (exponential: Newton keeps a slope, unlike min/max) to VS0 inside each rail
+Bgm 0 p I = 1m*(v(ip)-v(inn)+v(a2)-{K0}*9)
+Gp p 0 p 0 {1m/AOL}
+Cp p 0 {1m/(6.2832*GBW)}
+* clamp diodes N = 1 (N = 0.1 stalled the board transient, timestep too small); the knee sits 0.55 V inside hi/lo
+* (1e-15 x exp(0.55/0.0257) = 2 nA at the knee, 1 mA at +0.35 V), so the swing limit stays VS0 from each rail
+* unpowered or collapsing rails (ADC_4V5 off, start-up): hi and lo stop at the rail midpoint instead of crossing (crossed
+* clamps conduct in series, kA in the model)
+Bhi hi 0 V = 0.5*((v(vpos)-{VS0}-0.55)+(0.5*(v(vpos)+v(vneg))+0.01)+sqrt(((v(vpos)-{VS0}-0.55)-(0.5*(v(vpos)+v(vneg))+0.01))*((v(vpos)-{VS0}-0.55)-(0.5*(v(vpos)+v(vneg))+0.01))+1e-4))
+Blo lo 0 V = 0.5*((v(vneg)+{VS0}+0.55)+(0.5*(v(vpos)+v(vneg))-0.01)-sqrt(((v(vneg)+{VS0}+0.55)-(0.5*(v(vpos)+v(vneg))-0.01))*((v(vneg)+{VS0}+0.55)-(0.5*(v(vpos)+v(vneg))-0.01))+1e-4))
+Dhi p hi DCLAMPA
+Dlo lo p DCLAMPA
+* XTI=0, EG small: no temperature drift of the behavioural clamp (the default law made its leakage noise dominate at 40 C)
+.model DCLAMPA D(IS=1e-15 N=1 XTI=0 EG=0.01 TNOM=25)
+Bi ni 0 V = v(kon)*(v(p)-v(out))/{ROUT}
+Bout 0 out I = v(ni)
+* the rails supply the output current (smooth split, sqrt rounding 10 uA)
+Bsrc vpos 0 I = 0.5*(v(ni)+sqrt(v(ni)*v(ni)+1e-10))
+Bsnk 0 vneg I = 0.5*(sqrt(v(ni)*v(ni)+1e-10)-v(ni))
+* Iq falls to 0 below 2 V of supply (an unpowered part draws nothing; a constant Iq drove the switched-off ADC_4V5 to -33 V)
+Bq vpos vneg I = {IQ}*v(kon)*0.5*((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))+(1)-sqrt(((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))-(1))*((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))-(1))+1e-4))
+Rleak out 0 1e9 noisy=0
+.ends OPA_SEC
+
+* ---------------------------------------------------------------- OPA1612 dual (SOIC-8)
+* pins in port order: 3 (+A) 2 (-A) 1 (outA) 5 (+B) 6 (-B) 7 (outB) 8 (V+) 4 (V-)
+* en 1.1 nV/rtHz [V] (RN 73.7 ohm at 300 K), GBW 40 MHz [V], AOL 130 dB [M], swing 0.6 V from the rails at 2 k [V],
+* ROUT 10 ohm [E], Iout +-30 mA [V], Iq 3.6 mA/ch [V], PSRR 120 dB to 1 kHz falling 20 dB/dec [M].
+* Not modelled: 1/f noise (corner ~ 100 Hz class [M], A-weighting suppresses it), current noise 1.7 pA/rtHz [M], slew 27 V/us.
+.subckt OPA1612_DUAL_FIT inpa inna outa inpb innb outb vpos vneg
+Vkon kon 0 DC 1
+XA inpa inna vpos vneg outa kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m
+XB inpb innb vpos vneg outb kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m
+.ends OPA1612_DUAL_FIT
+
+* ---------------------------------------------------------------- OPA1622 dual (VSON-10) with EN
+* pins in port order: 1 (+A) 10 (-A) 9 (outA) 5 (+B) 6 (-B) 7 (outB) 2 (V+) 4 (V-) 8 (EN) 3 (GND)
+* en 2.8 nV/rtHz [V] (RN 478 ohm), GBW 32 MHz [V], Iout +145 / -130 mA [V], Iq 2.6 mA/ch [V], shutdown < 5 uA [V];
+* swing VS0 0.3 V + 5 ohm x Iout (0.75 V at 90 mA) [M]; PSRR 110 dB to 1 kHz falling 20 dB/dec [M];
+* EN on above GND + 1.0 V (0.8-1.2 V ramp) [M].
+.subckt OPA1622_DUAL_FIT inpa inna outa inpb innb outb vpos vneg en gnd
+Bkon kon 0 V = 0.5*((0.5*(((v(en)-v(gnd)-0.8)/0.4)+(0)+sqrt((((v(en)-v(gnd)-0.8)/0.4)-(0))*(((v(en)-v(gnd)-0.8)/0.4)-(0))+1e-4)))+(1)-sqrt(((0.5*(((v(en)-v(gnd)-0.8)/0.4)+(0)+sqrt((((v(en)-v(gnd)-0.8)/0.4)-(0))*(((v(en)-v(gnd)-0.8)/0.4)-(0))+1e-4)))-(1))*((0.5*(((v(en)-v(gnd)-0.8)/0.4)+(0)+sqrt((((v(en)-v(gnd)-0.8)/0.4)-(0))*(((v(en)-v(gnd)-0.8)/0.4)-(0))+1e-4)))-(1))+1e-4))
+XA inpa inna vpos vneg outa kon OPA_SEC params: RN=478 GBW=32e6 VS0=0.3 ROUT=5 ILP=0.145 ILN=0.130 K0=3.16e-6 FZ=1e3 IQ=2.6m
+XB inpb innb vpos vneg outb kon OPA_SEC params: RN=478 GBW=32e6 VS0=0.3 ROUT=5 ILP=0.145 ILN=0.130 K0=3.16e-6 FZ=1e3 IQ=2.6m
+.ends OPA1622_DUAL_FIT
+
+* ---------------------------------------------------------------- LT3045 positive LDO, SET-pin reference
+* ports: in out gnd set en.  OUT follows V(SET) (ISET 100 uA into RSET, CSET filters); unity buffer noise
+* 2 nV/rtHz (RN 241 ohm) [M: LT3045 front page "2 nV/rtHz at 10 kHz, 0.8 uVrms 10 Hz-100 kHz"];
+* PSRR K0 110 dB, zero FZ 30 kHz (-> 76 dB at 1 MHz) [M: front page "76 dB at 1 MHz"]; dropout 0.26 V [M];
+* limit 0.5 A [M]; IQ 2.2 mA [M]; EN/UV on above 1.24 V [M], off: no output, IQ 1 uA.
+.subckt LT3045_FIT in out gnd set en params: ISET=100u RN=241 K0=3.16e-6 FZ=30k VDROP=0.26 ILIM=0.5 IQ=2.2m ROUT=0.1
+* ROUT 0.1 ohm [E] (20 mohm stalled the board transient; the load steps here are mA, 0.1 mV)
+* output: transconductance 1/ROUT toward o1 (linear, the input supplies it); current limit ILIM not enforced
+Bkon kon gnd V = 0.5*((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))+(1)-sqrt(((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))*((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))+1e-4))
+Bset in set I = {ISET}*v(kon,gnd)
+Rn set sn {RN}
+Rsn sn gnd 1e12 noisy=0
+Bps a1 gnd V = v(in,gnd)
+G1 a1 a2 a1 a2 {K0}
+C1 a1 a2 {K0/(6.2832*FZ)}
+G2 a2 gnd a2 gnd 1
+Bo o1 gnd V = 0.5*((0.5*((v(sn,gnd)+v(a2,gnd)-{K0}*5)+(v(in,gnd)-{VDROP})-sqrt(((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))*((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))+1e-6)))+(0)+sqrt(((0.5*((v(sn,gnd)+v(a2,gnd)-{K0}*5)+(v(in,gnd)-{VDROP})-sqrt(((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))*((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))+1e-6)))-(0))*((0.5*((v(sn,gnd)+v(a2,gnd)-{K0}*5)+(v(in,gnd)-{VDROP})-sqrt(((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))*((v(sn,gnd)+v(a2,gnd)-{K0}*5)-(v(in,gnd)-{VDROP}))+1e-6)))-(0))+1e-6))
+Bx x gnd V = v(kon,gnd)*(v(o1,gnd)-v(out,gnd))/{ROUT}
+Bout gnd out I = v(x,gnd)
+Bdraw in gnd I = v(x,gnd)
+Bq in gnd I = {IQ}*v(kon,gnd) + 1u
+Rmin out gnd 100k noisy=0
+.ends LT3045_FIT
+
+* ---------------------------------------------------------------- LT3094 negative LDO, SET-pin reference
+* ports: in out gnd set en (in, out negative). SET current 100 uA out of the SET node toward IN, so
+* V(SET) = -ISET x RSET; same noise/PSRR class as LT3045 [M: front page "0.8 uVrms, 74 dB at 1 MHz"]; dropout 0.235 V [M];
+* limit 0.5 A [M]; IQ 2.3 mA [M]. EN/UV tied to IN in this design: enabled when |V(en)| > 1.24 V.
+.subckt LT3094_FIT in out gnd set en params: ISET=100u RN=241 K0=3.16e-6 FZ=30k VDROP=0.235 ILIM=0.5 IQ=2.3m ROUT=0.1
+Bkon kon gnd V = 0.5*((0.5*(((-v(en,gnd)-1.1)/0.3)+(0)+sqrt((((-v(en,gnd)-1.1)/0.3)-(0))*(((-v(en,gnd)-1.1)/0.3)-(0))+1e-4)))+(1)-sqrt(((0.5*(((-v(en,gnd)-1.1)/0.3)+(0)+sqrt((((-v(en,gnd)-1.1)/0.3)-(0))*(((-v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))*((0.5*(((-v(en,gnd)-1.1)/0.3)+(0)+sqrt((((-v(en,gnd)-1.1)/0.3)-(0))*(((-v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))+1e-4))
+Bset set in I = {ISET}*v(kon,gnd)
+Rn set sn {RN}
+Rsn sn gnd 1e12 noisy=0
+Bps a1 gnd V = v(in,gnd)
+G1 a1 a2 a1 a2 {K0}
+C1 a1 a2 {K0/(6.2832*FZ)}
+G2 a2 gnd a2 gnd 1
+Bo o1 gnd V = 0.5*((0.5*((v(sn,gnd)+v(a2,gnd)+{K0}*5)+(v(in,gnd)+{VDROP})+sqrt(((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))*((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))+1e-6)))+(0)-sqrt(((0.5*((v(sn,gnd)+v(a2,gnd)+{K0}*5)+(v(in,gnd)+{VDROP})+sqrt(((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))*((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))+1e-6)))-(0))*((0.5*((v(sn,gnd)+v(a2,gnd)+{K0}*5)+(v(in,gnd)+{VDROP})+sqrt(((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))*((v(sn,gnd)+v(a2,gnd)+{K0}*5)-(v(in,gnd)+{VDROP}))+1e-6)))-(0))+1e-6))
+Bx x gnd V = v(kon,gnd)*(v(o1,gnd)-v(out,gnd))/{ROUT}
+Bout gnd out I = v(x,gnd)
+Bdraw gnd in I = -v(x,gnd)
+Bq gnd in I = {IQ}*v(kon,gnd) + 1u
+Rmin out gnd 100k noisy=0
+.ends LT3094_FIT
+
+* ---------------------------------------------------------------- ADP7118 adjustable LDO
+* ports: in out gnd adj en.  Loop holds V(ADJ) = 1.2 V [M]; output noise ~11 uVrms 10 Hz-100 kHz (35 nV/rtHz at the
+* 4.5 V output, put at the reference: 9.3 nV/rtHz -> RN 5.3 k) [M]; PSRR 95 dB with a zero at 5 kHz (88 dB at 10 kHz,
+* 69 dB at 100 kHz) [M], applied at the reference scaled by 1.2/4.5; dropout 0.2 V; limit 0.36 A [M] (rating 200 mA);
+* IQ 0.4 mA [M]; EN on above 1.2 V. Error amplifier: transconductance GM 100 A/V (no integrator: DC convergence).
+.subckt ADP7118_FIT in out gnd adj en params: VREF=1.2 RN=5.3k K0=4.7e-6 FZ=5k VDROP=0.2 ILIM=0.36 IQ=0.4m GM=20
+* error transconductance GM (A/V) into the output node: loop crossover GM x beta / (2 pi Cout) ~ 85 kHz with 10 uF (GM 100 stalled the board transient)
+Bkon kon gnd V = 0.5*((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))+(1)-sqrt(((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))*((0.5*(((v(en,gnd)-1.1)/0.3)+(0)+sqrt((((v(en,gnd)-1.1)/0.3)-(0))*(((v(en,gnd)-1.1)/0.3)-(0))+1e-4)))-(1))+1e-4))
+Vr r0 gnd DC {VREF}
+Rn r0 r1 {RN}
+Rr1 r1 gnd 1e12 noisy=0
+Bps a1 gnd V = v(in,gnd)
+G1 a1 a2 a1 a2 {K0}
+C1 a1 a2 {K0/(6.2832*FZ)}
+G2 a2 gnd a2 gnd 1
+* dropout and current limit not enforced (Newton convergence); R29 checks the rail and the 200 mA rating
+Bpass in out I = v(kon,gnd)*{GM}*(v(r1,gnd)+v(a2,gnd)-{K0}*5.5-v(adj,gnd))
+Bq in gnd I = {IQ}*v(kon,gnd) + 1u
+Rmin out gnd 100k noisy=0
+.ends ADP7118_FIT
+
+* ---------------------------------------------------------------- supply pre-filter ferrite with coupled-noise injection
+* ports: a b. BLM18PG121SN1D: DCR 0.05 ohm, ~1 uH at audio frequencies [M]. In series: E sources from the global
+* testbench nodes vbn (host VBUS / converter noise on the supply, R22) and gdn (shared-ground drop, R22). Both are
+* 0 V unless the testbench turns them on, so the bead is an ordinary L + R otherwise.
+* Rp 120 ohm across L1: the bead's resistive impedance (120 ohm at 100 MHz, the part's rating [M]); without it the
+* 1 uH + 10 uF LDO input cap is a Q ~ 30 resonator that stalled the bus_3a start-up (timestep too small at xfb952.x1).
+* Rp leaves the audio band unchanged (|j w L| = 0.13 ohm at 20 kHz << 120 ohm).
+.subckt FB_INJ a b
+E1 a x1 vbn 0 1
+E2 x1 x2 gdn 0 1
+L1 x2 x3 1u
+Rp1 x2 x3 120
+R1 x3 b 0.05
+.ends FB_INJ
+
+* ---------------------------------------------------------------- TPD1E10B06 ESD diode at an audio contact
+* ports: io gnd. 12 pF, leakage <= 100 nA at 5.5 V (55 Mohm) [M]; clamping not modelled (signals stay within +-5 V).
+.subckt TVS_FIT io gnd
+C1 io gnd 12p
+R1 io gnd 55meg
+.ends TVS_FIT

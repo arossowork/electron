@@ -78,6 +78,7 @@ class Design:
     path: Path
     raw: dict
     components: dict[str, Component] = field(default_factory=dict)
+    budget_widths: dict[str, float] = field(default_factory=dict)  # net -> mm from budgets: on the current placement
 
     @classmethod
     def load(cls, path: str | Path) -> "Design":
@@ -90,6 +91,9 @@ class Design:
         d = cls(path=path, raw=raw)
         for ref, c in (raw.get("components") or {}).items():
             d.components[ref] = Component(ref, c or {})
+        if raw.get("blocks"):
+            from . import blocks
+            blocks.expand(d)  # instantiate mode: components a block adds
         return d
 
     def save(self):
@@ -97,7 +101,7 @@ class Design:
         import io
 
         from ruamel.yaml import YAML
-        self.raw["components"] = {r: c.data for r, c in self.components.items()}
+        self.raw["components"] = {r: c.data for r, c in self.components.items() if not c.get("from_block")}
         rt = YAML()
         rt.preserve_quotes = True
         rt.width = 120
@@ -184,6 +188,48 @@ def _natkey(s: str):
 
 # ---------------------------------------------------------------- static checks
 
+# datasheet package names that KiCad footprints spell differently (normalized: upper case, alphanumerics only)
+PACKAGE_ALIASES = [
+    ["SOD882", "DFN10062", "DFN1006"], ["SOD523", "SC79"], ["SOD323", "SC76"], ["SOT323", "SC70"],
+    ["SOT363", "SC706", "SC88"], ["SOT236", "TSOT236"], ["SOT235", "TSOT235"], ["TO252", "DPAK"],
+    ["TO263", "D2PAK"], ["SMA", "DSMA", "DO214AC"], ["SMB", "DSMB", "DO214AA"], ["SMC", "DSMC", "DO214AB"],
+    ["MSOP", "VSSOP"], ["SOT23", "SOT233", "TO236"],
+]
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(s).upper())
+
+
+def package_findings(c: Component, fp: dict) -> list[tuple[str, str]]:
+    """Compare the datasheet package (`package`, `package_pads`, `package_pitch_mm`) with the footprint (backlog 56)."""
+    out = []
+    pkg = c.get("package")
+    name = str(c.get("footprint", "")).split(":")[-1]
+    pads = [p for p in fp["pads"] if p.get("number")]
+    numbers = {p["number"] for p in pads}
+    if pkg:
+        key = _norm(pkg)
+        names = {key}.union(*[g for g in PACKAGE_ALIASES if key in g])
+        if not any(n in _norm(name) for n in names):
+            out.append(("warn", f"{c.ref}: datasheet package {pkg} but footprint {name} does not name it "
+                                f"(check the land pattern against the datasheet)"))
+    if c.get("package_pads") is not None and int(c.get("package_pads")) != len(numbers):
+        out.append(("error", f"{c.ref}: package has {c.get('package_pads')} pads, footprint {name} has {len(numbers)}"))
+    if c.get("package_pitch_mm") is not None and len(pads) >= 2:
+        best = {}
+        for p in pads:  # pitch = smallest centre distance between pads of different numbers
+            for q in pads:
+                if p["number"] != q["number"]:
+                    dd = math.hypot(p["x"] - q["x"], p["y"] - q["y"])
+                    best[p["number"]] = min(best.get(p["number"], dd), dd)
+        pitch = min(best.values()) if best else None
+        want = float(c.get("package_pitch_mm"))
+        if pitch is not None and abs(pitch - want) > max(0.05, 0.1 * want):
+            out.append(("error", f"{c.ref}: package pitch {want} mm, footprint {name} pitch {pitch:.2f} mm"))
+    return out
+
+
 def check(design: Design, libs=None) -> list[dict]:
     """Return findings: {sev: error|warn|info, code, msg}."""
     f: list[dict] = []
@@ -206,8 +252,14 @@ def check(design: Design, libs=None) -> list[dict]:
                 parse_value(c.get("value"))
             except ValueError:
                 add("error", "bad-value", f"{c.ref} value {c.get('value')!r} is not numeric")
+        if c.get("role") not in (None, "temp_sensor", "antenna", "none"):
+            add("error", "bad-role", f"{c.ref} role {c.get('role')!r} is not temp_sensor, antenna or none")
         if not c.pins:
             add("error", "no-pins", f"{c.ref} has no pin-to-net map")
+        from .spice import element_mismatch
+        msg = element_mismatch(design, c)
+        if msg:
+            add("error", "spice-element", msg)
 
     # library-backed checks: pins exist, every symbol pin is mapped, pads match
     if libs is not None:
@@ -236,6 +288,8 @@ def check(design: Design, libs=None) -> list[dict]:
                         add("error", "unmapped-pin", f"{c.ref} pin {num} ({p['name']}, {p['type']}) is not "
                                                      f"connected and not listed in nc")
                 if fp:
+                    for sev, msg in package_findings(c, fp):
+                        add(sev, "package-mismatch", msg)
                     pads = {p["number"] for p in fp["pads"] if p["number"]}
                     missing = [n for n in spins if n not in pads]
                     if missing:
@@ -259,6 +313,80 @@ def check(design: Design, libs=None) -> list[dict]:
                     and not design.net_info(net).get("external_supply"):
                 add("warn", "no-power-source", f"net {net} feeds power_in pins but no power_out pin drives it "
                                                f"(set nets.{net}.external_supply: true if it comes from a connector)")
+    from .floorplan import cut_pad_findings, cuts, validate
+    for msg in validate(design):
+        add("error", "floorplan", msg)
+    from . import pcb
+    if libs is not None and cuts(design):  # pads of fixed parts within the copper-to-edge clearance of a cut
+        from . import placer
+        try:
+            parts = placer.build_parts(design, libs)
+        except Exception:  # noqa: BLE001 - a missing footprint is reported above
+            parts = {}
+        edge = max(float(design.board["clearance_mm"]), pcb.EDGE_CLEARANCE_MM)
+        for msg in cut_pad_findings(design, parts, edge):
+            add("warn", "cut-pad", msg)
+    # board.isolation between_mm: a positive distance; pads of fixed parts of two member nets closer than it
+    between = False
+    for i, g in enumerate(design.board.get("isolation") or []):
+        v = g.get("between_mm") if isinstance(g, dict) else None
+        if v is None:
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            add("error", "isolation", f"board.isolation[{i}].between_mm must be a positive number (mm)")
+        else:
+            between = True
+    if libs is not None and between:
+        from . import placer
+        try:
+            parts = placer.build_parts(design, libs)
+            pl = placer.Placer(design, parts, float(design.board["width_mm"]), float(design.board["height_mm"]))
+            for msg in pl.fixed_violations():
+                if "between_mm" in msg:
+                    add("warn", "isolation", f"fixed parts: {msg}")
+        except Exception:  # noqa: BLE001 - a missing footprint is reported above
+            pass
+    # nets.<name>.layers: known copper layers, and an SMD pad of the net on one of them
+    import fnmatch
+    copper = pcb.cu_layers(int(design.board["layers"]))
+    allowed = pcb.net_layers(design)
+    for net, lays in allowed.items():
+        pats = design.net_info(net).get("layers")
+        pats = [pats] if isinstance(pats, str) else pats
+        if not isinstance(pats, (list, tuple)) or not pats:
+            add("error", "net-layers", f"nets.{net}.layers must be a list of copper layer names")
+            continue
+        for p in pats:
+            if not any(fnmatch.fnmatchcase(L, str(p)) for L in copper):
+                add("error", "net-layers", f"nets.{net}.layers: {p} is not a copper layer of this "
+                                           f"{design.board['layers']}-layer board ({', '.join(copper)})")
+        if libs is None or not lays:
+            continue
+        from .routing import pad_layers
+        for ref, pin in nets.get(net, []):
+            c = design.components[ref]
+            if c.get("virtual"):
+                continue
+            try:
+                pads = [p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pin]
+            except Exception:  # noqa: BLE001 - reported as footprint-missing
+                continue
+            for p in pads:
+                cu = pad_layers(p["layers"], copper)
+                if p["kind"] == "smd" and cu and not set(cu) & set(lays):
+                    add("error", "net-layers", f"{ref}.{pin} ({net}) is an SMD pad on {', '.join(cu)} only, not on "
+                                               f"the net's layers {', '.join(lays)}")
+                    break
+    if libs is not None and allowed:  # a disallow rule area that nets.<name>.layers overrides for a net
+        for e in pcb.net_layer_exemptions(design, libs)[1]:
+            add("warn", "net-layers", f"board.drc_rules rule {e['rule']} keeps {e['net']} out of rule area {e['area']}, "
+                                      f"but nets.{e['net']}.layers allows {', '.join(e['layers'])} there: the net's "
+                                      f"layers win (the rule does not apply to {e['net']})")
+    from .budgets import check as budget_check
+    f += budget_check(design)
+    if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)
+        from .feasibility import check as feasibility_check
+        f += feasibility_check(design, libs)
     # decoupling heuristic: each IC supply net has a cap to ground
     gnds = design.ground_nets()
     caps_on = {}
@@ -273,4 +401,7 @@ def check(design: Design, libs=None) -> list[dict]:
             for net in set(c.pins.values()) - gnds:
                 if design.net_info(net).get("class") == "power" and net not in caps_on:
                     add("warn", "no-decoupling", f"{c.ref} on power net {net} has no capacitor to ground")
+    if design.raw.get("blocks"):
+        from . import blocks
+        f += blocks.findings(design, libs)
     return f

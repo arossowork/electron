@@ -1,0 +1,49 @@
+{
+  "round": 2,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "You asked for USB 3 and, if possible, a 2-layer board. On a 2-layer board the USB 3 wires have to be about 1.2 mm wide and need unbroken ground copper underneath, but the key wiring cuts that copper all over a full-size keyboard; the same broken ground also lets the chargers' currents into the audio. How should the board be built?",
+      "options": [
+        "Recommended: a 4-layer board. USB 3 and hi-fi audio both get solid ground layers, one board, lowest risk. About $4-5 more per keyboard at 100 units (about $15-20 more at 10 units); estimated total $50-60, inside your $80 limit.",
+        "A 2-layer keyboard board plus a small 4-layer board (about 200 x 35 mm) along the front that carries the hub, chargers, sound card and all front sockets, joined by a short internal cable. About $3-6 more per keyboard, two boards to assemble.",
+        "A 2-layer board with USB 3 squeezed through a key-free channel, and the 'gaming' audio quality (about 90-95 dB). Cheapest with USB 3, but whether USB 3 runs reliably and the audio is quiet is known only after the board layout.",
+        "A 2-layer board with USB 2.0 only (480 Mbit/s, a 1 GB file in about 30 s instead of 3-4 s). Saves about $6 per keyboard; external SSDs run slowly."
+      ],
+      "why": "Your 2-layer wish and USB 3 cannot both be met safely on a 440 mm board (conflicts.md C5). This sets the layer count, the board cost and how much audio noise isolation is possible."
+    },
+    {
+      "id": "q2",
+      "text": "How good should the sound card be? (Hi-fi and studio quality need the 4-layer or the small-front-board option from q1. Audio quality will be checked by simulation, including the noise from the chargers and the key scanning.)",
+      "options": [
+        "Recommended: hi-fi. Headphone output and microphone input as two 3.5 mm jacks; silent background even on sensitive in-ear monitors (about 110 dB signal-to-noise), 24-bit/96 kHz. About $8-12 in parts.",
+        "Gaming headset quality (about 90-95 dB, quiet on most headphones, faint hiss on sensitive in-ears), same two jacks. About $2-3 in parts; works on any board option.",
+        "Hi-fi as in the first option, plus a 4-pole headset jack for phone-style headsets with one plug. About $1 more and 12 mm more of front edge.",
+        "Studio/audiophile (about 120 dB, extra isolation from the USB and chargers). About $20-30 in parts and more board space."
+      ],
+      "why": "Sets the audio chips, the noise limit the simulation must prove (3.2 uV for hi-fi, about 30 uV for gaming), and whether q1's 2-layer options are possible (conflicts.md C6)."
+    },
+    {
+      "id": "q3",
+      "text": "A few keyboard details. Which set do you want? (You can also mix and write your own.)",
+      "options": [
+        "Recommended: US (ANSI) 104-key layout, computer cable on the back next to the power socket, hot-swap switch sockets (change switches without soldering, about $10 more), no backlight, a volume knob with mute press on the front strip (about $1).",
+        "As recommended, but with single-colour white backlight under every key. About $4 more; dimmed when the power adapter is not connected, because the computer port alone cannot also light 104 LEDs.",
+        "As recommended, but with per-key RGB lighting. About $10 more; full brightness only with the power adapter; its light dimming runs at audio frequencies, so it needs the same audio isolation as the chargers.",
+        "Cheapest: soldered switches (no hot-swap), no backlight, no knob, computer cable on the back. Saves about $11 against the recommended set. (Say if you want the European ISO 105-key layout instead of US.)"
+      ],
+      "why": "Hot-swap and lighting change the part count, the cost and the power budget without the adapter (conflicts.md C8); the knob takes front-edge space; the computer-cable position decides where the USB 3 link runs across the board (C5)."
+    },
+    {
+      "id": "q4",
+      "text": "Certification, environment, and what matters most when two goals conflict?",
+      "options": [
+        "Recommended: designed to pass US/EU emissions rules (FCC Part 15B / CE class B) without paying for a lab test; protected against static shocks of 8 kV (touch) / 15 kV (air) on every socket; office use 0-40 C; priority: audio quality first, then cost, then size.",
+        "Same design rules, but cost first, then audio quality, then size.",
+        "As recommended, plus a formal lab test for FCC/CE (about $3,000-8,000 one-time, that is $30-80 per keyboard at 100 units, $300-800 at 10).",
+        "Personal/hobby build: no certification target, static protection only, same priorities as recommended."
+      ],
+      "why": "Sets the protection parts on every socket and how the optimizer trades cost against noise in every block (requirements R15, R16, R18 and optimize_for)."
+    }
+  ]
+}

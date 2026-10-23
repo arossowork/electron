@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import re
 import shutil
@@ -33,6 +35,44 @@ def _generic_names() -> set[str]:
 
 
 GENERIC_NAMES = _generic_names()
+
+_MODEL_LINE = re.compile(r"^\s*\.model\s+(\S+)\s+([A-Za-z]+)", re.I | re.M)
+
+
+def model_types(paths) -> dict[str, str]:
+    """MODEL NAME -> device type (NMOS, PMOS, NPN, PNP, D, VDMOS, ...) from `.model` lines of the given files."""
+    out = {}
+    for f in paths:
+        try:
+            text = Path(f).read_text(errors="replace")
+        except OSError:
+            continue
+        for m in _MODEL_LINE.finditer(text):
+            t = m.group(2).upper()
+            if t == "VDMOS":  # vdmos is n-channel unless the parameter list says pchan
+                line = text[m.start():text.find("\n", m.start()) if "\n" in text[m.start():] else None]
+                t = "PMOS" if re.search(r"\bpchan\b", line, re.I) else "NMOS"
+            out[m.group(1).upper()] = t
+    return out
+
+
+def element_mismatch(design: Design, c) -> str | None:
+    """A model whose device type does not match the element letter of the reference (backlog 17): ngspice reads
+    `Q2 ... PMOS_LOGIC` as a bipolar transistor and aborts. Returns a message, or None."""
+    sp = c.get("spice")
+    if not isinstance(sp, dict) or not sp.get("model") or "subckt" in sp or c.kind not in ("Q", "M", "D"):
+        return None
+    files = [MODELS] + [design.dir / f for f in (design.raw.get("sim") or {}).get("includes") or []]
+    if sp.get("lib"):
+        files.append(design.dir / sp["lib"])
+    t = model_types(files).get(str(sp["model"]).upper())
+    want = {"Q": ("NPN", "PNP"), "M": ("NMOS", "PMOS"), "D": ("D",)}[c.kind]
+    if t is None or t in want:
+        return None
+    letter = {"NMOS": "M", "PMOS": "M", "NPN": "Q", "PNP": "Q", "D": "D"}.get(t)
+    fix = f"; rename it {letter}{c.ref[len(c.kind):]} (the first letter of the reference picks the SPICE element)" \
+        if letter else ""
+    return f"{c.ref} uses {t} model {sp['model']}, but a {c.kind} reference is netlisted as {'/'.join(want)}{fix}"
 
 
 def model_origin(c) -> str | None:
@@ -200,6 +240,7 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
         lines.append(f"echo HWF {m['name']} $&{m['name']}")
     for ln in analysis.get("control") or []:
         lines.append(_subst(ln, nm, nets))
+    lines.append("quit")  # without it `ngspice -b` runs an op after the control section, which may not converge
     lines += [".endc", ".end", ""]
     return "\n".join(lines), unmodeled
 
@@ -207,16 +248,47 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
 _NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
-def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim") -> tuple[str, int]:
+CRASH_RE = re.compile(r"free\(\): invalid|double free|corrupted (size|double)|malloc\(\)|segmentation fault|"
+                      r"core dumped", re.I)
+FLAKY_MARK = "hwflow: ngspice crashed"
+DEFAULT_TIMEOUT_S = 600.0
+
+
+def crashed(rc: int, out: str) -> bool:
+    """ngspice died on a signal or a heap error: a tool failure, not a design result."""
+    return rc < 0 or rc >= 128 or bool(CRASH_RE.search(out))
+
+
+def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
+                timeout: float = DEFAULT_TIMEOUT_S, retry: bool = True) -> tuple[str, int]:
+    """Run ngspice in batch mode. A crash (signal exit, heap error) is retried once; the output then starts
+    with FLAKY_MARK so the caller can log the run as flaky. Raises subprocess.TimeoutExpired."""
     workdir = workdir or Path(tempfile.mkdtemp(prefix="hwf_"))
     workdir = workdir.resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     cir = workdir / f"{name}.cir"
     cir.write_text(netlist)
-    p = subprocess.run([NGSPICE, "-b", str(cir)], capture_output=True, text=True, timeout=600, cwd=workdir)
-    out = p.stdout + "\n" + p.stderr
+
+    def once(path):
+        p = subprocess.run([NGSPICE, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        return p.stdout + "\n" + p.stderr, p.returncode
+
+    out, rc = once(cir)
+    if retry and crashed(rc, out):
+        first = next((ln.strip() for ln in out.splitlines() if CRASH_RE.search(ln)), f"exit {rc}")
+        # ngspice-42 corrupts its heap on some netlists with several analyses in one .control block; whether glibc
+        # aborts depends on the heap layout, which the length of the file argument shifts (same netlist: crashes as
+        # r.cir, runs as reverse_tran_post_T0.cir). The retry runs copies under names of other lengths, relative to cwd.
+        for pad in (5, 11, 23, 41):
+            alt = workdir / f"{name}.{'r' * pad}.cir"
+            alt.write_text(netlist)
+            out2, rc = once(alt.name)
+            alt.unlink(missing_ok=True)
+            if not crashed(rc, out2):
+                break
+        out = f"{FLAKY_MARK} ({first[:120]}, exit {rc}); retried once (flaky)\n" + out2
     (workdir / f"{name}.log").write_text(out)
-    return out, p.returncode
+    return out, rc
 
 
 def parse_measures(out: str) -> dict[str, float | None]:
@@ -238,22 +310,90 @@ def evaluate(measures: list[dict], values: dict[str, float | None]) -> list[dict
             ok = False
         if ok and "max" in m and v > float(m["max"]):
             ok = False
-        rows.append({"name": m["name"], "value": v, "min": m.get("min"), "max": m.get("max"),
-                     "unit": m.get("unit", ""), "pass": ok, "req": m.get("req")})
+        row = {"name": m["name"], "value": v, "min": m.get("min"), "max": m.get("max"),
+               "unit": m.get("unit", ""), "pass": ok, "req": m.get("req")}
+        if is_debug(m):
+            row["debug"] = True
+        rows.append(row)
     return rows
 
+
+def is_debug(m: dict) -> bool:
+    """A debug probe (`dbg_*` name or `debug: true`): reported apart, never counted in pass/total or verdict."""
+    return bool(m.get("debug")) or str(m.get("name", "")).startswith("dbg_")
+
+
+# ngspice reports a `meas` that finds no crossing as "Error: measure X ... out of interval"; when every
+# measure of the analysis still has a passing value, that line is a warning, not a design failure
+MEAS_MSG_RE = re.compile(r"out of interval|^\s*error: measure\b|no such variable", re.I)
+# A behavioural source whose expression overflows on one Newton iteration (`Error: 1.3e+238, 2 out of range for ^`
+# in line b.xu2.bio): ngspice rejects that iteration and goes on. On a run that reached its stop time with every
+# measure passing, it is a warning, not a failed run (home-thermostat-3 burst_vbat20_corner post-layout at 0 and 45 C).
+EVAL_MSG_RE = re.compile(r"out of range for\b", re.I)
 
 ABORT_RE = re.compile(r"timestep too small|simulation(s)? (interrupted|aborted)|transient (analysis )?failed|"
                       r"doAnalyses: .*(too small|failed)|run simulation\(s\) aborted", re.I)  # no "singular matrix": gmin stepping recovers from it
 
 
+# ngspice lines that point at the element or node behind a failed run
+DETAIL_RE = re.compile(r"trouble with|no such vector|not found|singular matrix|timestep too small", re.I)
+
+
+_NGSPICE_VERSION: list[str] = []
+
+
+def _cache_key(netlist: str) -> str:
+    """Hash of everything that decides the ngspice output: the exact netlist text, the ngspice version and the
+    content of every file the netlist includes (model files are named by path, so the path alone proves nothing)."""
+    if not _NGSPICE_VERSION:
+        try:
+            p = subprocess.run([NGSPICE, "-v"], capture_output=True, text=True, timeout=20)
+            _NGSPICE_VERSION.append(p.stdout + p.stderr)
+        except (OSError, subprocess.SubprocessError):
+            _NGSPICE_VERSION.append("?")
+    h = hashlib.sha1(netlist.encode())
+    h.update(_NGSPICE_VERSION[0].encode())
+    for m in re.finditer(r"^\.(?:include|lib)\s+(\S+)", netlist, re.I | re.M):
+        f = Path(m.group(1).strip("\"'"))
+        h.update(f.read_bytes() if f.is_file() else b"-")
+    return h.hexdigest()
+
+
 def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
-                 temp=None, tag: str = "") -> dict:
+                 temp=None, tag: str = "", cache: Path | None = None) -> dict:
+    """One ngspice run. `status` is ok, timeout, crash, aborted or error, and `reason` says why a row has no
+    value. `analysis.timeout_s` (default 600) bounds the run."""
+    import time
     net, unmodeled = build_netlist(design, analysis, nm, values, temp)
+    timeout = float(analysis.get("timeout_s", DEFAULT_TIMEOUT_S))
+    t0 = time.time()
+    timed_out = False
+    # Result cache (L6): an analysis whose netlist did not change is not simulated again. The measure
+    # definitions are lines of the netlist; evaluation (min, max, scale) reruns on the stored ngspice output.
+    # `cache` is a directory; without it every call simulates.
+    cfile = cache / f"{_cache_key(net)}.json" if cache else None
+    hit = None
     try:
-        out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}")
-    except subprocess.TimeoutExpired:
-        out, rc = "Error: ngspice timed out (simulation aborted)", -1
+        hit = cfile and json.loads(cfile.read_text())
+    except (OSError, ValueError):
+        pass
+    if hit:
+        out, rc = hit["out"], hit["rc"]
+        workdir.mkdir(parents=True, exist_ok=True)
+        (workdir / f"{analysis['name']}{tag}.cir").write_text(net)
+        (workdir / f"{analysis['name']}{tag}.log").write_text(out)
+    else:
+        try:
+            out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}", timeout=timeout)
+        except subprocess.TimeoutExpired:
+            out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+        if cfile and not timed_out and not out.startswith(FLAKY_MARK) and not crashed(rc, out):
+            try:
+                cache.mkdir(parents=True, exist_ok=True)
+                cfile.write_text(json.dumps({"out": out, "rc": rc}))
+            except OSError:
+                pass
+    seconds = round(time.time() - t0, 1)
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
     rows = evaluate(analysis.get("measures") or [], vals)
@@ -270,11 +410,47 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             r["pass"] = False
             r["aborted"] = True
         errors = [f"simulation aborted: {aborted[0]}"] + errors
-    return {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
-            "aborted": bool(aborted)}
+    warnings = []
+    real = [r for r in rows if not r.get("debug")]
+    if not aborted and real and all(r["pass"] for r in real):
+        warnings = [e for e in errors if MEAS_MSG_RE.search(e) or EVAL_MSG_RE.search(e)]
+        errors = [e for e in errors if e not in warnings]
+    detail = [ln.strip() for ln in out.splitlines() if DETAIL_RE.search(ln) and "HWF" not in ln][:3]
+    body = out.split("\n", 1)[-1] if out.startswith(FLAKY_MARK) else out
+    is_crash = not timed_out and crashed(rc, body)
+    if timed_out:
+        status, reason = "timeout", f"timeout after {timeout:g} s (timeout_s)"
+    elif is_crash:
+        status, reason = "crash", f"ngspice crashed (exit {rc}) twice"
+    elif aborted:
+        status, reason = "aborted", f"aborted: {aborted[0]}"
+    elif errors or any(r["value"] is None for r in real):
+        status = "error"
+        reason = f"error: {errors[0]}" if errors else "measure gave no value"
+        ghosts = sorted({x for t in re.findall(r"vector (\S+) is not available|no such vector (\S+)", out)
+                         for x in t if x})
+        if ghosts:  # a probe on a node that the netlist does not have (backlog 46)
+            reason = f"node not in the netlist: {', '.join(ghosts[:4])} ({reason})"
+    else:
+        status, reason = "ok", ""
+    if detail and status != "ok":
+        reason += f" [{'; '.join(detail)}]"
+    for r in rows:
+        if r["value"] is None:
+            r["na_reason"] = reason or "measure gave no value"
+    res = {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
+           "aborted": bool(aborted) or timed_out, "warnings": warnings, "status": status, "seconds": seconds}
+    if hit:
+        res["cached"] = True
+    if reason:
+        res["reason"] = reason
+    if out.startswith(FLAKY_MARK):
+        res["flaky"] = out.splitlines()[0]
+    return res
 
 
-def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None) -> list[dict]:
+def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None,
+            cache: Path | None = None) -> list[dict]:
     """Every analysis at every temperature, in parallel; results keep the order of design.yaml."""
     import os
     from concurrent.futures import ThreadPoolExecutor
@@ -284,7 +460,8 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
     def one(job):
         a, t = job
-        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""))
+        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""),
+                         cache=cache)
         if t is not None:
             r["name"] += f" @ {t}C"
         return r
@@ -295,13 +472,22 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
 # --------------------------------------------------------------- Monte Carlo
 
-def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None) -> list[dict]:
-    """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`."""
+def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None,
+                fail_dir: Path | None = None) -> list[dict]:
+    """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`.
+
+    Every failing run is saved to `fail_dir` (default: `mc_failures/` next to `workdir`) with the seed, the run
+    index, the sampled values and the ngspice log, so the corner can be reproduced. Runs that did not finish
+    (timeout, crash, aborted) are left out of the min/max statistics."""
+    import json
     import os
     from concurrent.futures import ThreadPoolExecutor
     rng = random.Random(seed)
     sim = design.raw.get("sim") or {}
     workers = workers or max(1, (os.cpu_count() or 2) - 1)
+    fail_dir = Path(fail_dir or Path(workdir).parent / "mc_failures")
+    if fail_dir.exists():
+        shutil.rmtree(fail_dir)
     # draw every sample up front so results do not depend on scheduling
     samples_values = []
     for _ in range(runs):
@@ -318,20 +504,41 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
         with ThreadPoolExecutor(max_workers=workers) as ex:
             results = list(ex.map(lambda iv: run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}"),
                                   enumerate(samples_values)))
-        samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"]}
-        fails = 0
-        for r in results:
-            if not all(row["pass"] for row in r["rows"]):
+        samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"] if not is_debug(m)}
+        fails, failures, excluded = 0, [], 0
+        for i, r in enumerate(results):
+            bad = [row["name"] for row in r["rows"] if not row.get("debug") and not row["pass"]]
+            finished = r.get("status", "ok") in ("ok", "error")
+            if bad or not finished:
                 fails += 1
+                why = r.get("reason") or "fails " + ", ".join(bad[:4])
+                name = f"{a['name']}_run{i}.json"
+                failures.append({"run": i, "status": r.get("status", "ok"), "reason": why[:200],
+                                 "file": f"{fail_dir.name}/{name}"})
+                log = Path(workdir) / "mc" / f"{a['name']}_mc{i}.log"
+                fail_dir.mkdir(parents=True, exist_ok=True)
+                (fail_dir / name).write_text(json.dumps({
+                    "analysis": a["name"], "run": i, "seed": seed, "runs": runs, "status": r.get("status"),
+                    "reason": why, "failing": bad, "values": samples_values[i],
+                    "rows": [{k: row.get(k) for k in ("name", "value", "min", "max", "pass")} for row in r["rows"]],
+                    "netlist": str(log.with_suffix(".cir")),
+                    "log": log.read_text()[-20000:] if log.exists() else ""}, indent=1, default=str))
+            if not finished:
+                excluded += 1  # values of a cut or missing waveform are not a tolerance spread
+                continue
             for row in r["rows"]:
-                if row["value"] is not None:
+                if row["value"] is not None and not row.get("debug"):
                     samples[row["name"]].append(row["value"])
         stats = {}
         for k, v in samples.items():
             if v:
                 v.sort()
                 stats[k] = {"min": v[0], "max": v[-1], "p50": v[len(v) // 2]}
-        out.append({"analysis": a["name"], "runs": runs, "yield": (runs - fails) / runs, "stats": stats})
+        res = {"analysis": a["name"], "runs": runs, "yield": (runs - fails) / runs, "stats": stats}
+        if failures:
+            res["failures"] = failures
+            res["excluded_from_stats"] = excluded
+        out.append(res)
     return out
 
 
