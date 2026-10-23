@@ -35,8 +35,10 @@ uv run hwflow build <proj> [--until sim] [--mc 50] [--reuse]
 uv run hwflow build <proj> --retry-layout   # only when the product person overrides a blocked layout (docs/layout-diagnosis.md)
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix
+uv run hwflow nets <proj> [net...]     # routed copper per net: widths, length, necks, layers, vias
 uv run hwflow report <proj>            # rewrite build/REPORT.md
-uv run pytest -q                       # deterministic tests
+uv run pytest -q -m "not slow"         # fast tier (minutes); the full suite (about 20 min) before a merge
+uv run pytest -q                       # deterministic tests, full suite
 ```
 
 `build/REPORT.md` is the short feedback after each run. `build/status.json` holds the full data and the `score` card that the evaluations use.

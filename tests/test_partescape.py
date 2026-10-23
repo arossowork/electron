@@ -1,5 +1,6 @@
 """Escape proofs of a single part (partescape): fine-pitch pads of wide nets, walled-in pads without via room, and
 the perimeter of a part, from library footprints, pin nets and net widths, before any placement."""
+import pytest
 from types import SimpleNamespace
 
 import yaml
@@ -124,6 +125,7 @@ def _strip(n, pitch, pad_w):
     return pads + [_pad("EP", (n - 0.5) * pitch / 2, 0, n * pitch, 1.4)]
 
 
+@pytest.mark.slow
 def test_the_perimeter_of_a_part_bounds_the_nets_that_leave_it(tmp_path):
     n = 60
     libs = _libs({"STRIP": _strip(n, 0.32, 0.01), "WIDE": _strip(n, 0.5, 0.01), "C": C_PADS})

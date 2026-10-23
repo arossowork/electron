@@ -227,6 +227,7 @@ def test_extract_round_trip(tmp_path):
 # ---- router ------------------------------------------------------------------------------------------------------
 
 @needs_router
+@pytest.mark.slow
 def test_routed_board_keeps_the_block_copper(tmp_path):
     from hwflow.cli import stage_layout
     comps = {k: v for k, v in _boost_parts().items() if k == "J1"}

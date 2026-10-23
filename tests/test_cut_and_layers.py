@@ -153,6 +153,7 @@ def test_cut_pad_warning_and_structure_key(tmp_path):
 
 # ------------------------------------------------------------------ per-net layers
 
+@pytest.mark.slow
 def test_net_layers_check(tmp_path):
     d = preamp(tmp_path / "a", nets={"AMP_OUT": {"layers": ["B.Cu"]}, "SENS_IN": {"layers": ["In*.Cu"]},
                                      "VBUS": {"layers": ["F.Cu", "Top"]}})
@@ -220,6 +221,7 @@ def test_post_layout_error_for_a_track_off_its_layers(tmp_path):
 
 
 @needs_router
+@pytest.mark.slow
 def test_route_keeps_out_of_cuts_and_on_the_net_layers(tmp_path):
     from hwflow.cli import stage_layout
     d = preamp(tmp_path, nets={"SENS_IN": {"layers": ["F.Cu"]}, "+3V3": {"layers": ["F.Cu"]}},

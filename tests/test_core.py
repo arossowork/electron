@@ -119,6 +119,7 @@ def test_custom_pad_exports_full_outline():
     assert max(xs) - min(xs) > 4000  # um: anchor 1.475 mm plus the 3.1 mm tab
 
 
+@pytest.mark.slow
 def test_post_layout_inductors_are_damped(tmp_path):
     import json
     import shutil
@@ -428,6 +429,7 @@ def test_measure_on_missing_node_says_so(tmp_path):
     assert r["status"] == "error" and not ghost["pass"] and "node not in the netlist: x_bt1_2" in ghost["na_reason"]
 
 
+@pytest.mark.slow
 def test_build_skips_unchanged_stages_and_brief_prints_changes(tmp_path, capsys):
     """Backlog 27: a stage that passed with the same inputs is skipped. Backlog 8: --brief prints only changes."""
     from hwflow.cli import main
@@ -526,6 +528,7 @@ def test_post_is_stale_when_layout_ran_after_it(tmp_path):
     assert cli.score(d)["post_pass_ratio"] is None
 
 
+@pytest.mark.slow
 def test_cost_changes_need_the_product_person(tmp_path, capsys):
     """Backlog 44: after `hwflow approve`, a change of layers, board size or BOM cost is a check error until
     conflicts.md or an inbox question records it (then a warning), and `approve` takes the new baseline."""

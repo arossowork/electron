@@ -13,7 +13,7 @@ A failing layout build ends with a diagnosis (`src/hwflow/diagnose.py`) that ans
 
 ## Proofs before and after layout
 
-`feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`, `corridor`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`, `corridor`), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
+`feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`, `corridor`, `padiso`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`, `corridor`, `padiso`; `padiso`: a pad of a region net closer than the region's `isolation_mm` to a conductive keep-out, measured with the pad's real outline, as the post-layout `conductive_clearances` does), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
 
 ## Routing corridors of constrained nets (placer)
 

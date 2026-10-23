@@ -342,6 +342,28 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     return h.hexdigest()[:24]
 
 
+def net_stats(tracks: list, vias: list, classes: dict) -> dict:
+    """Routed copper per net: narrowest and widest track, track length, the length narrower than the net's class
+    width, layers and via count (status.json layout.nets, `hwflow nets`)."""
+    import math
+    out = {}
+    for t in tracks:
+        n = t["net"]
+        r = out.setdefault(n, {"min_w": t["w"], "max_w": t["w"], "length_mm": 0.0, "narrow_mm": 0.0, "layers": set(),
+                               "vias": 0})
+        L = math.hypot(t["x2"] - t["x1"], t["y2"] - t["y1"])
+        r["min_w"], r["max_w"] = min(r["min_w"], t["w"]), max(r["max_w"], t["w"])
+        r["length_mm"] += L
+        if t["w"] < (classes.get(n) or {}).get("width", 0.0) - 1e-6:
+            r["narrow_mm"] += L
+        r["layers"].add(t["layer"])
+    for v in vias:
+        out.setdefault(v["net"], {"min_w": None, "max_w": None, "length_mm": 0.0, "narrow_mm": 0.0, "layers": set(),
+                                  "vias": 0})["vias"] += 1
+    return {n: dict(r, length_mm=round(r["length_mm"], 2), narrow_mm=round(r["narrow_mm"], 2),
+                    layers=sorted(r["layers"]), width=(classes.get(n) or {}).get("width")) for n, r in sorted(out.items())}
+
+
 def _cache_save(cache: Path, key: str, data: dict):
     cache.mkdir(exist_ok=True)
     tmp = cache / f"{key}.{os.getpid()}.tmp"
@@ -468,6 +490,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                          if t["net"] in minw and float(t["w"]) < minw[t["net"]] - 1e-6})
     for x in too_narrow:
         print(f"[layout] track under its net's min_width_mm: {x}")
+    nstats = net_stats(tracks, vias, pcb.net_classes(d))
     iso = isolation_distances(d, board, drc)
     # mains copper (tracks, vias, pads) near a conductive keep-out: the router keeps it out, this makes sure
     conductive = postlayout.conductive_clearances(d, pcb.read_board(board))
@@ -480,6 +503,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     return {"failing": failing, "ok": not errs and not viol and not off_layer and not too_narrow and not conductive
             and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
+            "nets": nstats,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
@@ -1173,6 +1197,7 @@ def score(d: Design) -> dict:
         "req_total": g("trace", lambda c: c["total"]), "req_unverified": g("trace", lambda c: c["unverified"]),
         "req_failing": g("trace", lambda c: c["failing"]),
         "req_evidence_missing": g("trace", lambda c: len(c.get("evidence_missing", []))),
+        "req_evidence_only": g("trace", lambda c: len(c.get("evidence_only", []))),
     }
 
 
@@ -1198,6 +1223,21 @@ def trace(d: Design) -> dict:
         for rid in str(r.get("req") or "").replace(" ", "").split(","):
             if rid:
                 results.setdefault(rid, []).append((f"budget {r['name']} {r['value']}/{r['limit']:g} {r['unit']}", r["ok"]))
+    nst = (s.get("layout") or {}).get("nets") or {}
+    lays = pcb.net_layers(d)
+    for n, mw in pcb.net_min_widths(d).items():   # nets.<name>.req: the routed copper of that net (min width, layers)
+        rids = [x for x in str(d.net_info(n).get("req") or "").replace(" ", "").split(",") if x]
+        if rids and s.get("layout"):
+            got = (nst.get(n) or {}).get("min_w")
+            for rid in rids:
+                results.setdefault(rid, []).append((f"net {n} min width {got}/{mw:g} mm",
+                                                    got is not None and got >= mw - 1e-6))
+    for n, L in lays.items():
+        rids = [x for x in str(d.net_info(n).get("req") or "").replace(" ", "").split(",") if x]
+        if rids and s.get("layout") and n in nst:
+            for rid in rids:
+                results.setdefault(rid, []).append((f"net {n} layers {'+'.join(nst[n]['layers'])}",
+                                                    set(nst[n]["layers"]) <= set(L)))
     post = {x["name"]: x["pass_post"] for x in (s.get("post") or {}).get("deltas", [])}
     rows = []
     for q in reqs:
@@ -1206,7 +1246,9 @@ def trace(d: Design) -> dict:
         if ms:
             ok = all(p for _, p in ms) and all(post.get(n, True) for n, _ in ms)
             status = "pass" if ok else "FAIL"
-        elif method in ("inspection", "datasheet", "layout", "analysis", "test") and q.get("evidence"):
+        elif method == "layout" and q.get("evidence"):
+            status = "layout?"  # evidence text only: no check on the routed board names it (evidence_only)
+        elif method in ("inspection", "datasheet", "analysis", "test") and q.get("evidence"):
             status = method
         else:
             status = "UNVERIFIED"
@@ -1219,7 +1261,8 @@ def trace(d: Design) -> dict:
     return {"rows": rows, "total": len(rows), "covered": sum(r["status"] not in ("UNVERIFIED",) for r in rows),
             "failing": sum(r["status"] == "FAIL" for r in rows),
             "unverified": sum(r["status"] == "UNVERIFIED" for r in rows),
-            "evidence_missing": sorted((r["id"] for r in rows if r.get("evidence_missing")), key=_natural)}
+            "evidence_missing": sorted((r["id"] for r in rows if r.get("evidence_missing")), key=_natural),
+            "evidence_only": [r["id"] for r in rows if r["status"] == "layout?"]}
 
 
 def _natural(s: str):
@@ -1413,6 +1456,9 @@ def main(argv=None):
                                                                            help="key=value server filters")
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
     sub.add_parser("trace").add_argument("project")
+    p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
+                                    "layers, vias")
+    p.add_argument("project"); p.add_argument("net", nargs="*", help="net names or globs (default: all)")
     p = sub.add_parser("floorplan", help="early layout feasibility of the floorplan: field (area, depth, regions, quick "
                                          "placement and congestion); no simulation or routing")
     p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
@@ -1463,6 +1509,20 @@ def main(argv=None):
         an = next((x for x in sim.get("analyses", []) if x["name"] == a.analysis), {"name": "op", "cmd": "op"})
         print(spice.build_netlist(d, an)[0])
         return 0
+    if a.cmd == "nets":
+        import fnmatch
+        nst = (_fresh_status(d).get("layout") or {}).get("nets")
+        if nst is None:
+            print("no routed nets in build/status.json: run the layout stage first")
+            return 1
+        print(f"{'net':<16} {'class w':>7} {'min w':>6} {'max w':>6} {'length':>8} {'narrow':>7} {'vias':>4}  layers")
+        for n, r in nst.items():
+            if a.net and not any(fnmatch.fnmatchcase(n, g) for g in a.net):
+                continue
+            f = lambda v: "-" if v is None else f"{v:g}"
+            print(f"{n:<16} {f(r.get('width')):>7} {f(r['min_w']):>6} {f(r['max_w']):>6} {r['length_mm']:>8.2f} "
+                  f"{r['narrow_mm']:>7.2f} {r['vias']:>4}  {' '.join(r['layers'])}")
+        return 0
     if a.cmd == "trace":
         t = trace(d)
         for r in t["rows"]:
@@ -1471,6 +1531,9 @@ def main(argv=None):
         for r in t["rows"]:
             if r.get("evidence_missing"):
                 print(f"{r['id']:<5} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
+        if t["evidence_only"]:
+            print(f"layout requirements verified by evidence text only, no board check (layout?): "
+                  f"{', '.join(t['evidence_only'])}; tie them to a check with `req:` (nets, board.isolation, budgets)")
         print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified"
               + (f"; evidence files missing for {len(t['evidence_missing'])} ({', '.join(t['evidence_missing'])})"
                  if t["evidence_missing"] else ""))

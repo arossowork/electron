@@ -24,4 +24,4 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: end-to-end builds (KiCad + Freerouting)"]
+markers = ["slow: end-to-end builds and router or DRC runs over 15 s (`pytest -m \"not slow\"` skips them)"]

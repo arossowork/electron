@@ -565,6 +565,20 @@ class PostLayoutNodeMap(NodeMap):
 
 # ------------------------------------------------------------ checks
 
+def pad_shape(p: dict):
+    """A pcb.read_board pad as copper: a circle pad as a circle, an oval as a stadium, any other as its box (a
+    rotation off 0/90 degrees as the box read_board gives)."""
+    from shapely.geometry import LineString, Point, box as _box
+    w, h = p["w"], p["h"]
+    if p.get("shape") == "circle":
+        return Point(p["x"], p["y"]).buffer(min(w, h) / 2, quad_segs=16)
+    if p.get("shape") == "oval":
+        r, d = min(w, h) / 2, abs(w - h) / 2
+        a, b = ((p["x"] - d, p["y"]), (p["x"] + d, p["y"])) if w >= h else ((p["x"], p["y"] - d), (p["x"], p["y"] + d))
+        return LineString([a, b]).buffer(r, quad_segs=16) if d > 0 else Point(p["x"], p["y"]).buffer(r, quad_segs=16)
+    return _box(p["x"] - w / 2, p["y"] - h / 2, p["x"] + w / 2, p["y"] + h / 2)
+
+
 def conductive_clearances(design: Design, board: dict) -> list[dict]:
     """The copper (tracks, vias, pads) of the nets of a region with isolation_mm closer than that distance to a
     conductive keep-out or cut (floorplan.conductive_needs), on a pcb.read_board result: one row per net and keep-out
@@ -585,8 +599,7 @@ def conductive_clearances(design: Design, board: dict) -> list[dict]:
     for ref, fp in board["footprints"].items():
         for p in fp["pads"]:
             if p["net"] and any(L.endswith(".Cu") for L in p["layers"]):
-                items.append((p["net"], f"pad {ref}.{p['number']}",
-                              _box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2)))
+                items.append((p["net"], f"pad {ref}.{p['number']}", pad_shape(p)))
     out = []
     for nd in needs:
         worst: dict = {}
@@ -626,8 +639,7 @@ def region_excursions(design: Design, board: dict) -> list[dict]:
     for ref, fp in board["footprints"].items():
         for p in fp["pads"]:
             if p["net"] and any(L.endswith(".Cu") for L in p["layers"]):
-                items.append((p["net"], f"pad {ref}.{p['number']}",
-                              _box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2)))
+                items.append((p["net"], f"pad {ref}.{p['number']}", pad_shape(p)))
     out = []
     for r in regs:
         nets, poly = set(r["nets"]), r["poly"]

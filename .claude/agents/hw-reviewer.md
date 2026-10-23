@@ -21,5 +21,7 @@ Read datasheets as text (`pdftotext` and `grep`), never as PDF page images. Chec
 - The SPICE models are realistic for the claims (a generic model cannot prove PSRR at 1 MHz).
 - Realism of each testbench scenario: it has a `realism:` note with who produces it, how often, the timing, and the source of each limit. Challenge scenarios that no user can reach (compare the timing with how long stored charge lasts). Report an unreachable scenario as a stress case at `nit` level, not as a `must`, and do not ask for hardware to pass it without a product decision.
 - Requirements with no verification, or verified only by a weak method.
+- Decisions taken on the product person's behalf (`conflicts.md`, "on the PM's behalf"): each one that changes a requirement's acceptance, a spec number or a safety margin is a must finding until the product person confirms it.
+- `layout?` rows in `uv run hwflow trace` (a layout requirement with evidence text only): check the claim against the routed board (`uv run hwflow nets <proj>`, `build/status.json`).
 
 Report each finding as `severity (must|should|nit) | ref | problem | evidence (datasheet page or number) | fix`. Do not edit files. Return 15 findings or fewer, the most severe first.

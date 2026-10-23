@@ -96,7 +96,7 @@ def test_corridor_speed(tmp_path):
     every movable part sits near the constrained net (worst case; the thermostat loses about 10 %)."""
     d, libs = _load(tmp_path, _bait(3))
     rate = {}
-    for cor in (False, True, False, True):
+    for cor in (False, True) * 3:  # interleaved, best of 3 each: a busy machine slows both alike
         parts = placer.build_parts(d, libs)
         pl = placer.Placer(d, parts, W, H, seed=2)
         if not cor:
