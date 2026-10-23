@@ -1,0 +1,126 @@
+name: max17227a_boost
+description: MAX17227A TDFN-8 boost (RSEL sets VOUT; 191k = 3.3 V in home-thermostat-3), 1 uH DFE201610P, CIN 0805, 2 x
+  COUT 1206, RSEL 0402; RSEL kept off the inner planes.
+source: 'home-thermostat-3 round 8, 2026-10-23: placement and routed copper extracted from projects/home-thermostat-3/build/home_thermostat_3.kicad_pcb
+  (U2, L1, C3, C4, C5, R40), then hand additions against the MAX17227A data sheet 19-100743 Rev 1, PCB Layout Guidelines
+  p.19-20 (projects/home-thermostat-3/notes/datasheets/MAX17227A.md, notes/layout-constraints.md): explicit top-layer GND
+  returns (the round-8 board had them only through the F.Cu pour), a CIN ground via, and an inner-layer keep-out under RSEL
+  and the pad-6 trace (round 8 had the In1 GND plane under R40).'
+layers_min: 4
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+ports: [+3V3, GND, VIN_BST]
+roles:
+  U: {ref: U2, symbol: 'hw:MAX17227A', footprint: 'Package_DFN_QFN:TDFN-8-1EP_2x2mm_P0.5mm_EP0.8x1.2mm', value: MAX17227A, pins: {'1': +3V3, '2': +3V3, '3': SW_BOOST, '4': GND, '5': GND, '6': BOOST_RSEL, '7': VIN_BST, '8': VIN_BST, '9': GND}}
+  L: {ref: L1, symbol: 'Device:L', footprint: 'Inductor_SMD:L_Murata_DFE201610P', value: 1u, pins: {'1': VIN_BST, '2': SW_BOOST}}
+  CIN: {ref: C3, symbol: 'Device:C', footprint: 'Capacitor_SMD:C_0805_2012Metric', pins: {'1': VIN_BST, '2': GND}, value_min: 22u}
+  COUT1: {ref: C4, symbol: 'Device:C', footprint: 'Capacitor_SMD:C_1206_3216Metric', pins: {'1': +3V3, '2': GND}, value_min: 47u}
+  COUT2: {ref: C5, symbol: 'Device:C', footprint: 'Capacitor_SMD:C_1206_3216Metric', pins: {'1': +3V3, '2': GND}, value_min: 47u}
+  RSEL: {ref: R40, symbol: 'Device:R', footprint: 'Resistor_SMD:R_0402_1005Metric', value: 191k, pins: {'1': BOOST_RSEL, '2': GND}}
+# Round-8 placement relative to U2 (51.4, 41.2). Pads (rot 90 maps (x, y) to (y, -x); rot 270 to (-y, x)):
+# L pad 2 (SW) (-2.28, 0.5); CIN pad 1 (VIN) (2.7, -0.65), pad 2 (2.7, -2.55); COUT1 pads
+# (-2.66, -2.5) / (0.30, -2.5); COUT2 (-2.66, -4.9) / (0.30, -4.9); RSEL pad 1 (2.2, 1.39), pad 2 (2.2, 2.41).
+placement:
+  U: {x: 0.0, y: 0.0, rot: 0.0, side: front}
+  L: {x: -3.0, y: 0.5, rot: 0.0, side: front}
+  CIN: {x: 2.7, y: -1.6, rot: 90.0, side: front}
+  COUT1: {x: -1.18, y: -2.5, rot: 0.0, side: front}
+  COUT2: {x: -1.18, y: -4.9, rot: 0.0, side: front}
+  RSEL: {x: 2.2, y: 1.9, rot: 270.0, side: front}
+copper:
+  tracks:
+  - {net: BOOST_RSEL, layer: F.Cu, w: 0.25, pts: [[2.2, 1.4], [2.2, 1.0]]}
+  - {net: BOOST_RSEL, layer: F.Cu, w: 0.25, pts: [[1.45, 0.25], [1.0, 0.25]]}
+  - {net: BOOST_RSEL, layer: F.Cu, w: 0.25, pts: [[2.2, 1.0], [1.45, 0.25]]}
+  - {net: SW_BOOST, layer: F.Cu, w: 0.6, pts: [[-2.3, 0.8], [-2.3, 0.5]]}
+  - {net: SW_BOOST, layer: F.Cu, w: 0.25, pts: [[-2.025, 0.25], [-1.0, 0.25]]}
+  - {net: SW_BOOST, layer: F.Cu, w: 0.6, pts: [[-2.3, 0.5], [-2.275, 0.5]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -4.9], [-2.0, -5.6]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-3.4333, -4.0667], [-3.4, -4.1]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-3.4, -4.1], [-3.2, -3.9]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-1.0, -0.8], [-0.9875, -0.75]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -3.5], [-2.7, -2.5]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-3.1, -3.9], [-2.7, -3.5]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -4.9], [-2.655, -4.9]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-1.0, -0.8], [-1.0, -0.5]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -2.5], [-2.655, -2.5]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -2.5], [-2.0, -1.8]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-3.8, -3.7], [-2.7, -4.8]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.0, -5.8], [-1.7, -6.1]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.0, -1.8], [-2.0, -1.6]]}
+  - {net: +3V3, layer: F.Cu, w: 0.15, pts: [[-1.0, -0.5], [-1.0, -0.2]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-3.2, -3.9], [-3.1, -3.9]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-1.2, -0.8], [-1.0, -0.8]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-1.7, -6.1], [-1.7, -6.2]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.0, -1.6], [-1.2, -0.8]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.7, -4.8], [-2.7, -4.9]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-2.0, -5.6], [-2.0, -5.8]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-1.7, -6.2], [-0.9, -7.0]]}
+  - {net: +3V3, layer: F.Cu, w: 0.4, pts: [[-0.9, -7.0], [-0.9, -7.05]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[-2.6, -3.7], [-3.8, -3.7]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[-1.4, -4.9], [-2.6, -3.7]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[0.3, -4.9], [-1.4, -4.9]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[1.2, -5.8], [0.3, -4.9]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[1.8, -5.8], [1.2, -5.8]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[2.7, -4.9], [1.8, -5.8]]}
+  - {net: +3V3, layer: In2.Cu, w: 0.4, pts: [[4.68, -4.9], [2.7, -4.9]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-3.7, 0.2], [-3.7, 0.5]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.7, -0.8], [1.0, -0.8]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.0, -0.8], [1.0, -0.5]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[2.7, -0.6], [2.7, -0.65]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-4.8, -0.9], [-3.7, 0.2]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.9, -1.0], [2.3, -0.6]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[2.3, -0.6], [2.7, -0.6]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.9, -1.0], [1.7, -0.8]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.0, -0.8], [0.9875, -0.75]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.6, -1.5], [1.9, -1.2]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.4, -3.1], [1.4, -2.0]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-4.9, -0.9], [-4.8, -0.9]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.9, -1.2], [1.9, -1.0]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.15, pts: [[1.0, -0.5], [1.0, -0.2]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.5, -3.3], [1.5, -3.2]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-4.5, -0.6], [-3.725, 0.5]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-5.25, -1.25], [-4.9, -0.9]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.15, pts: [[1.4, -2.0], [1.6, -1.8]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[-3.7, 0.5], [-3.725, 0.5]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.15, pts: [[1.6, -1.8], [1.6, -1.5]]}
+  - {net: VIN_BST, layer: F.Cu, w: 0.6, pts: [[1.5, -3.2], [1.4, -3.1]]}
+  - {net: VIN_BST, layer: In2.Cu, w: 0.6, pts: [[-4.5, -0.6], [-4.3, -0.8]]}
+  - {net: VIN_BST, layer: In2.Cu, w: 0.6, pts: [[-1.2, -3.3], [1.5, -3.3]]}
+  - {net: VIN_BST, layer: In2.Cu, w: 0.6, pts: [[-4.3, -0.8], [-3.7, -0.8]]}
+  - {net: VIN_BST, layer: In2.Cu, w: 0.6, pts: [[-3.7, -0.8], [-1.2, -3.3]]}
+  # Hand additions (block coordinates, U centre = origin; pads from `hwflow lib pads`):
+  # COUT1 pad 2 (GND) is (0.30, -2.5), 1.15 x 1.8; a 0.4 mm track at x = 0 from inside it into the EP
+  # (0.8 x 1.2 at the origin): 0.40 mm clear of pin 1 / pin 8 (inner pad edges x = -/+0.6025).
+  - {net: GND, layer: F.Cu, w: 0.4, pts: [[0.0, -2.5], [0.0, 0.0]]}
+  # COUT2 pad 2 (0.30, -4.9) to COUT1 pad 2 (0.30, -2.5): 0.6 mm, 0.6 mm clear of the VIN riser at x = 1.4.
+  - {net: GND, layer: F.Cu, w: 0.6, pts: [[0.3, -4.9], [0.3, -2.5]]}
+  # Pins 4 (GND) and 5 (AGND) to the EP under the part: y = 0.75, 0.25 mm wide, 0.25 mm clear of pins 3
+  # and 6 (pad edge y = 0.375); a stub at x = 0 into the EP (EP edge y = 0.6 does not reach the track).
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[-0.99, 0.75], [0.0, 0.75], [0.99, 0.75]]}
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[0.0, 0.75], [0.0, 0.0]]}
+  # RSEL pad 2 (GND, (2.2, 2.41)) back to pin 5 on top: 0.43 mm clear of the RSEL trace, 0.6 mm of RSEL pad 1.
+  - {net: GND, layer: F.Cu, w: 0.25, pts: [[0.99, 0.75], [0.99, 2.41], [2.2, 2.41]]}
+  # CIN pad 2 (GND, (2.7, -2.55), pad y -3.05..-2.05) down to a plane via at (2.7, -3.6): via 0.25 mm below
+  # the pad, 0.64 mm from the VIN via (1.5, -3.3), 0.8 mm above the In2 +3V3 port track (y = -4.9).
+  - {net: GND, layer: F.Cu, w: 0.4, pts: [[2.7, -2.55], [2.7, -3.6]]}
+  vias:
+  - {net: +3V3, x: -3.8, y: -3.7}
+  - {net: GND, x: 0.0, y: 0.0}
+  - {net: VIN_BST, x: 1.5, y: -3.3}
+  - {net: VIN_BST, x: -4.5, y: -0.6}
+  - {net: GND, x: 2.7, y: -3.6}
+courtyard: [-5.55, -7.25, 4.88, 2.83]
+# No plane under RSEL and the pad-6 trace on the inner layers (data sheet: < 2 pF on RSEL; about
+# 0.1 pF/mm of 0.2 mm trace over 0.2 mm to a plane). Rect: x from 0.6 (0.3 mm right of the EP via
+# edge at x = 0.3) to 2.8 (RSEL pad edge 2.52 + 0.28), y from 0 (pad-6 trace starts at y = 0.125) to
+# 2.8 (RSEL pad 2 edge 2.68 + 0.12).
+keepouts:
+- {rect: [0.6, 0.0, 2.8, 2.8], layers: [In1.Cu, In2.Cu], forbids: [tracks, vias, copperpour]}
+notes: 'Judged against the data sheet: LX (pin 3) to L1 pad 2 is 1.0 mm of 0.25 mm track (min. LX area); COUT1 +3V3 pad
+  is 2.5 mm of 0.4 mm track from pins 1-2 and its GND pad 2.5 mm from the EP on top; CIN pad 1 is 1.0 mm from pins 7-8;
+  RSEL is 1.5 mm from pad 6, away from LX and L1. Pins 1-2 and 7-8 are entered with 0.15 mm necks (0.3 mm long) between
+  the 0.5 mm-pitch pads. L1 pad 1 joins CIN through two vias and In2.Cu (the boost input current is continuous, so this
+  is not the switching loop). CIN GND returns to the EP through the plane via and the F.Cu pour around the VIN via; a design
+  without a top GND pour still has the COUT loop on explicit top copper. One GND via in the EP (tent or plug it: via-in-pad);
+  the part dissipates mW, so no thermal vias are needed. The port copper (VIN_BST at (-5.25, -1.25), +3V3 at (-0.9, -7.05)
+  on F.Cu and (4.68, -4.9) on In2.Cu) is the round-8 route clipped at the block edge.'

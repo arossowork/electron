@@ -1,0 +1,42 @@
+name: xtal32k_3215
+description: 32.768 kHz crystal (3.2 x 1.5 mm, CL 6 pF) with its two 5.6 pF load capacitors and one shared ground via.
+source: >-
+  Hand layout for Y1 / C9 / C10 of home-thermostat-3 (notes/parts-mcu-sensing.md: Micro Crystal CM7V-T1A 6 pF, ESR
+  70 k max; C = 2 (6 - 3) = 6 pF for 3 pF stray, 5.6 pF used) and the Espressif ESP32-C3-MINI-1 hardware guidelines
+  (notes/datasheets/ESP32-C3-MINI-1.md: 32 kHz crystal ESR <= 70 k, on XTAL_32K_P / _N). The round-8 copper is not
+  extracted: C9 sits 8 mm from Y1. Load caps are kept at the crystal pads with short, equal tracks and one ground via
+  so that the stray capacitance of the two sides stays small and matched.
+layers_min: 2
+rules: {clearance_mm: 0.2, via_dia_mm: 0.6, via_drill_mm: 0.3}
+# XP / XN to the MCU's XTAL_32K_P / XTAL_32K_N (home-thermostat-3: XTAL_P = U1 pin 12, XTAL_N = pin 13)
+ports: [XP, XN, GND]
+roles:
+  Y: {ref: Y1, symbol: Device:Crystal, footprint: Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm, value: 32.768kHz 6pF,
+      pins: {'1': XP, '2': XN}}
+  CP: {ref: C9, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 5.6p, pins: {'1': XP, '2': GND}}
+  CN: {ref: C10, symbol: Device:C, footprint: Capacitor_SMD:C_0402_1005Metric, value: 5.6p, pins: {'1': XN, '2': GND}}
+# Pads from `hwflow lib pads`: crystal pad 1 (1.25, 0), pad 2 (-1.25, 0), 1.0 x 1.8 (y +-0.9), courtyard +-2.0 x
+# +-1.15; C 0402 pads +-0.48 (0.56 x 0.62), courtyard +-0.91 x +-0.46. Rot 270 maps (x, y) to (-y, x).
+# CP, CN rot 270 under their crystal pad: pad 1 (signal) up at y = 2.15 - 0.48 = 1.67, pad 2 (GND) at 2.63;
+# courtyards y 1.24..3.06 (0.09 mm below the crystal's 1.15), x +-(1.25 -/+ 0.46) = 0.79..1.71 (1.58 mm apart).
+placement:
+  Y: {x: 0, y: 0, rot: 0, side: front}
+  CP: {x: 1.25, y: 2.15, rot: 270, side: front}
+  CN: {x: -1.25, y: 2.15, rot: 270, side: front}
+copper:
+  tracks:
+  # crystal pad to load cap pad 1, 0.77 mm of 0.25 mm track between the pad edges (y 0.9 .. 1.36), equal both sides
+  - {net: XP, layer: F.Cu, w: 0.25, pts: [[1.25, 0.0], [1.25, 1.67]]}
+  - {net: XN, layer: F.Cu, w: 0.25, pts: [[-1.25, 0.0], [-1.25, 1.67]]}
+  # ports up to y = -1.6 (the MCU side)
+  - {net: XP, layer: F.Cu, w: 0.2, pts: [[1.25, 0.0], [1.25, -1.6]]}
+  - {net: XN, layer: F.Cu, w: 0.2, pts: [[-1.25, 0.0], [-1.25, -1.6]]}
+  # cap grounds joined, one via in the middle (via edge 0.64 mm from the pad edges at x = -/+0.94)
+  - {net: GND, layer: F.Cu, w: 0.3, pts: [[-1.25, 2.63], [0.0, 2.63], [1.25, 2.63]]}
+  vias:
+  - {net: GND, x: 0.0, y: 2.63}
+# x +-2.0 (crystal courtyard), y from -1.75 (port ends -1.6 - 0.1) to 3.06 (cap courtyards)
+courtyard: [-2.0, -1.75, 2.0, 3.06]
+notes: >-
+  4.0 x 4.8 mm. Place it next to the MCU's 32 kHz pins and route XP / XN as a short pair with no other signal between
+  them; keep fast signals out of the block area.
