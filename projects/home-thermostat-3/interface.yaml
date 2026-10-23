@@ -1,129 +1,127 @@
-# HW/SW contract for home-thermostat-3 (docs/hwsw-codesign.md; decisions in partition.md).
-# Written by the partition stage (hw-partition), extended by the circuit stage, consumed by `uv run hwflow fw`.
-# It holds only what design.yaml cannot say. Pin numbers, GPIO numbers, divider ratios, part values, I2C address
-# straps and ADC mux inputs are NOT copied here: hwflow reads them from design.yaml and the KiCad symbols and fails
-# when the two files disagree. Every number has a requirement or a source.
+# HW/SW contract for home-thermostat-3 (schema: docs/hwsw-codesign.md; decisions: partition.md, conflicts.md D17-D20).
+# It holds only what design.yaml cannot say. Pin and GPIO numbers, part values, divider ratios, I2C address straps and
+# ADC inputs are derived by `uv run hwflow fw` from design.yaml and the symbols, which fails when the files disagree.
 version: 1
 
-mcu:
-  ref: U1
-  gpio_from_pin_name: '^IO(\d+)'            # thermo:ESP32-C3-MINI-1 pin names IO0..IO21 (module datasheet pinout)
-  power_nets: [+3V3]
-  adc1_channel_of_gpio: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
-  adc1_source: "ESP32-C3 datasheet: ADC1 channels 0-4 on GPIO0-GPIO4 (notes/datasheets/ESP32-C3.md)"
+mcu: {ref: U1, power_nets: [+3V3]}        # family esp32c3 detected from the part value
 
-# One entry per net that reaches the MCU. dir: out | in | adc | i2c | xtal | usb | reset.
 signals:
-  XTAL_P:   {dir: xtal, req: R20, source: "32.768 kHz crystal Y1 on XTAL_32K_P (architecture.md GPIO allocation)"}
+  XTAL_P:   {dir: xtal, req: R20, source: "32.768 kHz crystal Y1"}
   XTAL_N:   {dir: xtal, req: R20}
   VBAT_EN:  {dir: out, active: low, pull: R14, req: [R4, R22, R35],
-             strap: "high at reset (R14 to VBAT_P); below VBAT_P 2.5 V under 0.75 VDD, bench check (rule 9)",
-             sleep: "hi-Z; never a pull-down or gpio hold low in deep sleep (rule 2)",
-             source: "notes/circuit.md rule 8: low turns on the guard M1/M2, the limiter M4 and the divider switch M3"}
-  VBAT_ADC: {dir: adc, sleep: "input, no pull", req: R22, source: "divider R15/R16 behind M3"}
-  EN:       {dir: reset, source: "R2 10k / C8 1u RC reset; not a GPIO"}
-  SENS_EN:  {dir: out, active: high, pull: R8, req: [R17, R9], sleep: "low (R8 100k pull-down)",
-             source: "powers U3, the NTC dividers, the I2C pull-ups and the DRV8837 nSLEEP (architecture.md SENS_EN row)"}
-  K1_IN2:   {dir: out, active: high, sleep: "input, no pull (DRV8837 internal pull-down: coast)", req: R9}
-  SDA:      {dir: i2c, sleep: "input, no pull or low (rule 2): no back-power into U3 while SENS_EN is low"}
-  SCL:      {dir: i2c, sleep: "input, no pull or low (rule 2)"}
+             strap: "high at reset through R14 to VBAT_P; below VBAT_P 2.5 V under VIH, bench check (rule 9)",
+             sleep: "hi-Z, never pulled down or held low (rule 2)", source: "rule 8: guard M1/M2, limiter M4, divider M3"}
+  VBAT_ADC: {dir: adc, sleep: "input, no pull", req: R22}
+  EN:       {dir: reset, source: "R2/C8 RC reset"}
+  SENS_EN:  {dir: out, active: high, pull: R8, sleep: "low", req: [R17, R9],
+             source: "powers U3, NTC dividers, I2C pull-ups and the DRV8837 nSLEEP"}
+  K1_IN2:   {dir: out, active: high, sleep: "input, no pull (DRV8837 pull-down: coast)", req: R9}
+  SDA:      {dir: i2c, sleep: "input or low: U3 is unpowered while SENS_EN is low"}
+  SCL:      {dir: i2c, sleep: "input or low"}
   K1_IN1:   {dir: out, active: high, sleep: "input, no pull", req: R9}
-  LED_N:    {dir: out, active: low, pull: R3, strap: "IO8: must be 1 for download boot; R3 holds it high",
-             sleep: "high (LED off)", req: R32, source: "LED pulses <= 5 ms (R32)"}
-  BTN:      {dir: in, active: low, pull: R5, strap: "IO9: 0 at reset = download mode; a press during reset enters it",
-             req: R32, source: "read at the 60 s control wake only: IO9 cannot wake the C3 from deep sleep (partition.md P9)"}
-  USB_DN:   {dir: usb, source: "USB-Serial-JTAG console (rule 1)"}
+  LED_N:    {dir: out, active: low, pull: R3, strap: "R3 holds IO8 high", sleep: "high (off)", req: R32}
+  BTN:      {dir: in, active: low, pull: R5, wake: low, hw_change: D20, strap: "IO9 low at reset = download mode",
+             req: R32, source: "PM D20: the button wakes the MCU on press; IO9 cannot, pin swap pending (conflicts.md D20)"}
+  USB_DN:   {dir: usb}
   USB_DP:   {dir: usb}
-  K2_IN1:   {dir: out, active: high, sleep: "input, no pull", req: R9,
-             source: "IO20 = U0RXD: UART0 console off or moved to USB-Serial-JTAG (rule 1)"}
-  K2_IN2:   {dir: out, active: high, sleep: "input, no pull", req: R9, source: "IO21 = U0TXD: drive low before SENS_EN high (rule 1)"}
+  K2_IN1:   {dir: out, active: high, sleep: "input, no pull", req: R9, source: "IO20 = U0RXD: console on USB-Serial-JTAG (rule 1)"}
+  K2_IN2:   {dir: out, active: high, sleep: "input, no pull", req: R9, source: "IO21 = U0TXD (rule 1)"}
 
 dividers:
-  - name: VBAT
-    net: VBAT_ADC
-    top: R15
-    bottom: R16
-    measures: VBAT_P
-    note: "M3 (CJ2305) in series with R15: 87 uA x RDS(on) < 1 mV; VBAT_P = VBAT_RAW when the guard is ON (rule 8)"
-    req: R22
-    source: "ESP32 ADC1 ATTEN 6 dB (0-1300 mV, +-10 mV after calibration), architecture.md battery row"
+  - {name: VBAT, net: VBAT_ADC, top: R15, bottom: R16, req: R22, source: "ADC ATTEN 6 dB, +-10 mV after calibration"}
 
-i2c:
-  - name: sensors
+buses:
+  - kind: i2c
+    name: sensors
     sda: SDA
     scl: SCL
     pullups: [R6, R7]
     devices:
-      - ref: U3
-        name: ADS
-        addr_pin: ADDR
-        vdd_pin: VDD
-        supply_net: SENS_EN
-        addr_map: {GND: 0x48, VDD: 0x49, SDA: 0x4A, SCL: 0x4B}
-        mux_nets: {AIN_REF: REF, AIN_NTC1: NTC1, AIN_NTC2: NTC2}
-        source: "TI SBAS444 ADS1115 data sheet, ADDR pin connection table (to copy into notes/datasheets/ADS1115.md)"
+      - {ref: U3, name: ADS, addr_pin: ADDR, vdd_pin: VDD, supply_net: SENS_EN,
+         addr_map: {GND: 0x48, VDD: 0x49, SDA: 0x4A, SCL: 0x4B}, mux_nets: {AIN_REF: REF, AIN_NTC1: NTC1, AIN_NTC2: NTC2},
+         source: "TI SBAS444 ADS1115 ADDR pin table"}
 
-ntc:
-  r25_ohm: 10000
-  beta: 3950
-  excitation_net: SENS_EN
-  channels:
-    - {name: NTC1, node: NTC1_A, fixed: R9}
-    - {name: NTC2, node: NTC2_A, fixed: R10}
-  t_min_c: -20
-  t_max_c: 80
-  step_c: 1
-  req: R17
-  source: "R17: 10 kOhm B 3950 probes; ratio read as AINn / AIN0 (REF) at the same PGA (conflicts.md C8)"
+bindings:
+  - {name: K1_DRV, ref: U4, pins: {IN1: K1_IN1, IN2: K1_IN2, "~{SLEEP}": SENS_EN}, defines: {set_in: 1},
+     source: "DRV8837 IN1 1 / IN2 0 = OUT1 high; A1/A2 set polarity assumed (SUMMARY.md bench test 8)"}
+  - {name: K2_DRV, ref: U5, pins: {IN1: K2_IN1, IN2: K2_IN2, "~{SLEEP}": SENS_EN}, defines: {set_in: 1}, source: "as K1"}
 
-relays:
-  - {name: K1, relay: K1, driver: U4, in1: K1_IN1, in2: K1_IN2, enable: SENS_EN, set: in1,
-     source: "DRV8837 truth table: IN1 1 / IN2 0 drives OUT1 high; A1/A2 set polarity assumed, SUMMARY.md bench test 8"}
-  - {name: K2, relay: K2, driver: U5, in1: K2_IN1, in2: K2_IN2, enable: SENS_EN, set: in1,
-     source: "as K1"}
+tables:
+  - {name: NTC, kind: ntc_beta, r25_ohm: 10000, beta: 3950, excitation_net: SENS_EN, fixed: [R9, R10],
+     nodes: [NTC1_A, NTC2_A], t_min_c: -20, t_max_c: 80, step_c: 1, req: R17}
 
-# Inputs of the derived relay pulse window (hwflow fw computes min and max and checks relay_pulse_us).
-relay_coil:
-  set_time_max_ms: 15            # ADW1103HLW set/reset time max (notes/parts-230v.md)
-  set_time_factor: 2             # R9: >= 2 x the datasheet operate time
-  energy_max_mj: 9               # R9 (PM round 2 q4, conflicts.md C9)
-  coil_min_ohm: 40.5             # 45 ohm -10 % (notes/parts-230v.md)
-  rail_max_v: 3.418              # +3V3 maximum post-layout, round 8 (SUMMARY.md, R3)
-  req: R9
-  source: "notes/parts-230v.md; SUMMARY.md round 8"
+params:
+  set_time_max_ms: {value: 15, unit: ms, source: "ADW1103HLW set/reset time max (notes/parts-230v.md)"}
+  set_time_factor: {value: 2, source: "R9: >= 2 x operate time"}
+  energy_max_mj:   {value: 9, unit: mJ, req: R9}
+  coil_min_ohm:    {value: 40.5, unit: ohm, source: "45 ohm -10 % (notes/parts-230v.md)"}
+  rail_max_v:      {value: 3.418, unit: V, source: "+3V3 max post-layout round 8 (SUMMARY.md)"}
+  wifi_wake_max_ms: {value: 1500, unit: ms, req: R7, source: "conflicts.md C2: typical connect 1.5 s (the optimised 0.8 s is the target)"}
+  ads_channels:    {value: 3, source: "REF, NTC1, NTC2 per probe read"}
 
-timing:
-  relay_pulse_us:   {value: 31000, min: 30000, unit: us, req: R9, source: "notes/circuit.md rule 3; sims relay_vbat20_* k1_t_on_20 >= 30 ms"}
-  relay_brake_us:   {value: 5000, unit: us, req: R9, source: "rule 3; relay_backemf_brake sim: brake keeps +3V3 <= 3.389 V"}
-  control_period_s: {value: 60, unit: s, req: [R6, R21], source: "R6: one control wake per minute"}
-  control_wake_max_ms: {value: 20, unit: ms, req: [R6, R7], source: "R7 / conflicts.md C6: 20 ms of 25 mA work"}
-  wifi_period_s:    {value: 3600, unit: s, req: R7, source: "R7: Wi-Fi wake <= 60 min"}
-  wifi_wake_max_uah: {value: 50, unit: uAh, req: R7, source: "R7 fast reconnect"}
-  guard_recharge_us: {value: 20000, unit: us, req: [R3, R35], source: "rule 8c: C1+C2 recharge, light sleep, IO2 held low"}
-  vbat_read_window_us: {value: 50, max: 50, unit: us, req: R35, source: "rule 8b: M4 RC keeps the limiter OFF for 50 us; divider tau 6.7 us (C15)"}
-  guard_release_us: {value: 500, min: 500, unit: us, req: R35, source: "rule 8e: IO2 high >= 0.5 ms discharges C21"}
-  ads_sps:          {value: 16, unit: SPS, req: R17, source: "rule 12: 8 or 16 SPS averages the ULPM ripple; see partition.md P4 for the energy cost"}
+limits:
+  relay_pulse_us:  {value: 31000, unit: us, req: R9, window_warn: 2000, source: "rule 3",
+                    min: "set_time_factor * set_time_max_ms * 1000",
+                    max: "energy_max_mj * 1e-3 * coil_min_ohm / rail_max_v ** 2 * 1e6"}
+  relay_brake_us:  {value: 5000, unit: us, req: R9, source: "rule 3, relay_backemf_brake sim"}
+  relay_min_dwell_s: {value: 2400, unit: s, source: "PM D19 2026-10-23: >= 40 min between two switchings of one relay"}
+  relay_max_pulses_per_day: {value: "2 * 86400 / relay_min_dwell_s", unit: pulses, req: R5, source: "D19: worst case, both relays at the dwell limit; counted in R5 (conflicts.md D19)"}
+  wdt_timeout_ms:  {value: "ceil((relay_pulse_us + relay_brake_us) / 1000 + wifi_wake_max_ms)", unit: ms, req: R9,
+                    source: "PM D19: longest legitimate busy time = relay pulse + brake + Wi-Fi wake"}
+  control_period_s: {value: 60, unit: s, req: [R6, R21]}
+  probe_period_s:  {value: 300, unit: s, req: [R6, R17], source: "PM D17 2026-10-23: probes read every 5 min"}
+  ads_sps:         {value: 16, unit: SPS, req: R17, source: "rule 12: 8 or 16 SPS; 16 for the shorter sensor-on time (D17)"}
+  sensor_on_us:    {value: "ads_channels * 1000000 / ads_sps", unit: us, req: R6, source: "D17: SENS_EN time per probe read, used by the sleep_floor testbench"}
+  wifi_period_s:   {value: 3600, unit: s, req: R7}
+  guard_recharge_us: {value: 20000, unit: us, req: [R3, R35], source: "rule 8c"}
+  vbat_read_window_us: {value: 50, max: 50, unit: us, req: R35, source: "rule 8b"}
+  guard_release_us: {value: 500, min: 500, unit: us, req: R35, source: "rule 8e"}
+  vbat_cutoff_mv:  {value: 2000, unit: mV, req: R23}
+  cutoff_count:    {value: 2, min: 1, req: R23, source: "partition.md P2"}
+  guard_on_below_mv: {value: 3350, unit: mV, req: R35, source: "rule 8a"}
+  cold_boot_guard_below_mv: {value: 2850, unit: mV, req: R35, source: "rule 8a, kept after a guard-OFF decision (P6, D20 record)"}
+  reverse_drop_mv: {value: 30, unit: mV, req: R4, source: "rule 8b"}
+  vbat_warn_mv:    {value: null, unit: mV, req: R22, source: "PM D18: derive from the alkaline discharge curve; derivation open"}
+  probe_open_ratio: {value: 0.98, req: R19}
+  probe_short_ratio: {value: 0.02, req: R19}
   led_pulse_max_ms: {value: 5, unit: ms, req: R32}
-  wdt_timeout_ms:   {value: 1000, unit: ms, req: R9, source: "partition.md F2: a hang with a coil driven is ended by the RTC watchdog; value from the PM question Q3"}
 
-power:
-  vbat_cutoff_mv:   {value: 2000, unit: mV, req: R23, source: "R23: loaded VBAT <= 2.0 V resets both relays OFF"}
-  cutoff_count:     {value: 2, min: 1, unit: readings, req: R23, source: "partition.md P2: two consecutive control wakes, so one noisy read (+-30 mV, R22) does not end the product life"}
-  guard_on_below_mv: {value: 3350, unit: mV, req: R35, source: "rule 8a: last guard-ON reading < 3.35 V = alkaline"}
-  cold_boot_guard_below_mv: {value: 2850, unit: mV, req: R35, source: "rule 8a: VBAT_P(off) < 2.85 V after a cold boot"}
-  reverse_drop_mv:  {value: 30, unit: mV, req: R4, source: "rule 8b: second sample > 30 mV below the first = reversed cells"}
-  vbat_err_mv:      {value: 50, unit: mV, req: R22, source: "R22 acceptance; vbat_divider MC 30-33 mV"}
-  vbat_warn_mv:     {value: null, unit: mV, req: R22, source: "R22: a voltage that leaves >= 30 days; not derived yet (partition.md Q2)"}
-  probe_open_ratio: {value: 0.98, unit: ratio, req: R19, source: "R19: > 98 % of full scale = open probe"}
-  probe_short_ratio: {value: 0.02, unit: ratio, req: R19, source: "R19: < 2 % = shorted probe"}
-  relay_max_pulses_per_day: {value: 20, unit: pulses, req: R5, source: "conflicts.md C6 energy budget (20 pulses/day, 0.73 uA); partition.md P8"}
+# Firmware modules (fw/framework): one owner per output pin; modules talk only through these events.
+events:
+  HOLD:          {a: resources, b: enable, source: "bit 0 sensor rail (SENS_EN), bit 1 guard (VBAT_EN)"}
+  HOLD_READY:    {a: resources}
+  VBAT:          {a: mv, req: R22}
+  BAT_WARN:      {a: mv, req: R22}
+  BAT_CUTOFF:    {a: mv, req: R23}
+  REVERSE_FAULT: {req: R4}
+  TEMP:          {a: channel, b: milli_c, req: R17}
+  PROBE_FAULT:   {a: channel, b: status, req: R19}
+  SETPOINT:      {a: room, b: milli_c, req: R21}
+  RELAY_CMD:     {a: relay, b: flags, source: "bit 0 on, bit 1 force (cold-boot re-assert, cut-off)"}
+  RELAY_STATE:   {a: relay, b: closed, req: R9}
+  RELAY_DEFERRED: {a: relay, b: seconds_left, source: "D19 dwell"}
+  PULSE_DONE:    {a: relay, isr: true, source: "peripheral-timed pulse finished (RMT end-of-transmission interrupt)"}
+  BUTTON:        {isr: true, req: R32, source: "GPIO wake or edge interrupt (D20)"}
 
-# Failure modes each side handles (docs/hwsw-codesign.md). The fw stage turns each `sw` line into a host test.
+modules:
+  power:     {doc: "battery reading, guard sequence (rule 8), cut-off; owns the rails",
+              emits: [VBAT, BAT_WARN, BAT_CUTOFF, REVERSE_FAULT, HOLD_READY], consumes: [HOLD], owns: [VBAT_EN, SENS_EN]}
+  sensors:   {doc: "NTC probes through the ADS1115 every probe_period_s", emits: [TEMP, PROBE_FAULT, HOLD],
+              consumes: [HOLD_READY]}
+  control:   {doc: "hysteresis per room, cut-off and fault handling", emits: [RELAY_CMD],
+              consumes: [TEMP, PROBE_FAULT, BAT_CUTOFF, SETPOINT, RELAY_STATE]}
+  actuators: {doc: "latching relay pulses, one at a time, dwell D19, peripheral-timed",
+              emits: [RELAY_STATE, RELAY_DEFERRED, HOLD], consumes: [RELAY_CMD, HOLD_READY, PULSE_DONE],
+              owns: [K1_IN1, K1_IN2, K2_IN1, K2_IN2]}
+  comms:     {doc: "Wi-Fi/MQTT reports and commands (port), setup button, LED", emits: [SETPOINT],
+              consumes: [VBAT, BAT_WARN, BAT_CUTOFF, REVERSE_FAULT, TEMP, PROBE_FAULT, RELAY_STATE, RELAY_DEFERRED, BUTTON],
+              owns: [LED_N]}
+
 failure_modes:
-  - {id: F1, what: "MCU unpowered, reset or browned out", hw: "R14 holds the guard OFF; DRV8837 inputs pulled down (coast); R8 holds SENS_EN low", sw: "re-assert both relay states after a cold boot (rule 6)", req: [R4, R35, R9]}
-  - {id: F2, what: "firmware hangs with a coil driven", hw: "none: the coil sees 3.3 V / 45 ohm = 0.24 W until reset", sw: "RTC watchdog <= wdt_timeout_ms; pulse ended by a timer, never by a loop", req: R9}
-  - {id: F3, what: "cells reversed at the start of a wake", hw: "guard OFF by default (R14)", sw: "reverse check, two samples in the 50 us window (rule 8b)", req: R4}
-  - {id: F4, what: "lithium cells while the guard decision says alkaline", hw: "M4 RC delay keeps the limiter OFF for 50 us", sw: "guard ON only for a last guard-ON reading < 3.35 V (rule 8a)", req: R35}
-  - {id: F5, what: "battery empty", hw: "none (no stored energy for a reset, conflicts.md C7)", sw: "cut-off: reset both relays OFF, report, stop switching", req: R23}
-  - {id: F6, what: "probe open or shorted", hw: "TVS D2/D3 and 1k series R11/R12 (ESD, R18)", sw: "ratio outside 2-98 %: flag the room, relay OFF for that room", req: R19}
-  - {id: F7, what: "Wi-Fi TX burst during a relay pulse", hw: "R3 verified for one load at a time", sw: "no relay pulse while TX, one pulse at a time (rule 4)", req: R3}
+  - {id: F1, what: "MCU unpowered, reset or browned out", hw: "R14 guard OFF; DRV8837 pull-downs coast; R8 holds SENS_EN low", sw: "re-assert relay states after a cold boot (rule 6)", req: [R4, R35, R9]}
+  - {id: F2, what: "firmware hangs during a relay pulse", hw: "pulse timed by a peripheral (RMT): it ends on its own", sw: "never drive a coil from a plain GPIO; watchdog wdt_timeout_ms", req: R9}
+  - {id: F3, what: "cells reversed at the start of a wake", hw: "guard OFF by default (R14)", sw: "reverse check in the 50 us window (rule 8b)", req: R4}
+  - {id: F4, what: "lithium cells", hw: "M4 RC keeps the limiter OFF for 50 us", sw: "guard ON only for alkaline; a guard-OFF decision latches (P6)", req: R35}
+  - {id: F5, what: "battery empty", hw: "none (conflicts.md C7)", sw: "cut-off: both relays OFF (forced), report, stop", req: R23}
+  - {id: F6, what: "probe open or shorted", hw: "TVS and series R (R18)", sw: "flag; the room goes OFF at the next allowed switching (D19)", req: R19}
+  - {id: F7, what: "Wi-Fi TX during a relay pulse", hw: "R3 verified for one load", sw: "no pulse during TX (rule 4)", req: R3}

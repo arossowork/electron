@@ -48,7 +48,7 @@ Verdict: the method agrees with every hardware choice on the board. It finds fou
 - At 0 C and 25 C that value is under 3.35 V. So on the next wake, rule 8a turns the guard ON, and M4 conducts 1-3 ms later. For the rest of the 20 ms recharge, C1/C2 at 3.45-3.52 V, and then the cells, feed the boost input. The notes give about 3.5 V for this case and up to 3.66 V for a lithium cell behind a closed guard.
 - The guard-ON reading (about 3.7 V) then ends the guard, and the next wake stores a 50 us read again. The guard goes ON every second minute.
 - Each SPICE case decides the guard from its own first wake. Only a test that steps the decision across wakes shows this. The host test `test_guard` reproduces it with `bat_guard_rule8a`.
-- The fix, in SW only and implemented in `core/battery.c`: a guard-OFF decision latches "not alkaline", and later wakes keep the cold-boot criterion (VBAT_P(off) < 2.85 V).
+- The fix, in SW only and implemented in `fw/lib/thermo_lib.c` (`bat_guard_wanted`) and used by `fw/modules/power.c`: a guard-OFF decision latches "not alkaline", and later wakes keep the cold-boot criterion (VBAT_P(off) < 2.85 V).
   - Fresh alkaline cells at >= 3.35 V then stay guard-OFF until VBAT_P(off) falls under 2.85 V, about 3.3 V at the cells. The cost is a few hours of body-diode loss.
   - Host test: lithium over 10 wakes holds IO2 low for about 40 us at most (M4 needs 1 ms).
 - The circuit stage should add a two-wake SPICE case (lithium, guard decision from a stored 50 us read) to confirm. It needs no product decision.
@@ -72,6 +72,9 @@ Verdict: the method agrees with every hardware choice on the board. It finds fou
 
 ## Open questions for the product person
 
+Answered by the PM on 2026-10-23: see `conflicts.md` D17 (Q1: probes every 5 min), D18 (Q2), D19 (Q3: 40 min dwell, watchdog = pulse + Wi-Fi wake), D20 (Q4: the button must wake; HW pin swap pending). The text below is the record of the questions as asked.
+
+
 - Q1 (P4): read the probes every minute at 16 SPS and accept a sleep floor of about 28.5 uA, with R5 still met (recommended). The alternative is reading every 5 min.
 - Q2 (R22): approve deriving the low-battery warning voltage from the alkaline discharge curve. The circuit stage does the derivation.
 - Q3 (P8, F2): the minimum relay cycle time. 2.4 h is what the budget allows today. About 40 min fits R5 after Q1 (a); about 20 min fits R5 without P4.
@@ -85,5 +88,5 @@ The SUMMARY.md bench tests, plus the firmware ones:
 3. Measure the control-wake current profile against `sleep_floor`: the SENS_EN-on time and the energy per wake (P4, R6).
 4. Run the cut-off on a bench supply ramp from 2.1 V down to 1.95 V: two wakes, both relays reset, then no pulse (R23).
 5. Cut, then short, each probe lead: flagged within one wake, and that room goes OFF (R19).
-6. Hang the firmware during a pulse (debug build): the watchdog resets the chip and the coil current stops within `BOARD_WDT_TIMEOUT_MS` (F2).
+6. Hang the firmware during a pulse (debug build): the coil current stops at the end of the RMT-timed pulse (31 ms), and the watchdog resets the chip within `BOARD_WDT_TIMEOUT_MS` (F2, D19).
 7. Read the ADC at three bench voltages and check the VBAT error against +-50 mV (R22, adc_cali).

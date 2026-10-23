@@ -990,6 +990,8 @@ sim:
     # ESP32 light sleep while C1+C2 recharge at the start of a wake (130 uA, ESP32-C3 datasheet light-sleep
     # figure, recall, unverified); off by default
     - {line: "ILSLP $(U1.3) 0 DC 0 PULSE(0 0 1m 10u 10u 5m 1000)"}
+    # ESP32 light sleep while the ADS1115 converts (130 uA, same figure), on the probe-read wakes only (PM D17); off by default
+    - {line: "ILSLP2 $(U1.3) 0 DC 0 PULSE(0 0 1m 10u 10u 5m 1000)"}
     # test load on VBAT_P for the guard drop (R4)
     - {line: "VITEST tb_itest 0 DC 0"}
     - {line: "BTEST $(VBAT_P) 0 I = v(tb_itest)*0.5*(1+tanh((v(VBAT_P)-1)/0.1))"}
@@ -1355,6 +1357,43 @@ sim:
         - {name: dbg_vbat_read_w37, meas: "find v(VBAT_ADC) at=1.048m", scale: 3, unit: V}
         - {name: dbg_vbatp_min_w37, meas: "min v(VBAT_P) from=0.5m to=70m", unit: V}
         - {name: dbg_vinbst_max_w37, meas: "max v(VIN_BST) from=0.5m to=70m", unit: V}
+    # P6 (partition.md): two consecutive wakes on lithium. Wake 1 decides guard OFF (cold boot, VBAT_P(off) >= 2.85 V)
+    # and stores its 50 us read (3.26-3.36 V). The fixed rule (PM D20 record) keeps the cold-boot criterion after a
+    # guard-OFF decision, so wake 2 is again a 50 us read. Wakes 2 s apart instead of 60 s: less C1/C2 sag, so VBAT_P
+    # is higher at wake 2 (conservative for R35).
+    - name: r35_two_wake_vbat37
+      realism: "who: firmware on lithium cells 3.7 V, 0.3 ohm (PM round 3 q2); how often: every pair of consecutive control wakes; timing: wake 1 at 1 ms and wake 2 at 2.001 s, each IO2 low 50 us (rule 8b read) then IO2 high 0.5 ms and released (guard OFF, partition.md P6 fix); 25 mA 20 ms work per wake; limit: R35 +3V3 <= 3.45 V over both wakes"
+      temps: [0, 25, 45]
+      monte_carlo: false
+      timeout_s: 600
+      cmd: |
+        tran 1u 2u
+        alter @vbat[pulse] = [ 3.7 3.7 0 1u 1u 1000 2000 ]
+        alter vrs dc = 0.3
+        alter @vio2[pulse] = [ 0 1 1m 1u 1u 50u 2 ]
+        alter @vio2h[pulse] = [ 0 1 1.052m 1u 1u 0.5m 2 ]
+        alter @iburst[pulse] = [ 0 0.025 2m 10u 10u 20m 2 ]
+        tran 50u 2.1
+      measures:
+        - {name: v3v3_max_2w37, meas: "max v(U1.3) from=0.5m to=2.1", max: 3.45, unit: V, req: R35}
+        - {name: dbg_v3v3_max_2w37_w2, meas: "max v(U1.3) from=2.0005 to=2.1", unit: V}
+    - name: r35_two_wake_rule8a_info
+      realism: "information only (debug): the same two wakes with rule 8a as first written: wake 2 sees the stored 50 us read (< 3.35 V) and turns the guard ON for the 20 ms recharge (IO2 held low, M4 turns ON after about 1 ms), then reads about 3.7 V and releases; shows the defect P6 fixes"
+      temps: [0, 25, 45]
+      monte_carlo: false
+      timeout_s: 600
+      cmd: |
+        tran 1u 2u
+        alter @vbat[pulse] = [ 3.7 3.7 0 1u 1u 1000 2000 ]
+        alter vrs dc = 0.3
+        alter @vio2[pulse] = [ 0 1 1m 1u 1u 50u 1000 ]
+        alter @vio2b[pulse] = [ 0 1 2.001 1u 1u 20m 1000 ]
+        alter @vio2h[pulse] = [ 0 1 1.052m 1u 1u 0.5m 2.0207 ]
+        alter @iburst[pulse] = [ 0 0.025 2m 10u 10u 20m 2 ]
+        tran 50u 2.1
+      measures:
+        - {name: dbg_v3v3_max_2w37_rule8a, meas: "max v(U1.3) from=2.0005 to=2.1", unit: V}
+        - {name: dbg_vinbst_max_2w37_rule8a, meas: "max v(VIN_BST) from=2.0005 to=2.1", unit: V}
     - name: r35_swap_to_lithium
       realism: "who: user swaps spent alkaline cells (2.6 V) for fresh lithium (3.7 V) while the board still runs on C1+C2 (hold-up about 60 s, R24); how often: once per battery change; timing: cells out at 0.1 s, lithium in at 5 s (hand swap), board in deep sleep, guard OFF (R14) since the last wake; limit: R35 +3V3 <= 3.45 V"
       temps: [0, 25, 45]
@@ -1705,9 +1744,9 @@ sim:
       measures:
         - {name: dbg_i_bat_floor_nopre_ua, meas: "avg i(vbat) from=120.6 to=180.6", scale: -1e6, unit: uA}
     - name: sleep_floor
-      realism: "who: normal operation, every minute; R5 condition 2.6 V; deep sleep (ESP32 6 uA incl. 32 kHz crystal, MAX17227A IQ 350 nA OUT + 12 nA IN typ with the +2.7 % ULPM offset and 90 % light-load efficiency, 2 x DRV8837 sleep, C1+C2 leakage 2 uA assumed) with the guard OFF (R14 fail-safe for R35: C1+C2 carry the sleep and sag about 0.11 V per minute, below the body-diode drop); each 60 s wake: guard ON (IO2 low), 20 ms light sleep (130 uA) while C1+C2 recharge through the cells (tau 6.6 ms), then 20 ms 25 mA control work with the ADC and NTC dividers on for 10 ms, then IO2 high; average over the third minute (120.6-180.6 s) after the start-up deficit settles; limit R6 25 uA"
+      realism: "who: normal operation, every minute; R5 condition 2.6 V; deep sleep (ESP32 6 uA incl. 32 kHz crystal, MAX17227A IQ 350 nA OUT + 12 nA IN typ with the +2.7 % ULPM offset and 90 % light-load efficiency, 2 x DRV8837 sleep, C1+C2 leakage 2 uA assumed) with the guard OFF (R14 fail-safe for R35: C1+C2 carry the sleep and sag about 0.11 V per minute, below the body-diode drop); each 60 s wake: guard ON (IO2 low), 20 ms light sleep (130 uA) while C1+C2 recharge through the cells (tau 6.6 ms), then 20 ms 25 mA control work, then IO2 high (the guard is released before the conversions, PM D17); probes read every 5 min (PM D17, 2026-10-23): on every fifth wake SENS_EN is high for the real conversion time, 3 channels (REF, NTC1, NTC2) x 1/16 SPS = 187.5 ms (rule 12, 16 SPS), with the ESP32 in light sleep (130 uA, ILSLP2); average over one 5-min cycle (120.6-420.6 s: five wakes, one probe read) after the start-up deficit settles; limit R6 26 uA"
       monte_carlo: false
-      timeout_s: 300
+      timeout_s: 900
       cmd: |
         tran 1u 2u
         alter @vbat[pulse] = [ 2.6 2.6 0 1u 1u 1000 2000 ]
@@ -1716,10 +1755,11 @@ sim:
         alter @iburst[pulse] = [ 0 0.025 0.52 10u 10u 20m 60 ]
         alter @vio2[pulse] = [ 0 1 0.5 1u 1u 40m 60 ]
         alter @vio2h[pulse] = [ 0 1 0.5402 1u 1u 0.5m 60 ]
-        alter @vio4[pulse] = [ 0 1 0.525 1u 1u 10m 60 ]
-        tran 1m 181
+        alter @vio4[pulse] = [ 0 1 0.541 1u 1u 187.5m 300 ]
+        alter @ilslp2[pulse] = [ 0 130u 0.541 10u 10u 187.5m 300 ]
+        tran 1m 421
       measures:
-        - {name: i_bat_floor_ua, meas: "avg i(vbat) from=120.6 to=180.6", scale: -1e6, max: 26, unit: uA, req: R6}
+        - {name: i_bat_floor_ua, meas: "avg i(vbat) from=120.6 to=420.6", scale: -1e6, max: 26, unit: uA, req: R6}
         - {name: dbg_i_bat_sleep_ua, meas: "find i(vbat) at=150", scale: -1e6, unit: uA}
         - {name: dbg_vbatp_sag_end, meas: "find v(VBAT_P) at=180.49", unit: V}
     - name: sleep_floor_iqmax_info

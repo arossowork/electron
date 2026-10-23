@@ -344,3 +344,31 @@ Analysis: notes/mains-zone-options.md (the right-angle pluggable WJ2EDGRC J1 col
 ### D16. F.Cu 230 V copper up to x 21.1 under MP1 (amends D9) - PM 2026-10-23
 - Problem: layout round 8 (D15, 1.0 mm no neck). AC_ROOM1 on F.Cu runs right of J1.1 to x 21.1 (y 17-21), past D9's x <= 20. The only path inside x <= 20, between J1.1 and F1.1, is about 1.15 mm wide: too narrow for 1.0 mm plus router slack. F1 cannot move left (6 mm from the notch_l screw boss) or up (K1 courtyard).
 - Decision (PM): accept. F.Cu 230 V copper may lie anywhere under MP1 (x 0-26) that keeps the 6.0 mm mains-SELV isolation (R10, 6.00 mm measured) and stays out of the SELV_region (x >= 21.5). The `region-nets` warning for AC_ROOM1 is accepted under this decision.
+
+## HW/SW partition questions, PM round of 2026-10-23 (D17-D20)
+
+Questions Q1-Q4 of partition.md, decided by the PM on 2026-10-23.
+
+### D17. Probes read every 5 min at 16 SPS (partition.md P4, Q1) - decided by the PM on 2026-10-23
+- Decision: the NTC probes are read every 5 min (`probe_period_s` 300); the battery is still read every minute. Per probe read SENS_EN is high for 3 conversions x 1/16 SPS = 187.5 ms (`sensor_on_us`), with the guard released before the conversions.
+- Testbench: `sleep_floor` now holds SENS_EN (and the 130 uA light-sleep load) for 187.5 ms once per 300 s, over 300 s of averaging (was 10 ms).
+- Result (`hwflow build --until sim`): R6 sleep floor **26.14 uA against 26 uA: FAIL by 0.14 uA** (0.5 %). R5 average **79.14 uA <= 80 uA: holds** (about 434 days), with 72 relay pulses per day (D19) and Wi-Fi hourly.
+- Open, for the PM: R6 is derived from R5, which still holds. Re-allocate R6 to 26.2 uA, or read the probes less often. The limit is not changed here.
+
+### D18. R22 warning voltage from the alkaline discharge curve (Q2) - decided by the PM on 2026-10-23
+- Decision: the low-battery warning voltage is derived from the alkaline AAA discharge curve at this drain (30 days left at about 79 uA = 57 mAh). The circuit stage derives it from the cell datasheet.
+- Status: derivation open. `interface.yaml` `vbat_warn_mv` stays null, `hwflow fw` reports it as `open`, and the firmware emits no warning until it has a value. No board impact.
+
+### D19. At least 40 min between two switchings of one relay; watchdog = pulse + Wi-Fi wake (Q3) - decided by the PM on 2026-10-23
+- Decision: `relay_min_dwell_s` 2400. Worst case 2 relays x 86400 / 2400 = 72 pulses per day, counted in R5 (0.0365 uA per daily pulse, 2.63 uA; R5 still holds, D17).
+- Watchdog: timeout = relay pulse + brake + Wi-Fi wake = ceil(31 + 5 + 1500) = 1536 ms (`wdt_timeout_ms`), fed by the scheduler on each pass.
+- Coil safety on an MCU hang does not depend on the watchdog: the bridge pulse is timed by the RMT peripheral (drive 31 ms, brake 5 ms, then both inputs low), and its interrupt only posts PULSE_DONE. Host test `test_hang_during_pulse`: a 3 s hang right after the pulse starts gives 31 ms of coil drive and a watchdog reset.
+- Only the battery cut-off (R23) forces a switch inside the dwell. A probe fault opens the relay at the end of the dwell.
+
+### D20. The setup button must wake the MCU (Q4) - decided by the PM on 2026-10-23 - HW change pending
+- Decision: the button wakes the C3 from deep sleep on press. Only GPIO0-5 can wake the ESP32-C3 (RTC domain). BTN is on IO9, so this is a hardware change. The schematic is not edited here; `hwflow fw` reports `wake-pin` as a warning tied to D20 until it is done.
+- GPIO0-5 today: IO0/IO1 32 kHz crystal (R20), IO2 VBAT_EN, IO3 VBAT_ADC (needs ADC1), IO4 SENS_EN, IO5 SDA. A swap is needed.
+- Recommended (B): BTN -> IO4 (R5 pull-up, wake on low); SENS_EN -> IO8 (R8 pull-down keeps the rail off at reset; IO8 low at reset is fine for SPI boot but blocks the strap download mode, so download goes through USB-Serial-JTAG: check on bring-up); LED_N -> IO9 (R3 pull-up keeps IO9 high at reset, normal boot; move TP6).
+- Alternative (A): swap IO2 and IO9 (BTN -> IO2, VBAT_EN -> IO9). Risk: IO9 is a hard boot strap; VBAT_EN is pulled up to VBAT_P through R14, so below about 2.5 V it may read low at reset and enter download mode.
+- Rejected: SDA, SCL or SENS_EN on IO9 (low at reset selects download); moving VBAT_ADC off IO3 (needs ADC1).
+- Two-wake SPICE for the P6 fix (lithium 3.7 V, R35): `r35_two_wake_vbat37` (wake 2 keeps the guard OFF, as the firmware latch does): +3V3 max **3.389 V <= 3.45 V, pass**. `r35_two_wake_rule8a_info` (wake 2 turns the guard ON, as rule 8a was first written): +3V3 max **3.689 V** (VIN_BST 3.690 V), above 3.45 V. This confirms P6 and the latch in `fw/lib/thermo_lib.c` (`bat_guard_wanted`), checked by host test `test_p6`.

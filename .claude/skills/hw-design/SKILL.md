@@ -42,7 +42,7 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
    When every gate holds, the first lines of `state.md` are `stage: 8-signoff` and `status: done`. Runners look for that exact `status:` line.
    Run a full `uv run hwflow build <proj> --mc 100` and `uv run hwflow trace <proj>`. Write `SUMMARY.md` for the product person: what the board does, the requirement table with status, the cost, the size, the open risks, and the decisions they made. Set `state.md` to `done`.
 
-9. Firmware (subagent `fw-firmware`), while the board is made and shipped. It writes the portable core in `fw/` against `build/fw/board.h` and `interface.yaml`, with a simulated HAL and host tests (`make -C projects/<name>/fw test`). A SW timing that the board cannot meet, or a SW cost that no budget carries, comes back to you as a conflict: route it to stage 4 or to the product person. The stage is done when the host tests pass and the bring-up checklist in `partition.md` lists every firmware item that needs the real board.
+9. Firmware (subagent `fw-firmware`), while the board is made and shipped. It writes the product as modules on the shared event-queue framework (`fw/framework/`), from the skeletons and event list that `hwflow fw --scaffold` generates out of `interface.yaml`, with a simulated board and host tests (`make -C projects/<name>/fw test`). A SW timing that the board cannot meet, or a SW cost that no budget carries, comes back to you as a conflict: route it to stage 4 or to the product person. The stage is done when the host tests pass and the bring-up checklist in `partition.md` lists every firmware item that needs the real board.
 
 ## Loop discipline
 
