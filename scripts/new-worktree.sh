@@ -11,7 +11,7 @@ dest=$(dirname "$here")/electron-$name
 git worktree add -b "$name" "$dest" "$base"
 tools=""
 for w in $(git worktree list --porcelain | sed -n 's/^worktree //p'); do
-  if [ -d "$w/tools" ] && [ ! -L "$w/tools" ] && ls "$w/tools"/*.jar >/dev/null 2>&1; then tools="$w/tools"; break; fi
+  if [ -d "$w/tools" ] && [ ! -L "$w/tools" ] && { ls "$w/tools"/*.jar >/dev/null 2>&1 || [ -d "$w/tools/KiCadRoutingTools" ]; }; then tools="$w/tools"; break; fi
 done
 [ -n "$tools" ] && [ ! -e "$dest/tools" ] && ln -s "$tools" "$dest/tools"
 [ -d "$here/projects" ] && rsync -a --exclude 'build/' "$here/projects/" "$dest/projects/"
