@@ -94,6 +94,19 @@ Stage 3 iteration 3 (notes/parts-audio.md): no off-the-shelf UAC2 bridge with re
 XU316 QF60B: 416 due 2027-01-07. Design, review and fab of the first board take weeks, so ordering now largely overlaps.
 Fallback: RP2040 full-speed UAC1 24/96, -$9.
 
+## C16. R19 floor at zero margin; chargers < 65 W (stage 5 review): RESOLVED, PM round 7: q1 keep 75/60 mA, eFuse upper tolerance up to ~1.13 A (typical kept near 0.99 A), manual note; q2 65 W label only (notes/manual-text.md), revisit charger detection if post-layout cost leaves >= $0.40 under R17
+
+R19 floor test: internal design-worst 600 mA + 4 x 75 mA = 900 mA = budget. Stage 5 fixes add M657 (back-feed blocking P-FET, ~30 mOhm) -> bus_floor 0.902 A, bus_heavy (657 + 4 x 60 = 897 mA) 0.911 A vs 0.900 A. Overload protection (firmware + hardware shed on IMON/PGOOD) needs a threshold between legitimate load and the TPS25940A minimum trip 0.90 A; IMON gain +-9 % (specified 1-5 A only), offset ~15 mA: uncalibrated the floor that never sheds is ~17 mA per port, calibrated ~55 mA per port (notes/circuit.md "Stage 5 fixes, delta 1"). 3 cycles spent on this measure.
+Options: floor 55 mA with calibration; eFuse ILIM raised (max ~1.13 A); no shedding (overload -> brown-out).
+S8: CH224D requests 20 V from any adapter and cannot report its rating; design load 62.6 W. A 45 W / 30 W adapter is overloaded. Options: CH224Q (I2C contract read) + I/O expander (no free RP2040 GPIO) + firmware ~$0.40; label only.
+
+## C17. eFuse trip on 1.5 A / 3 A hosts vs R21: round 8 q1
+
+TPS25940A trip window -9 % / +8.5 % (min/max = 0.91 / 1.085 = 0.839). Legit R21 loads: 1.5 A host 4 x 225 + 600 = 1.5 A (bus_1a5 sim 1.553 A at the port limits), 3 A host 2.766 A.
+- Today: 1.5 A host 1.511 / 1.668 / 1.818 A (min below the 1.553 A legit load: a min unit current-limits); 3 A host 3.018 / 3.341 / 3.652 A.
+- Keep R21: R655 <= 124 k -> 1.5 A host min >= 1.553 A, max ~1.85 A; 3 A host unchanged (max 3.65 A).
+- Max <= advertised: min 1.258 A -> (1.258 - 0.600) / 4 = 164 mA per port (heavy (1.258 - 0.650) / 4 = 152); 3 A: min 2.516 A -> 479 mA (heavy 466).
+
 ## C13. Cost after stage 3 vs R17 (must <= $80 per board at 100 units): RESOLVED, PM round 4: studio sound kept, R17 raised to <= $125 (q1); hot-swap sockets consigned by the PM (q3); knob upright on top of the strip or facing the user, either valid (q4)
 
 Group parts cost at 100 units (notes/parts-*.md; many prices are estimates +-30 %): hub/USB data $13.8; power/PD $28 (~$18 with integrated PD-source bucks, an engineering cost-down); studio audio $51 ($39 with CM6631A bridge, ES9038Q2M, ADP LDOs); keyboard $11.6-14.8 (104 sockets $7.4-9.3). Plus 4-layer 440 x 152 mm PCB, standard PCBA and passives ~$15-20 (estimate).

@@ -15,8 +15,13 @@
 * ILP / ILN: datasheet source / sink current limit [A], NOT enforced (Newton convergence): R29 measures the peak current against it. K0, FZ: supply rejection, input-referred error
 * K0 x (1 + f/FZ) x (V+ - V-), i.e. PSRR = -20log(K0) dB below FZ, falling 20 dB/dec above.
 * IQ: quiescent current per section, drawn from vpos to vneg (times en).  Output current is drawn from the rails.
+* VCM (delta 1, D1): input common-mode window = (V-) + VCM .. (V+) - VCM (datasheet linear CM range). Node cmh =
+* smooth min of the two headrooms (V; < 0 = outside the window): measure v(x<ref>.xa.cmh). ERRCM adds an input
+* error ERRCM x (V outside the window), so a violation also shows as distortion [E]. VCM = 0, ERRCM = 0: no effect.
+* Output stage gated by the supply span (ks: 0 below 2 V, 1 above 3 V): an unpowered section has no output current
+* path into its rail nodes (stage 5: the ungated fit pumped a switched-off rail).
 .subckt OPA_SEC inp inn vpos vneg out kon params: RN=73.7 AOL=3.16e6 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03
-+ K0=1e-6 FZ=1e3 IQ=3.6m
++ K0=1e-6 FZ=1e3 IQ=3.6m VCM=0 ERRCM=0
 Rn inp ip {RN}
 Rcm ip 0 1e12 noisy=0
 Rcm2 inn 0 1e12 noisy=0
@@ -27,7 +32,8 @@ C1 a1 a2 {K0/(6.2832*FZ)}
 G2 a2 0 a2 0 1
 * transconductance stage into the dominant pole (1 mS into AOL/1m || 1m/(2 pi GBW)), swing clamped by sharp diodes
 * (exponential: Newton keeps a slope, unlike min/max) to VS0 inside each rail
-Bgm 0 p I = 1m*(v(ip)-v(inn)+v(a2)-{K0}*9)
+Bcmh cmh 0 V = 0.5*((v(inp)-v(vneg)-{VCM})+(v(vpos)-{VCM}-v(inp))-sqrt(((v(inp)-v(vneg)-{VCM})-(v(vpos)-{VCM}-v(inp)))*((v(inp)-v(vneg)-{VCM})-(v(vpos)-{VCM}-v(inp)))+1e-4))
+Bgm 0 p I = 1m*(v(ip)-v(inn)+v(a2)-{K0}*9-{ERRCM}*0.5*(sqrt(v(cmh)*v(cmh)+1e-4)-v(cmh)))
 Gp p 0 p 0 {1m/AOL}
 Cp p 0 {1m/(6.2832*GBW)}
 * clamp diodes N = 1 (N = 0.1 stalled the board transient, timestep too small); the knee sits 0.55 V inside hi/lo
@@ -40,7 +46,8 @@ Dhi p hi DCLAMPA
 Dlo lo p DCLAMPA
 * XTI=0, EG small: no temperature drift of the behavioural clamp (the default law made its leakage noise dominate at 40 C)
 .model DCLAMPA D(IS=1e-15 N=1 XTI=0 EG=0.01 TNOM=25)
-Bi ni 0 V = v(kon)*(v(p)-v(out))/{ROUT}
+Bks ks 0 V = 0.5*((0.5*((v(vpos)-v(vneg)-2)+(0)+sqrt(((v(vpos)-v(vneg)-2)-(0))*((v(vpos)-v(vneg)-2)-(0))+1e-4)))+(1)-sqrt(((0.5*((v(vpos)-v(vneg)-2)+(0)+sqrt(((v(vpos)-v(vneg)-2)-(0))*((v(vpos)-v(vneg)-2)-(0))+1e-4)))-(1))*((0.5*((v(vpos)-v(vneg)-2)+(0)+sqrt(((v(vpos)-v(vneg)-2)-(0))*((v(vpos)-v(vneg)-2)-(0))+1e-4)))-(1))+1e-4))
+Bi ni 0 V = v(kon)*v(ks)*(v(p)-v(out))/{ROUT}
 Bout 0 out I = v(ni)
 * the rails supply the output current (smooth split, sqrt rounding 10 uA)
 Bsrc vpos 0 I = 0.5*(v(ni)+sqrt(v(ni)*v(ni)+1e-10))
@@ -48,6 +55,10 @@ Bsnk 0 vneg I = 0.5*(sqrt(v(ni)*v(ni)+1e-10)-v(ni))
 * Iq falls to 0 below 2 V of supply (an unpowered part draws nothing; a constant Iq drove the switched-off ADC_4V5 to -33 V)
 Bq vpos vneg I = {IQ}*v(kon)*0.5*((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))+(1)-sqrt(((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))-(1))*((0.5*(((v(vpos)-v(vneg))/2)+(0)+sqrt((((v(vpos)-v(vneg))/2)-(0))*(((v(vpos)-v(vneg))/2)-(0))+1e-4)))-(1))+1e-4))
 Rleak out 0 1e9 noisy=0
+* supply-reversal (substrate) diode V- -> V+ of a real op-amp (delta 1): a switched-off V- rail cannot float above
+* V+ + 0.6 V; without it the op found a false solution with MIC_VN at +1.6 kV (rails crossed, clamps at their midpoint)
+Dsub vneg vpos DSUBA
+.model DSUBA D(IS=1e-14 N=1 XTI=0 EG=0.01 TNOM=25)
 .ends OPA_SEC
 
 * ---------------------------------------------------------------- OPA1612 dual (SOIC-8)
@@ -55,10 +66,11 @@ Rleak out 0 1e9 noisy=0
 * en 1.1 nV/rtHz [V] (RN 73.7 ohm at 300 K), GBW 40 MHz [V], AOL 130 dB [M], swing 0.6 V from the rails at 2 k [V],
 * ROUT 10 ohm [E], Iout +-30 mA [V], Iq 3.6 mA/ch [V], PSRR 120 dB to 1 kHz falling 20 dB/dec [M].
 * Not modelled: 1/f noise (corner ~ 100 Hz class [M], A-weighting suppresses it), current noise 1.7 pA/rtHz [M], slew 27 V/us.
+* Input CM range (V-) + 2 V to (V+) - 2 V (SBOS450C p.5, delta review D1): VCM 2, ERRCM 0.1 [E].
 .subckt OPA1612_DUAL_FIT inpa inna outa inpb innb outb vpos vneg
 Vkon kon 0 DC 1
-XA inpa inna vpos vneg outa kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m
-XB inpb innb vpos vneg outb kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m
+XA inpa inna vpos vneg outa kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m VCM=2 ERRCM=0.1
+XB inpb innb vpos vneg outb kon OPA_SEC params: RN=73.7 GBW=40e6 VS0=0.6 ROUT=10 ILP=0.03 ILN=0.03 K0=1e-6 FZ=1e3 IQ=3.6m VCM=2 ERRCM=0.1
 .ends OPA1612_DUAL_FIT
 
 * ---------------------------------------------------------------- OPA1622 dual (VSON-10) with EN

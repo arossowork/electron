@@ -1,0 +1,45 @@
+{
+  "round": 2,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Which room temperature probes should the thermostat take, and how long can the probe cable be?",
+      "options": [
+        "Recommended: standard 2-wire NTC 10k probes (the common type sold for heating controllers), cable up to 5 m, accuracy about +/-0.5 C between 10 and 30 C. About 0.5-1 USD per probe. No effect on battery life.",
+        "Same NTC 10k probes but cable up to 15 m (rooms far from the box). Same cost; needs a stronger input filter, slightly more noise, still about +/-0.5 C.",
+        "Digital probes (DS18B20, 3 wires), cable up to 10-30 m, +/-0.5 C. About 1-2 USD per probe. Each reading costs more energy: this uses up the battery margin, so the hourly check-in would move to about every 75-90 minutes."
+      ],
+      "why": "Conflict C5 in conflicts.md: 2 x DS18B20 readings every 2 min cost 64.6 uW against an NTC reading of about 0.5 uJ; the 1 x AA budget has 219 uW in total and about 32 uW margin at the 0.4 J wake target. Sets R14, R15."
+    },
+    {
+      "id": "q2",
+      "text": "What is the target cost of the electronics per unit, and how many units per year?",
+      "options": [
+        "Recommended: 15 USD or less per board at about 500 units/year (without probes, plate and battery). Allows a pre-certified WiFi module, compact latching relays and protection parts.",
+        "10 USD or less at 2000 or more units/year. Tighter: cheaper relays and fewer protection parts; may need a WiFi chip with a PCB antenna instead of a pre-certified module, which then needs its own radio certification (several thousand EUR, once).",
+        "25 USD or less at about 100 units (small first batch). Easy to meet; higher unit price for parts and assembly."
+      ],
+      "why": "Sets R28 and R29 and the weight of cost in the optimizer. A pre-certified ESP32-class module alone is about 2-3 USD, two 5 A latching relays about 2-4 USD, the AA holder and terminals about 1-2 USD."
+    },
+    {
+      "id": "q3",
+      "text": "How should the user set up and check the device, given it has no screen?",
+      "options": [
+        "Recommended: one button and one status LED. Press to send readings and fetch commands at once, hold to start phone setup (the phone connects to the device over WiFi or Bluetooth and enters the home WiFi password), long hold to reset. The LED lights only while the button is used. No battery impact (under 1 %).",
+        "One button and three LEDs (status plus one per room showing heating ON while the button is pressed). About +0.1 USD, needs a few mm2 of front area, still no battery impact.",
+        "No button: set up at the factory or by an installer tool. Saves about 0.2 USD, but the user cannot force a check-in or redo WiFi setup after changing the router."
+      ],
+      "why": "Sets R23 and R24. The button is also the immediate check-in from round 1 q1, so removing it changes that answer."
+    },
+    {
+      "id": "q4",
+      "text": "When a design choice trades battery life against cost, which should win? (Size is already fixed by the 3-module format.)",
+      "options": [
+        "Recommended: battery life first. Spend up to about 0.5 USD more per unit if it gives longer life (lower-leakage converter, more accurate battery monitor), aiming at 13-15 months instead of 12.",
+        "Balanced: meet 12 months exactly and take the cheapest parts that do it.",
+        "Cost first: accept about 10-11 months of battery life if it saves 0.5-1 USD per unit."
+      ],
+      "why": "Sets the optimize_for weights (proposed battery_life 3, size 2, cost 1). At the 0.4 J wake target the 1 x AA budget has about 15 % margin; part choices in stage 3 can move it by +/-10 %."
+    }
+  ]
+}

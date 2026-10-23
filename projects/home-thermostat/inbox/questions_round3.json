@@ -1,0 +1,34 @@
+{
+  "round": 3,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Only low relays (10 mm) fit the 503 box, and they give only basic electrical insulation between the 230 V contacts and the battery side. How should the battery stay safe to touch?",
+      "options": [
+        "Low relays plus a screw-fixed battery cover, insulated probe tips, and an instruction to switch off the heating breaker before changing the battery (about +0.3 USD; good for the 10 prototypes, needs a safety review before CE)",
+        "Low relays plus an isolated relay driver, so the battery can be changed at any time (recommended for a home product: about +3 USD, parts about 20-23 USD, measurement every 15 min to keep the battery life, board space is tight)",
+        "Taller relays with reinforced insulation (about +2-5 USD, about 1 month less battery life, likely does not fit the 503 box)"
+      ],
+      "why": "Safety requirement R8: a person who touches the battery or a probe must be protected by reinforced insulation. The low relay has 4 mm of internal creepage, and reinforced insulation needs 5 mm (conflicts.md C12)."
+    },
+    {
+      "id": "q2",
+      "text": "What do the outputs switch in practice?",
+      "options": [
+        "Thermal valve heads, or zone valve motors drawing under 1.5 A per output (recommended: the low relay is rated for this)",
+        "Zone valve motors or pumps drawing more than 1.5 A per output (needs a bigger relay that does not fit the box)"
+      ],
+      "why": "The low relay breaks 5 A of resistive load but only 1.5 A of motor (inductive) load at 230 V. Thermal heads use about 0.01-0.3 A each (conflicts.md C13)."
+    },
+    {
+      "id": "q3",
+      "text": "How often should the thermostat measure the rooms and switch the heating?",
+      "options": [
+        "Every 10 minutes (recommended: about 14 months on an alkaline AA, 2.3 years on lithium)",
+        "Every 5 minutes (about 13.4 months alkaline, no safety margin on battery life)",
+        "Every 15 minutes (about 14.3 months alkaline, slower reaction)"
+      ],
+      "why": "Each measurement wakes the Wi-Fi chip for about 0.1 s. Measuring every minute would cut the alkaline life to about 10 months. Thermal heads take 3-5 minutes to open, so 10 minutes changes the room temperature very little (conflicts.md C9)."
+    }
+  ]
+}

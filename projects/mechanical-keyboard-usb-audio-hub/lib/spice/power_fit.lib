@@ -7,22 +7,24 @@
 
 * ------------------------------------------------------------------ buck with a feedback pin (averaged)
 * ports: vin sw fb en gnd. Voltage-mode: an error amplifier (gain 1e4, 0.05 % FB error at 5 V) drives the SW
-* node through 5 mohm, clipped to the duty headroom DMAX*vin; it sources current only (FPWM negative current
-* not modelled), output current limited to ILIM (smooth minimum). VEN is the FALLING enable threshold: the
+* node through 5 mohm, clipped to the duty headroom DMAX*vin; output current limited to ILIM (smooth minimum).
+* ISNK (delta 1, D2): forced-PWM negative current limit [A]; 0 = sources only (diode emulation). LM61460AFS:
+* -3 A (lm61460.md p.6). The sink branch is multiplied by kon (no sink when disabled / input under UVLO); a
+* negative output current returns power into vin (input current negative, efficiency applied in the same way). VEN is the FALLING enable threshold: the
 * DC state is a converter that has started (LM61460 EN 1.263 V rising, 28 % hysteresis: 0.91 V falling). Input current = Pout / eff + IQ; eff = EFF5 below VSPLIT output, EFF9 above.
 * kon = enable (EN above VEN, ramp 0.2 V) x input UVLO (VUV, ramp 0.5 V).
 * Internal nodes: xU.ploss = loss in W, xU.tj = temper + LFRAC*ploss*THETA (junction estimate, C).
 .subckt BUCK_FB vin sw fb en gnd params: VREF=1.0 EFF5=0.95 EFF9=0.95 VSPLIT=7 ILIM=6 IQ=1u VEN=1.263
-+ THETA=35 LFRAC=1 DMAX=0.95 VUV=3.5 ROUT=5m
++ THETA=35 LFRAC=1 DMAX=0.95 VUV=3.5 ROUT=5m ISNK=0
 Bkon kon gnd V = min(max((v(en,gnd)-{VEN})/0.2+0.5, 0), 1)*min(max((v(vin,gnd)-{VUV})/0.5, 0), 1)
 * voltage-mode error amplifier (gain 1e4) clipped to [0, DMAX*vin], 5 mohm source; sources current only
 Bv nv gnd V = v(kon,gnd)*min(max(1e4*({VREF}-v(fb,gnd)), 0), {DMAX}*max(v(vin,gnd),0))
-Bxi nxi gnd V = max((v(nv,gnd)-v(sw,gnd))/{ROUT}, 0)
-Bi ni gnd V = ((v(nxi,gnd))*({ILIM})/pwr(pwr(v(nxi,gnd),8)+pwr({ILIM},8)+1e-60,0.125))
+Bxi nxi gnd V = (v(nv,gnd)-v(sw,gnd))/{ROUT}
+Bi ni gnd V = v(nxi,gnd) >= 0 ? ((v(nxi,gnd))*({ILIM})/pwr(pwr(v(nxi,gnd),8)+pwr({ILIM},8)+1e-60,0.125)) : v(kon,gnd)*((v(nxi,gnd))*({ISNK})/pwr(pwr(v(nxi,gnd),8)+pwr({ISNK},8)+1e-60,0.125))
 Bout gnd sw I = v(ni,gnd)
 Beff neff gnd V = {EFF5} + ({EFF9}-{EFF5})*min(max((v(sw,gnd)-{VSPLIT})/0.5+0.5, 0), 1)
 Bin vin gnd I = v(ni,gnd)*max(v(sw,gnd),0)/max(v(vin,gnd),{VUV})/v(neff,gnd) + {IQ}*v(kon,gnd)
-Bp ploss gnd V = v(ni,gnd)*max(v(sw,gnd),0)*(1/v(neff,gnd)-1) + {IQ}*v(vin,gnd)*v(kon,gnd)
+Bp ploss gnd V = abs(v(ni,gnd))*max(v(sw,gnd),0)*(1/v(neff,gnd)-1) + {IQ}*v(vin,gnd)*v(kon,gnd)
 Btj tj gnd V = temper + {LFRAC}*v(ploss,gnd)*{THETA}
 .ends BUCK_FB
 
@@ -68,15 +70,20 @@ Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
 .ends ISW_LIM
 
 * TPS25940A eFuse: IOS = 87.5/R(kohm) A (p.5), EN/UVLO 0.99 V rising / 0.92 V falling, OVP pin < 0.99 V to conduct.
-.subckt EFUSE_FIT in out en ovp ilim gnd params: RON=0.042 K=87.5 IQ=210u THETA=50
+.subckt EFUSE_FIT in out en ovp ilim gnd params: RON=0.042 K=87.5 IQ=210u THETA=50 PK=24
 Vil ilim gnd DC 1
 Iq in gnd {IQ}
-Blim nlim gnd V = {K}*max(-1000*i(Vil),1e-9)
+* pass 4: corner selector global node kef (0 typ, 1 max, -1 min): IOS window -9 % / +8.5 % (p.5 table at 88.7 k:
+* 0.90 / 0.99 / 1.07 A against 87.5/R; notes say -9/+8 %, the wider of each side is used) with R_ILIM at its 0.1 %
+* limit (min: R x 1.001, max: R x 0.999). Knee exponent 24 (was 8): below IOS the switch is resistive (Ron), the
+* p = 8 knee cut the current ~8 % below IOS, a model artifact that read as limiting at the legitimate load.
+Blim nlim gnd V = min({K}*max(-1000*i(Vil),1e-9),1000)*(v(kef) > 0.5 ? 1.085/0.999 : (v(kef) < -0.5 ? 0.91/1.001 : 1))
 * steady state after start-up: EN/UVLO at its falling threshold 0.92 V (rising 0.99 V), OVP at its rising
 * threshold 0.99 V (p.5); ramps EN 0.90-0.94 V, OVP 0.95-0.99 V
 Bon non gnd V = min(max((v(en,gnd)-0.90)/0.04, 0), 1)*min(max((0.99-v(ovp,gnd))/0.04, 0), 1)
-Bxs nxs gnd V = max(v(in,out),0)/{RON}
-Bisw nisw gnd V = v(non,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),8)+pwr(v(nlim,gnd),8)+1e-60,0.125))
+* pass 4: nxs / nlim clamped to 1000 A-equivalent (diverging Newton iterates gave pwr() out-of-range aborts)
+Bxs nxs gnd V = min(max(v(in,out),0)/{RON},1000)
+Bisw nisw gnd V = v(non,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),{PK})+pwr(v(nlim,gnd),{PK})+1e-200,1/{PK}))
 Bsw in out I = v(nisw,gnd)
 Bp ploss gnd V = v(nisw,gnd)*v(in,out) + {IQ}*v(in,gnd)
 Btj tj gnd V = temper + v(ploss,gnd)*{THETA}
@@ -90,9 +97,10 @@ Vlo ilim_lo gnd DC 1
 Iq in gnd {IQ}
 Bks ks gnd V = min(max((v(sel,gnd)-1.0)/0.2+0.5, 0), 1)
 Bken ken gnd V = min(max((v(en,gnd)-1.0)/0.2+0.5, 0), 1)
-* x = 1/R(kohm) of the selected pin; typ 50.25 x A; corners (global klim, see ISW_LIM) per p.32 eq. 2/3 as
-* reconstructed in notes/datasheets/tps2546.md: max = 1.0139 x 50.25 x + 0.030 A, min = 45.271 x^0.98437 - 0.030 A
-Blim nlim gnd V = v(klim) > 0.5 ? 1.0139*50.25*(v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9))+0.03 : (v(klim) < -0.5 ? max(45.271*pwr((v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9)),0.98437)-0.03, 1e-3) : 50.25*(v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9)))
+* x = 1/R(kohm) of the selected pin; typ 50.25 x A; corners (global klim, see ISW_LIM) per p.32 eq. 2/3
+* (delta review D5): max = 55.325 x^1.0139 + 0.030 A, min = 45.271 x^0.98437 - 0.030 A, evaluated with the 1 %
+* resistor at its limit as p.32 asks (max: R x 0.99, i.e. x / 0.99; min: R x 1.01, i.e. x / 1.01)
+Blim nlim gnd V = v(klim) > 0.5 ? 55.325*pwr((v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9))/0.99,1.0139)+0.03 : (v(klim) < -0.5 ? max(45.271*pwr((v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9))/1.01,0.98437)-0.03, 1e-3) : 50.25*(v(ks,gnd)*max(-1000*i(Vhi),1e-9) + (1-v(ks,gnd))*max(-1000*i(Vlo),1e-9)))
 Bxs nxs gnd V = max(v(in,out),0)/{RON}
 Bisw nisw gnd V = v(ken,gnd)*((v(nxs,gnd))*(v(nlim,gnd))/pwr(pwr(v(nxs,gnd),8)+pwr(v(nlim,gnd),8)+1e-60,0.125))
 Bsw in out I = v(nisw,gnd)
@@ -162,3 +170,44 @@ Bo4 o4 gnd I = v(c4,gnd)*max(v(o4,gnd),0)/{RON}
 .subckt LDCR a b params: R=1m
 R1 a b {R}
 .ends LDCR
+
+* pass 6: 74LVC1G123 retriggerable monostable, behavioral (written for this project; timing / threshold values are
+* the datasheet-envelope assumptions of notes/circuit.md pass 6). Ports: A B CLR Q CEXT RCEXT VCC GND
+* (symbol pins 1 2 3 5 6 7 8 4). A / B Schmitt inputs (VTP / VTN), CLR plain CMOS (VCC / 2). Trigger: A falling
+* with B high and CLR high, B rising with A low and CLR high, CLR rising with A low and B high. On a trigger the
+* RCext node is discharged (latch until < 0.05 VCC), Q stays high until RCext charges (Rext from VCC) to
+* KREF x VCC, KREF = 1 - 0.95 exp(-K) -> tw = K x Rext x Cext. Retriggerable; CLR low clears Q; Q low at power-up.
+* ILK: input / RCext leakage to GND (A).
+.subckt MONO123_BEH a b clr q cext rcext vcc gnd params: VTP=2.5 VTN=1.5 K=1.0 ILK=0 ROUT=30
+Rcx cext gnd 1
+Riq vcc gnd 1meg
+Ila a gnd DC {ILK}
+Ilb b gnd DC {ILK}
+Ilc clr gnd DC {ILK}
+Ilr rcext gnd DC {ILK}
+Bpv pv gnd V = 0.5*(1+tanh((v(vcc,gnd)-1.5)/0.1))
+Bas asd gnd V = 0.5*(1+tanh((v(a,gnd)-({VTP}-({VTP}-{VTN})*v(as)))/0.03))
+Ras asd as 1k
+Cas as gnd 1n
+Bbs bsd gnd V = 0.5*(1+tanh((v(b,gnd)-({VTP}-({VTP}-{VTN})*v(bs)))/0.03))
+Rbs bsd bs 1k
+Cbs bs gnd 1n
+Bcl cl gnd V = 0.5*(1+tanh((v(clr,gnd)-0.5*v(vcc,gnd))/0.05))
+Ben en0 gnd V = v(pv)*(1-v(as))*v(bs)*v(cl)
+Ren en0 en 1k
+Cen en gnd 1n
+* edge detection without a differentiator (step-size safe): arm = 1 while the trigger condition is false; the
+* condition true with arm set -> discharge latch dis (holds until RCext < 0.05 VCC), which clears arm
+Bar armd gnd V = max(1-v(en), 0.5*(1+tanh((v(arm)-0.5)/0.05))*(1-v(dis)))
+Rar armd arm 1k
+Car arm gnd 10n
+Bds dsd gnd V = max(v(en)*0.5*(1+tanh((v(arm)-0.5)/0.05)), 0.5*(1+tanh((v(dis)-0.5)/0.05))*0.5*(1+tanh((v(rcext,gnd)-0.05*v(vcc,gnd))/0.02)))
+Rds dsd dis 1k
+Cds dis gnd 1n
+Bdc rcext gnd I = max(v(dis)-0.05,0)*max(v(rcext,gnd),0)/500
+Bqs qsd gnd V = v(cl)*v(pv)*max(0.5*(1+tanh((v(dis)-0.5)/0.05)), 0.5*(1+tanh((v(qs)-0.5)/0.05))*(1-(1-v(dis))*0.5*(1+tanh((v(rcext,gnd)-(1-0.95*exp(-{K}))*v(vcc,gnd))/0.02))))
+Rqs qsd qs 1k
+Cqs qs gnd 1n
+Bq qo gnd V = v(qs)*max(v(vcc,gnd),0)
+Rq qo q {ROUT}
+.ends MONO123_BEH

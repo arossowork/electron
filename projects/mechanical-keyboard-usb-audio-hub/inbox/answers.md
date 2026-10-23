@@ -26,3 +26,7 @@ q2: Recommended: use a USB sound chip that is available now, keeping the same st
 
 ## Round 6
 q1: Recommended: order the original XU316 now and keep it. It arrives around 7 January 2027, and the board design, review and prototype order take several weeks anyway, so the wait mostly overlaps work that has to happen regardless. Ready-made, proven studio USB-audio software from the chip maker. Same sound quality, no extra cost.
+
+## Round 7
+q1: Keep 75 mA / 60 mA and let the safety cut-off sit a little higher (up to about 1.13 A instead of 1.07 A). Reason: R19's per-port numbers are the product promise, and the miss is only 2-11 mA (under about 1.2%) at the worst tolerance corner. I don't want a lower guarantee or a factory calibration step for that. Keep the typical trip where it is designed; only the upper tolerance edge moves. Document the 'strict host port may need the adapter' note in the manual text list.
+q2: A note in the manual and on the box: 'use a 65 W or larger USB-C charger for fast charging'. Reason: R17 cost (<= $125) is already at the limit (BOM ~$104.65 + ~$20 PCB/PCBA), and +$0.40 plus a pin expander plus firmware would push it over. Revisit the charger-rating option only if the post-layout cost leaves at least $0.40 of room under R17.

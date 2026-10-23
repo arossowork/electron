@@ -1,0 +1,24 @@
+{
+  "round": 7,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Without the power adapter, the promise '75 mA per port (60 mA in the heavy case)' uses every last milliamp of the computer's 900 mA, with no room for part tolerances or the protection that stops the keyboard from overloading the computer port. In the worst case of part tolerances the board then either overloads the port or switches two ports off. Which do you prefer?",
+      "options": [
+        "Recommended: guarantee at least 55 mA per port in every computer-only case (typical use still gives 90-100 mA or more). Mice, keyboards and dongles still work; the automatic protection keeps the computer port safe. Needs a one-time 10-second calibration step when each board is tested at the factory or bench. Under $0.10 extra.",
+        "Keep 75 mA / 60 mA and let the safety cut-off sit a little higher (up to about 1.13 A instead of 1.07 A). Almost every computer port tolerates this; a strict port may cut power and the adapter is then needed. No cost.",
+        "Keep 75 mA / 60 mA without automatic port switch-off: if four power-hungry devices are plugged in without the adapter, the board's protection limits the current and the keyboard and sound card can reset. No cost."
+      ],
+      "why": "Must-level requirement R19 (rounds 3-5) has zero margin by construction: 600 mA internal design-worst + 4 x 75 mA = 900 mA. Measured part tolerances and a 30 mOhm protection switch push it to 902-911 mA (conflicts.md C16)."
+    },
+    {
+      "id": "q2",
+      "text": "With a charger smaller than 65 W (45 W and 30 W USB-C chargers are common), fast-charging four devices at once overloads it and the whole board can briefly lose power (keyboard and sound card reset). What should happen?",
+      "options": [
+        "Recommended: the board reads the charger's rating and limits fast charging to what the charger can give (for example only one USB-C port fast-charges on a 45 W charger). About $0.40 more (a charger chip that reports its rating and a small pin-expander chip, since the keyboard chip has no free pins) plus some firmware.",
+        "A note in the manual and on the box: 'use a 65 W or larger USB-C charger for fast charging'. No cost; with a smaller charger the board may reset under heavy charging."
+      ],
+      "why": "Design review finding S8: the input chip asks any charger for 20 V and cannot tell 45 W from 65 W; the design load is 62.6 W (conflicts.md C16)."
+    }
+  ]
+}

@@ -96,17 +96,17 @@ requirements:
   - id: R9
     priority: must
     text: "Optional USB-C PD power input for a 65 W adapter, on the back edge"
-    acceptance: "PD sink requests a contract the 65 W adapter offers (20 V/3.25 A); input power at full rated load (R7 + R8 + internal loads incl. R29 full-scale audio, all at once) <= 65 W by the power budget (estimate 57.5 W / 0.92 = 62.5 W, conflicts.md C1); socket face within 0.5 mm of the back edge"
+    acceptance: "PD sink requests a contract the 65 W adapter offers (20 V/3.25 A); input power at full rated load (R7 + R8 + internal loads incl. R29 full-scale audio, all at once) <= 65 W by the power budget (estimate 57.5 W / 0.92 = 62.5 W, conflicts.md C1); socket face within 0.5 mm of the back edge; adapters below 65 W are not supported for full fast charge (manual and box note, notes/manual-text.md)"
     verification: analysis
-    evidence: "power budget in architecture.md from datasheet currents and efficiencies; hwflow layout connector position"
-    source: "PM round 1, q1"
+    evidence: "power budget in architecture.md from datasheet currents and efficiencies; hwflow layout connector position; notes/manual-text.md"
+    source: "PM round 1, q1; PM round 7, q2 (65 W label instead of charger-rating detection; revisit only if post-layout cost leaves >= $0.40 under R17)"
   - id: R19
     priority: must
     text: "Without the power input, everything except fast charging works from the computer cable: keyboard and full audio always powered, the 4 user ports share the rest of the host budget"
-    acceptance: "with the power input absent: port limits keep the host draw <= 900 mA nominal; the host fault limit (eFuse) trips near 1.0 A (typ ~1.0 A, max <= 1.1 A) and never below the 900 mA of legitimate load (TPS25940A, R_ILIM 88.7 k: 0.90 / 0.99 / 1.07 A min/typ/max, notes/parts-power.md); keyboard, hub and audio (R10, R29 at full scale) always run; user ports share 900 mA - internal loads, >= 75 mA per port with VBUS >= 4.45 V when all four are loaded (internal <= 600 mA), except the heavy case (4 SuperSpeed devices + mic recording + loud headphones, internal ~650 mA): >= 60 mA per port"
+    acceptance: "with the power input absent: port limits keep the host draw <= 900 mA nominal; the host fault limit (eFuse) trips near 1.0 A typical (kept near the designed 0.99 A), max <= 1.13 A, and its minimum trip stays above the worst legitimate load (floor 902 mA, heavy 911 mA at the tolerance corner; TPS25940A, notes/circuit.md); keyboard, hub and audio (R10, R29 at full scale) always run; user ports share 900 mA - internal loads, >= 75 mA per port with VBUS >= 4.45 V when all four are loaded (internal <= 600 mA), except the heavy case (4 SuperSpeed devices + mic recording + loud headphones, internal ~650 mA): >= 60 mA per port"
     verification: analysis
     evidence: "power budget in architecture.md from datasheet currents; current-limit datasheet"
-    source: "PM round 1, q1 (optional input, everything else works); PM round 3, q1 (keyboard + full audio always on, ports share the rest, >= 100 mA each; not USB-IF bus-powered compliant, no logo planned); PM round 4, q2 (floor lowered to >= 75 mA per port, conflicts.md C12); PM round 5, q1 (heavy case >= 60 mA per port, fault cut-off near 1.0 A, conflicts.md C14)"
+    source: "PM round 1, q1 (optional input, everything else works); PM round 3, q1 (keyboard + full audio always on, ports share the rest, >= 100 mA each; not USB-IF bus-powered compliant, no logo planned); PM round 4, q2 (floor lowered to >= 75 mA per port, conflicts.md C12); PM round 5, q1 (heavy case >= 60 mA per port, fault cut-off near 1.0 A, conflicts.md C14); PM round 7, q1 (keep 75/60 mA; cut-off upper tolerance up to ~1.13 A, typical unchanged; manual note: a strict host port may need the adapter, notes/manual-text.md)"
   - id: R21
     priority: must
     text: "Without the power input, extra host current is shared among the user ports when the host offers it (USB-C host advertising 1.5 A or 3 A)"
@@ -204,11 +204,11 @@ requirements:
     source: "derived from PM round 1, q2 and round 2, q2 (conflicts.md C11)"
   - id: R36
     priority: could
-    text: "Line-level input and output jacks (not planned; ~$3 and 24 mm of front edge)"
-    acceptance: "two extra 3.5 mm jacks, line out 2 Vrms, line in 2 Vrms full scale, same noise class as R10/R11"
-    verification: simulation
-    evidence: ""
-    source: "PM round 2, q2 (two jacks only); left as could"
+    text: "Line-level input and output jacks: DECLINED by the product person (not built)"
+    acceptance: "no line-level jacks fitted; only the headphone and mic jacks of R13 (declined option: two extra 3.5 mm jacks, line out/in 2 Vrms, ~$3 and 24 mm of front edge)"
+    verification: inspection
+    evidence: "design.yaml has no line-level jack components (declined, PM round 2 q2 and PM note 2026-10-23)"
+    source: "PM round 2, q2 (two jacks only); PM note 2026-10-23 (stays declined, do not build)"
 
   # ---------- Board, mechanics, cost ----------
   - id: R34

@@ -1,0 +1,47 @@
+{
+  "round": 1,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "How should the thermostat be powered, given how fast a command from your phone must take effect? With WiFi, batteries only last a year if the device sleeps and checks for commands now and then. (The heating schedule and the room control work offline in every option.)",
+      "options": [
+        "Recommended: powered from the wall (needs the neutral wire in the box, live is already there because the relays switch 230 V). Phone commands act in about 1 second, no batteries ever. Adds about 2-3 USD.",
+        "One AA battery, about 1 year. Phone commands act within about 1 hour (the device checks once per hour, or at once if you press its button).",
+        "Two AA batteries, about 1 year. Phone commands act within about 20-30 minutes. Needs the whole wall box or a deeper two-board build (+1-2 USD).",
+        "Two AAA batteries, about 1 year. Phone commands act within about 1 hour; same life as one AA but a larger holder. (One AAA alone would give a check only every 4-5 hours, so it is not offered.)"
+      ],
+      "why": "Conflict C1/C4 in conflicts.md: 1 x AA leaves about 153 uW for WiFi = about 26 wake-ups/day at 0.5 J each; a 15-minute check needs 8 Wh/yr (3 x AA); an always-connected radio needs about 68 Wh/yr, which only mains can provide."
+    },
+    {
+      "id": "q2",
+      "text": "How should it sit in the Italian 503 wall box?",
+      "options": [
+        "Recommended: as a standard 3-module device that clips into the normal support frame behind any brand's 3-module plate (front 67.5 x 45 mm, about 38 mm deep). Fits with one AA or mains power.",
+        "Fill the whole 503 box behind a blank cover plate (about 90 x 55 mm board). Room for any battery choice, but no other socket or switch can share that box, and the cover may need to be custom.",
+        "As a 2-module device next to a switch or socket in the same box. Only possible without batteries (mains-powered), and very tight."
+      ],
+      "why": "Conflict C3: the 230 V parts need 6 mm safety gaps; in a 3-module board (2730 mm2) the relay zone uses 960-1350 mm2, leaving room for one AA (912 mm2) only with compact relays."
+    },
+    {
+      "id": "q3",
+      "text": "What will the two outputs switch, per room?",
+      "options": [
+        "Recommended: 230 V thermoelectric valve heads on radiators/manifold (up to about 4 heads per room) or a zone valve / boiler enable contact. We rate each output 5 A at 230 V, voltage-free contact (installer wires live to it). Small relays, fits the 3-module size.",
+        "Larger loads such as an electric heater or a pump directly (up to 16 A each). Bigger relays: no room for an AA battery in the 3-module size.",
+        "I don't know yet: design for 5 A and state in the manual that larger loads need an external contactor."
+      ],
+      "why": "The load sets the relay size, which decides whether the battery fits (C3). Thermoelectric heads use about 2-3 W each, so 4 heads draw about 55 mA; 5 A leaves a large margin for inrush."
+    },
+    {
+      "id": "q4",
+      "text": "If the battery runs out (or power is cut), what should the heating do?",
+      "options": [
+        "Recommended: switch heating OFF before the battery is empty, and send low-battery warnings to the app starting at least 30 days before. No extra cost.",
+        "Switch OFF even if someone pulls the battery out suddenly (adds a small energy reserve, about 0.5-1 USD).",
+        "Leave the heating as it was (on stays on). No cost, but heating may run uncontrolled until the battery is replaced.",
+        "Leave heating ON (frost protection first, accepts wasted energy)."
+      ],
+      "why": "Conflict C2: on battery, only latching relays are possible (a normal relay coil would need about 263 Wh per season, the battery has 1.3-6 Wh), and latching relays keep their last state when the battery dies."
+    }
+  ]
+}

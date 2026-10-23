@@ -109,7 +109,7 @@ floorplan:
 nets:
   # rails (5V_SYS and 3V3_D are made by pass B; VBUS_HOST enters from the host cable)
   GND: {class: ground}
-  5V_SYS: {class: power, current_a: 4.0}   # pass B: PD mode 2 x 1.5 A USB-A + internal ~0.8 A
+  5V_SYS: {class: power, current_a: 4.0, external_supply: true}   # fed through M657 (host path) and the U680 buck inductor (passive pins)   # pass B: PD mode 2 x 1.5 A USB-A + internal ~0.8 A
   # IC-local rails carry no class power: its 0.4 mm floor (board power_track_mm) cannot enter the 0.4 mm-pitch QFN
   # pads (check: 14 necks at U101); they get pours/vias in layout. current_a from the load where known.
   # external_supply on inductor/FET/resistor-fed rails: their source pin is passive (no power_out in the symbol)
@@ -289,6 +289,7 @@ nets:
   A1_CDM: {"class": "high_speed", "edge_ns": 0.5, "impedance_ohm": 45}
   A2_CDP: {"class": "high_speed", "edge_ns": 0.5, "impedance_ohm": 45}
   A2_CDM: {"class": "high_speed", "edge_ns": 0.5, "impedance_ohm": 45}
+  EFUSE_OUT: {"class": "power", "current_a": 3.4}   # delta 1 (D2): TPS25940A OUT -> M657 host-path P-FET -> 5V_SYS
   # ==== PASS B NETS END
   # ==== PASS C NETS BEGIN (tools/gen_pass_c.py)
   AGND: {"class": "ground"}
@@ -345,6 +346,7 @@ nets:
   XU_XO: {"class": "clock"}
   XU_XOR: {"class": "clock"}
   XQ_CLK: {"class": "clock"}
+  MIC_VN: {"current_a": 0.02, "external_supply": true}   # fed through M981/M982 from AUD_N4V5 (switch pins)   # delta 1 (D1): U980 V- = AUD_N4V5 switched by M981 while ADC_4V5 is on
   # ==== PASS C NETS END
 components:
   # ---- hub 1 (GL3523, upstream from the host Type-C mux U301)
@@ -4839,7 +4841,7 @@ components:
     group: "pwr_ctl"
     spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
     pins: {"1": PDMODE_N, "2": GND, "3": RP_G}
-  # ---- host VBUS: SMBJ5.0A, CC TVS, TPS25940A eFuse (ILIM 88.7 k / 53.2 k / 26.4 k), off in PD mode -> 5V_SYS
+  # ---- host VBUS: SMBJ5.0A, CC TVS, TPS25940A eFuse (ILIM 86.6 k 0.1 % / 52.4 k / 26.2 k; pass 4, notes/circuit.md), off in PD mode -> 5V_SYS
   D650:
     value: "SMBJ5.0A-TR"
     mpn: "SMBJ5.0A-TR"
@@ -4880,8 +4882,8 @@ components:
     theta_ja: 50
     tj_max_c: 125
     spice: {"lib": "lib/spice/power_fit.lib", "subckt": "EFUSE_FIT", "ports": ["9", "4", "14", "15", "17", "16"], "source": "fit", "params": {"RON": 0.042, "K": 87.5, "IQ": 0.00021, "THETA": 50}}
-    pins: {"9": VBUS_HOST, "10": VBUS_HOST, "11": VBUS_HOST, "12": VBUS_HOST, "13": VBUS_HOST, "4": 5V_SYS, "5": 5V_SYS, "6": 5V_SYS, "7": 5V_SYS, "8": 5V_SYS, "14": EFUSE_EN, "15": EFUSE_OVP, "1": GND, "3": GND, "17": EFUSE_ILIM, "18": EFUSE_DVDT, "19": HOST_IMON, "16": GND, "21": GND}
-    nc: ["2", "20"]
+    pins: {"9": VBUS_HOST, "10": VBUS_HOST, "11": VBUS_HOST, "12": VBUS_HOST, "13": VBUS_HOST, "4": EFUSE_OUT, "5": EFUSE_OUT, "6": EFUSE_OUT, "7": EFUSE_OUT, "8": EFUSE_OUT, "14": EFUSE_EN, "15": EFUSE_OVP, "1": GND, "2": EF_PG, "3": EF_PGTH, "17": EFUSE_ILIM, "18": EFUSE_DVDT, "19": HOST_IMON, "16": GND, "21": GND}
+    nc: ["20"]
   C650:
     value: "1uF"
     mpn: "CL10A105KA8NNNC"
@@ -4935,10 +4937,13 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "vbus_path"
     pins: {"1": EFUSE_OVP, "2": GND}
+  # pass 4 (PM round 7 q1): 86.6 k 0.1 % -> IOS typ 87.5 / 86.6 = 1.010 A, min 0.91 x 87.5 / (86.6 x 1.001) = 0.9185 A
+  # (>= worst legitimate load 0.911 A), max 1.085 x 87.5 / (86.6 x 0.999) = 1.097 A (<= 1.13 A); 1 % fails the min
   R654:
-    value: "88.7k"
-    mpn: "0402 1% 88.7k"
-    price_usd: 0.002
+    value: "86.6k"
+    mpn: "0402 0.1% 86.6k"
+    price_usd: 0.01
+    tolerance: 0.001
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "vbus_path"
@@ -5040,7 +5045,7 @@ components:
     group: "vbus_path"
     decouples: "U650"
     voltage_rating_v: 16
-    pins: {"1": 5V_SYS, "2": GND}
+    pins: {"1": EFUSE_OUT, "2": GND}
   # ---- 5V_SYS buck: AO4407A input isolation (no bus-mode back-feed into VIN20), LM61460AFS 5.1 V 400 kHz FPWM
   M680:
     value: "AO4407A"
@@ -5101,9 +5106,8 @@ components:
     height_mm: 1.0
     theta_ja: 35
     tj_max_c: 150
-    spice: {"lib": "lib/spice/power_fit.lib", "subckt": "BUCK_FB", "ports": ["8", "10", "4", "7", "3"], "source": "fit", "params": {"VREF": 1.0, "EFF5": 0.95, "EFF9": 0.95, "ILIM": 8, "IQ": 6e-07, "VEN": 0.91, "THETA": 35, "VUV": 3.5}}
-    pins: {"8": BUCK5_VIN, "12": BUCK5_VIN, "7": BUCK_EN, "6": B5_RT, "4": B5_FB, "1": 5V_SYS, "10": B5_SW, "13": B5_CB, "14": B5_CB, "2": B5_VCC, "3": GND, "9": GND, "11": GND}
-    nc: ["5"]
+    spice: {"lib": "lib/spice/power_fit.lib", "subckt": "BUCK_FB", "ports": ["8", "10", "4", "7", "3"], "source": "fit", "params": {"VREF": 1.0, "EFF5": 0.95, "EFF9": 0.95, "ILIM": 8, "IQ": 6e-07, "VEN": 0.91, "THETA": 35, "VUV": 3.5, "ISNK": 3}}
+    pins: {"8": BUCK5_VIN, "12": BUCK5_VIN, "7": BUCK_EN, "6": B5_RT, "4": B5_FB, "1": 5V_SYS, "10": B5_SW, "13": B5_CB, "14": B5_CB, "2": B5_VCC, "3": GND, "9": GND, "11": GND, "5": B5_PG}
   R682:
     value: "33.2k"
     mpn: "0402 1% 33.2k"
@@ -5302,13 +5306,13 @@ components:
     pins: {"1": C1_CONV, "2": C1_FBN}
   C701:
     value: "100nF"
-    mpn: "CL05B104KO5NNNC"
-    price_usd: 0.003
-    lcsc: "C1525"
+    mpn: "CL05B104KB54PNC"   # 50 V X7R 0402, same footprint; bootstrap cap, sim shows 9 V vs 8 V derated for 16 V (PM note 2026-10-23)
+    price_usd: 0.004
+    lcsc: "C307331"
     symbol: "Device:C"
     footprint: "Capacitor_SMD:C_0402_1005Metric"
     group: "pd_src1"
-    voltage_rating_v: 16
+    voltage_rating_v: 50
     pins: {"1": C1_CB, "2": C1_SW}
   C702:
     value: "1uF"
@@ -5893,13 +5897,13 @@ components:
     pins: {"1": C2_CONV, "2": C2_FBN}
   C751:
     value: "100nF"
-    mpn: "CL05B104KO5NNNC"
-    price_usd: 0.003
-    lcsc: "C1525"
+    mpn: "CL05B104KB54PNC"   # 50 V X7R 0402, same footprint; bootstrap cap, sim shows 9 V vs 8 V derated for 16 V (PM note 2026-10-23)
+    price_usd: 0.004
+    lcsc: "C307331"
     symbol: "Device:C"
     footprint: "Capacitor_SMD:C_0402_1005Metric"
     group: "pd_src2"
-    voltage_rating_v: 16
+    voltage_rating_v: 50
     pins: {"1": C2_CB, "2": C2_SW}
   C752:
     value: "1uF"
@@ -6445,7 +6449,7 @@ components:
     theta_ja: 46
     tj_max_c: 125
     spice: {"lib": "lib/spice/power_fit.lib", "subckt": "TPS2546_FIT", "ports": ["1", "12", "5", "4", "16", "15", "14"], "source": "fit", "params": {"RON": 0.073, "IQ": 0.0002, "THETA": 46}}
-    pins: {"1": 5V_SYS, "12": VBUS_A1, "5": HUB1_PWREN3, "4": PD_STAT, "6": 3V3_D, "7": 3V3_D, "8": 3V3_D, "16": A1_ILHI, "15": A1_ILLO, "13": HUB1_OVCUR3, "11": A1_CDP, "10": A1_CDM, "3": A1_DP, "2": A1_DM, "14": GND, "17": GND}
+    pins: {"1": 5V_SYS, "12": VBUS_A1, "5": A1_EN, "4": PD_STAT, "6": 3V3_D, "7": 3V3_D, "8": 3V3_D, "16": A1_ILHI, "15": A1_ILLO, "13": HUB1_OVCUR3, "11": A1_CDP, "10": A1_CDM, "3": A1_DP, "2": A1_DM, "14": GND, "17": GND}
     nc: ["9"]
   R800:
     value: "28k"
@@ -7240,16 +7244,10 @@ components:
     voltage_rating_v: 50
     pins: {"1": C2_RTN, "2": GND}
   # M2: IMON 10 k || 10 nF (0.1 ms) -> RP2040 GPIO27 / ADC1, 0.523 V/A
-  C657:
-    value: "10nF"
-    mpn: "CL05B103KB5NNNC"
-    price_usd: 0.002
-    symbol: "Device:C"
-    footprint: "Capacitor_SMD:C_0402_1005Metric"
-    group: "vbus_path"
-    voltage_rating_v: 50
-    pins: {"1": HOST_IMON, "2": GND}
-  # M2: host level / PD mode encoded on GPIO28 / ADC2 (firmware decodes 4 levels, notes/circuit.md)
+  # M2: IMON (HOST_IMON, R657 10 k, 0.523 V/A) has no bypass cap (tps25940a p.21; C657 removed in delta 1, D3)
+  # M2: host level / PD mode encoded on GPIO28 / ADC2 (firmware decodes 4 levels, notes/circuit.md). D11 (ladder / 10)
+  # not done: HOST15 / HOST30 / PD_STAT are 100 k pull-up nodes, 33 k loaded PD_STAT to 1.5 V; C658 100 nF feeds the
+  # ADC sample cap instead. Firmware disables the GPIO28 digital input (RP2040 ADC pin rule)
   R660:
     value: "2M"
     mpn: "0402 1% 2M"
@@ -7291,7 +7289,8 @@ components:
     group: "pwr_ctl"
     voltage_rating_v: 16
     pins: {"1": HOST_LVL, "2": GND}
-  # M2: PWR_SHED (GPIO29, high = shed) turns C2 (bus switch) and A2 off; pull-down = not shed in MCU reset
+  # M2 / D3: PWR_SHED (GPIO29, high = shed) turns C2 (bus switch) and A2 off; pull-up = shed while the MCU is in
+  # reset / boot (firmware drives it low after boot; RP2040 watchdog re-asserts the default)
   R664:
     value: "100k"
     mpn: "0402 1% 100k"
@@ -7299,7 +7298,7 @@ components:
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "pwr_ctl"
-    pins: {"1": PWR_SHED, "2": GND}
+    pins: {"1": 3V3_D, "2": PWR_SHED}
   M653:
     value: "2N7002"
     mpn: "2N7002"
@@ -7345,7 +7344,8 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "pwr_ctl"
     pins: {"1": CC_VH, "2": GND}
-  # S5: CC_VL 0.105 V bus mode (CC 0.21 V), 0.413 V PD mode (CC 0.83 V): M655 shorts R669 while PDMODE_N is high
+  # S5 / D7: CC_VL 0.105 V bus mode (CC 0.21 V), 0.299 V PD mode (CC 0.60 V: above Ra 1.2 k x 356 uA = 0.43 V, below
+  # Rd 4.59 k x 166 uA SinkTxNG = 0.76 V): M655 shorts R669 while PDMODE_N is high
   R667:
     value: "100k"
     mpn: "0402 1% 100k"
@@ -7363,8 +7363,8 @@ components:
     group: "pwr_ctl"
     pins: {"1": CC_VL, "2": CC_VLB}
   R669:
-    value: "11k"
-    mpn: "0402 1% 11k"
+    value: "6.65k"
+    mpn: "0402 1% 6.65k"
     price_usd: 0.002
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0402_1005Metric"
@@ -7525,10 +7525,10 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "pd_src1"
     pins: {"1": 3V3_D, "2": C1_NATT}
-  # S9/S6: VBUS_C1 discharge 1 k (11 uF: 0.8 V in 27 ms < tSafe0V 650 ms)
+  # S9/S6/D10: VBUS_C1 discharge 2.0 k 0603 (11 uF: 0.8 V in 53 ms < tSafe0V 650 ms; 10.6 V^2 / 2 k = 56 mW < 100 mW)
   R736:
-    value: "1k"
-    mpn: "0603 1% 1k"
+    value: "2.0k"
+    mpn: "0603 1% 2k"
     price_usd: 0.002
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0603_1608Metric"
@@ -7703,10 +7703,10 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "pd_src2"
     pins: {"1": 3V3_D, "2": C2_NATT}
-  # S9/S6: VBUS_C2 discharge 1 k (11 uF: 0.8 V in 27 ms < tSafe0V 650 ms)
+  # S9/S6/D10: VBUS_C2 discharge 2.0 k 0603 (11 uF: 0.8 V in 53 ms < tSafe0V 650 ms; 10.6 V^2 / 2 k = 56 mW < 100 mW)
   R786:
-    value: "1k"
-    mpn: "0603 1% 1k"
+    value: "2.0k"
+    mpn: "0603 1% 2k"
     price_usd: 0.002
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0603_1608Metric"
@@ -7836,6 +7836,322 @@ components:
     spice: false
     pins: {"1": PDIN_DP, "2": PDIN_DM, "3": GND, "8": GND}
     nc: ["4", "5", "6", "7", "9", "10"]
+  # ==== DELTA 1 POWER (notes/circuit.md "Stage 5 fixes, delta 1")
+  # D2: host path P-FET after the eFuse: on in bus mode (HF_G 10 k to GND), off in PD mode once PD_STAT is high AND
+  # U680 PGOOD is valid (M658 pulls HF_G to its source). The eFuse stays enabled, so EFUSE_OUT is live at the host
+  # voltage and the path reconnects in tens of us on PD loss (no dVdT restart). Body diode 5V_SYS -> EFUSE_OUT
+  # (the eFuse blocks reverse); the host can no longer back-drive the FPWM buck (lm61460.md p.6, -3 A)
+  M657:
+    value: "AO4407A"
+    mpn: "AO4407A"
+    lcsc: "C16072"
+    price_usd: 0.2433
+    symbol: "Transistor_FET:IRF7404"
+    footprint: "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+    group: "vbus_path"
+    theta_ja: 75
+    tj_max_c: 150
+    spice: {"lib": "lib/spice/power_fit.lib", "subckt": "AO4407A_FIT", "ports": ["5", "4", "1"], "source": "fit"}
+    pins: {"1": "EFUSE_OUT", "2": "EFUSE_OUT", "3": "EFUSE_OUT", "4": "HF_G", "5": "5V_SYS", "6": "5V_SYS", "7": "5V_SYS", "8": "5V_SYS"}
+  R673:
+    value: "10k"
+    mpn: "0402 1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "HF_G", "2": "GND"}
+  M658:
+    value: "AO3401A"
+    mpn: "AO3401A"
+    lcsc: "C15127"
+    price_usd: 0.02
+    symbol: "Transistor_FET:AO3401A"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "vbus_path"
+    spice: {"lib": "lib/spice/power_fit.lib", "subckt": "AO3401A_FIT", "ports": ["3", "1", "2"], "source": "fit"}
+    pins: {"1": "HF_QG", "2": "EFUSE_OUT", "3": "HF_G"}
+  R674:
+    value: "10k"
+    mpn: "0402 1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "EFUSE_OUT", "2": "HF_QG"}
+  # D2: B5_PG = PD_STAT AND U680 PGOOD (pull-up from PD_STAT, 1 M: PD_STAT loaded only while PGOOD sinks)
+  M660:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "vbus_path"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "B5_PG", "2": "GND", "3": "HF_QG"}
+  # D2: U680 PGOOD (pin 5, open drain, 94 / 107 %, lm61460.md p.6) pull-up to PD_STAT
+  R675:
+    value: "1M"
+    mpn: "0402 1% 1M"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "PD_STAT", "2": "B5_PG"}
+  # pass 5: eFuse PGTH divider 100 k / 28.7 k, both 0.1 %: k = 1 + 100 / 28.7 = 4.4843 (+-0.2 % on k - 1: 4.4773-4.4913).
+  # PGTH falling 0.90 / 0.92 / 0.94 V (TPS25940A p.6, per delta review 2) -> PGOOD falls at 4.030 / 4.126 / 4.222 V
+  # (>= 4.0 V min, <= 4.35 V max; overload point 3.99 V below the minimum). Rising [0.97 / 0.99 / 1.01 V ASSUMED, re-read
+  # p.6] -> 4.343 / 4.440 / 4.536 V, under the legitimate 900 mA-host EFUSE_OUT 4.557 V (0.902 A x (2 x 75 mohm + Ron 64
+  # mohm hot)). On 1.5 A / 3 A hosts the shed is clamped by M667 (HOST15), see there.
+  # pass 6: PGTH input leakage +-100 nA x (100 k // 28.7 k = 22.3 k) = +-2.2 mV at PGTH x k 4.484 = +-10 mV at EFUSE_OUT
+  # (falling 4.020-4.232 V, rising 4.333-4.546 V with it). PGOOD open drain abs max 20 V (TPS25940A, per delta review 3):
+  # the VBUS_HOST pull-up (R678 10 k, <= 5.5 V) is inside it.
+  R676:
+    value: "100k"
+    mpn: "0402 0.1% 100k"
+    price_usd: 0.01
+    tolerance: 0.001
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "EFUSE_OUT", "2": "EF_PGTH"}
+  # pass 5: 29.4 k 1 % -> 28.7 k 0.1 % (window arithmetic at R676)
+  R677:
+    value: "28.7k"
+    mpn: "0402 0.1% 28.7k"
+    price_usd: 0.01
+    tolerance: 0.001
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "EF_PGTH", "2": "GND"}
+  R678:
+    value: "10k"
+    mpn: "0402 1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "vbus_path"
+    pins: {"1": "VBUS_HOST", "2": "EF_PG"}
+  # pass 6: hardware shed = U661 74LVC1G123 retriggerable monostable, supplied from VBUS_HOST (host side of the eFuse:
+  # stays up while 5V_SYS / 3V3_D sag in an overload) through R685 100 ohm + C663 100 nF. Trigger: PGOOD FALLING edge
+  # (A input, Schmitt) after the R686 47 k x C664 2.2 uF deglitch: a PGOOD-low shorter than 56 ms (worst: VT- 2.29 V,
+  # C -25 %, VBUS 4.75 V) never reaches VT-, so the <= 30 ms power-up / port-enable inrush does not trigger; a sustained
+  # limit triggers after 56-216 ms. D660 bypasses R686 on the way up (R678 10 k x 2.2 uF = 22 ms recharge).
+  # Pulse tw = K x R689 x C666 = 1.0 x 120 k x 18.7 uF (22 uF X5R at ~3 V) = 2.24 s (corners 1.5-2.9 s, 3.9 s with
+  # the 55 C leakage stack): Q = SHED_Q drives M663-M666 (all four bus-mode ports off). After the pulse the ports
+  # retry; a persisting overload pulls PGOOD low again -> new pulse. PGOOD never rising (host VBUS < ~4.44 V) gives no
+  # falling edge: the ports stay on (no latch). B = R687 100 k x C665 4.7 uF power-up gate (B low for >= 126 ms: no
+  # trigger while the trigger node first charges; B rising with A still low = PGOOD low since power-up triggers one
+  # pulse). CLR = R688 10 k pull-up, pulled low by M662 (PD_STAT, PD mode) and M667 (HOST15, 1.5 A / 3 A host): no
+  # shed there. R690 100 k holds the FET gates low while U661 is unpowered (Ioff outputs). notes/circuit.md pass 6.
+  U661:
+    value: "74LVC1G123"
+    mpn: "SN74LVC1G123DCTR"
+    lcsc: "C123302"   # LCSC listing found by delta review 4 (4770 in stock, $0.12-0.24); confirm at BOM time
+    price_usd: 0.20
+    symbol: "74xGxx:74LVC1G123"
+    footprint: "Package_SO:SSOP-8_2.95x2.8mm_P0.65mm"
+    package: "SM8 (DCT)"
+    package_pads: 8
+    package_pitch_mm: 0.65
+    group: "pwr_ctl"
+    spice: {"lib": "lib/spice/power_fit.lib", "subckt": "MONO123_BEH", "ports": ["1", "2", "3", "5", "6", "7", "8", "4"], "source": "behavioral"}
+    pins: {"1": "SHED_TRG", "2": "SHED_B", "3": "SHED_CLR", "4": "GND", "5": "SHED_Q", "6": "SHED_CX", "7": "SHED_RC", "8": "SHED_VCC"}
+  R685:
+    value: "100"
+    mpn: "0402 1% 100R"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "VBUS_HOST", "2": "SHED_VCC"}
+  C663:
+    value: "100nF"
+    mpn: "CL05B104KO5NNNC"
+    lcsc: "C1525"
+    price_usd: 0.003
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0402_1005Metric"
+    group: "pwr_ctl"
+    decouples: "U661"
+    voltage_rating_v: 16
+    pins: {"1": "SHED_VCC", "2": "GND"}
+  R686:
+    value: "100k"   # delta review 4: tau 220 ms -> trigger qualification 62-312 ms with the datasheet VIL/VIH bounds (0.3/0.7 VCC), > 30 ms worst inrush
+    mpn: "0402 1% 100k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "EF_PG", "2": "SHED_TRG"}
+  D660:
+    value: "1N4148W"
+    mpn: "1N4148W"
+    lcsc: "C81598"
+    price_usd: 0.012
+    symbol: "Diode:1N4148W"
+    footprint: "Diode_SMD:D_SOD-123"
+    group: "pwr_ctl"
+    spice: {"model": "D_GENERIC"}
+    pins: {"1": "SHED_TRG", "2": "EF_PG"}
+  C664:
+    value: "2.2uF"
+    mpn: "CL21B225KAFNNNE"
+    price_usd: 0.01
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0805_2012Metric"
+    group: "pwr_ctl"
+    voltage_rating_v: 25
+    pins: {"1": "SHED_TRG", "2": "GND"}
+  R687:
+    value: "100k"
+    mpn: "0402 1% 100k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "SHED_VCC", "2": "SHED_B"}
+  C665:
+    value: "4.7uF"
+    mpn: "CL31B475KBHNNNE"
+    price_usd: 0.03
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_1206_3216Metric"
+    group: "pwr_ctl"
+    voltage_rating_v: 50
+    pins: {"1": "SHED_B", "2": "GND"}
+  R688:
+    value: "10k"
+    mpn: "0402 1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "SHED_VCC", "2": "SHED_CLR"}
+  R689:
+    value: "120k"
+    mpn: "0402 1% 120k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "SHED_VCC", "2": "SHED_RC"}
+  C666:
+    value: "22uF"
+    mpn: "CL31A226KAHNNNE"
+    lcsc: "C12891"
+    price_usd: 0.0932
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_1206_3216Metric"
+    group: "pwr_ctl"
+    voltage_rating_v: 25
+    pins: {"1": "SHED_CX", "2": "SHED_RC"}
+  R690:
+    value: "100k"
+    mpn: "0402 1% 100k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "pwr_ctl"
+    pins: {"1": "SHED_Q", "2": "GND"}
+  M662:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "PD_STAT", "2": "GND", "3": "SHED_CLR"}
+  M663:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "SHED_Q", "2": "GND", "3": "C2_BUSEN"}
+  M664:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "SHED_Q", "2": "GND", "3": "A2_EN"}
+  # pass 4: the hardware shed turns all four bus-mode ports off (C1 / A1 too): internal loads alone at a sagged 3.9 V
+  # (2.4 W / 3.9 V = 0.62 A) sit below the 0.9185 A minimum trip, so the board leaves the brown-out point.
+  # pass 5: M667 gate HOST30 -> HOST15 (high on 1.5 A and 3 A hosts): there EFUSE_OUT legitimately sits at 4.45 V (1.5 A
+  # host, 1.55 A) / 4.21 V (3 A host, 2.77 A), at or under the PGOOD window (no divider meets falling >= 4.0 V and rising
+  # <= 4.45 V: 1.01 / 0.90 = 1.122 > 4.45 / 4.0 = 1.1125). pass 6: M662 / M667 hold U661 CLR low (no pulse). HOST15 is
+  # pulled up from 3V3_D: in a real brown-out 3V3_D collapses, CLR is released (CLR rising with PGOOD low triggers).
+  M667:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "HOST15", "2": "GND", "3": "SHED_CLR"}
+  M665:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "SHED_Q", "2": "GND", "3": "C1_BUSEN"}
+  M666:
+    value: "2N7002"
+    mpn: "2N7002"
+    lcsc: "C8545"
+    price_usd: 0.0155
+    symbol: "Transistor_FET:2N7002"
+    footprint: "Package_TO_SOT_SMD:SOT-23"
+    group: "pwr_ctl"
+    spice: {"model": "NMOS_LOGIC", "ports": ["3", "1", "2"]}
+    pins: {"1": "SHED_Q", "2": "GND", "3": "A1_EN"}
+  R825:
+    value: "10k"
+    mpn: "0402 1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "usba_sw"
+    pins: {"1": HUB1_PWREN3, "2": A1_EN}
+  # D6: NATT filter 100 nF with R735 100 k (10 ms): PD BMC bursts pull CC low for <= ~1 ms, NATT must not reach
+  # the M710 / M711 threshold
+  C729:
+    value: "100nF"
+    mpn: "CL05B104KO5NNNC"
+    lcsc: "C1525"
+    price_usd: 0.003
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0402_1005Metric"
+    group: "pd_src1"
+    voltage_rating_v: 16
+    pins: {"1": "C1_NATT", "2": "GND"}
+  C779:
+    value: "100nF"
+    mpn: "CL05B104KO5NNNC"
+    lcsc: "C1525"
+    price_usd: 0.003
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0402_1005Metric"
+    group: "pd_src2"
+    voltage_rating_v: 16
+    pins: {"1": "C2_NATT", "2": "GND"}
   # ==== PASS B COMPONENTS END
   # ==== PASS C COMPONENTS BEGIN (tools/gen_pass_c.py)
   # ES9039Q2M (datasheet v0.2.3 p.10-12 pins, p.97-100 application): I2S/I2C slave of the XU316 (XMOS USB Audio reference: xcore is the I2S master, CODEC_MASTER=0), MODE=GND -> I2C, ADDR1/ADDR0 = GND -> 0x90
@@ -8938,8 +9254,9 @@ components:
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "audio_mic"
-    pins: {"1": "MIC_IN", "2": "MIC_CM"}
-  # MIC_CM = ADC_4V5 / 2 = 2.27 V: preamp mid-supply and ADC input common mode [assumed, B6]
+    pins: {"1": "MIC_IN", "2": "AGND"}
+  # MIC_CM = ADC_4V5 / 2 = 2.27 V: ADC input common mode [assumed, B6] (bias of the AC-coupled ADC inputs and of the
+  # gain-leg node MIC_SW); the preamp itself is referred to AGND since delta 1 (D1)
   R985:
     value: "10k"
     mpn: "0402 0.1% 10k"
@@ -8968,7 +9285,9 @@ components:
     group: "audio_mic"
     voltage_rating_v: 10
     pins: {"1": "MIC_CM", "2": "AGND"}
-  # mic preamp: A non-inverting gain 1 (FET off) or 1 + 1.69k/15.4 = 110 (FET on, 15 ohm + 4 x 100 uF + Ron), single 4.5 V supply around MIC_CM; B inverter (220 / 220) for the differential ADC drive. Low-impedance feedback: at gain 1 the Rf thermal noise is in series with the output (15 k gave 2.03 uV input-referred, notes/circuit.md)
+  # mic preamp: A non-inverting gain 1 (FET off) or 1 + 1.69k/15.4 = 110 (FET on, 15 ohm + 4 x 100 uF + Ron); delta 1 (D1):
+  # supply ADC_4V5 / MIC_VN (switched AUD_N4V5), inputs at AGND: CM window (V-)+2 .. (V+)-2 = -2.5 .. +2.4 V covers the
+  # +-1.41 V full-scale swing (SBOS450C p.5), span 8.9-9.1 V >= 4.5 V; outputs AC-coupled to the ADC (C990 / C991); B inverter (220 / 220) for the differential ADC drive. Low-impedance feedback: at gain 1 the Rf thermal noise is in series with the output (15 k gave 2.03 uV input-referred, notes/circuit.md)
   U980:
     value: "OPA1612"
     mpn: "OPA1612AIDR"
@@ -8981,7 +9300,7 @@ components:
     theta_ja: 120
     tj_max_c: 150
     spice: {"lib": "lib/spice/audio_fit.lib", "subckt": "OPA1612_DUAL_FIT", "ports": ["3", "2", "1", "5", "6", "7", "8", "4"], "source": "fit"}
-    pins: {"3": "MIC_IN", "2": "MIC_FB", "1": "MIC_PA", "5": "MIC_CM", "6": "MIC_INV", "7": "MIC_PB", "8": "ADC_4V5", "4": "MIC_VN"}
+    pins: {"3": "MIC_IN", "2": "MIC_FB", "1": "MIC_PA", "5": "AGND", "6": "MIC_INV", "7": "MIC_PB", "8": "ADC_4V5", "4": "MIC_VN"}
   C983:
     value: "100nF"
     mpn: "CL05B104KO5NNNC"
@@ -9113,7 +9432,7 @@ components:
     footprint: "Resistor_SMD:R_0603_1608Metric"
     group: "audio_mic"
     tolerance: 0.001
-    pins: {"1": "MIC_PA", "2": "ADC_INP"}
+    pins: {"1": "MIC_ACP", "2": "ADC_INP"}
   R993:
     value: "100"
     mpn: "0603 0.1% 100R thin film"
@@ -9122,7 +9441,7 @@ components:
     footprint: "Resistor_SMD:R_0603_1608Metric"
     group: "audio_mic"
     tolerance: 0.001
-    pins: {"1": "MIC_PB", "2": "ADC_INM"}
+    pins: {"1": "MIC_ACM", "2": "ADC_INM"}
   C985:
     value: "2.2nF"
     mpn: "0603 C0G 2.2nF 50V 5%"
@@ -9759,7 +10078,7 @@ components:
     spice: false
     pins: {"1": "1V8_D"}
   # ==== STAGE 5 AUDIO FIXES (notes/circuit.md "Stage 5 fixes, audio")
-  # S13 mute: OPA1622 EN (HP_EN) = R936 pull-up to 3V3_A, pulled low by M931 (AUDIO_MUTE high, XU316 X1D22,
+  # S13 mute: OPA1622 EN (HP_EN) = R936 pull-up to 3V3_D, pulled low by M931 (AUDIO_MUTE high, XU316 X1D22,
   # R937 pull-up = muted while the bridge is in reset) or M932 (JACK_DET high = jack empty); C936 10 ms release ramp
   R936:
     value: "100k"
@@ -9768,7 +10087,7 @@ components:
     symbol: "Device:R"
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "audio_hp"
-    pins: {"1": "3V3_A", "2": "HP_EN"}
+    pins: {"1": "3V3_D", "2": "HP_EN"}
   C936:
     value: "100nF"
     mpn: "CL05B104KO5NNNC"
@@ -9807,8 +10126,9 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "audio_bridge"
     pins: {"1": "3V3_D", "2": "AUDIO_MUTE"}
-  # S11: U980 V- = MIC_VN, switched from AUD_N4V5 by M981 while ADC_4V5 is up (M982 senses ADC_4V5, gate on AGND);
-  # V+ stays ADC_4V5 (switched by ADC_PWR_EN): 9.06 V total, the preamp draws nothing with the ADC off (bus floor)
+  # ==== DELTA 1 AUDIO (notes/circuit.md "Stage 5 fixes, delta 1")
+  # D1: U980 V- switch: on while ADC_4V5 is up (M982 pulls MIC_VNG to ADC_4V5: Vgs 9.1 V < 12 V abs max), off with
+  # the ADC (R997 holds Vgs = 0): no preamp current in bus mode with the ADC off
   M981:
     value: "AO3400A"
     mpn: "AO3400A"
@@ -9828,8 +10148,8 @@ components:
     footprint: "Package_TO_SOT_SMD:SOT-23"
     group: "audio_mic"
     spice: {"lib": "lib/spice/power_fit.lib", "subckt": "AO3401A_FIT", "ports": ["3", "1", "2"], "source": "fit"}
-    pins: {"1": "AGND", "2": "ADC_4V5", "3": "MIC_VNP"}
-  R995:
+    pins: {"1": "AGND", "2": "ADC_4V5", "3": "MIC_VNG"}
+  R997:
     value: "100k"
     mpn: "0402 1% 100k"
     price_usd: 0.002
@@ -9837,36 +10157,18 @@ components:
     footprint: "Resistor_SMD:R_0402_1005Metric"
     group: "audio_mic"
     pins: {"1": "MIC_VNG", "2": "AUD_N4V5"}
-  R996:
-    value: "100k"
-    mpn: "0402 1% 100k"
-    price_usd: 0.002
-    symbol: "Device:R"
-    footprint: "Resistor_SMD:R_0402_1005Metric"
-    group: "audio_mic"
-    pins: {"1": "MIC_VNP", "2": "MIC_VNG"}
-  C999:
-    value: "10nF"
-    mpn: "CL05B103KB5NNNC"
-    lcsc: "C15195"
-    price_usd: 0.002
-    symbol: "Device:C"
-    footprint: "Capacitor_SMD:C_0402_1005Metric"
-    group: "audio_mic"
-    voltage_rating_v: 50
-    pins: {"1": "MIC_VNG", "2": "AUD_N4V5"}
-  C997:
+  C992:
     value: "1uF"
-    mpn: "CL05A105KA5NQNC"
+    mpn: "CL05A105KO5NNNC"
     lcsc: "C52923"
-    price_usd: 0.003
+    price_usd: 0.004
     symbol: "Device:C"
     footprint: "Capacitor_SMD:C_0402_1005Metric"
     group: "audio_mic"
     decouples: "U980"
-    voltage_rating_v: 25
-    pins: {"1": "AGND", "2": "MIC_VN"}
-  C998:
+    voltage_rating_v: 16
+    pins: {"1": "MIC_VN", "2": "AGND"}
+  C993:
     value: "100nF"
     mpn: "CL05B104KO5NNNC"
     lcsc: "C1525"
@@ -9876,7 +10178,46 @@ components:
     group: "audio_mic"
     decouples: "U980"
     voltage_rating_v: 16
-    pins: {"1": "AGND", "2": "MIC_VN"}
+    pins: {"1": "MIC_VN", "2": "AGND"}
+  # D1: ADC AC coupling (preamp at 0 V DC, ADC inputs biased at MIC_CM): 10 uF x (10 k + 100) = 1.6 Hz
+  C990:
+    value: "10uF"
+    mpn: "CL21A106KAYNNNE"
+    lcsc: "C15850"
+    price_usd: 0.012
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0805_2012Metric"
+    group: "audio_mic"
+    voltage_rating_v: 25
+    pins: {"1": "MIC_PA", "2": "MIC_ACP"}
+  C991:
+    value: "10uF"
+    mpn: "CL21A106KAYNNNE"
+    lcsc: "C15850"
+    price_usd: 0.012
+    symbol: "Device:C"
+    footprint: "Capacitor_SMD:C_0805_2012Metric"
+    group: "audio_mic"
+    voltage_rating_v: 25
+    pins: {"1": "MIC_PB", "2": "MIC_ACM"}
+  R995:
+    value: "10k"
+    mpn: "0402 0.1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "audio_mic"
+    tolerance: 0.001
+    pins: {"1": "ADC_INP", "2": "MIC_CM"}
+  R996:
+    value: "10k"
+    mpn: "0402 0.1% 10k"
+    price_usd: 0.002
+    symbol: "Device:R"
+    footprint: "Resistor_SMD:R_0402_1005Metric"
+    group: "audio_mic"
+    tolerance: 0.001
+    pins: {"1": "ADC_INM", "2": "MIC_CM"}
   # ==== PASS C COMPONENTS END
 # ==== PASS B SIM BEGIN (tools/gen_pass_b.py)
 sim:
@@ -9891,8 +10232,10 @@ sim:
   # rails are still rising); trapezoidal integration stalled 6-10 % of the bus_* MC runs (timestep too small at
   # mic_gain / ivs_ln at 7-12 ms), Gear converged on every tested failing run.
   options: ["rshunt=1e9", "itl1=1000", "method=gear"]
-  # derating audit op (ammeter on every pin): KLU, as the other op-based runs (SPARSE gave a false op: U910 17 kW)
-  derating_cmd: "option gmin=1e-9\noption klu\nop"
+  # derating audit op (ammeter on every pin). Pass C: KLU (SPARSE gave a false op, U910 17 kW). Stage 5 audio: with the
+  # OPA1622 mute network (HP_EN) KLU no longer converges ("DC solution failed") and SPARSE gives the pass-B/C result
+  # again (only the known C701 / C751 bootstrap-cap artefact), so SPARSE
+  derating_cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nop"
   sources:
     # ---- sim-only DC paths (testbench, not in the BOM): 1e9 ohm on nets that only an AC-coupling cap or a series
     # resistor joins to another non-simulated pin (hub SuperSpeed caps, RP2040 USB/QSPI series R, XU316 I2S / MCLK)
@@ -9977,7 +10320,7 @@ sim:
     - {"line": "BLD33 $(3V3_D) 0 I = v(cild33)*min(max(v(3V3_D)/1.6,0),1)"}
     - {"line": "VILDP cildp 0 DC 0.0477"}
     - {"line": "BLDP $(AUD_P5V5) 0 I = v(cildp)*min(max(v(AUD_P5V5)/2.7,0),1)"}
-    - {"line": "VILDN cildn 0 DC 0.0482"}
+    - {"line": "VILDN cildn 0 DC 0.0554"}
     - {"line": "BLDN 0 $(AUD_N5V5) I = v(cildn)*min(max(-v(AUD_N5V5)/2.7,0),1)"}
     - {"line": "VPWR11 $(HUB1_PWREN1) 0 DC 3.3 PWL(0 0 40m 0 41m 3.3)"}
     - {"line": "VPWR12 $(HUB1_PWREN2) 0 DC 3.3 PWL(0 0 40m 0 41m 3.3)"}
@@ -9990,6 +10333,9 @@ sim:
     # stage 5: port-limit corner (0 typ, 1 datasheet max, -1 datasheet min; lib/spice/power_fit.lib), firmware shed
     - {"line": ".global klim"}
     - {"line": "VKLIM klim 0 DC 0"}
+    # pass 4: TPS25940A IOS corner (EFUSE_FIT): 0 typ, 1 max, -1 min
+    - {"line": ".global kef"}
+    - {"line": "VKEF kef 0 DC 0"}
     - {"line": "VSHED $(PWR_SHED) 0 DC 0"}
     - {"line": "BIMON 0 $(HOST_IMON) I = 52.3u*max(-i(vhost),0)"}
     # stage 5: sinks on the C ports. Rd 5.1 k on CC1 (C1 through a detach switch), Ra 1 k / Rd alternatives
@@ -10002,13 +10348,33 @@ sim:
     - {"line": "RAA1 $(J311.A5) $(J311.A1) 1e9"}
     - {"line": "RAB1 $(J311.B5) $(J311.A1) 1e9"}
     - {"line": "RDA2 $(J312.A5) $(J312.A1) 5.1k"}
-    - {"line": "BRPA1 0 $(CC1_C1) I = 330u*min(max(v(C1_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((5-v(CC1_C1))/0.2,0),1)"}
-    - {"line": "BRPB1 0 $(CC2_C1) I = 330u*min(max(v(C1_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((5-v(CC2_C1))/0.2,0),1)"}
-    - {"line": "BRPA2 0 $(CC1_C2) I = 330u*min(max(v(C2_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((5-v(CC1_C2))/0.2,0),1)"}
-    - {"line": "BRPB2 0 $(CC2_C2) I = 330u*min(max(v(C2_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((5-v(CC2_C2))/0.2,0),1)"}
+    - {"line": "BRPA1 0 $(CC1_C1) I = v(irp)*min(max(v(C1_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((v(vrpoc)-v(CC1_C1))/0.2,0),1)"}
+    - {"line": "BRPB1 0 $(CC2_C1) I = v(irp)*min(max(v(C1_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((v(vrpoc)-v(CC2_C1))/0.2,0),1)"}
+    - {"line": "BRPA2 0 $(CC1_C2) I = v(irp)*min(max(v(C2_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((v(vrpoc)-v(CC1_C2))/0.2,0),1)"}
+    - {"line": "BRPB2 0 $(CC2_C2) I = v(irp)*min(max(v(C2_IPVIN)-3,0),1)*min(max(v(VIN20)-12,0),1)*min(max((v(vrpoc)-v(CC2_C2))/0.2,0),1)"}
+    # delta 1 (D7): IP2736U Rp model: current irp (330 uA = 3.0 A level, 180 uA = 1.5 A / SinkTxNG, ip2736u.md p.12)
+    # and open-CC voltage vrpoc (5 V default; the plain-cable test uses 3.0 V = VCC 3.2 V - 0.2 V [E], unknown: blocker)
+    - {"line": "VIRP irp 0 DC 330u"}
+    - {"line": "VRPOC vrpoc 0 DC 5"}
+    # delta 1 (D6): PD BMC burst on CC1 of C1 (kbmcen = 1): CC pulled to 0 through 10 ohm for 1 ms every 3 ms from 100 ms
+    - {"line": "VKBMCEN kbmcen 0 DC 0"}
+    - {"line": "VKBMCP kbmcp 0 PULSE(0 1 100m 2u 2u 1m 3m)"}
+    - {"line": "BKBMC kbmc 0 V = v(kbmcen)*v(kbmcp)"}
+    - {"line": "SBMC1 $(J311.A5) 0 kbmc 0 SW_TB"}
+    # delta 1 (D2/D3): open-drain PGOOD models (U650 / U680 fits have no PGOOD port). eFuse: sinks (200 ohm) while
+    # PGTH < 0.95 V (between the assumed 0.92 / 0.99 V thresholds) and VIN > 2.7 V, from 30 ms on (the power-up shed hold
+    # of ~2 s is real but excluded from the steady-state tests). U680: sinks unless enabled and FB in 0.94-1.07 V (p.6).
+    - {"line": "BEFPG $(EF_PG) 0 I = min(max((time-30m)/1m,0),1)*min(max((v(VBUS_HOST)-2.7)/0.3,0),1)*min(max((0.95-v(EF_PGTH))/0.02+0.5,0),1)*max(v(EF_PG),0)/200"}
+    - {"line": "BB5PG $(B5_PG) 0 I = (1-v(xu680.kon)*min(max((v(B5_FB)-0.94)/0.01,0),1)*min(max((1.07-v(B5_FB))/0.01,0),1))*max(v(B5_PG),0)/200"}
+    # sim-only gate capacitance of the host-path FETs (the LEVEL 1 fits have none): Ciss AO4407A ~2.5 nF, AO3401A ~0.65 nF [E]
+    - {"line": "CGHF $(HF_G) $(EFUSE_OUT) 2.5n"}
+    # convergence aid (op-based analyses only, kfix = 1000 there: 1 kS): holds the host FET off as in PD mode (notes/circuit.md)
+    - {"line": "VKFIX kfix 0 DC 0"}
+    - {"line": "BKFIX $(HF_G) 0 I = v(kfix)*(v(HF_G)-v(EFUSE_OUT))"}
+    - {"line": "CGQF $(HF_QG) $(EFUSE_OUT) 0.65n"}
     # ==== PASS C SOURCES BEGIN (tools/gen_pass_c.py)
     - {"line": ".global vbn gdn"}
-    - {"line": ".nodeset v(a1_il15)=0.9993821 v(a1_il30)=0.9996759 v(a1_ilhi)=1 v(a1_illo)=1 v(a1_sstx_n)=0 v(a1_sstx_p)=0 v(a2_en)=3.29993 v(a2_il15)=0.9993821 v(a2_il30)=0.9996759 v(a2_ilhi)=1 v(a2_illo)=1 v(a2_sstx_n)=0 v(a2_sstx_p)=0 v(a33_set)=3.319779 v(a45_set)=4.529589 v(adc_4v5)=4.52944 v(adc_addr2)=0 v(adc_dvdd)=0 v(adc_en)=0 v(adc_inm)=2.265054 v(adc_inp)=2.264282 v(adc_pwr_en)=3.3 v(adc_vrefl)=0 v(adc_vrefr)=0 v(adn)=0 v(aud_n4v5)=-4.529589 v(aud_n5v5)=-5.509752 v(aud_n5v5f)=-5.499878 v(aud_p4v5)=4.488003 v(aud_p5v5)=5.547802 v(aud_p5v5f)=5.530732 v(aux_cn)=0 v(aux_cp)=0 v(aux_fbn)=0.000551279 v(aux_fbp)=1.212445 v(aux_ln)=-3.729107e-09 v(aux_lp)=5.09388 v(aux_vref)=1.212939 v(b5_cb)=0 v(b5_fb)=0.9994884 v(b5_g)=7.713088 v(b5_gd)=6.92818e-05 v(b5_rt)=0 v(b5_sw)=5.097577 v(b5_vcc)=0 v(boot_n)=0 v(buck5_vin)=19.59248 v(buck_en)=1.633585 v(c1_busen)=0.0003912219 v(c1_busout)=0.006197861 v(c1_cb)=0 v(c1_cc1d)=0.870263 v(c1_cc2d)=2.47968 v(c1_cmpi)=0 v(c1_cmpir)=0 v(c1_cmpo)=0.00199479 v(c1_cmpv)=0 v(c1_cmpvr)=0 v(c1_conv)=8.995741 v(c1_dis)=8.93186 v(c1_en)=1.57096 v(c1_fbn)=0.9990991 v(c1_il15)=0.9996 v(c1_il30)=0.9998309 v(c1_ilim)=1 v(c1_ipfb)=0.9592581 v(c1_ipvcc)=0 v(c1_ipvin)=8.995741 v(c1_natt)=3.94323e-05 v(c1_ng)=13.96368 v(c1_ns)=8.963676 v(c1_orient)=0.00199562 v(c1_ovr)=1.32141 v(c1_ovs)=1.10473 v(c1_ptg)=1.40062e-05 v(c1_qbg)=8.930099 v(c1_rd1)=3.32631 v(c1_rt)=0 v(c1_rtn)=0.02220009 v(c1_shell)=0 v(c1_sw)=8.997961 v(c1_tx_n)=0 v(c1_tx_p)=0 v(c1_vbs)=1.51951 v(c1_vcc)=0 v(c1_vhi)=0.00199479 v(c1_vs)=8.931877 v(c2_busen)=0.0003912219 v(c2_busout)=0.006197861 v(c2_cb)=0 v(c2_cc1d)=0.870271 v(c2_cc2d)=2.47968 v(c2_cmpi)=0 v(c2_cmpir)=0 v(c2_cmpo)=0.00199479 v(c2_cmpv)=0 v(c2_cmpvr)=0 v(c2_conv)=8.995741 v(c2_dis)=8.93186 v(c2_en)=1.57096 v(c2_fbn)=0.9990991 v(c2_il15)=0.9996 v(c2_il30)=0.9998309 v(c2_ilim)=1 v(c2_ipfb)=0.9592581 v(c2_ipvcc)=0 v(c2_ipvin)=8.995741 v(c2_natt)=3.94323e-05 v(c2_ng)=13.96368 v(c2_ns)=8.963676 v(c2_orient)=0.00199562 v(c2_ovr)=1.32141 v(c2_ovs)=1.10473 v(c2_ptg)=1.40062e-05 v(c2_qbg)=8.930099 v(c2_rd1)=3.32631 v(c2_rt)=0 v(c2_rtn)=0.02220009 v(c2_shell)=0 v(c2_sw)=8.997961 v(c2_tx_n)=0 v(c2_tx_p)=0 v(c2_vbs)=1.51951 v(c2_vcc)=0 v(c2_vhi)=0.00199479 v(c2_vs)=8.931877 v(cc1_c1)=1.74061 v(cc1_c2)=1.74063 v(cc2_c1)=4.95961 v(cc2_c2)=4.95962 v(cc_vh)=1.31612 v(cc_vl)=0.416183 v(cc_vlb)=0.320139 v(ch224_vbus)=19.68292 v(ch224_vdd)=0 v(cifb1)=3.984e-05 v(cifb2)=3.984e-05 v(cila1)=1.5 v(cila2)=1.5 v(cilc1)=2.22 v(cilc2)=2.22 v(cild5)=0.3785 v(cild09)=0.33 v(cild18)=0.039 v(cild33)=0.035 v(cildn)=0.0558 v(cildp)=0.0478 v(d3_bst)=0 v(d3_en)=5.093371 v(d3_fb)=0.7996673 v(d3_ss)=0 v(d3_sw)=3.326715 v(d09_bst)=0 v(d09_fb)=0.7999099 v(d09_ss)=0 v(d09_sw)=0.8994923 v(dac_dvdd)=0 v(dac_en)=0 v(dac_ln)=1.659867 v(dac_lp)=1.659867 v(dac_rn)=1.659867 v(dac_rp)=1.659867 v(dacb)=1.659868 v(dnln)=0 v(dnlp)=0 v(dnrn)=0 v(dnrp)=0 v(ds_lm)=2.400105e-08 v(ds_lo)=3.200138e-08 v(ds_lp)=8.000359e-09 v(ds_rm)=2.400105e-08 v(ds_ro)=3.200138e-08 v(ds_rp)=8.000359e-09 v(efuse_dvdt)=0 v(efuse_en)=1.15676 v(efuse_il15)=0.9997339 v(efuse_il30)=0.9998954 v(efuse_ilim)=1 v(efuse_ovp)=0.8333111 v(enc_a)=3.326608 v(enc_b)=3.326608 v(enc_sw)=3.326608 v(gdn)=0 v(gdn_g)=0 v(gdn_s)=0 v(ha0)=0 v(haw)=0 v(hb1)=0 v(hb2)=0 v(hb3)=0 v(hb4)=0 v(hb5)=0 v(hm1)=0 v(hm2)=0 v(hm3)=0 v(hm4)=0 v(hm5)=0 v(hm6)=0 v(host15)=3.945203e-05 v(host30)=3.945203e-05 v(host_imon)=0 v(host_lvl)=1.78508 v(host_rp_out1)=3.325311 v(host_rp_out2)=3.325311 v(host_tx_n)=0 v(host_tx_p)=0 v(host_vbusdet)=4.995404 v(hp_l)=0 v(hp_r)=0 v(hp_tn)=3.257263 v(hpa_l)=8.259286e-08 v(hpa_r)=8.259286e-08 v(hub1_1v2)=0 v(hub1_3v3)=0 v(hub1_5v)=0 v(hub1_chipen)=0 v(hub1_ds1_tx_n)=0 v(hub1_ds1_tx_p)=0 v(hub1_ds2_tx_n)=0 v(hub1_ds2_tx_p)=0 v(hub1_ds3_tx_n)=0 v(hub1_ds3_tx_p)=0 v(hub1_ds4_rx_n)=0 v(hub1_ds4_rx_p)=0 v(hub1_ds4_tx_n)=0 v(hub1_ds4_tx_p)=0 v(hub1_ovcur1)=0 v(hub1_ovcur2)=0 v(hub1_ovcur3)=0 v(hub1_pgang)=0 v(hub1_pswpol)=0 v(hub1_pwren1)=3.3 v(hub1_pwren2)=3.3 v(hub1_pwren3)=3.3 v(hub1_resetj)=0 v(hub1_rterm)=0 v(hub1_sw)=0 v(hub1_us_tx_n)=0 v(hub1_us_tx_p)=0 v(hub1_vbusdet)=3.401218 v(hub1_xi)=0 v(hub1_xo)=0 v(hub2_1v2)=0 v(hub2_3v3)=0 v(hub2_5v)=0 v(hub2_chipen)=0 v(hub2_ds1_tx_n)=0 v(hub2_ds1_tx_p)=0 v(hub2_ovcur1)=0 v(hub2_pgang)=0 v(hub2_pswpol)=0 v(hub2_pwren1)=3.3 v(hub2_resetj)=0 v(hub2_rterm)=0 v(hub2_sw)=0 v(hub2_us_rx_n)=0 v(hub2_us_rx_p)=0 v(hub2_us_tx_n)=0 v(hub2_us_tx_p)=0 v(hub2_vbusdet)=3.465114 v(hub2_xi)=0 v(hub2_xo)=0 v(i2c_scl)=3.326634 v(i2c_sda)=3.326634 v(i2s_bclk)=0 v(i2s_dout)=0 v(i2s_lrck)=0 v(iv_ln)=1.600072e-08 v(iv_lp)=1.600072e-08 v(iv_rn)=1.600072e-08 v(iv_rp)=1.600072e-08 v(ivs_ln)=1.600071e-08 v(ivs_lp)=1.600072e-08 v(ivs_rn)=1.600071e-08 v(ivs_rp)=1.600072e-08 v(jack_det)=4.085253e-05 v(klim)=0 v(kpdc)=1 v(kpm)=0 v(kpt)=1 v(krd)=1 v(ma0)=-0.0009725013 v(madc)=-0.0007724855 v(maw)=0 v(mb1)=0 v(mb2)=0 v(mb3)=0 v(mb4)=0 v(mb5)=0 v(mclk)=0 v(mclk44_o)=0 v(mclk48_o)=0 v(mcu_1v1)=0 v(mcu_dm)=0 v(mcu_dp)=0 v(mcu_run)=3.326608 v(mcu_xin)=0 v(mcu_xout)=0 v(mcu_xout_x)=0 v(mic_cm)=2.264675 v(mic_det)=0 v(mic_fb)=2.264214 v(mic_gain)=0 v(mic_in)=2.264222 v(mic_inv)=2.264667 v(mic_pa)=2.264282 v(mic_pb)=2.265055 v(mic_rf)=1.221606 v(mic_rg)=2.264214 v(mic_sw)=-8.093673e-81 v(mic_t)=1.221606 v(mic_tn)=0 v(micg_s)=0 v(mm1)=0 v(mm2)=0 v(mm3)=0 v(mm4)=0 v(mm5)=0 v(mm6)=0 v(ms)=0 v(ms2)=0 v(n45_set)=-4.529589 v(n_0v9_core)=0.8991623 v(n_1v8_d)=1.799575 v(n_2v5_bias)=2.32166 v(n_3v3_a)=3.319736 v(n_3v3_d)=3.326641 v(n_3v3_da)=0 v(n_5v_af)=5.039411 v(n_5v_sys)=5.09388 v(npdc)=19.6807 v(nrda1)=1.74061 v(osc44_en)=0 v(osc48_en)=3.326608 v(p45_adj)=1.199992 v(p45_ss)=0 v(pd_stat)=2.96768 v(pdin_cc1)=0 v(pdin_cc2)=0 v(pdin_vbus)=19.68292 v(pdmode_n)=1.404415e-05 v(pds_a)=7.649388 v(pds_g)=7.647865 v(pwr_shed)=0 v(qspi_ss)=0 v(rp1c)=0 v(rp2c)=0 v(rp_c1)=2.6171 v(rp_c2)=2.61711 v(rp_dm)=0 v(rp_dp)=0 v(rp_g)=5.092861 v(sigamp)=0 v(sink_g)=7.693172 v(sink_s)=19.644 v(vbn)=0 v(vbn_g)=0 v(vbn_s)=0 v(vbus_a1)=4.980593 v(vbus_a2)=4.980593 v(vbus_c1)=8.931886 v(vbus_c2)=8.931886 v(vbus_host)=4.99995 v(vh_src)=5 v(vhi_ref)=2.16026 v(vhi_refb)=2.15983 v(vin20)=19.60498 v(vpd_b)=0 v(vpd_src)=20 v(xfb950.x1)=5.50899 v(xfb950.x2)=5.53125 v(xfb950.x3)=5.53125 v(xfb951.x1)=-5.53125 v(xfb951.x2)=-5.5 v(xfb951.x3)=-5.5 v(xfb952.x1)=5.039634 v(xfb952.x2)=5.039634 v(xfb952.x3)=5.039634 v(xi2s_bclk)=0 v(xi2s_dout)=0 v(xi2s_lrck)=0 v(xq_cs)=3.326608 v(xu650.nisw)=0 v(xu650.nlim)=0.9869089 v(xu650.non)=1 v(xu650.nxs)=0 v(xu650.ploss)=0.001049989 v(xu650.tj)=25.0525 v(xu660.a1)=0 v(xu660.a2)=0 v(xu660.a3)=1 v(xu660.a4)=1 v(xu660.c1)=0 v(xu660.c2)=0 v(xu660.c3)=0.999999 v(xu660.c4)=0.999999 v(xu660.kv)=1 v(xu680.kon)=1 v(xu680.neff)=0.95 v(xu680.ni)=3.772 v(xu680.nv)=5.116065 v(xu680.nxi)=3.77315 v(xu680.ploss)=1.01203 v(xu680.tj)=59.7136 v(xu700.kon)=1 v(xu700.neff)=0.945 v(xu700.ni)=2.220089 v(xu700.nv)=9.009062 v(xu700.nxi)=2.220099 v(xu700.ploss)=1.162652 v(xu700.tj)=65.69282 v(xu702.ken)=0 v(xu702.nisw)=0 v(xu702.nlim)=0.1178687 v(xu702.nxs)=59.85509 v(xu702.ploss)=0.0006112656 v(xu702.tj)=25.12225 v(xu703.a1)=0 v(xu703.a2)=0 v(xu703.a3)=0 v(xu703.a4)=1 v(xu703.c1)=0 v(xu703.c2)=0 v(xu703.c3)=0 v(xu703.c4)=0.999999 v(xu703.kv)=1 v(xu750.kon)=1 v(xu750.neff)=0.945 v(xu750.ni)=2.220089 v(xu750.nv)=9.009062 v(xu750.nxi)=2.220099 v(xu750.ploss)=1.162652 v(xu750.tj)=65.69282 v(xu752.ken)=0 v(xu752.nisw)=0 v(xu752.nlim)=0.1178687 v(xu752.nxs)=59.85509 v(xu752.ploss)=0.0006112656 v(xu752.tj)=25.12225 v(xu753.a1)=0 v(xu753.a2)=0 v(xu753.a3)=0 v(xu753.a4)=1 v(xu753.c1)=0 v(xu753.c2)=0 v(xu753.c3)=0 v(xu753.c4)=0.999999 v(xu753.kv)=1 v(xu800.ken)=1 v(xu800.ks)=1 v(xu800.nisw)=1.500005 v(xu800.nlim)=1.794693 v(xu800.nxs)=1.551879 v(xu800.ploss)=0.1709501 v(xu800.tj)=32.8637 v(xu820.ken)=1 v(xu820.ks)=1 v(xu820.nisw)=1.500005 v(xu820.nlim)=1.794693 v(xu820.nxs)=1.551879 v(xu820.ploss)=0.1709501 v(xu820.tj)=32.8637 v(xu830.kon)=1 v(xu830.neff)=0.72 v(xu830.ni)=0.07423483 v(xu830.nv)=3.327087 v(xu830.nxi)=0.07423483 v(xu830.ploss)=0.09667602 v(xu830.tj)=34.6676 v(xu840.kon)=1 v(xu840.neff)=0.78 v(xu840.ni)=0.3300099 v(xu840.nv)=0.9011423 v(xu840.nxi)=0.3300099 v(xu840.ploss)=0.08436123 v(xu840.tj)=33.43612 v(xu850.n1)=1.801527 v(xu850.n2)=1.801525 v(xu850.n3)=1.801525 v(xu860.kuv)=1 v(xu860.nin)=0.06076056 v(xu860.nip)=0.06068023 v(xu860.nvn)=-5.51279 v(xu860.nvp)=5.550836 v(xu860.ploss)=0.1982993 v(xu860.tj)=32.93197 v(xu860.vri)=1.213 v(xu910.kon)=1 v(xu910.xa.a1)=9.016052 v(xu910.xa.a2)=9.016043e-06 v(xu910.xa.hi)=3.887 v(xu910.xa.ip)=0 v(xu910.xa.lo)=-3.929052 v(xu910.xa.ni)=-8.000325e-11 v(xu910.xa.p)=1.520054e-08 v(xu910.xb.a1)=9.016052 v(xu910.xb.a2)=9.016043e-06 v(xu910.xb.hi)=3.887 v(xu910.xb.ip)=0 v(xu910.xb.lo)=-3.929052 v(xu910.xb.ni)=8.000366e-11 v(xu910.xb.p)=1.680076e-08 v(xu911.kon)=1 v(xu911.xa.a1)=9.016052 v(xu911.xa.a2)=9.016043e-06 v(xu911.xa.hi)=3.887 v(xu911.xa.ip)=0 v(xu911.xa.lo)=-3.929052 v(xu911.xa.ni)=-8.000325e-11 v(xu911.xa.p)=1.520054e-08 v(xu911.xb.a1)=9.016052 v(xu911.xb.a2)=9.016043e-06 v(xu911.xb.hi)=3.887 v(xu911.xb.ip)=0 v(xu911.xb.lo)=-3.929052 v(xu911.xb.ni)=8.000366e-11 v(xu911.xb.p)=1.680076e-08 v(xu912.kon)=1 v(xu912.xa.a1)=9.016052 v(xu912.xa.a2)=9.016043e-06 v(xu912.xa.hi)=3.887 v(xu912.xa.ip)=8.000359e-09 v(xu912.xa.lo)=-3.929052 v(xu912.xa.ni)=8.000342e-11 v(xu912.xa.p)=3.280134e-08 v(xu912.xb.a1)=9.016052 v(xu912.xb.a2)=9.016043e-06 v(xu912.xb.hi)=3.887 v(xu912.xb.ip)=8.000359e-09 v(xu912.xb.lo)=-3.929052 v(xu912.xb.ni)=8.000342e-11 v(xu912.xb.p)=3.280134e-08 v(xu913.kon)=1 v(xu913.xa.a1)=9.016052 v(xu913.xa.a2)=2.849063e-05 v(xu913.xa.hi)=4.187 v(xu913.xa.ip)=3.200137e-08 v(xu913.xa.lo)=-4.229052 v(xu913.xa.ni)=2.55169e-09 v(xu913.xa.p)=9.535314e-08 v(xu913.xb.a1)=9.016052 v(xu913.xb.a2)=2.849063e-05 v(xu913.xb.hi)=4.187 v(xu913.xb.ip)=3.200137e-08 v(xu913.xb.lo)=-4.229052 v(xu913.xb.ni)=2.55169e-09 v(xu913.xb.p)=9.535314e-08 v(xu950.a1)=5.530732 v(xu950.a2)=2.599432e-05 v(xu950.kon)=1 v(xu950.r0)=1.2 v(xu950.r1)=1.199994 v(xu951.a1)=-5.499878 v(xu951.a2)=-1.737956e-05 v(xu951.kon)=1 v(xu951.o1)=-4.52959 v(xu951.sn)=-4.529588 v(xu951.x)=-4.530042e-05 v(xu952.a1)=5.039411 v(xu952.a2)=1.592449e-05 v(xu952.kon)=1 v(xu952.o1)=3.319779 v(xu952.sn)=3.319779 v(xu952.x)=0.002156766 v(xu953.a1)=5.530732 v(xu953.a2)=1.747706e-05 v(xu953.kon)=1 v(xu953.o1)=4.52959 v(xu953.sn)=4.529588 v(xu953.x)=0.007481793 v(xu980.kon)=1 v(xu980.xa.a1)=4.52944 v(xu980.xa.a2)=4.529436e-06 v(xu980.xa.hi)=3.92944 v(xu980.xa.ip)=2.264222 v(xu980.xa.lo)=0.6 v(xu980.xa.ni)=-3.737858e-07 v(xu980.xa.p)=2.264278 v(xu980.xb.a1)=4.52944 v(xu980.xb.a2)=4.529436e-06 v(xu980.xb.hi)=3.92944 v(xu980.xb.ip)=2.264675 v(xu980.xb.lo)=0.6 v(xu980.xb.ni)=3.941714e-07 v(xu980.xb.p)=2.265059 v(xu_pll)=0 v(xu_xi)=0 v(xu_xo)=0 v(xu_xor)=0"}
+    - {"line": ".nodeset v(a1_il15)=0.9993821 v(a1_il30)=0.9996759 v(a1_ilhi)=1 v(a1_illo)=1 v(a1_sstx_n)=0 v(a1_sstx_p)=0 v(a2_en)=3.29993 v(a2_il15)=0.9993821 v(a2_il30)=0.9996759 v(a2_ilhi)=1 v(a2_illo)=1 v(a2_sstx_n)=0 v(a2_sstx_p)=0 v(a33_set)=3.319779 v(a45_set)=4.529589 v(adc_4v5)=4.52944 v(adc_addr2)=0 v(adc_dvdd)=0 v(adc_en)=0 v(adc_inm)=2.264675 v(adc_inp)=2.264675 v(adc_pwr_en)=3.3 v(adc_vrefl)=0 v(adc_vrefr)=0 v(adn)=0 v(aud_n4v5)=-4.529589 v(aud_n5v5)=-5.509752 v(aud_n5v5f)=-5.499878 v(aud_p4v5)=4.488003 v(aud_p5v5)=5.547802 v(aud_p5v5f)=5.530732 v(aux_cn)=0 v(aux_cp)=0 v(aux_fbn)=0.000551279 v(aux_fbp)=1.212445 v(aux_ln)=-3.729107e-09 v(aux_lp)=5.09388 v(aux_vref)=1.212939 v(b5_cb)=0 v(b5_fb)=0.9994884 v(b5_g)=7.713088 v(b5_gd)=6.92818e-05 v(b5_rt)=0 v(b5_sw)=5.097577 v(b5_vcc)=0 v(boot_n)=0 v(buck5_vin)=19.59248 v(buck_en)=1.633585 v(c1_busen)=0.0003912219 v(c1_busout)=0.006197861 v(c1_cb)=0 v(c1_cc1d)=0.870263 v(c1_cc2d)=2.47968 v(c1_cmpi)=0 v(c1_cmpir)=0 v(c1_cmpo)=0.00199479 v(c1_cmpv)=0 v(c1_cmpvr)=0 v(c1_conv)=8.995741 v(c1_dis)=8.93186 v(c1_en)=1.57096 v(c1_fbn)=0.9990991 v(c1_il15)=0.9996 v(c1_il30)=0.9998309 v(c1_ilim)=1 v(c1_ipfb)=0.9592581 v(c1_ipvcc)=0 v(c1_ipvin)=8.995741 v(c1_natt)=3.94323e-05 v(c1_ng)=13.96368 v(c1_ns)=8.963676 v(c1_orient)=0.00199562 v(c1_ovr)=1.32141 v(c1_ovs)=1.10473 v(c1_ptg)=1.40062e-05 v(c1_qbg)=8.930099 v(c1_rd1)=3.32631 v(c1_rt)=0 v(c1_rtn)=0.02220009 v(c1_shell)=0 v(c1_sw)=8.997961 v(c1_tx_n)=0 v(c1_tx_p)=0 v(c1_vbs)=1.51951 v(c1_vcc)=0 v(c1_vhi)=0.00199479 v(c1_vs)=8.931877 v(c2_busen)=0.0003912219 v(c2_busout)=0.006197861 v(c2_cb)=0 v(c2_cc1d)=0.870271 v(c2_cc2d)=2.47968 v(c2_cmpi)=0 v(c2_cmpir)=0 v(c2_cmpo)=0.00199479 v(c2_cmpv)=0 v(c2_cmpvr)=0 v(c2_conv)=8.995741 v(c2_dis)=8.93186 v(c2_en)=1.57096 v(c2_fbn)=0.9990991 v(c2_il15)=0.9996 v(c2_il30)=0.9998309 v(c2_ilim)=1 v(c2_ipfb)=0.9592581 v(c2_ipvcc)=0 v(c2_ipvin)=8.995741 v(c2_natt)=3.94323e-05 v(c2_ng)=13.96368 v(c2_ns)=8.963676 v(c2_orient)=0.00199562 v(c2_ovr)=1.32141 v(c2_ovs)=1.10473 v(c2_ptg)=1.40062e-05 v(c2_qbg)=8.930099 v(c2_rd1)=3.32631 v(c2_rt)=0 v(c2_rtn)=0.02220009 v(c2_shell)=0 v(c2_sw)=8.997961 v(c2_tx_n)=0 v(c2_tx_p)=0 v(c2_vbs)=1.51951 v(c2_vcc)=0 v(c2_vhi)=0.00199479 v(c2_vs)=8.931877 v(cc1_c1)=1.74061 v(cc1_c2)=1.74063 v(cc2_c1)=4.95961 v(cc2_c2)=4.95962 v(cc_vh)=1.31612 v(cc_vl)=0.416183 v(cc_vlb)=0.320139 v(ch224_vbus)=19.68292 v(ch224_vdd)=0 v(cifb1)=3.984e-05 v(cifb2)=3.984e-05 v(cila1)=1.5 v(cila2)=1.5 v(cilc1)=2.22 v(cilc2)=2.22 v(cild5)=0.3785 v(cild09)=0.33 v(cild18)=0.039 v(cild33)=0.035 v(cildn)=0.0558 v(cildp)=0.0478 v(d3_bst)=0 v(d3_en)=5.093371 v(d3_fb)=0.7996673 v(d3_ss)=0 v(d3_sw)=3.326715 v(d09_bst)=0 v(d09_fb)=0.7999099 v(d09_ss)=0 v(d09_sw)=0.8994923 v(dac_dvdd)=0 v(dac_en)=0 v(dac_ln)=1.659867 v(dac_lp)=1.659867 v(dac_rn)=1.659867 v(dac_rp)=1.659867 v(dacb)=1.659868 v(dnln)=0 v(dnlp)=0 v(dnrn)=0 v(dnrp)=0 v(ds_lm)=2.400105e-08 v(ds_lo)=3.200138e-08 v(ds_lp)=8.000359e-09 v(ds_rm)=2.400105e-08 v(ds_ro)=3.200138e-08 v(ds_rp)=8.000359e-09 v(efuse_dvdt)=0 v(efuse_en)=1.15676 v(efuse_il15)=0.9997339 v(efuse_il30)=0.9998954 v(efuse_ilim)=1 v(efuse_ovp)=0.8333111 v(enc_a)=3.326608 v(enc_b)=3.326608 v(enc_sw)=3.326608 v(gdn)=0 v(gdn_g)=0 v(gdn_s)=0 v(ha0)=0 v(haw)=0 v(hb1)=0 v(hb2)=0 v(hb3)=0 v(hb4)=0 v(hb5)=0 v(hm1)=0 v(hm2)=0 v(hm3)=0 v(hm4)=0 v(hm5)=0 v(hm6)=0 v(host15)=3.945203e-05 v(host30)=3.945203e-05 v(host_imon)=0 v(host_lvl)=1.78508 v(host_rp_out1)=3.325311 v(host_rp_out2)=3.325311 v(host_tx_n)=0 v(host_tx_p)=0 v(host_vbusdet)=4.995404 v(hp_l)=0 v(hp_r)=0 v(hp_tn)=3.257263 v(hpa_l)=8.259286e-08 v(hpa_r)=8.259286e-08 v(hub1_1v2)=0 v(hub1_3v3)=0 v(hub1_5v)=0 v(hub1_chipen)=0 v(hub1_ds1_tx_n)=0 v(hub1_ds1_tx_p)=0 v(hub1_ds2_tx_n)=0 v(hub1_ds2_tx_p)=0 v(hub1_ds3_tx_n)=0 v(hub1_ds3_tx_p)=0 v(hub1_ds4_rx_n)=0 v(hub1_ds4_rx_p)=0 v(hub1_ds4_tx_n)=0 v(hub1_ds4_tx_p)=0 v(hub1_ovcur1)=0 v(hub1_ovcur2)=0 v(hub1_ovcur3)=0 v(hub1_pgang)=0 v(hub1_pswpol)=0 v(hub1_pwren1)=3.3 v(hub1_pwren2)=3.3 v(hub1_pwren3)=3.3 v(hub1_resetj)=0 v(hub1_rterm)=0 v(hub1_sw)=0 v(hub1_us_tx_n)=0 v(hub1_us_tx_p)=0 v(hub1_vbusdet)=3.401218 v(hub1_xi)=0 v(hub1_xo)=0 v(hub2_1v2)=0 v(hub2_3v3)=0 v(hub2_5v)=0 v(hub2_chipen)=0 v(hub2_ds1_tx_n)=0 v(hub2_ds1_tx_p)=0 v(hub2_ovcur1)=0 v(hub2_pgang)=0 v(hub2_pswpol)=0 v(hub2_pwren1)=3.3 v(hub2_resetj)=0 v(hub2_rterm)=0 v(hub2_sw)=0 v(hub2_us_rx_n)=0 v(hub2_us_rx_p)=0 v(hub2_us_tx_n)=0 v(hub2_us_tx_p)=0 v(hub2_vbusdet)=3.465114 v(hub2_xi)=0 v(hub2_xo)=0 v(i2c_scl)=3.326634 v(i2c_sda)=3.326634 v(i2s_bclk)=0 v(i2s_dout)=0 v(i2s_lrck)=0 v(iv_ln)=1.600072e-08 v(iv_lp)=1.600072e-08 v(iv_rn)=1.600072e-08 v(iv_rp)=1.600072e-08 v(ivs_ln)=1.600071e-08 v(ivs_lp)=1.600072e-08 v(ivs_rn)=1.600071e-08 v(ivs_rp)=1.600072e-08 v(jack_det)=4.085253e-05 v(klim)=0 v(kpdc)=1 v(kpm)=0 v(kpt)=1 v(krd)=1 v(ma0)=-0.0009725013 v(madc)=-0.0007724855 v(maw)=0 v(mb1)=0 v(mb2)=0 v(mb3)=0 v(mb4)=0 v(mb5)=0 v(mclk)=0 v(mclk44_o)=0 v(mclk48_o)=0 v(mcu_1v1)=0 v(mcu_dm)=0 v(mcu_dp)=0 v(mcu_run)=3.326608 v(mcu_xin)=0 v(mcu_xout)=0 v(mcu_xout_x)=0 v(mic_cm)=2.264675 v(mic_det)=0 v(mic_fb)=0 v(mic_gain)=0 v(mic_in)=0 v(mic_inv)=0 v(mic_pa)=0 v(mic_pb)=0 v(mic_rf)=1.221606 v(mic_rg)=0 v(mic_sw)=2.264675 v(mic_t)=1.221606 v(mic_tn)=0 v(micg_s)=0 v(mm1)=0 v(mm2)=0 v(mm3)=0 v(mm4)=0 v(mm5)=0 v(mm6)=0 v(ms)=0 v(ms2)=0 v(n45_set)=-4.529589 v(n_0v9_core)=0.8991623 v(n_1v8_d)=1.799575 v(n_2v5_bias)=2.32166 v(n_3v3_a)=3.319736 v(n_3v3_d)=3.326641 v(n_3v3_da)=0 v(n_5v_af)=5.039411 v(n_5v_sys)=5.09388 v(npdc)=19.6807 v(nrda1)=1.74061 v(osc44_en)=0 v(osc48_en)=3.326608 v(p45_adj)=1.199992 v(p45_ss)=0 v(pd_stat)=2.96768 v(pdin_cc1)=0 v(pdin_cc2)=0 v(pdin_vbus)=19.68292 v(pdmode_n)=1.404415e-05 v(pds_a)=7.649388 v(pds_g)=7.647865 v(pwr_shed)=0 v(qspi_ss)=0 v(rp1c)=0 v(rp2c)=0 v(rp_c1)=2.6171 v(rp_c2)=2.61711 v(rp_dm)=0 v(rp_dp)=0 v(rp_g)=5.092861 v(sigamp)=0 v(sink_g)=7.693172 v(sink_s)=19.644 v(vbn)=0 v(vbn_g)=0 v(vbn_s)=0 v(vbus_a1)=4.980593 v(vbus_a2)=4.980593 v(vbus_c1)=8.931886 v(vbus_c2)=8.931886 v(vbus_host)=4.99995 v(vh_src)=5 v(vhi_ref)=2.16026 v(vhi_refb)=2.15983 v(vin20)=19.60498 v(vpd_b)=0 v(vpd_src)=20 v(xfb950.x1)=5.50899 v(xfb950.x2)=5.53125 v(xfb950.x3)=5.53125 v(xfb951.x1)=-5.53125 v(xfb951.x2)=-5.5 v(xfb951.x3)=-5.5 v(xfb952.x1)=5.039634 v(xfb952.x2)=5.039634 v(xfb952.x3)=5.039634 v(xi2s_bclk)=0 v(xi2s_dout)=0 v(xi2s_lrck)=0 v(xq_cs)=3.326608 v(xu650.nisw)=0 v(xu650.nlim)=0.9869089 v(xu650.non)=1 v(xu650.nxs)=0 v(xu650.ploss)=0.001049989 v(xu650.tj)=25.0525 v(xu660.a1)=0 v(xu660.a2)=0 v(xu660.a3)=1 v(xu660.a4)=1 v(xu660.c1)=0 v(xu660.c2)=0 v(xu660.c3)=0.999999 v(xu660.c4)=0.999999 v(xu660.kv)=1 v(xu680.kon)=1 v(xu680.neff)=0.95 v(xu680.ni)=3.772 v(xu680.nv)=5.116065 v(xu680.nxi)=3.77315 v(xu680.ploss)=1.01203 v(xu680.tj)=59.7136 v(xu700.kon)=1 v(xu700.neff)=0.945 v(xu700.ni)=2.220089 v(xu700.nv)=9.009062 v(xu700.nxi)=2.220099 v(xu700.ploss)=1.162652 v(xu700.tj)=65.69282 v(xu702.ken)=0 v(xu702.nisw)=0 v(xu702.nlim)=0.1178687 v(xu702.nxs)=59.85509 v(xu702.ploss)=0.0006112656 v(xu702.tj)=25.12225 v(xu703.a1)=0 v(xu703.a2)=0 v(xu703.a3)=0 v(xu703.a4)=1 v(xu703.c1)=0 v(xu703.c2)=0 v(xu703.c3)=0 v(xu703.c4)=0.999999 v(xu703.kv)=1 v(xu750.kon)=1 v(xu750.neff)=0.945 v(xu750.ni)=2.220089 v(xu750.nv)=9.009062 v(xu750.nxi)=2.220099 v(xu750.ploss)=1.162652 v(xu750.tj)=65.69282 v(xu752.ken)=0 v(xu752.nisw)=0 v(xu752.nlim)=0.1178687 v(xu752.nxs)=59.85509 v(xu752.ploss)=0.0006112656 v(xu752.tj)=25.12225 v(xu753.a1)=0 v(xu753.a2)=0 v(xu753.a3)=0 v(xu753.a4)=1 v(xu753.c1)=0 v(xu753.c2)=0 v(xu753.c3)=0 v(xu753.c4)=0.999999 v(xu753.kv)=1 v(xu800.ken)=1 v(xu800.ks)=1 v(xu800.nisw)=1.500005 v(xu800.nlim)=1.794693 v(xu800.nxs)=1.551879 v(xu800.ploss)=0.1709501 v(xu800.tj)=32.8637 v(xu820.ken)=1 v(xu820.ks)=1 v(xu820.nisw)=1.500005 v(xu820.nlim)=1.794693 v(xu820.nxs)=1.551879 v(xu820.ploss)=0.1709501 v(xu820.tj)=32.8637 v(xu830.kon)=1 v(xu830.neff)=0.72 v(xu830.ni)=0.07423483 v(xu830.nv)=3.327087 v(xu830.nxi)=0.07423483 v(xu830.ploss)=0.09667602 v(xu830.tj)=34.6676 v(xu840.kon)=1 v(xu840.neff)=0.78 v(xu840.ni)=0.3300099 v(xu840.nv)=0.9011423 v(xu840.nxi)=0.3300099 v(xu840.ploss)=0.08436123 v(xu840.tj)=33.43612 v(xu850.n1)=1.801527 v(xu850.n2)=1.801525 v(xu850.n3)=1.801525 v(xu860.kuv)=1 v(xu860.nin)=0.06076056 v(xu860.nip)=0.06068023 v(xu860.nvn)=-5.51279 v(xu860.nvp)=5.550836 v(xu860.ploss)=0.1982993 v(xu860.tj)=32.93197 v(xu860.vri)=1.213 v(xu910.kon)=1 v(xu910.xa.a1)=9.016052 v(xu910.xa.a2)=9.016043e-06 v(xu910.xa.hi)=3.887 v(xu910.xa.ip)=0 v(xu910.xa.lo)=-3.929052 v(xu910.xa.ni)=-8.000325e-11 v(xu910.xa.p)=1.520054e-08 v(xu910.xb.a1)=9.016052 v(xu910.xb.a2)=9.016043e-06 v(xu910.xb.hi)=3.887 v(xu910.xb.ip)=0 v(xu910.xb.lo)=-3.929052 v(xu910.xb.ni)=8.000366e-11 v(xu910.xb.p)=1.680076e-08 v(xu911.kon)=1 v(xu911.xa.a1)=9.016052 v(xu911.xa.a2)=9.016043e-06 v(xu911.xa.hi)=3.887 v(xu911.xa.ip)=0 v(xu911.xa.lo)=-3.929052 v(xu911.xa.ni)=-8.000325e-11 v(xu911.xa.p)=1.520054e-08 v(xu911.xb.a1)=9.016052 v(xu911.xb.a2)=9.016043e-06 v(xu911.xb.hi)=3.887 v(xu911.xb.ip)=0 v(xu911.xb.lo)=-3.929052 v(xu911.xb.ni)=8.000366e-11 v(xu911.xb.p)=1.680076e-08 v(xu912.kon)=1 v(xu912.xa.a1)=9.016052 v(xu912.xa.a2)=9.016043e-06 v(xu912.xa.hi)=3.887 v(xu912.xa.ip)=8.000359e-09 v(xu912.xa.lo)=-3.929052 v(xu912.xa.ni)=8.000342e-11 v(xu912.xa.p)=3.280134e-08 v(xu912.xb.a1)=9.016052 v(xu912.xb.a2)=9.016043e-06 v(xu912.xb.hi)=3.887 v(xu912.xb.ip)=8.000359e-09 v(xu912.xb.lo)=-3.929052 v(xu912.xb.ni)=8.000342e-11 v(xu912.xb.p)=3.280134e-08 v(xu913.kon)=1 v(xu913.xa.a1)=9.016052 v(xu913.xa.a2)=2.849063e-05 v(xu913.xa.hi)=4.187 v(xu913.xa.ip)=3.200137e-08 v(xu913.xa.lo)=-4.229052 v(xu913.xa.ni)=2.55169e-09 v(xu913.xa.p)=9.535314e-08 v(xu913.xb.a1)=9.016052 v(xu913.xb.a2)=2.849063e-05 v(xu913.xb.hi)=4.187 v(xu913.xb.ip)=3.200137e-08 v(xu913.xb.lo)=-4.229052 v(xu913.xb.ni)=2.55169e-09 v(xu913.xb.p)=9.535314e-08 v(xu950.a1)=5.530732 v(xu950.a2)=2.599432e-05 v(xu950.kon)=1 v(xu950.r0)=1.2 v(xu950.r1)=1.199994 v(xu951.a1)=-5.499878 v(xu951.a2)=-1.737956e-05 v(xu951.kon)=1 v(xu951.o1)=-4.52959 v(xu951.sn)=-4.529588 v(xu951.x)=-4.530042e-05 v(xu952.a1)=5.039411 v(xu952.a2)=1.592449e-05 v(xu952.kon)=1 v(xu952.o1)=3.319779 v(xu952.sn)=3.319779 v(xu952.x)=0.002156766 v(xu953.a1)=5.530732 v(xu953.a2)=1.747706e-05 v(xu953.kon)=1 v(xu953.o1)=4.52959 v(xu953.sn)=4.529588 v(xu953.x)=0.007481793 v(xu980.kon)=1 v(xu980.xa.a1)=9.05903 v(xu980.xa.a2)=9.05902e-06 v(xu980.xa.hi)=3.37944 v(xu980.xa.ip)=0 v(xu980.xa.lo)=-3.37959 v(xu980.xa.ni)=-3.737858e-07 v(xu980.xa.p)=0 v(xu980.xb.a1)=9.05903 v(xu980.xb.a2)=9.05902e-06 v(xu980.xb.hi)=3.37944 v(xu980.xb.ip)=0 v(xu980.xb.lo)=-3.37959 v(xu980.xb.ni)=3.941714e-07 v(xu980.xb.p)=0 v(xu_pll)=0 v(xu_xi)=0 v(xu_xo)=0 v(xu_xor)=0 v(mic_vn)=-4.529589 v(mic_vng)=4.52944 v(mic_acp)=2.264675 v(mic_acm)=2.264675 v(efuse_out)=4.99995 v(hf_g)=4.99995 v(hf_qg)=0 v(b5_pg)=2.96768 v(ef_pgth)=1.115 v(ef_pg)=4.99995 v(shed_trg)=5.0 v(shed_b)=5.0 v(shed_clr)=0 v(shed_q)=0 v(shed_vcc)=5.0 v(shed_rc)=5.0 v(xu661.qs)=0 v(xu661.dis)=0 v(xu661.arm)=1 v(a1_en)=3.29993"}
     - {"line": "VVBN vbn_s 0 DC 0 AC 0"}
     - {"line": "RVBN vbn_s vbn_g 1k temp=25"}
     - {"line": "EVBN vbn 0 vbn_g 0 0"}
@@ -10159,29 +10525,61 @@ sim:
     - name: bus_floor
       cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.3805\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter vilc1 dc=0.075\nalter vilc2 dc=0.075\nalter vila1 dc=0.075\nalter vila2 dc=0.075\ntran 20u 150m 140m uic"
       temps: [0, 25, 40]
-      realism: "who: user, four devices drawing 75 mA each with the internal loads at the 600 mA design worst, host at its 4.75 V minimum through a 2 x 75 mohm cable; limits: R19 VBUS >= 4.45 V, eFuse min trip 0.90 A (TPS25940A p.5 at 88.7 k) not reached"
+      realism: "who: user, four devices drawing 75 mA each with the internal loads at the 600 mA design worst, host at its 4.75 V minimum through a 2 x 75 mohm cable, eFuse typical (kef = 0; the minimum-trip corner is bus_floor_mintrip; host draw is compared with the minimum trip 0.9185 A, R654 86.6 k 0.1 %, TPS25940A p.5 window); limits (R19 acceptance, PM round 7 q1): VBUS >= 4.45 V, host draw below the eFuse minimum trip, PGOOD high (no current limiting), no hardware shed (U661 Q, SHED_Q <= 0.5 V, under the 2N7002 1.0 V min Vth), IMON below the nominal-unit equivalent of the worst legitimate reading, (0.536 - 0.0087) / 1.094 = 0.4820 V (firmware IMON rule is secondary, notes/circuit.md pass 5); the 0.900 A nominal-sharing target is reported as dbg"
       measures:
         - {"name": "vc1_floor", "expr": "mean(v(VBUS_C1)-v(C1_RTN))", "min": 4.45, "unit": "V", "req": "R19"}
         - {"name": "vc2_floor", "expr": "mean(v(VBUS_C2)-v(C2_RTN))", "min": 4.45, "unit": "V", "req": "R19"}
         - {"name": "va1_floor", "expr": "mean(v(VBUS_A1))", "min": 4.45, "unit": "V", "req": "R19"}
         - {"name": "va2_floor", "expr": "mean(v(VBUS_A2))", "min": 4.45, "unit": "V", "req": "R19"}
-        - {"name": "ihost_floor", "expr": "mean(-i(vhost))", "max": 0.9, "unit": "A", "req": "R19"}
+        - {"name": "ihost_floor", "expr": "mean(-i(vhost))", "max": 0.9185, "unit": "A", "req": "R19"}
+        - {"name": "efuse_pg_floor", "expr": "vecmin(v(EF_PG))", "min": 2.0, "unit": "V", "req": "R19"}
         - {"name": "dbg_internal_floor", "expr": "mean(-i(vhost)-0.3)", "unit": "A"}
+        - {"name": "shed_hw_floor", "expr": "vecmax(v(SHED_Q))", "max": 0.5, "unit": "V", "req": "R19"}
+        - {"name": "imon_fw_floor", "expr": "mean(v(HOST_IMON))", "max": 0.4820, "unit": "V", "req": "R19"}  # (0.536 - 0.0087) / 1.094: R657 tolerance is sampled by MC, not in the limit (notes/circuit.md)
     - name: bus_heavy
-      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.3435\nalter vild09 dc=0.33\nalter vild18 dc=0.039\nalter vild33 dc=0.035\nalter vildp dc=0.0077\nalter vildn dc=0.0082\nalter vilc1 dc=0.06\nalter vilc2 dc=0.06\nalter vila1 dc=0.06\nalter vila2 dc=0.06\ntran 20u 150m 140m uic"
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.3435\nalter vild09 dc=0.33\nalter vild18 dc=0.039\nalter vild33 dc=0.035\nalter vildp dc=0.0077\nalter vildn dc=0.0154\nalter vilc1 dc=0.06\nalter vilc2 dc=0.06\nalter vila1 dc=0.06\nalter vila2 dc=0.06\ntran 20u 150m 140m uic"
       temps: [0, 25, 40]
-      realism: "who: user, heavy case of R19 (4 SuperSpeed devices, mic recording, loud headphones, internal ~657 mA) with 60 mA per port; limits: R19 VBUS >= 4.45 V, host <= 0.90 A (eFuse min trip)"
+      realism: "who: user, heavy case of R19 (4 SuperSpeed devices, mic recording, loud headphones, internal ~657 mA) with 60 mA per port; eFuse typical (kef = 0); host draw compared with the eFuse minimum trip 0.9185 A. The start-up of this case at the minimum trip is a stress case: the heavy load (audio streaming, mic recording, 4 SS devices) needs enumeration, seconds after power-up, so it never coincides with the power-up port-enable inrush; limits: R19 VBUS >= 4.45 V, host below the eFuse minimum trip, PGOOD high, no shed (as bus_floor)"
       measures:
         - {"name": "vc1_heavy", "expr": "mean(v(VBUS_C1)-v(C1_RTN))", "min": 4.45, "unit": "V", "req": "R19"}
         - {"name": "va1_heavy", "expr": "mean(v(VBUS_A1))", "min": 4.45, "unit": "V", "req": "R19"}
-        - {"name": "ihost_heavy", "expr": "mean(-i(vhost))", "max": 0.9, "unit": "A", "req": "R19"}
+        - {"name": "ihost_heavy", "expr": "mean(-i(vhost))", "max": 0.9185, "unit": "A", "req": "R19"}
+        - {"name": "efuse_pg_heavy", "expr": "vecmin(v(EF_PG))", "min": 2.0, "unit": "V", "req": "R19"}
         - {"name": "dbg_internal_heavy", "expr": "mean(-i(vhost)-0.24)", "unit": "A"}
+        - {"name": "shed_hw_heavy", "expr": "vecmax(v(SHED_Q))", "max": 0.5, "unit": "V", "req": "R19"}
+        - {"name": "imon_fw_heavy", "expr": "mean(v(HOST_IMON))", "max": 0.4820, "unit": "V", "req": "R19"}  # (0.536 - 0.0087) / 1.094: R657 tolerance is sampled by MC, not in the limit (notes/circuit.md)
+    - name: bus_floor_mintrip
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.3805\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter vilc1 dc=0.075\nalter vilc2 dc=0.075\nalter vila1 dc=0.075\nalter vila2 dc=0.075\nalter vkef dc=-1\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      timeout_s: 1500
+      realism: "who: user, bus_floor (4 x 75 mA, internal 600 mA design worst, host 4.75 V through 2 x 75 mohm) on a unit whose eFuse sits at its datasheet MINIMUM IOS with R654 at +0.1 % (kef = -1, 0.9185 A); includes the power-up port-enable inrush with every load already present; limits (R19, PM round 7 q1): no eFuse current limiting in steady state (PGOOD high, host below the minimum trip), no hardware shed (U661 Q, SHED_Q <= 0.5 V), VBUS >= 4.45 V"
+      measures:
+        - {"name": "vc1_floor_mintrip", "expr": "mean(v(VBUS_C1)-v(C1_RTN))", "min": 4.45, "unit": "V", "req": "R19"}
+        - {"name": "va1_floor_mintrip", "expr": "mean(v(VBUS_A1))", "min": 4.45, "unit": "V", "req": "R19"}
+        - {"name": "ihost_floor_mintrip", "expr": "mean(-i(vhost))", "max": 0.9185, "unit": "A", "req": "R19"}
+        - {"name": "efuse_pg_floor_mintrip", "expr": "vecmin(v(EF_PG))", "min": 2.0, "unit": "V", "req": "R19"}
+        - {"name": "shed_hw_floor_mintrip", "expr": "vecmax(v(SHED_Q))", "max": 0.5, "unit": "V", "req": "R19"}
     - name: bus_trip
       cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlx = 2\ntran 20u 150m 140m uic"
       temps: [0, 25, 40]
-      realism: "who: fault, a short or a failed device on 5V_SYS / a port beyond the port limits in bus mode; how often: rare; timing: steady state in current limit (thermal auto-retry not modelled); limit: R19 eFuse trip near 1.0 A, max <= 1.1 A (TPS25940A IOS 87.5/R, p.5)"
+      realism: "who: fault, a short or a failed device on 5V_SYS / a port beyond the port limits in bus mode; how often: rare; timing: steady state in current limit (thermal auto-retry not modelled); limit: R19 eFuse trip near 1.0 A typical, inside [worst legitimate load 0.911 A, 1.13 A] (TPS25940A IOS 87.5/R, p.5; R654 86.6 k 0.1 %)"
       measures:
-        - {"name": "efuse_lim_900", "expr": "mean(-i(vhost))", "min": 0.9, "max": 1.1, "unit": "A", "req": "R19"}
+        - {"name": "efuse_lim_typ", "expr": "mean(-i(vhost))", "min": 0.911, "max": 1.13, "unit": "A", "req": "R19"}
+    - name: bus_trip_min
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlx = 2\nalter vkef dc=-1\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: fault as bus_trip, eFuse at its datasheet MINIMUM IOS with R654 at +0.1 % (kef = -1); limit: R19 minimum trip >= worst legitimate load 0.911 A (bus_heavy at the tolerance corner, PM round 7 q1)"
+      measures:
+        - {"name": "efuse_lim_min", "expr": "mean(-i(vhost))", "min": 0.911, "unit": "A", "req": "R19"}
+    - name: bus_trip_max
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlx = 2\nalter vkef dc=1\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: fault as bus_trip, eFuse at its datasheet MAXIMUM IOS with R654 at -0.1 % (kef = 1); limit: R19 maximum trip <= 1.13 A (PM round 7 q1)"
+      measures:
+        - {"name": "efuse_lim_max", "expr": "mean(-i(vhost))", "max": 1.13, "unit": "A", "req": "R19"}
     - name: bus_1a5
       cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlc1 = 2\nalter rlc2 = 2\nalter rla1 = 2\nalter rla2 = 2\nalter vrp1c dc=1\ntran 20u 150m 140m uic"
       temps: [25]
@@ -10335,10 +10733,10 @@ sim:
         - {"name": "orient_pd_cc2_ra", "expr": "mean(v(C1_ORIENT))", "min": 2.8, "unit": "V", "req": "R5"}
         - {"name": "dbg_vbus_c1_pd_ra", "expr": "mean(v(VBUS_C1)-v(C1_RTN))", "unit": "V"}
     - name: bus_nosink
-      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter rda1 = 1e9\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\ntran 20u 60m 45m uic"
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter rda1 = 1e9\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\ntran 20u 200m 150m uic"
       temps: [25]
       monte_carlo: false
-      realism: "who: user, nothing plugged into C1 in bus mode (hub PWREN1 high); how often: always; limit: Type-C source keeps VBUS at vSafe0V (<= 0.8 V) without an Rd"
+      realism: "who: user, nothing plugged into C1 in bus mode (hub PWREN1 high); how often: always; timing: steady state (pass 4: the window starts at 150 ms; the shared .nodeset is the PD-mode point and uic starts VBUS_C1 at 9 V, which R736 2 k x 11 uF (22 ms) discharges: 1.58 V at 45 ms was that start-up artifact, C1_BUSEN stays at 0.4 mV, no source path); limit: Type-C source keeps VBUS at vSafe0V (<= 0.8 V) without an Rd"
       measures:
         - {"name": "vbus_c1_nosink_max", "expr": "vecmax(v(VBUS_C1)-v(C1_RTN))", "max": 0.8, "unit": "V", "req": "R19"}
         - {"name": "dbg_vbus_c2_sink", "expr": "mean(v(VBUS_C2)-v(C2_RTN))", "unit": "V"}
@@ -10349,6 +10747,69 @@ sim:
       realism: "who: user, unplugs the phone from C1 in bus mode (sink Rd gone, no load left on VBUS_C1); how often: daily; limit: Type-C tVBUSOFF / vSafe0V: VBUS below 0.8 V within 650 ms"
       measures:
         - {"name": "t_safe0v_c1", "expr": "t_safe0v", "max": 0.65, "unit": "s", "req": "R19"}
+    # ==== DELTA 1 ANALYSES (notes/circuit.md "Stage 5 fixes, delta 1")
+    - name: pd_host_525
+      cmd: "alter vhost dc=5.25\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, keyboard on the 20 V adapter and on a computer whose VBUS sits at 5.25 V (USB 2 host max 5.25 V, Type-C source max 5.5 V), nothing charging (C and A ports idle: the lightest 5V_SYS load, worst case for back-feed); how often: daily; timing: steady state; limits: host draw and buck reverse current <= 10 mA (delta review D2; LM61460AFS sinks up to 3 A in FPWM, lm61460.md p.6)"
+      measures:
+        - {"name": "ihost_pd_525", "expr": "mean(-i(vhost))", "max": 0.01, "unit": "A", "req": "R9,R19"}
+        - {"name": "ibuck_rev_525", "expr": "-vecmin(v(xu680.ni))", "max": 0.01, "unit": "A", "req": "R9,R19"}
+        - {"name": "dbg_v5sys_pd_525", "expr": "mean(v(5V_SYS))", "unit": "V"}
+        - {"name": "dbg_efuse_out_525", "expr": "mean(v(EFUSE_OUT))", "unit": "V"}
+    - name: pd_host_55
+      cmd: "alter vhost dc=5.5\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, keyboard on the 20 V adapter and on a computer whose VBUS sits at 5.5 V (USB 2 host max 5.25 V, Type-C source max 5.5 V), nothing charging (C and A ports idle: the lightest 5V_SYS load, worst case for back-feed); how often: daily; timing: steady state; limits: host draw and buck reverse current <= 10 mA (delta review D2; LM61460AFS sinks up to 3 A in FPWM, lm61460.md p.6)"
+      measures:
+        - {"name": "ihost_pd_55", "expr": "mean(-i(vhost))", "max": 0.01, "unit": "A", "req": "R9,R19"}
+        - {"name": "ibuck_rev_55", "expr": "-vecmin(v(xu680.ni))", "max": 0.01, "unit": "A", "req": "R9,R19"}
+        - {"name": "dbg_v5sys_pd_55", "expr": "mean(v(5V_SYS))", "unit": "V"}
+        - {"name": "dbg_efuse_out_55", "expr": "mean(v(EFUSE_OUT))", "unit": "V"}
+    - name: corner_max_def_hw
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.2635\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlc1 = 2\nalter rlc2 = 2\nalter rla1 = 2\nalter rla2 = 2\nalter vklim dc=1\ntran 20u 520m 500m uic"
+      temps: [25]
+      monte_carlo: false
+      timeout_s: 1800
+      realism: "who: user plus firmware fault: four devices at their port limits on a 900 mA host, every port switch at its datasheet maximum, firmware not shedding (crashed, bootloader, PWR_SHED held low); how often: rare; timing: 500-520 ms, after the hardware shed acted (eFuse limiting from the 41 ms port enable, PGOOD low; U661 74LVC1G123 is triggered by the deglitched PGOOD falling edge (56-216 ms) or, when PGOOD is already low as the B power-up gate R687 / C665 opens (0.13-1.0 s, typ 0.34 s), by B rising; Q = SHED_Q high for tw = 120 k x 18.7 uF = 2.24 s (1.5-2.9 s) turns all four ports off, then retry; the full cycle (re-shed every ~2.4 s while the overload persists, ports stay on once it is cleared) is shown by scratch/p6_shed_tb.py, notes/circuit.md pass 6); limits: R19 host <= 0.90 A with the ports shed (internal loads only), SHED_Q >= 2.5 V (above the 2N7002 2.5 V max Vth: ports held off)"
+      measures:
+        - {"name": "ihost_max_def_hw", "expr": "mean(-i(vhost))", "max": 0.9, "unit": "A", "req": "R19"}
+        - {"name": "shed_hw_max_def", "expr": "vecmin(v(SHED_Q))", "min": 2.5, "unit": "V", "req": "R19"}
+        - {"name": "dbg_v5sys_max_def_hw", "expr": "mean(v(5V_SYS))", "unit": "V"}
+    - name: corner_max_3a_worst
+      cmd: "alter vpd dc=0\nalter vhost dc=4.75\nalter vilc1 dc=0\nalter vilc2 dc=0\nalter vila1 dc=0\nalter vila2 dc=0\nalter vild5 dc=0.3805\nalter vild09 dc=0.236\nalter vild18 dc=0.0315\nalter vild33 dc=0.019\nalter vildp dc=0.0025\nalter vildn dc=0.0004\nalter vadcen dc=0\nalter rlc1 = 2\nalter rlc2 = 2\nalter rla1 = 2\nalter rla2 = 2\nalter vrp1c dc=1\nalter vrp2c dc=1\nalter vklim dc=1\nalter vshed dc=3.3\ntran 20u 150m 140m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, 3 A host, four devices at their port limits, every switch at its datasheet maximum (TPS2546 p.32 eq. 3 with R x 0.99), internal loads at the 600 mA design worst; firmware sheds C2 / A2 above 2.95 A calibrated; limits: R21 host <= 3.0 A"
+      measures:
+        - {"name": "ihost_max_3a_worst_shed", "expr": "mean(-i(vhost))", "max": 3.0, "unit": "A", "req": "R21"}
+        - {"name": "dbg_ia1_max_3a_worst", "expr": "mean(v(VBUS_A1)/2)", "unit": "A"}
+    - name: pd_burst
+      cmd: "alter vkbmcen dc=1\ntran 20u 150m 100m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, phone on C1 negotiating with the PD adapter (BMC messages on CC1: the transmitter drives CC between 0 and 1.1 V at 300 kbit/s; modelled pessimistically as CC held at 0 V for 1 ms every 3 ms); how often: every attach and every renegotiation; limits: C1_NATT below the 2N7002 threshold min 1.0 V [E] (no TPS2553 EN cut, no VBUS discharge), VBUS_C1 within the 9 V contract (R7 8.55 V)"
+      measures:
+        - {"name": "natt_c1_burst_max", "expr": "vecmax(v(C1_NATT))", "max": 1.0, "unit": "V", "req": "R7"}
+        - {"name": "vbus_c1_burst_min", "expr": "vecmin(v(VBUS_C1)-v(C1_RTN))", "min": 8.55, "unit": "V", "req": "R7"}
+    - name: pd_txng
+      cmd: "alter virp dc=166u\nalter rda1 = 4.59k\ntran 20u 80m 70m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, phone on C1 with the PD adapter while the IP2736U advertises SinkTxNG (PD 3.0 collision avoidance: Rp at the 1.5 A level, 180 uA -8 % = 166 uA, ip2736u.md p.12) and the sink Rd at its minimum 4.59 k (5.1 k -10 %): CC = 0.76 V; how often: during every PD 3.0 message exchange; limits: attach held (C1_NATT low) and orientation CC1 (SEL < 0.5 V)"
+      measures:
+        - {"name": "natt_c1_txng", "expr": "vecmax(v(C1_NATT))", "max": 0.5, "unit": "V", "req": "R5,R7"}
+        - {"name": "orient_c1_txng", "expr": "mean(v(C1_ORIENT))", "max": 0.5, "unit": "V", "req": "R5"}
+    - name: pd_plain_cable
+      cmd: "alter vrpoc dc=3.0\nalter rda1 = 1e9\nalter rdb1 = 5.1k\ntran 20u 80m 70m uic"
+      temps: [25]
+      monte_carlo: false
+      realism: "who: user, phone on C1 with a plain C-to-C cable (no Ra: Rd on CC2, CC1 open) in PD mode; Rp source voltage-limited at 3.0 V (IP2736U VCC 3.2 V - 0.2 V [E]; the real open-CC voltage is not in the datasheet: release blocker); how often: daily; limits: SEL high (> 2.8 V) = CC2, attach held"
+      measures:
+        - {"name": "orient_c1_plain_cc2", "expr": "mean(v(C1_ORIENT))", "min": 2.8, "unit": "V", "req": "R5"}
+        - {"name": "natt_c1_plain", "expr": "vecmax(v(C1_NATT))", "max": 0.5, "unit": "V", "req": "R5,R7"}
     # ==== PASS C ANALYSES BEGIN (tools/gen_pass_c.py)
     # R22 coupled noise (all pass C noise analyses): AC transfer method. The coupled generators are linear, white
     # in 20 Hz - 20 kHz, so coupled_rms = V_gen,rms x sqrt(mean over a linear 20 Hz - 20 kHz sweep of |H_A(f)|^2)
@@ -10357,14 +10818,14 @@ sim:
     # operating point matrix: SPARSE lost its pivots and the op landed on a false solution (hp_total_32 142.9 uV).
     # Noise runs switch to SPARSE (`option sparse`: KLU has no noise analysis); their op has the generators at 0.
     - name: hp_noise_32
-      cmd: "option gmin=1e-9\noption sparse\nalter vmic ac=1\nnoise v(haw) iaclp dec 40 20 20k"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter vmic ac=1\nnoise v(haw) iaclp dec 40 20 20k"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user, headphones (32 ohm) on, maximum analog gain (fixed), digital silence; how often: every listening session; limits: R10 intrinsic <= sqrt(1.0^2 - coupled_worst^2) uVrms (notes/noise-allocation.md, re-allocation of the C11 0.944 / 0.33 split from the simulated coupled noise); DAC noise 1.016e-11 A/rtHz per pin from DNR 130 dB re 10 Vrms (datasheet p.54, notes/datasheets/es9039q2m.md: 0.60 uV at Rf 374)"
       measures:
         - {"name": "hp_intrinsic_32", "plot": "noise2", "expr": "onoise_total*1e6", "max": 0.9999, "unit": "uVrms", "req": "R10"}
     - name: hp_total_32
-      cmd: "option gmin=1e-9\noption sparse\nnoise v(haw) iaclp dec 40 20 20k\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nnoise v(haw) iaclp dec 40 20 20k\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user and environment, as hp_noise_32 plus the R22 coupled generators (host VBUS 100 mV rms audio band on every audio supply entry, 0.5 mV rms ground drop), AC transfer method, RSS with the intrinsic noise; limits: R10 1.0 uVrms A-wtd total"
@@ -10373,21 +10834,21 @@ sim:
         - {"name": "dbg_hp_cpl_gnd_32", "plot": "ac3", "expr": "hg*1e6", "unit": "uVrms"}
         - {"name": "hp_total_32", "plot": "ac3", "expr": "sqrt((noise2.onoise_total*1e6)^2+(ac2.hv*1e6)^2+(hg*1e6)^2)", "max": 1.0, "unit": "uVrms", "req": "R10,R22"}
     - name: hp_noise_300
-      cmd: "option gmin=1e-9\noption sparse\nalter rll = 300\nnoise v(haw) iaclp dec 40 20 20k"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 300\nnoise v(haw) iaclp dec 40 20 20k"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user, 300 ohm headphones, digital silence; limits as hp_noise_32"
       measures:
         - {"name": "hp_intrinsic_300", "plot": "noise2", "expr": "onoise_total*1e6", "max": 0.9999, "unit": "uVrms", "req": "R10"}
     - name: hp_total_300
-      cmd: "option gmin=1e-9\noption sparse\nalter rll = 300\nnoise v(haw) iaclp dec 40 20 20k\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 300\nnoise v(haw) iaclp dec 40 20 20k\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user and environment, 300 ohm headphones with the R22 generators on (AC transfer method, RSS); limits: R10 1.0 uVrms total"
       measures:
         - {"name": "hp_total_300", "plot": "ac3", "expr": "sqrt((noise2.onoise_total*1e6)^2+(ac2.hv*1e6)^2+(hg*1e6)^2)", "max": 1.0, "unit": "uVrms", "req": "R10,R22"}
     - name: r22_coupled
-      cmd: "option gmin=1e-9\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter vmic ac=1\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nalter vmic ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nlet mv = 0.1*sqrt(mean(mag(v(maw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))\nlet mg = 5e-4*sqrt(mean(mag(v(maw))^2))"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter vmic ac=1\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nalter vmic ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 1000 20 20k\nlet hv = 0.1*sqrt(mean(mag(v(haw))^2))\nlet mv = 0.1*sqrt(mean(mag(v(maw))^2))\nalter vvbn ac=0\nalter evbn gain=0\nalter egdn gain=1\nalter vgdn ac=1\nac lin 1000 20 20k\nlet hg = 5e-4*sqrt(mean(mag(v(haw))^2))\nlet mg = 5e-4*sqrt(mean(mag(v(maw))^2))"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: environment, host VBUS audio-band noise 100 mV rms (R22) on every audio supply entry (5V_SYS -> 3V3_A LDO, TPS65131 outputs -> +-4.5 V and ADC LDOs: the TPS65131 fit has no line transfer, so 0 dB rejection is assumed) plus a ground drop 0.5 mV rms (0.5 mohm shared plane square x 1 A audio-band charge swing, C11; post-layout Z replaces it); how often: always in bus mode; method: AC transfer, coupled_rms = V_gen x sqrt(mean |H_A|^2) over a 1000-point linear 20 Hz - 20 kHz sweep, RSS of the two generators; mic referred to the input with the 1 kHz gain from the 150 ohm source"
@@ -10395,7 +10856,7 @@ sim:
         - {"name": "hp_coupled", "plot": "ac3", "expr": "sqrt(ac2.hv^2+hg^2)*1e6", "max": 0.33, "unit": "uVrms", "req": "R22"}
         - {"name": "mic_coupled_min_gain", "plot": "ac3", "expr": "sqrt(ac2.mv^2+mg^2)*1e6/ac1.gmic", "max": 0.33, "unit": "uVrms", "req": "R22"}
     - name: r22_tones
-      cmd: "option gmin=1e-9\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 13 400k 1.6meg\nmeas ac m_t400 find vm(hp_l) at=400k\nmeas ac m_t1m4 find vm(hp_l) at=1.4meg"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter evbn gain=1\nalter vvbn ac=1\nac lin 13 400k 1.6meg\nmeas ac m_t400 find vm(hp_l) at=400k\nmeas ac m_t1m4 find vm(hp_l) at=1.4meg"
       temps: [25]
       monte_carlo: false
       realism: "who: environment, converter ripple tones: LM61460 5V_SYS 400 kHz, TPS62933 3V3_D 1.2 MHz (no modelled analog path: DAC/ADC AVDD only), TPS65131 1.38 MHz [E] 20 mVpp on each audio supply entry; out of the 20 Hz-20 kHz band, so they add nothing to the A-weighted R22 figure in a linear simulation; listed for intermodulation awareness"
@@ -10403,7 +10864,7 @@ sim:
         - {"name": "dbg_tone_400k_uvpk", "expr": "m_t400", "scale": 10000.0, "unit": "uVpk"}
         - {"name": "dbg_tone_1m38_uvpk", "expr": "m_t1m4", "scale": 10000.0, "unit": "uVpk"}
     - name: mic_noise_min
-      cmd: "option gmin=1e-9\noption sparse\nalter vmic ac=1\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nprint gmic\nnoise v(maw) vmic dec 40 20 20k"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nop\nlet hwf_bad = abs(v(aud_p4v5)-4.5) gt 1\nif hwf_bad\noption gmin=1e-11\nend\nalter vmic ac=1\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nprint gmic\nnoise v(maw) vmic dec 40 20 20k"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user, mic plugged (150 ohm source, 0.5 mA electret), minimum gain (full scale 1 Vrms at the jack), recording; limits: R11 <= 1.0 uVrms A-wtd input-referred; intrinsic <= sqrt(1.0^2 - coupled_worst^2) (notes/noise-allocation.md); ADC 125 dB re 2 Vrms [S] (alldatasheet snippet, datasheet not read: B6)"
@@ -10411,7 +10872,7 @@ sim:
         - {"name": "dbg_mic_gain_min", "plot": "ac1", "expr": "gmic", "unit": "V/V"}
         - {"name": "mic_in_noise_min", "plot": "noise2", "expr": "onoise_total*1e6/ac1.gmic", "max": 0.9999, "unit": "uVrms", "req": "R11,R33"}
     - name: mic_noise_max
-      cmd: "option gmin=1e-9\noption sparse\nalter vmic ac=1\nalter vmicg dc=3.3\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nlet gtip = mag(v(madc)/v(mic_t))\nprint gmic gtip\nnoise v(maw) vmic dec 40 20 20k"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nop\nlet hwf_bad = abs(v(aud_p4v5)-4.5) gt 1\nif hwf_bad\noption gmin=1e-11\nend\nalter vmic ac=1\nalter vmicg dc=3.3\nalter vsigmic dc=0\nac lin 1 1k 1k\nlet gmic = mag(v(madc)/v(ms))\nlet gtip = mag(v(madc)/v(mic_t))\nprint gmic gtip\nnoise v(maw) vmic dec 40 20 20k"
       temps: [0, 25, 40]
       monte_carlo: false
       realism: "who: user, mic plugged, maximum gain (+40 dB class, 10 mVrms full scale); limits: R11 EIN <= -120 dBV (1.0 uVrms) A-wtd with a 150 ohm source"
@@ -10420,8 +10881,8 @@ sim:
         - {"name": "dbg_mic_gain_emf_db", "plot": "ac1", "expr": "db(gmic/2)", "unit": "dB"}
         - {"name": "mic_ein_max", "plot": "noise2", "expr": "onoise_total*1e6/ac1.gmic", "max": 1.0, "unit": "uVrms", "req": "R11"}
     - name: mic_bias
-      cmd: "option gmin=1e-9\noption klu\nop"
-      temps: [0, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nop"
+      temps: [0]
       realism: "who: user, electret capsule drawing 0.5 mA through the 2.2 k plug-in power; limits: R33 2.0-3.0 V bias"
       measures:
         - {"name": "bias_source_v", "expr": "v(2V5_BIAS)", "min": 2.0, "max": 3.0, "unit": "V", "req": "R33"}
@@ -10431,9 +10892,21 @@ sim:
         - {"name": "dbg_n4v5", "expr": "v(AUD_N4V5)", "unit": "V"}
         - {"name": "dbg_adc4v5", "expr": "v(ADC_4V5)", "unit": "V"}
         - {"name": "dbg_hp_dc_mv", "expr": "v(J930.T)*1e3", "unit": "mV"}
+    - name: mic_bias_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nop"
+      temps: [40]
+      realism: "40 C twin of mic_bias on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, electret capsule drawing 0.5 mA through the 2.2 k plug-in power; limits: R33 2.0-3.0 V bias"
+      measures:
+        - {"name": "bias_source_v_40c", "expr": "v(2V5_BIAS)", "min": 2.0, "max": 3.0, "unit": "V", "req": "R33"}
+        - {"name": "dbg_tip_v_40c", "expr": "v(MIC_T)", "unit": "V"}
+        - {"name": "dbg_3v3a_40c", "expr": "v(3V3_A)", "unit": "V"}
+        - {"name": "dbg_p4v5_40c", "expr": "v(AUD_P4V5)", "unit": "V"}
+        - {"name": "dbg_n4v5_40c", "expr": "v(AUD_N4V5)", "unit": "V"}
+        - {"name": "dbg_adc4v5_40c", "expr": "v(ADC_4V5)", "unit": "V"}
+        - {"name": "dbg_hp_dc_mv_40c", "expr": "v(J930.T)*1e3", "unit": "mV"}
     - name: hp_level_32
-      cmd: "option gmin=1e-9\noption klu\nalter rll = 32\nalter rlr = 32\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
-      temps: [0, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter rll = 32\nalter rlr = 32\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
+      temps: [0]
       realism: "who: user, 0 dBFS 1 kHz sine on both channels into 32 ohm (a test signal; music sits >= 10 dB lower); how often: rare; timing: steady state; limits: R29 >= 1.0 Vrms, >= 0.5 V to each rail, no current limit (OPA1622 +145/-130 mA [V], OPA1612 +-30 mA [V])"
       measures:
         - {"name": "hp_vrms_32", "expr": "m_vl", "min": 1.0, "max": 2.79, "unit": "Vrms", "req": "R29"}
@@ -10443,9 +10916,21 @@ sim:
         - {"name": "iv_ipk_32", "expr": "vecmax(abs((v(IV_LP)-v(DS_LM))/100+(v(IV_LP)-v(IVS_LP))/383))*1e3", "max": 30, "unit": "mA", "req": "R29"}
         - {"name": "dbg_p4v5_min_32", "expr": "vecmin(v(AUD_P4V5))", "unit": "V"}
         - {"name": "dbg_vrms_r_32", "expr": "m_vr", "unit": "Vrms"}
+    - name: hp_level_32_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 32\nalter rlr = 32\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
+      temps: [40]
+      realism: "40 C twin of hp_level_32 on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, 0 dBFS 1 kHz sine on both channels into 32 ohm (a test signal; music sits >= 10 dB lower); how often: rare; timing: steady state; limits: R29 >= 1.0 Vrms, >= 0.5 V to each rail, no current limit (OPA1622 +145/-130 mA [V], OPA1612 +-30 mA [V])"
+      measures:
+        - {"name": "hp_vrms_32_40c", "expr": "m_vl", "min": 1.0, "max": 2.79, "unit": "Vrms", "req": "R29"}
+        - {"name": "hp_head_pos_32_40c", "expr": "vecmin(v(AUD_P4V5))-vecmax(v(HPA_L))", "min": 0.5, "unit": "V", "req": "R29"}
+        - {"name": "hp_head_neg_32_40c", "expr": "vecmin(v(HPA_L))-vecmax(v(AUD_N4V5))", "min": 0.5, "unit": "V", "req": "R29"}
+        - {"name": "hp_ipk_32_40c", "expr": "vecmax(abs(v(HPA_L)-v(J930.T)))/0.47*1e3", "max": 130, "unit": "mA", "req": "R29"}
+        - {"name": "iv_ipk_32_40c", "expr": "vecmax(abs((v(IV_LP)-v(DS_LM))/100+(v(IV_LP)-v(IVS_LP))/383))*1e3", "max": 30, "unit": "mA", "req": "R29"}
+        - {"name": "dbg_p4v5_min_32_40c", "expr": "vecmin(v(AUD_P4V5))", "unit": "V"}
+        - {"name": "dbg_vrms_r_32_40c", "expr": "m_vr", "unit": "Vrms"}
     - name: hp_level_300
-      cmd: "option gmin=1e-9\noption klu\nalter rll = 300\nalter rlr = 300\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
-      temps: [0, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter rll = 300\nalter rlr = 300\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
+      temps: [0]
       realism: "who: user, 0 dBFS 1 kHz sine on both channels into 300 ohm (a test signal; music sits >= 10 dB lower); how often: rare; timing: steady state; limits: R29 >= 2.0 Vrms, >= 0.5 V to each rail, no current limit (OPA1622 +145/-130 mA [V], OPA1612 +-30 mA [V])"
       measures:
         - {"name": "hp_vrms_300", "expr": "m_vl", "min": 2.0, "max": 2.79, "unit": "Vrms", "req": "R29"}
@@ -10455,9 +10940,21 @@ sim:
         - {"name": "iv_ipk_300", "expr": "vecmax(abs((v(IV_LP)-v(DS_LM))/100+(v(IV_LP)-v(IVS_LP))/383))*1e3", "max": 30, "unit": "mA", "req": "R29"}
         - {"name": "dbg_p4v5_min_300", "expr": "vecmin(v(AUD_P4V5))", "unit": "V"}
         - {"name": "dbg_vrms_r_300", "expr": "m_vr", "unit": "Vrms"}
+    - name: hp_level_300_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 300\nalter rlr = 300\nalter vsigamp dc=3.75m\ntran 0.5u 4m 0 0.5u\nmeas tran m_vl rms v(hp_l) from=2m to=4m\nmeas tran m_vr rms v(hp_r) from=2m to=4m"
+      temps: [40]
+      realism: "40 C twin of hp_level_300 on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, 0 dBFS 1 kHz sine on both channels into 300 ohm (a test signal; music sits >= 10 dB lower); how often: rare; timing: steady state; limits: R29 >= 2.0 Vrms, >= 0.5 V to each rail, no current limit (OPA1622 +145/-130 mA [V], OPA1612 +-30 mA [V])"
+      measures:
+        - {"name": "hp_vrms_300_40c", "expr": "m_vl", "min": 2.0, "max": 2.79, "unit": "Vrms", "req": "R29"}
+        - {"name": "hp_head_pos_300_40c", "expr": "vecmin(v(AUD_P4V5))-vecmax(v(HPA_L))", "min": 0.5, "unit": "V", "req": "R29"}
+        - {"name": "hp_head_neg_300_40c", "expr": "vecmin(v(HPA_L))-vecmax(v(AUD_N4V5))", "min": 0.5, "unit": "V", "req": "R29"}
+        - {"name": "hp_ipk_300_40c", "expr": "vecmax(abs(v(HPA_L)-v(J930.T)))/0.47*1e3", "max": 130, "unit": "mA", "req": "R29"}
+        - {"name": "iv_ipk_300_40c", "expr": "vecmax(abs((v(IV_LP)-v(DS_LM))/100+(v(IV_LP)-v(IVS_LP))/383))*1e3", "max": 30, "unit": "mA", "req": "R29"}
+        - {"name": "dbg_p4v5_min_300_40c", "expr": "vecmin(v(AUD_P4V5))", "unit": "V"}
+        - {"name": "dbg_vrms_r_300_40c", "expr": "m_vr", "unit": "Vrms"}
     - name: hp_response_32
-      cmd: "option gmin=1e-9\noption klu\nalter rll = 32\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
-      temps: [25, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter rll = 32\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
+      temps: [25]
       realism: "who: user, 32 ohm headphones, 48 / 96 kHz streams (the analog chain is the same at both rates); limits: R31 +-0.1 dB minus the DAC filter ripple 0.0031 dB (ES9039Q2M p.35, worst listed filter): +-0.0969 dB"
       measures:
         - {"name": "dbg_g1k_32", "expr": "m_g1k", "unit": "dB"}
@@ -10465,9 +10962,19 @@ sim:
         - {"name": "resp_min_32", "expr": "m_rmin", "unit": "dB", "debug": true}
         - {"name": "resp_hi_32", "expr": "resp_max_32-dbg_g1k_32", "max": 0.0969, "unit": "dB", "req": "R31"}
         - {"name": "resp_lo_32", "expr": "resp_min_32-dbg_g1k_32", "min": -0.0969, "unit": "dB", "req": "R31"}
+    - name: hp_response_32_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 32\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
+      temps: [40]
+      realism: "40 C twin of hp_response_32 on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, 32 ohm headphones, 48 / 96 kHz streams (the analog chain is the same at both rates); limits: R31 +-0.1 dB minus the DAC filter ripple 0.0031 dB (ES9039Q2M p.35, worst listed filter): +-0.0969 dB"
+      measures:
+        - {"name": "dbg_g1k_32_40c", "expr": "m_g1k", "unit": "dB"}
+        - {"name": "resp_max_32_40c", "expr": "m_rmax", "unit": "dB", "debug": true}
+        - {"name": "resp_min_32_40c", "expr": "m_rmin", "unit": "dB", "debug": true}
+        - {"name": "resp_hi_32_40c", "expr": "resp_max_32_40c-dbg_g1k_32_40c", "max": 0.0969, "unit": "dB", "req": "R31"}
+        - {"name": "resp_lo_32_40c", "expr": "resp_min_32_40c-dbg_g1k_32_40c", "min": -0.0969, "unit": "dB", "req": "R31"}
     - name: hp_response_300
-      cmd: "option gmin=1e-9\noption klu\nalter rll = 300\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
-      temps: [25, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter rll = 300\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
+      temps: [25]
       realism: "who: user, 300 ohm headphones, 48 / 96 kHz streams (the analog chain is the same at both rates); limits: R31 +-0.1 dB minus the DAC filter ripple 0.0031 dB (ES9039Q2M p.35, worst listed filter): +-0.0969 dB"
       measures:
         - {"name": "dbg_g1k_300", "expr": "m_g1k", "unit": "dB"}
@@ -10475,17 +10982,33 @@ sim:
         - {"name": "resp_min_300", "expr": "m_rmin", "unit": "dB", "debug": true}
         - {"name": "resp_hi_300", "expr": "resp_max_300-dbg_g1k_300", "max": 0.0969, "unit": "dB", "req": "R31"}
         - {"name": "resp_lo_300", "expr": "resp_min_300-dbg_g1k_300", "min": -0.0969, "unit": "dB", "req": "R31"}
+    - name: hp_response_300_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter rll = 300\nac dec 100 20 20k\nmeas ac m_g1k find vdb(hp_l) at=1k\nmeas ac m_rmax max vdb(hp_l) from=20 to=20k\nmeas ac m_rmin min vdb(hp_l) from=20 to=20k"
+      temps: [40]
+      realism: "40 C twin of hp_response_300 on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, 300 ohm headphones, 48 / 96 kHz streams (the analog chain is the same at both rates); limits: R31 +-0.1 dB minus the DAC filter ripple 0.0031 dB (ES9039Q2M p.35, worst listed filter): +-0.0969 dB"
+      measures:
+        - {"name": "dbg_g1k_300_40c", "expr": "m_g1k", "unit": "dB"}
+        - {"name": "resp_max_300_40c", "expr": "m_rmax", "unit": "dB", "debug": true}
+        - {"name": "resp_min_300_40c", "expr": "m_rmin", "unit": "dB", "debug": true}
+        - {"name": "resp_hi_300_40c", "expr": "resp_max_300_40c-dbg_g1k_300_40c", "max": 0.0969, "unit": "dB", "req": "R31"}
+        - {"name": "resp_lo_300_40c", "expr": "resp_min_300_40c-dbg_g1k_300_40c", "min": -0.0969, "unit": "dB", "req": "R31"}
     - name: hp_zout
-      cmd: "option gmin=1e-9\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter rll = 1e9\nalter izt ac=1m\nac dec 20 20 20k\nmeas ac m_zmax max vm(hp_l) from=20 to=20k"
-      temps: [25, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter iaclp ac=0\nalter iacln ac=0\nalter rll = 1e9\nalter izt ac=1m\nac dec 20 20 20k\nmeas ac m_zmax max vm(hp_l) from=20 to=20k"
+      temps: [25]
       realism: "who: user, multi-driver IEM on the output; test: 1 mA AC into the jack tip, DAC at silence, no load; limits: R32 |Zout| <= 1 ohm incl. 0.47 ohm series, 10 k detect resistor and TVS"
       measures:
         - {"name": "hp_zout_max", "expr": "m_zmax", "scale": 1000, "min": 0.0, "max": 1.0, "unit": "ohm", "req": "R32"}
+    - name: hp_zout_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter iaclp ac=0\nalter iacln ac=0\nalter rll = 1e9\nalter izt ac=1m\nac dec 20 20 20k\nmeas ac m_zmax max vm(hp_l) from=20 to=20k"
+      temps: [40]
+      realism: "40 C twin of hp_zout on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, multi-driver IEM on the output; test: 1 mA AC into the jack tip, DAC at silence, no load; limits: R32 |Zout| <= 1 ohm incl. 0.47 ohm series, 10 k detect resistor and TVS"
+      measures:
+        - {"name": "hp_zout_max_40c", "expr": "m_zmax", "scale": 1000, "min": 0.0, "max": 1.0, "unit": "ohm", "req": "R32"}
     # ==== STAGE 5 AUDIO ANALYSES (notes/circuit.md "Stage 5 fixes, audio")
     - name: mic_fs_min
-      cmd: "option gmin=1e-9\noption klu\nalter vsigmic dc=1.513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
-      temps: [0, 40]
-      realism: "who: user, loud source at the mic jack (1 Vrms full scale at minimum gain, R11), sustained; how often: occasional (loud speech close to a capsule, line-level device); timing: steady state; limits: R11 full scale with >= 0.5 V from each U980 rail (ADC_4V5, MIC_VN); OPA1612 supply 4.5-36 V total [V], swing 0.6 V from the rails at 2 k [V]"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter vsigmic dc=1.513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
+      temps: [0]
+      realism: "who: user, loud source at the mic jack (1 Vrms full scale at minimum gain, R11), sustained; how often: occasional (loud speech close to a capsule, line-level device); timing: steady state; limits: R11 full scale with >= 0.5 V from each U980 rail (ADC_4V5, MIC_VN); OPA1612 supply 4.5-36 V total [V], swing 0.6 V from the rails at 2 k [V]; input CM (V-)+2 V .. (V+)-2 V (SBOS450C p.5): model node cmh >= 0"
       measures:
         - {"name": "dbg_mic_tip_vrms_min", "expr": "m_tip/2.8284", "unit": "Vrms"}
         - {"name": "dbg_mic_adc_vrms_min", "expr": "m_adc", "unit": "Vrms"}
@@ -10496,9 +11019,29 @@ sim:
         - {"name": "mic_head_pos_min", "expr": "vecmin(v(ADC_4V5))-(dbg_mic_pa_pk_min+dbg_mic_pb_pk_min+abs(dbg_mic_pa_pk_min-dbg_mic_pb_pk_min))/2", "min": 0.5, "unit": "V", "req": "R11"}
         - {"name": "mic_head_neg_min", "expr": "(dbg_mic_pa_lo_min+dbg_mic_pb_lo_min-abs(dbg_mic_pa_lo_min-dbg_mic_pb_lo_min))/2-vecmax(v(MIC_VN))", "min": 0.5, "unit": "V", "req": "R11"}
         - {"name": "mic_supply_min", "expr": "vecmin(v(ADC_4V5)-v(MIC_VN))", "min": 4.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_a_min", "expr": "vecmin(v(xu980.xa.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_b_min", "expr": "vecmin(v(xu980.xb.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "dbg_mic_in_pk_min", "expr": "vecmax(abs(v(MIC_IN)))", "unit": "V"}
+    - name: mic_fs_min_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter vsigmic dc=1.513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
+      temps: [40]
+      realism: "40 C twin of mic_fs_min on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, loud source at the mic jack (1 Vrms full scale at minimum gain, R11), sustained; how often: occasional (loud speech close to a capsule, line-level device); timing: steady state; limits: R11 full scale with >= 0.5 V from each U980 rail (ADC_4V5, MIC_VN); OPA1612 supply 4.5-36 V total [V], swing 0.6 V from the rails at 2 k [V]; input CM (V-)+2 V .. (V+)-2 V (SBOS450C p.5): model node cmh >= 0"
+      measures:
+        - {"name": "dbg_mic_tip_vrms_min_40c", "expr": "m_tip/2.8284", "unit": "Vrms"}
+        - {"name": "dbg_mic_adc_vrms_min_40c", "expr": "m_adc", "unit": "Vrms"}
+        - {"name": "dbg_mic_pa_pk_min_40c", "expr": "vecmax(v(MIC_PA))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pb_pk_min_40c", "expr": "vecmax(v(MIC_PB))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pa_lo_min_40c", "expr": "vecmin(v(MIC_PA))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pb_lo_min_40c", "expr": "vecmin(v(MIC_PB))", "unit": "V", "debug": true}
+        - {"name": "mic_head_pos_min_40c", "expr": "vecmin(v(ADC_4V5))-(dbg_mic_pa_pk_min_40c+dbg_mic_pb_pk_min_40c+abs(dbg_mic_pa_pk_min_40c-dbg_mic_pb_pk_min_40c))/2", "min": 0.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_head_neg_min_40c", "expr": "(dbg_mic_pa_lo_min_40c+dbg_mic_pb_lo_min_40c-abs(dbg_mic_pa_lo_min_40c-dbg_mic_pb_lo_min_40c))/2-vecmax(v(MIC_VN))", "min": 0.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_supply_min_40c", "expr": "vecmin(v(ADC_4V5)-v(MIC_VN))", "min": 4.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_a_min_40c", "expr": "vecmin(v(xu980.xa.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_b_min_40c", "expr": "vecmin(v(xu980.xb.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "dbg_mic_in_pk_min_40c", "expr": "vecmax(abs(v(MIC_IN)))", "unit": "V"}
     - name: mic_fs_max
-      cmd: "option gmin=1e-9\noption klu\nalter vmicg dc=3.3\nalter vsigmic dc=0.01513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
-      temps: [0, 40]
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter vmicg dc=3.3\nalter vsigmic dc=0.01513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
+      temps: [0]
       realism: "who: user, 10 mVrms full scale at maximum gain (R11 +40 dB setting), sustained; how often: every recording at high gain near full scale; limits: R11 full scale with >= 0.5 V from each U980 rail"
       measures:
         - {"name": "dbg_mic_tip_vrms_max", "expr": "m_tip/2.8284", "unit": "Vrms"}
@@ -10509,8 +11052,25 @@ sim:
         - {"name": "dbg_mic_pb_lo_max", "expr": "vecmin(v(MIC_PB))", "unit": "V", "debug": true}
         - {"name": "mic_head_pos_max", "expr": "vecmin(v(ADC_4V5))-(dbg_mic_pa_pk_max+dbg_mic_pb_pk_max+abs(dbg_mic_pa_pk_max-dbg_mic_pb_pk_max))/2", "min": 0.5, "unit": "V", "req": "R11"}
         - {"name": "mic_head_neg_max", "expr": "(dbg_mic_pa_lo_max+dbg_mic_pb_lo_max-abs(dbg_mic_pa_lo_max-dbg_mic_pb_lo_max))/2-vecmax(v(MIC_VN))", "min": 0.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_a_max", "expr": "vecmin(v(xu980.xa.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "mic_supply_max_gain", "expr": "vecmin(v(ADC_4V5)-v(MIC_VN))", "min": 4.5, "unit": "V", "req": "R11"}
+    - name: mic_fs_max_40c
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption sparse\nalter vmicg dc=3.3\nalter vsigmic dc=0.01513\ntran 2u 6m 0 2u\nmeas tran m_tip pp v(mic_t) from=3m to=6m\nmeas tran m_adc rms v(madc) from=3m to=6m"
+      temps: [40]
+      realism: "40 C twin of mic_fs_max on SPARSE (pass 4: KLU lands on the dead-board operating point at 40 C only; SPARSE converges there, KLU at 0 / 25 C); who: user, 10 mVrms full scale at maximum gain (R11 +40 dB setting), sustained; how often: every recording at high gain near full scale; limits: R11 full scale with >= 0.5 V from each U980 rail"
+      measures:
+        - {"name": "dbg_mic_tip_vrms_max_40c", "expr": "m_tip/2.8284", "unit": "Vrms"}
+        - {"name": "dbg_mic_adc_vrms_max_40c", "expr": "m_adc", "unit": "Vrms"}
+        - {"name": "dbg_mic_pa_pk_max_40c", "expr": "vecmax(v(MIC_PA))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pb_pk_max_40c", "expr": "vecmax(v(MIC_PB))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pa_lo_max_40c", "expr": "vecmin(v(MIC_PA))", "unit": "V", "debug": true}
+        - {"name": "dbg_mic_pb_lo_max_40c", "expr": "vecmin(v(MIC_PB))", "unit": "V", "debug": true}
+        - {"name": "mic_head_pos_max_40c", "expr": "vecmin(v(ADC_4V5))-(dbg_mic_pa_pk_max_40c+dbg_mic_pb_pk_max_40c+abs(dbg_mic_pa_pk_max_40c-dbg_mic_pb_pk_max_40c))/2", "min": 0.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_head_neg_max_40c", "expr": "(dbg_mic_pa_lo_max_40c+dbg_mic_pb_lo_max_40c-abs(dbg_mic_pa_lo_max_40c-dbg_mic_pb_lo_max_40c))/2-vecmax(v(MIC_VN))", "min": 0.5, "unit": "V", "req": "R11"}
+        - {"name": "mic_cm_a_max_40c", "expr": "vecmin(v(xu980.xa.cmh))", "min": 0.0, "unit": "V", "req": "R11"}
+        - {"name": "mic_supply_max_gain_40c", "expr": "vecmin(v(ADC_4V5)-v(MIC_VN))", "min": 4.5, "unit": "V", "req": "R11"}
     - name: hp_thump
-      cmd: "option gmin=1e-9\noption klu\nalter vkthmp dc=1\nalter rlk910 = 303k\nalter cc910 = 396u\nalter cc911 = 264u\nalter @grdlp[gain]=2.2297e-3\nalter @grdln[gain]=3.0166e-3\ntran 1m 1.4 0 1m\nmeas tran m_thx max v(hp_l) from=1.3 to=1.4\nmeas tran m_thn min v(hp_l) from=1.3 to=1.4\nmeas tran m_mux max v(hp_l) from=0 to=1.29\nmeas tran m_mun min v(hp_l) from=0 to=1.29\nmeas tran m_nmx max v(ds_lo) from=0 to=1.3\nmeas tran m_nmn min v(ds_lo) from=0 to=1.3\nmeas tran m_rel find v(ds_lo) at=1.3\nmeas tran m_end find v(hp_l) at=1.4"
+      cmd: "option gmin=1e-9\nalter vkfix dc=1000\noption klu\nalter vkthmp dc=1\nalter rlk910 = 303k\nalter cc910 = 396u\nalter cc911 = 264u\nalter @grdlp[gain]=2.2297e-3\nalter @grdln[gain]=3.0166e-3\ntran 1m 1.4 0 1m\nmeas tran m_thx max v(hp_l) from=1.3 to=1.4\nmeas tran m_thn min v(hp_l) from=1.3 to=1.4\nmeas tran m_mux max v(hp_l) from=0 to=1.29\nmeas tran m_mun min v(hp_l) from=0 to=1.29\nmeas tran m_nmx max v(ds_lo) from=0 to=1.3\nmeas tran m_nmn min v(ds_lo) from=0 to=1.3\nmeas tran m_rel find v(ds_lo) at=1.3\nmeas tran m_end find v(hp_l) at=1.4"
       temps: [25]
       monte_carlo: false
       realism: "who: user, headphones (32 ohm) on while the board powers up or the firmware enables the DAC (CHIP_EN); how often: every power-up / enumeration; timing: DAC bias steps 0 -> AVCC/2 in 10 us at 1 ms, firmware releases AUDIO_MUTE at 1.3 s (>= 1.3 s after DAC_EN, firmware rule); worst mismatch: Rdac +15 % / -15 % (ES9039Q2M p.21) and DC blocks +20 % / -20 % on the two legs, tantalum leakage 0.01 CV at 6.3 V (303 k) on one leg only; limit: 10 mVpk at the jack after the release (design-review target, no requirement covers pops: debug probe, notes/circuit.md)"
@@ -10526,6 +11086,6 @@ budgets:
   - {"name": "L2_vbus_c2", "req": "R7", "kind": "copper_r", "path": ["C757.1 -> M750.5,M750.6,M750.7,M750.8", "M750.1,M750.2,M750.3 -> M751.1,M751.2,M751.3", "M751.5,M751.6,M751.7,M751.8 -> J312.A4,J312.A9,J312.B4,J312.B9", "J312.A1,J312.A12,J312.B1,J312.B12 -> R759.1", "R759.2 -> C757.2"], "current_a": 3.0, "max_mohm": 47.3, "source": "R7 5 V contract min 4.75 V; pre-layout worst pd_5v vc2_5v 4.8921 V (40 C, 3 A); (4.8921 - 4.75) / 3.0 A = 47.3 mOhm (9 V case: (8.9058 - 8.55) / 2.22 A = 160 mOhm, not binding)"}
   - {"name": "L3_vbus_a1", "req": "R8", "kind": "copper_r", "path": ["C687.1 -> U800.1", "U800.12 -> J321.1", "J321.4 -> C687.2"], "current_a": 1.5, "max_mohm": 153.7, "source": "R8 4.75 V min; pre-layout worst va1_pd 4.9806 V (pd_9v / pd_5v, 0-40 C, 1.5 A); (4.9806 - 4.75) / 1.5 A = 153.7 mOhm"}
   - {"name": "L3_vbus_a2", "req": "R8", "kind": "copper_r", "path": ["C687.1 -> U820.1", "U820.12 -> J322.1", "J322.4 -> C687.2"], "current_a": 1.5, "max_mohm": 153.7, "source": "R8 4.75 V min; pre-layout worst va2_pd 4.9806 V (pd_9v / pd_5v, 0-40 C, 1.5 A); (4.9806 - 4.75) / 1.5 A = 153.7 mOhm"}
-  - {"name": "L1_host_5v_sys", "req": "R19", "kind": "copper_r", "path": ["U650.4,U650.5,U650.6,U650.7,U650.8 -> U702.1,U752.1,U800.1,U820.1"], "current_a": 0.9, "max_mohm": 125.1, "source": "R19 4.45 V min with all four ports loaded; pre-layout worst bus_floor vc1_floor 4.5626 V (40 C, host 0.90 A); (4.5626 - 4.45) / 0.9 A = 125.1 mOhm"}
+  - {"name": "L1_host_5v_sys", "req": "R19", "kind": "copper_r", "path": ["U650.4,U650.5,U650.6,U650.7,U650.8 -> M657.1,M657.2,M657.3", "M657.5,M657.6,M657.7,M657.8 -> U702.1,U752.1,U800.1,U820.1"], "current_a": 0.9, "max_mohm": 125.1, "source": "R19 4.45 V min with all four ports loaded; pre-layout worst bus_floor vc1_floor 4.5626 V (40 C, host 0.90 A); (4.5626 - 4.45) / 0.9 A = 125.1 mOhm"}
   - {"name": "L4_pd_input", "req": "R9", "kind": "copper_r", "path": ["J600.A4,J600.A9,J600.B4,J600.B9 -> M600.5,M600.6,M600.7,M600.8", "M600.1,M600.2,M600.3 -> M601.1,M601.2,M601.3", "M601.5,M601.6,M601.7,M601.8 -> C703.1,C753.1,M680.5"], "current_a": 3.19, "max_mohm": 213, "source": "R9 65 W; pre-layout worst pin_pd_w 62.832 W (pd_9v, 40 C) at 3.19 A input (20 V source, 0.1 ohm cable: 0.1 I^2 - 20 I + 62.83 = 0); (65 - 62.832) W / 3.19^2 A^2 = 213 mOhm"}
 # ==== PASS B SIM END

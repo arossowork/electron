@@ -1,0 +1,151 @@
+product: "Two-zone Wi-Fi (MQTT) thermostat module for an Italian 503 wall box, powered by 2 AAA cells in series only (no L/N for the electronics), 2 temperature probes on cables < 2 m, 2 latching relays as dry contacts switching 230 VAC thermal valve actuators, offline RTC scheduling, no screen"
+# Rounds 1-4 answered (inbox/answers.md). Volume: 10 prototypes.
+# Power source (PM round 4, q1): 2 x AAA in series. Pack voltage: 3.6 V max (lithium L92 fresh, 2 x 1.80 V OCV),
+# 3.2 V alkaline fresh (2 x 1.60 V), low-battery cutoff 2.20 V open circuit (2 x 1.10 V, raised to 2 x 1.28 V at 0 C, review-2 S3).
+# Arithmetic: architecture.md section 4 and notes/power_calc.py.
+optimize_for:
+  - {criterion: cost, weight: 3}           # PM round 2, q4: cost first
+  - {criterion: battery_life, weight: 2}   # PM round 2, q4: then battery life (R2 floor stays must)
+  - {criterion: size, weight: 1}           # PM round 2, q4: size last (503 box fixed by R1)
+requirements:
+  - id: R1
+    priority: must
+    text: "Fits inside a standard Italian 503 flush box (BTicino 503E: internal depth 50 mm) behind a 3-module support and plate"
+    acceptance: "Electronics envelope <= 66 x 44 x 30 mm (W x H x D behind support); each PCB outline <= 62 x 40 mm; the 2xAAA holder (Keystone 2468 class, 53.0 x 24.6 x 13.0 mm) sits on the front face of the front board and may overhang the PCB outline by <= 2 mm inside the envelope; stack depth 1.0 + 1.6 + 10.0 + 1.4 (1.0 gap + 0.4 mm insulating sheet, PM round 6 q1) + 1.6 + 13.0 = 28.6 mm <= 30 mm; antenna >= 10 mm from cell metal"
+    verification: layout
+    evidence: "Layout stage 7 (notes/layout.md, build 2026-10-19, DRC 0 errors, 0 unrouted): two boards of 62 x 40 mm (130 x 40 mm panel = 62 + 6 mm slot + 62, 4 layers), each <= 62 x 40 and inside the 66 x 44 mm envelope. Stack depth 1.0 + 1.6 + 10.0 + 1.0 + 1.6 + 13.0 = 28.2 mm <= 30 mm (limit 50 mm box depth minus support and plate, BTicino 503E datasheet). BT1 holder at y 17.35-41.95 on a 40 mm board: overhang 1.95 mm <= 2 mm. Antenna keep-out y 0-3.9 (x 115.7-130) to the cell holder body (y >= 17.35): 13.4 mm >= 10 mm."
+    source: "brief; dimensions from BTicino 503E catalogue; PM round 4, q1 (2xAAA holder)"
+  - id: R2
+    priority: must
+    text: "Runs from two AAA cells in series only (no mains for the electronics): >= 13 months on alkaline (Energizer E92 class) with typical parts, >= 11 months with every part at its worst datasheet limit at 50 C; >= 2 years on lithium Li-FeS2 (Energizer L92 class)"
+    # PM round 5, q1: keep 60 min Wi-Fi; worst-case unit at 11-13 months accepted.
+    # Worst-case corner: pack power <= 7.13 kJ / (11 x 2.628 Ms = 28.9 Ms) = 246 uW total; with the 166.3 uW active budget the sleep corner limit is 246 - 166.3 = 79.9 uW.
+    acceptance: "Worst-case corner (all parts at datasheet max, 50 C): pack sleep power <= 79.9 uW (total <= 246 uW, 11 months at 7.13 kJ). Typical: average power drawn from the pack <= 208 uW over a 24 h profile (rail sleep floor <= 6.7 uA + 24 Wi-Fi wakes of 0.5 J + 144 measurement wakes of <= 5.3 mJ + 40 relay pulses of 10.6 mJ + LED). Basis, worst alkaline: 1.1 Ah (E92 low drain to 0.8 V/cell, 1.2 Ah typ) x 0.80 depth of discharge to the 1.10 V/cell cutoff x 0.90 (I2R loss in the 0.3 A pulses and self-discharge) x 2.5 V average = 7.13 kJ; 7.13 kJ / 34.2 Ms (13 months) = 208 uW. Lithium: 1.2 Ah x 0.97 x 3.2 V = 13.4 kJ / 208 uW = 24.5 months. Design value 195.8 uW (78 uA at 2.5 V): alkaline 16.0 months typical (8.26 kJ), 13.9 months worst; lithium 2.2 years"
+    verification: analysis
+    evidence: "power budget table in architecture.md section 4 and notes/power_calc.py; E92 and L92 datasheets; TPS61099 SLVSD88M efficiency"
+    source: "PM round 1, q1 (battery only) and q2 (13 months alkaline / 2 years lithium); PM round 3, q3 (measure every 10 min); PM round 4, q1 (2 x AAA in series) and q2 (low-leakage buffer); PM round 5, q1 (accept 11-13 months worst case at 60 min Wi-Fi)"
+  - id: R3
+    priority: must
+    text: "Power stage holds the logic rail through Wi-Fi transmit peaks for the full cell voltage range"
+    acceptance: "Pack model: 2 cells in series, each Voc from the low-battery cutoff (1.10 V at >= 8 C, 1.28 V at 0 C, review-2 S3) to 1.80 V, Rint 0.40 ohm at 25-50 C and 0.80 ohm at 0 C per cell, plus 0.07 ohm for contacts, wiring and the reverse FET. Load: 150 mA for 1 s (Wi-Fi wake) with a 350 mA, 5 ms TX pulse at its end. 3.3 V rail >= 3.0 V throughout at 0 C and 50 C; average pack current over the 1 s wake <= 0.65 A (TPS610994 minimum average input limit; computed 0.28 A at 25 C, 0.34 A at 0 C); converter VIN >= 0.7 V during the TX pulse at each average input limit corner 0.65 / 0.85 / 1.10 A; rail buffer >= 4.7 mF nominal (worst TX deficit 2.68 mJ at 0 C needs 3.41 mF effective with 0.15 ohm ESR; 4.7 mF x 0.8 tolerance x 0.95 at 0 C = 3.57 mF)"
+    verification: simulation
+    source: "conflicts.md C3, C17 (resolved by PM round 4, q1: 2 x AAA); PM round 1, q1"
+  - id: R4
+    priority: must
+    text: "Measures two temperatures for control"
+    acceptance: "Total error <= +/-0.5 degC from 5 to 35 degC per channel including sensor, reference resistor and ADC tolerance (Monte Carlo 3 sigma); resolution <= 0.1 degC"
+    verification: simulation
+    source: "brief (two probes); default for a room thermostat, not asked"
+  - id: R5
+    priority: must
+    text: "Probe inputs work with probe cables up to 2 m; probe cable insulation suits a box that also carries 230 V wiring"
+    acceptance: "Added error from 2 m cable (0.2 ohm/m loop = 0.4 ohm, 100 pF/m = 200 pF) <= 0.02 degC; 50 Hz hum on probe input attenuated >= 20 dB by the input filter (relaxed from 40 dB for 10 m); probe cable datasheet insulation >= 300/500 V or double insulated"
+    verification: simulation
+    source: "PM round 1, q4 (both rooms next to the box, cables < 2 m); conflicts.md C6"
+  - id: R6
+    priority: must
+    text: "Two independent dry-contact relay outputs (COM, NO) in series with the 230 VAC line to thermal valve heads or zone valves, up to 2 A each"
+    acceptance: "Each relay contact rated >= 250 VAC; >= 5 A resistive (2.5 x margin on 2 A for the PTC warm-up current of thermal heads); >= 1.5 A inductive (cos phi 0.4, zone valve motors under 1.5 A); inrush >= 10 A for 20 ms; electrical life >= 100k operations (20 switchings/day x 10 yr = 73k per relay)"
+    verification: datasheet
+    evidence: "PE014F03 datasheet (TE 04/25 p.2): 250 VAC rated, 5 A 250 VAC cos phi 1 100k cycles (IEC 61810), UL 508 B300 for the NO contact. ACCEPTED RISK (PM round 5, q2) for the 10 prototypes: no inrush (10 A / 20 ms) or cos phi 0.4 rating is published; listed as a first-article risk in SUMMARY.md (bench test with a real valve head)."
+    source: "PM round 1, q1 (dry contacts in the actuator line) and q3 (230 V thermal heads or zone valves, <= 2 A); PM round 3, q2 (motor loads < 1.5 A per output); PM round 5, q2 (accept the surge-rating gap for the prototypes)"
+  - id: R7
+    priority: must
+    text: "Relays draw no current while holding a state (latching)"
+    acceptance: "Coil current = 0 in both states (datasheet: bistable); driver applies >= 1.2 x must-operate voltage (>= 2.7 V) for >= 2 x rated pulse width (40 ms) at the low-battery cutoff (pack Voc 2.20 V, Rint 2 x 0.80 + 0.07 ohm, 0 C) with the MCU awake (22 mA); computed pack current 0.22 A, coil 3.23 V"
+    verification: simulation
+    source: "conflicts.md C2, C17 (relays never run below the cutoff because R16 switches them off first); PM round 4, q1"
+  - id: R8
+    priority: must
+    text: "Insulation between 230 VAC parts and all SELV/touchable parts (probes, battery, button, antenna): reinforced on the PCB; relay internal barrier is basic, made safe for the prototypes by a screw-fixed battery cover, insulated probe tips and a breaker-off instruction for battery change"
+    acceptance: "PCB creepage >= 6.0 mm and clearance >= 4.0 mm between mains and SELV copper (slot allowed); relay coil-to-contact dielectric >= 4 kV per datasheet (basic, 4 mm internal creepage accepted); battery cover needs a tool; probe tips double-insulated; user instruction states breaker off before battery change. Safety review required before CE."
+    verification: layout
+    evidence: "3D stack: the relay housings K1/K2 sit under the front board; the datasheet does not give the depth of the live parts inside the housing, so a 0.4 mm polycarbonate or Formex sheet, die-cut 62 x 40 mm, goes between the boards (PM round 6, q1; solid insulation for reinforced insulation per IEC 60730-1 / 62368-1 at 250 V; board spacers +0.4 mm, stack 28.6 mm). J1/J3 terminals: front-board keep-out KO_STACK, 3D minimum 4.12 mm without the sheet (notes/layout.md 3D stack check). PCB: KiCad DRC with custom rules from design.yaml board.drc_rules (clearance >= 4.0 mm and creepage >= 6.0 mm from AC_* to every other net, all 4 layers): 0 errors (build 2026-10-19). The first run found 5.4 mm creepage from the GND pour to the relay NC pads 12; fixed by notching the mains no-pour keep-out (lib Keepout_Rear_MainsPour). K2 coil pins face J4A, no SELV track in the mains zone; rear mains copper 18.3 mm from the front board across the 6 mm slot. Relay: TE PE datasheet (04/25) p.3, 4000 Vrms coil-contact, clearance/creepage 3.2/4 mm (basic, accepted PM round 3 q1). Battery cover, probe-tip insulation and the breaker-off instruction are enclosure/manual items: first-article inspection in SUMMARY.md; safety review before CE. 3D stack check (2026-10-20, notes/layout.md): rear J1/J3 screw terminals are 10 mm tall under an 11 mm board gap (1.0 mm air to the front board); front keep-out KO_STACK (x 77-96 and 101-120, y 25.8-40, all 4 copper layers, no tracks/vias/pads/pour/footprints) keeps front copper >= 4.0 mm in plan = 4.12 mm in 3D (sqrt(4.0^2+1.0^2)); nearest real copper 4.5 mm in plan (4.61 mm 3D, L1/R17/U2 B2 stub); RV1/RV2 DNP, do not fit in this stack. K1/K2 relay housings are 1.0 mm under front copper (3D 1.0 mm, plan 0): sealed housing, basic insulation accepted (PM round 3 q1), NOT 4.0 mm in 3D, open for the safety review (insulating sheet or taller gap needs the product person). DRC with the R8 custom rules (4.0 mm clearance, 6.0 mm creepage, AC_* to other nets): 0 errors, 0 unrouted, 94 vias."
+    source: "brief (isolation); IEC 60730-1 / IEC 62368-1 reinforced, 250 V, PD2, OVC II; PM round 3, q1 (basic relay insulation + screw cover for prototypes)"
+  - id: R9
+    priority: must
+    text: "Relay switching does not disturb or reset the Wi-Fi/MCU section"
+    acceptance: "Antenna keep-out >= 15 mm from relay contacts and mains copper; no mains trace on or under SELV ground plane; logic rail droop <= 100 mV during a relay pulse"
+    verification: simulation
+    source: "brief (isolation from Wi-Fi RF)"
+  - id: R10
+    priority: must
+    text: "Wi-Fi 2.4 GHz remote control and reporting over MQTT using a pre-certified radio module with an internal antenna, for plastic front plates only"
+    acceptance: "Radio module datasheet lists 802.11 b/g/n and a CE RED certificate; on-module (PCB or chip) antenna at the front edge of the front board facing the plastic plate; no copper under the antenna per the module keep-out drawing; no external antenna connector"
+    verification: datasheet
+    evidence: "module datasheet and RED certificate; antenna keep-out checked in layout"
+    source: "brief; PM round 2, q3 (plastic plates only, conflicts.md C7)"
+  - id: R11
+    priority: must
+    text: "Remote commands take effect within 60 min"
+    acceptance: "Wake interval <= 60 min (24 wakes/day x 0.5 J = 4.4 kJ/yr) with the queued MQTT command (retained or persistent session) fetched on each wake; counted in the R2 budget"
+    verification: analysis
+    evidence: "power budget in architecture.md"
+    source: "PM round 1, q2; conflicts.md C1"
+  - id: R12
+    priority: must
+    text: "Works offline: schedule and temperature control run with no network"
+    acceptance: "RTC timekeeping error <= +/-2 min/month (<= 46 ppm) from 0 to 40 degC; schedule stored in non-volatile memory"
+    verification: datasheet
+    evidence: "RTC/crystal datasheet frequency tolerance and temperature drift"
+    source: "brief"
+  - id: R13
+    priority: must
+    text: "Operating environment: indoor wall box"
+    acceptance: "All parts rated for 0 to +50 degC operation (box can be 10 degC above room); 10-90 % RH non-condensing; simulations run at 0 and 50 degC"
+    verification: simulation
+    source: "default for an indoor wall box, not asked"
+  - id: R14
+    priority: must
+    text: "ESD robustness of user-touchable inputs"
+    acceptance: "Probe terminals and button protected to IEC 61000-4-2 +/-8 kV contact, +/-15 kV air"
+    verification: datasheet
+    evidence: "TVS datasheet IEC 61000-4-2 rating"
+    source: "proposed (CE EMC)"
+  - id: R15
+    priority: must
+    text: "Wiring terminals for 230 V outputs and probes"
+    acceptance: "Relay terminals: 2 x (COM, NO) screw or spring, rated >= 250 V / 6 A (3 x the 2 A load), accept 0.5-1.5 mm2; probe terminals: 2 x 2-pole, accept 0.2-1 mm2"
+    verification: datasheet
+    evidence: "terminal block datasheet"
+    source: "PM round 1, q3 (2 A load); Italian wiring uses 1.5 mm2"
+  - id: R16
+    priority: must   # raised from should: this is the safety behavior (a latched relay must not leave heating ON uncontrolled)
+    text: "Low-battery safe state: switch both outputs OFF and send a low-battery alarm before the battery dies"
+    acceptance: "When the pack open-circuit voltage (read before the radio starts) falls to the cutoff, 2.20 V (2 x 1.10 V) at a box temperature >= 8 C, rising to 2.56 V (2 x 1.28 V) at 0 C (table in firmware, Voc >= 0.72 + 1.10 x (2 Rcell(T) + 0.07), indexed by the ESP32-C3 internal temperature sensor minus 3 C; review-2 S3), both relays get a reset (OFF) pulse first and then a low-battery MQTT alarm is published; simulation with the cutoff pack model (Voc 2.20 V, Rint 2 x 0.80 + 0.07 ohm at 0 C; 2 x 0.40 + 0.07 ohm at 50 C) shows both sequential reset pulses (40 ms each) complete with coil voltage >= 2.7 V (1.2 x 2.25 V must-operate) and the 3.3 V rail >= 3.0 V (ESP32-C3 minimum) throughout; on every cold boot both relays are driven to the commanded state"
+    verification: simulation
+    source: "PM round 2, q1 (outputs OFF and alarm); conflicts.md C2, C10 (cell-removed reserve infeasible), C17, C21; PM round 4, q1 (2 x AAA); review-2 S3 (0 C cutoff 2.54 -> 2.56 V)"
+  - id: R17
+    priority: should
+    text: "Battery voltage reported over MQTT"
+    acceptance: "Pack voltage measurement error <= +/-60 mV on the 2-cell pack (+/-30 mV per cell), divider leakage <= 0.5 uA; the ADC pin never sees more than VDD (pack up to 3.6 V)"
+    verification: simulation
+    source: "proposed; per-cell accuracy kept after PM round 4, q1 (2 x AAA)"
+  - id: R18
+    priority: should
+    text: "Minimal local interface: no screen, one button and one LED for Wi-Fi setup and status"
+    acceptance: "LED energy only on button press or event (<= 1 uA average); button debounced and ESD protected (R14)"
+    verification: analysis
+    evidence: "power budget in architecture.md"
+    source: "brief (no screen); proposed"
+  - id: R19
+    priority: should
+    text: "Prototype parts cost: 10 units at 28 USD or less each"
+    acceptance: "Sum of part prices (JLCPCB/LCSC unit price at qty 10, or DigiKey/Mouser where LCSC has none, both boards) <= 28 USD per unit, excluding enclosure, battery, PCB fabrication and assembly fees; every part in stock. Cheaper relays are a production task, not a prototype task"
+    verification: analysis
+    evidence: "BOM cost table from the parts stage (hwflow parts prices at qty 10); architecture estimate 27.81 USD"
+    source: "PM round 2, q2 (prototype, 10 units, 'under 25 USD would be great'); PM round 4, q3 (accept about 27-28 USD for the 10 prototypes, cheaper relays only for production)"
+  - id: R20
+    priority: should
+    text: "Designed for CE marking (LVD, RED, EMC, RoHS)"
+    acceptance: "R8 met; certified radio module (R10); all parts RoHS per datasheet"
+    verification: analysis
+    evidence: "compliance checklist in notes/compliance.md"
+    source: "proposed; EU market"
+  - id: R21
+    priority: could
+    text: "Over-the-air firmware update"
+    acceptance: "Flash >= 2 x firmware image size; OTA run only when the pack open-circuit voltage >= 2.4 V (2 x 1.2 V)"
+    verification: datasheet
+    evidence: "module flash size"
+    source: "proposed"

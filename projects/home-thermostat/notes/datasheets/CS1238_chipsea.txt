@@ -1,0 +1,1161 @@
+Translated from Chinese (Simplified) to English - www.onlinedoctranslator.com
+
+
+
+
+                                                                                                                                  CS1238user manual
+
+                                                                                                                                  24-bit Sigma-Delta ADC
+                                                                                                                                                            Rev 1.1
+
+
+
+
+                          Mailing address: 9th Floor, Tower A, Garden City Digital Building, No. 1079 Nanhai Avenue, Shekou, Nanshan District,
+
+                          Shenzhen Postcode: 518067
+
+                          Company phone number: +(86 755)86169257
+
+                          Fax: +(86 755)86169057
+                          Company website: www.chipsea.com
+                          WeChat ID: Chipsea Technology
+
+                          Wechat QR code:
+
+
+
+
+                                                                                            Rev.1.1                                              No.1Pages, total20Page
+                                                                                    CS1238
+
+
+                                                             Version history
+
+
+
+historic version                                          Modify content       version date
+ REV 1.0           initial version                                             2014-3-26
+                   1.Change format
+                   2.Modify differential input impedance parameters
+ REV 1.1                                                                       2014-10-17
+                   3.RevisePPNoise parameters
+                   4.Modify common mode input range parameters
+
+
+
+
+                                                                Rev.1.1         No.2Pages, total20Page
+                                                                                                                                                                         CS1238
+
+
+                                                                                        Table of contents
+
+
+
+Version history................................................ ................................................................. ........................................2
+
+Table of contents................................................. ................................................................. ..................................................3
+
+1        Chip function description................................................ ................................................................. ............................5
+
+    1.1                      Main functional features of the chip........................................ ................................................................. ...5
+    1.2                      Chip application scenarios................................................ ................................................................. ...........5
+    1.3                      Chip basic structure and function description........................................ ....................................................6
+    1.4                      Absolute maximum limits of the chip........................................ .................................................................7
+    1.5                      CS1238Digital Logic Characteristics................................................ ....................................................7
+    1.6                      CS1238Electrical Characteristics........................................ ................................................................. ...8
+    1.7                      Chip pins................................................ ................................................................. .....................9
+
+2        Chip function module description................................................ ................................................................. .....................10
+
+
+    2.1                      Analog Input Front End........................................ ................................................................. ........10
+    2.2                      Temperature Sensor................................................ ................................................................. ...........10
+    2.3                      low noisePGAAmplifier........................................ ....................................................11
+    2.4                      Clock signal source................................................ ................................................................. ............12
+    2.5                      Reset and power down (POR&power down) .................................. .............................12
+    2.6                      SPISerial communication................................................ ................................................................. ........13
+         2.6.1               Establishment time........................................ ................................................................. .............13
+         2.6.2               ADCData output rate................................................ .................................................................14
+         2.6.3               Data Format................................................ ................................................................. .............14
+
+         2.6.4               Data preparation/data input and output (DRDY/DOUT) .................................................. ...14
+         2.6.5               Serial clock input (SCLK)........................................ .............................14
+         2.6.6               Data sending........................................ ................................................................. .............15
+         2.6.7               Functional configuration................................................ ................................................................. .............16
+                             2.6.7.1 SPICommand word................................................ .................................................................16
+                             2.6.7.2 SPIregister................................................. ....................................................17
+         2.6.8               power downmodel................................................. ................................................................. .18
+
+3        Chip packaging................................................ ................................................................. ............................19
+
+    3.1                      SOP-14pin................................................ ................................................................. ..........19
+    3.2                      DIP-14pin................................................ ................................................................. ..........19
+
+
+
+
+                                                                                         Rev.1.1                                                                   No.3Pages, total20Page
+                                                                                                                                                               CS1238
+
+                                                                             Figure catalog
+
+picture1 CS1238Schematic block diagram................................................ ................................................................. ...........6
+picture2 CS1238Chip pin diagram................................................ ................................................................. .........9
+picture3Analog input structure diagram................................................ ................................................................. .........10
+picture4 PGAStructure diagram................................................ ................................................................. .....................11
+picture5 CS1238Data creation process1 ................................................. .................................................13
+picture6 CS1238Data creation process2 ................................................. .................................................13
+picture7 CS1238Read data timing diagram1 ................................................. .................................................15
+picture8 CS1238Read data timing diagram2 ................................................. .................................................15
+picture9Functional configuration timing diagram................................................ ................................................................. .............16
+
+picture10          CS1238 PowerDownSchematic diagram of the mode................................................ ............................18
+picture11          chipSOP14Package size information................................................ ..................................................19
+picture12          chipDIP14Package size information................................................ ....................................................20
+
+
+
+
+                                                                             table directory
+
+surface1 CS1238Limit value........................................ ................................................................. ..........7
+surface2 CS1238Digital Logic Characteristics................................................ ................................................................. ....7
+surface3 CS1238Electrical Characteristics (VDD = 5V,3.3V)........................................................ ................................8
+surface4 CS1238Power Supply Electrical Characteristics (VDD = 5V) .................................................. ............................8
+surface5 CS1238Power Supply Electrical Characteristics (VDD = 3.3V) .................................................. ...................................8
+
+surface6 PINsFeet Description................................................ ................................................................. ...................................9
+surface7Output rate setting................................................ ................................................................. ..........14
+surface8Ideal output code and input signal(1)................................................................. .............................14
+surface9Reading data timing table........................................ ................................................................. .........15
+surface10          CS1238Command word description table................................................ ..................................................16
+surface11          ConfigRegister description table................................................ ....................................................17
+
+
+
+
+                                                                                Rev.1.1                                                                  No.4Pages, total20Page
+                                                                                                                                            CS1238
+
+1Chip function description
+
+
+
+       CS1238It is a high-precision, low-power analog-to-digital conversion chip with two differential input channels, built-in temperature sensor and
+
+
+High precision oscillator.
+
+
+       CS1238ofPGAOptional:1,2,64,128,The default is128.
+
+       CS1238ofADCData output rates are optional:10Hz,40Hz,640Hz,1.28kHz,The default is10Hz;
+
+       MCUable to pass2linearSPIinterfaceSCLK,DRDY/DOUTandCS1238communicate, carry out
+
+line configuration, such as channel selection,PGAselection, output rate selection, etc.
+
+
+1.1Main functional features of the chip
+
+
+
+-      Built-in crystal oscillator
+
+
+
+
+-      Integrated temperature sensor
+
+
+-      bringpower downFunction
+
+-      2WireSPIinterface, the fastest rate is1.1MHz
+
+       ADCFeatures:
+-      twenty fourNo missing bits
+
+
+
+
+-      PGAOptional magnification:1,2,64,128
+
+-      integrated2aisletwenty fourdifferential input with no missing bits, thePGA=128hourENOBfor20.7bit(working in5V)\20.2
+
+
+       bit(working in3.3V)
+
+-      PPnoise:PGA=128,10Hz:150nV;
+
+-      INLless than0.0015%
+
+-      Output rate optional:10Hz,40Hz,640Hz,1.28kHz
+
+-      In-band short function
+
+
+
+1.2Chip application scenarios
+
+
+-      industrial process control
+
+
+
+-      electronic scale
+
+
+
+
+-      Liquid/Gas Chemical Analysis
+
+
+-      blood meter
+
+
+
+-      Smart converter
+
+
+-      portable device
+
+
+
+
+                                                                         Rev.1.1                                                       No.5Pages, total20Page
+                                                                                                                       CS1238
+
+1.3Chip basic structure and function description
+
+
+
+       CS1238It is a high-precision, low-power consumptionSigma-DeltaAnalog-to-digital conversion chip, built-in oneSigma-Delta
+
+
+ADC, two differential input channels and one temperature sensor,ADCUse two levelssigma deltamodulator, through a low-noise
+
+
+Acoustic instrument is realized with amplifier structurePGAMagnification, optional magnification:1,2,64,128. existPGA=128valid when
+
+
+Resolution up to20.7bit(working in5V).
+
+       CS1238built-inRCOscillator, no external crystal required.
+
+       CS1238able to passDRDY/DOUTandSCLKConfigure multiple functional modes, such as temperature
+
+detection,PGAchoose,ADCData output rate selection and more.
+
+       CS1238havepower downmodel.
+
+
+                               VDD                                  GND               REFOUT             REFIN
+
+
+    AINP1
+    AINN1                                                                                                          DRDY/DOUT
+    AINP2                                          PGA                                          ΔΣADC
+                               Input                                                                               SCLK
+    AINN2
+                               mux
+                                             PGA=1\2\64\128
+                                                                                             Internal Oscillator
+                 Temp
+                 sensor
+
+
+
+
+                                                                    GND
+
+
+                                                    picture1 CS1238Principle block diagram
+
+
+
+
+                                                                Rev.1.1                                            No.6Pages, total20Page
+                                                                                                                  CS1238
+
+1.4Chip absolute maximum limit value
+
+                                                  surface1 CS1238limit value
+      name                                       symbol             smallest                 maximum             unit
+      voltage                                   VDD                 - 0.3                 6                      V
+      Power supply instantaneous current                                                 100                     mA
+      Power supply constant current                                                       10                     mA
+      Digital pin input voltage                                     - 0.3              DVDD+0.3                  V
+      Digital output pin voltage                                    - 0.3              DVDD+0.3                  V
+      Temperature                                                                        150                     ℃
+      Operating temperature                                          - 40                 85                     ℃
+      Storage temperature                                            - 60                150                     ℃
+      Chip pin soldering temperature                                                     240                     ℃
+
+
+1.5 CS1238digital logic properties
+
+                                             surface2 CS1238digital logic properties
+
+                     parameter               smallest           typical            maximum             unit          Conditions
+VIH                                        0.7×DVDD                            DVDD+0.1                 V
+VIL                                         DGND                               0.3×DVDD                 V
+VOH                                        DVDD-0.4                               DVDD                  V            Ioh=1mA
+VOL                                         DGND                               0.2×DVDD                 V            IoL=1mA
+IIH                                                                                    10              μA           VI=DVDD
+IIL                                           - 10                                                     μA           VI=DGND
+Serial clockSCLKworking frequency                                                      1.1             MHz
+
+
+
+
+                                                          Rev.1.1                                             No.7Pages, total20Page
+                                                                                                                                             CS1238
+
+            1.6 CS1238electrical characteristics
+
+
+                                   All parameters tested at ambient temperature -40~85℃, built-in reference conditions, unless otherwise noted.
+
+                                                          surface3 CS1238Electrical Characteristics (VDD = 5V,3.3V)
+
+                  parameter                               condition                   minimum value              typical value      maximum value          unit
+Analog input
+
+Full scale input voltage
+                                                                                                          ±0.5VREF/PGA                                        V
+(AINP-AINN)
+                                                     PGA=1,2                        AGND-0.1                                       AVDD+0.1                  V
+Common mode input voltage
+                                                    PGA=64,128                    AGND+0.75                                        AVDD-0.75                 V
+                                                     PGA=1,2                                                        210                                     MΩ
+Differential input impedance
+                                                    PGA=64,128                                                      29                                      MΩ
+system performance
+
+
+resolution                                              No missing codes                                             twenty four                            Bits
+ADrate                                                                                                               10               1280                  Hz
+                                                                                                3:ADCThe output rate is10\40Hz, 4:
+build time                                              Fully established                                                                              conversion cycle
+                                                                                              ADCThe output rate is640\1280Hz
+PPnoise                                         PGA=128,10Hz                                                     150                                         nv
+                                                                                                             20.7(5V)
+Effective accuracy                              PGA=128,10Hz                                                                                                 bit
+                                                                                                            20.2(3.3V)
+Integral linearity                                     PGA=128                                                   ±15                                      ppm
+offset error                                           PGA=128                                                  ±1.4                                       μV
+offset error drift                                     PGA=128                                                   20                                       nv/℃
+gain error                                             PGA=128                                                  ±0.5                                       %
+Gain error drift                                       PGA=128                                                    8                                      ppm/℃
+Reference voltage input
+
+Reference voltage input                                 REFIN                             1.5                      VDD             VDD+0.1                    V
+Reference voltage output
+
+
+Reference voltage output                               REFOUT                                                      VDD                                        V
+clock
+Internal oscillator frequency                                                                                       5.2                                    MHz
+Built-in clock temperature drift                                                                                    250                                  ppm/℃
+Temperature Sensor
+
+Temperature measurement error                         TempError                                                      ±3                                      ℃
+                                                              surface4 CS1238Power Supply Electrical Characteristics (VDD = 5V)
+
+              parameter                                 condition                      minimum value               typical value     maximum value         unit
+voltage                                                 VDD                                4.5                         5                 5.5                V
+                                           normal        PGA=1,2                                                      1.57                                 mA
+Working current                            model        PGA=64,128                                                    2.34                                 mA
+                                                    power down                                                        0.1                0.1                μA
+                                                            surface5 CS1238Power Supply Electrical Characteristics (VDD = 3.3V)
+
+                parameter                                 condition                    minimum value               typical value     maximum value         unit
+voltage                                                  VDD                                3                         3.3                3.6                V
+                                             normal       PGA=1,2                                                     1.26                                 mA
+Working current                              model      PGA=64,128                                                    2.11                                 mA
+                                                      power down                                                      0.1                                   μA
+
+
+                                                                                        Rev.1.1                                         No.8Pages, total20Page
+                                                                                                                         CS1238
+
+1.7chip pin
+
+                                       VDD       1                                   14     DRDY/DOUT
+
+
+
+                                       REFOUT    2                                   13     SCLK
+
+
+                                       REFIN     3                                   12     NC
+                                                            CS1238
+                                       GND       4                                   11     GND
+
+
+                                       NC        5                                   10     NC
+
+
+                                       AINP1     6                                      9   AINN2
+
+
+                                       AINN1     7                                      8   AINP2
+
+
+
+
+                                                  picture2 CS1238Chip pin diagram
+
+
+                                                        surface6 PINsFoot description
+
+serial number      Pin name             input Output                                                    illustrate
+
+1               VDD                     P                  power supply
+
+
+2               REFOUT                  AO                 Reference source output
+
+3               REFIN                   AI                 Reference source input
+
+4               GND                     P                  chip ground
+
+5               NC                                         Empty feet
+
+
+6               AINP1                   AI                 aisle1positive input
+
+7               AINN1                   AI                 aisle1Negative input
+
+8               AINP2                   AI                 aisle2positive input
+
+9               AINN2                   AI                 aisle2Negative input
+
+10              NC                                         Empty feet
+
+
+11              GND                     P                  chip ground
+
+12              NC                                         Empty feet
+
+
+13              SCLK                    DI                 SPIinput interface
+
+14              DRDY/DOUT               DI/DO              SPIData input/output interface
+
+Note:REFOUTThat is, the sensor excitation source output (the output value isVDD).
+
+
+
+
+                                                               Rev.1.1                                               No.9Pages, total20Page
+                                                                                                                                                                         CS1238
+
+
+2Chip function module description
+
+
+2.1Analog input front end
+
+
+CS1238There is1roadADC,Integrated2Channel differential input, the signal input can be a differential input signalAINP1,
+
+AINN1orAINP2,AINN2, or it can be the output signal of the temperature sensor. The input signal is switched by the register
+
+(ch_sel[1:0])Control, its basic structure is shown in the figure below:
+
+
+
+                                        Temp
+                                       sensor
+
+
+
+
+                                            AINP1                                                                                           2nd sigma delta ADC
+                                                                                                                    PGA
+                                                                               InputMux
+                                            AINN1
+
+                                            AINN2
+
+
+                                            AINP2                                                                                              REF
+
+
+
+
+                                                                              picture3Analog input structure diagram
+
+
+
+
+          CS1238ofPGACan be equipped with:1,2,64,128, by the register (pga_sel[1:0])control;
+
+          The reference voltage can be externally input or internally output. If you want to use an external reference voltage, you must first turn off the internal
+
+
+reference, the internal reference is controlled by register (refo_off)control.
+
+
+
+2.2Temperature Sensor
+
+The temperature measurement function is provided inside the chip. whench_sel[1:0]=2'b10hour,ADCThe analog signal input is connected to the internal temperature sensor
+
+
+
+sensor, other analog input signals are invalid.ADCThe actual
+
+actual temperature value. whench_sel[1:0]=2'b10hour,ADCOnly supportsPGA=1.The temperature sensor needs to be calibrated at a single point
+
+
+just. Correction method: at a certain temperature pointANext, use the temperature sensor to measure and get the code valueYa.
+
+
+
+                 Then other temperature pointsBCorresponding temperature =Yb*(273.15+A)/Ya-273.15
+
+
+AThe unit of temperature is degrees Celsius.YayesAThe point corresponds to the temperature code value.YbyesBThe point corresponds to the temperature code value.
+
+
+
+
+                                                                                          Rev.1.1                                                                  No.10Pages, total20Page
+                                                                                                                                                CS1238
+
+2.3low noisePGAamplifier
+
+          CS1238provides a low noise, low driftPGAThe amplifier is connected to the bridge sensor differential output, which is based on
+
+
+This structural diagram is shown in the figure below. The front resistorEMIfilter circuitR=450Ω,C=18pFaccomplish20MHigh frequency filtering. Low
+
+
+noisePGAAmplifier passesRF1,R1,RF2accomplish64times amplification, and combined with the switching capacitor of the subsequent stagePGAcomposition64and
+
+
+
+128ofPGAenlarge. passpga_sel[1:0]to configure1,2,64,128etc. differentPGA. when using
+
+PGA=1,2hour,64times lower noisePGAThe amplifier is shut down to save power. When using low noisePGAamplifier
+
+When , the input range is withinGND+0.75VarriveVDD-0.75VBetween, exceeding this range will lead to actual performance degradation.
+
+
+existCAPThe port is connected to a built-in45pFcapacitor, with built-in2kresistanceRINTForm a low-pass filter for low-noise
+
+VoicePGAhigh-frequency filtering of the amplifier output signal, while the low-pass filter can also be used asADCanti-aliasing filter
+
+
+device.
+
+
+
+
+                                                                    picture4 PGAstructure diagram
+
+
+
+
+          CS1238built-inBuffer,whenPGA=1,2hour,CS1238useBufferto reduce due toADCDifferential input
+
+Problems caused by low impedance, such as insufficient settling time, large gain error, etc., whenPGA=64,128hour,
+
+CS1238also useBufferto reduce noise due to lowPGAgo throughRINT=2K,CINT=0.1μFAfter low-pass filtering
+
+The phenomena caused by the establishment error, gain error and internal code drift.
+
+
+
+
+                                                                          Rev.1.1                                                        No.11Pages, total20Page
+                                                                                                                                                CS1238
+
+2.4clock signal source
+
+
+         CS1238Use the built-in crystal oscillator to provide the clock frequency required by the system. The typical value is5.2MHz.
+
+
+2.5Reset and power down (POR&power down)
+
+
+         When the chip is powered on, the built-in power-on reset circuit will generate a reset signal to automatically reset the chip.
+
+
+         whenSCLKgoes from low to high and remains high for more than100µs,CS1238EnterPowerDwon
+
+mode, when the power consumption is lower than0.1μA. whenSCLKWhen returning to low level, the chip will re-enter normal working state.
+
+
+state.
+
+         When the system consists ofpower downWhen re-entering normal working mode, all functions are configured asPowerDownOf
+
+
+In the current state, no function configuration is required.
+
+
+
+
+                                                                           Rev.1.1                                                        No.12Pages, total20Page
+                                                                                                                                                                 CS1238
+
+            2.6 SPISerial communication
+
+
+                     CS1238adopted in2WireSPIserial communication viaSCLKandDRDY/DOUTIt can realize data reception and
+
+            function configuration.
+
+            2.6.1              build time
+
+
+                     existADCThe data output rate is10Hzor40HzWhen , the digital part needs to have3data conversion cycle satisfies the modulus
+
+
+            The establishment of the intended input signal and the establishment time requirements of the filter;ADCThe data output rate is640Hzor1280Hzhour,
+
+
+            The digital part needs to be4The data conversion cycle meets the settling time requirements of the analog input signal and the filter.
+
+
+            CS1238The entire establishment process is shown in the figure below:
+
+                  Power on\PowerDown
+                       Recovery\Channel Switching
+                                                           Finish
+
+
+
+
+                                       simulation
+                                                                          Establish
+
+
+
+
+                                       DRDY
+
+
+                                                     t1                                                      t2
+
+
+
+                                                                                      picture5 CS1238Data creation process1
+
+
+                      PGAswitching, rate switching
+                                                            Finish
+
+
+
+
+                                  simulation
+                                                                    Establish
+
+
+
+
+                                 DRDY
+
+
+                                                     t3                                                 t2
+
+
+
+                                                                                      picture6 CS1238Data creation process2
+
+
+parameter                                                              describe(1)                                            minimum value    typical value       maximum value     unit
+                 Power on\PowerDownSetup time required for simulation after
+  t1                                                                                                                                                 2                               ms
+                 recovery\channel switch
+
+  t3             PGASetup time required for simulation after switching\rate switching                                                              0.8                               μs
+                 Creation time (DRDY/DOUTKeep power high
+                                                                                                     10\40Hz                                   300\75                                ms
+  t2                                                                                                                                          6.25\3.125
+                 flat)                                                                               640\1280Hz                                                                      ms
+
+
+
+
+                                                                                                  Rev.1.1                                                  No.13Pages, total20Page
+                                                                                                                                    CS1238
+
+ 2.6.2 ADCData output rate
+
+ CS1238The data output rate can be set by registerspeed_sel[1:0]configuration.
+
+
+                                                                          surface7Output rate setting
+
+                                                                                              ADCoutput rate
+                                                          SPEED_SEL[1:0]
+                                                                                                      (Hz)
+                                                                       00                              10
+                                                                       01                               40
+                                                                       10                              640
+                                                                       11                             1280
+
+
+ 2.6.3          Data Format
+
+
+ CS1238The output data istwenty fourbit2Hexadecimal complement, MSB (MSB) is output first. least significant digit
+
+
+(LSB)for(0.5VREF/Gain)/(2twenty three-1). A positive full-scale output code is7FFFFFH, the negative value full-scale output code is
+
+
+ 800000H. The following table shows the ideal output codes corresponding to different analog input signals.
+
+
+
+
+                                                               surface8Ideal output code and input signal(1)
+
+                 input signalVIN(AINP-AINN)                                                                    ideal output
+
+                        ≥+0.5VREF/Gain                                                                         7FFFFFH
+                         (+0.5VREF/Gain)/(2twenty three-1)                                                     000001H
+                                              0                                                                000000H
+                          (-0.5VREF/Gain)/(2twenty three-1)                                                    FFFFFFH
+                               ≤+0.5VREF/Gain                                                                  800000H
+
+(1) does not consider noise,INL, the effects of offset error and gain error
+
+
+ 2.6.4          Data preparation/data input and output (DRDY/DOUT)
+
+
+  DRDY/DOUTThe pins are4purpose. First, when the output is low, it means that the new data has been converted;
+
+ Second, as a data output pin, when the data is ready, the1indivualSCLKAfter the rising edge ofDRDY/DOUT
+
+ Output the highest bit of the converted data (MSB). in everySCLKon the rising edge, the data will automatically shift1Bit. existtwenty fourindivual
+
+
+ SCLKLater alltwenty fourbit data readout, if this time pausesSCLKof sending,DRDY/DOUTwill remain
+
+ holds the last bit of data until the next data is ready, and then pulls it high.DRDY/DOUTwas pulled again
+
+ Low, indicating that the new data has been converted and the next data can be read; third, in the25,26indivualSCLK
+
+ When, the register status update flag is output; fourth, as a register data writing or reading pin, when the register needs to be configured
+
+
+ or when reading a register value,SPINeed to send46indivualSCLK,according toDRDY/DOUTThe input command word is judged
+
+
+ Determine whether the operation is to write a register or to read a register.
+
+
+
+
+ 2.6.5          Serial clock input (SCLK)
+
+ serial clock inputSCLKis a digital pin. This signal should be guaranteed to be a clean signal, glitchy or slow
+
+ A rising edge may cause incorrect data to be read or an error state to be entered. Therefore, it should be ensuredSCLKof rising and falling
+
+
+ are less than50ns.
+
+
+
+                                                                                 Rev.1.1                                      No.14Pages, total20Page
+                                                                                                                                                               CS1238
+
+2.6.6         Data sending
+
+
+
+        CS1238can continuously convert analog input signals, when theDRDY/DOUTpulled low, indicating that the data has been
+
+
+ready to accept, the first to enterSCLKto read the most significant bit of the output, thetwenty fourindivualSCLKwill all later
+
+oftwenty fourbit data readout, if this time pausesSCLKof sending,DRDY/DOUTwill keep the last digit
+
+According to, until it is pulled high, the25and26indivualSCLKWhether the output configuration register has a write operation flag, Section25indivual
+
+
+SCLKcorrespondingDRDY/DOUTfor1When indicating the configuration registerConfigis written with new values, the26indivual
+
+
+SCLKcorrespondingDRDY/DOUTReserved for chip expansion, the current output has always been0, through the27indivualSCLK
+
+
+canDRDY/DOUTPull it up, and then beDRDY/DOUTis pulled low again, indicating that new data is ready
+
+Get ready to accept and proceed to the next data conversion. Its basic timing is shown in the figure:
+
+
+
+                                                                                            Data
+                    Data Ready                                                                                                                             New Data Ready
+
+                                                  MSB                                                                               LSB
+  DRDY/DOUT                                       twenty three        twenty two   twenty one                                          0
+                                             t6
+                                                                                      t5                            t7                                                t8
+
+
+   SCLK
+                                    t4
+                                             1                                                                               twenty four
+
+
+
+
+                                                                                                 t5
+
+
+
+                                                                                                           t9
+
+
+                                                             picture7 CS1238Read data timing diagram1
+
+                       Data ready                                     ADC Data(output)                                                                   Data ready
+                                                                                                                                            Force High
+
+                                                       MSB                                      LSB
+
+                                                       twenty three                                  0     update1 update2
+                drdout
+
+
+
+
+                                                   1                                   twenty four        25      26             27
+                SCLK
+
+
+
+                                                             picture8 CS1238Read data timing diagram2
+
+
+                                                                          surface9Read data timing table
+
+ SYMBOL               DESCRIPTION                                                                                      MIN                  TYP           MAX              UNITS
+
+       t4              DRDY/DOUTafter going low to the firstSCLKrising edge                                              0                                                  ns
+
+       t5             SCLKHigh level or low level pulse width                                                          455                                                  ns
+       t6             SCLKRising edge to new data bit valid (transmission delay)                                       455                                                  ns
+       t7             SCLKRising edge to old data bit valid (hold time)                                                227.5                               455              ns
+       t8             Data update, reading previous data is not allowed                                                                     26.13                           μs
+                                                                                                         10Hz                                100                            ms
+                                                                                                         40Hz                                25                             ms
+       t9             conversion time (1/data rate)
+                                                                                                     640Hz                                 1.5625                           ms
+                                                                                                 1280Hz                                    0.78125                          ms
+
+
+
+
+                                                                                   Rev.1.1                                                               No.15Pages, total20Page
+                                                                                                                                                                                                                                                  CS1238
+
+2.6.7                Function configuration
+
+
+
+
+             CS1238able to passSCLKandDRDY/DOUTDifferent functions can be configured and the function configuration timing sequence
+
+
+The picture is shown below:
+
+
+
+                                                                                                                       CS1238Configure write timing
+
+        Data ready                           Data(output)                            Register write status          Force High                  DRDY(input)                                                                                       DRDY(output)        Data ready
+
+
+                              MSB                                                                                                                                                                                                                        Force High
+                                                                          LSB
+                                                                                                                                                      //
+
+                              twenty three                                 0    update1 update2                                             Write command word data                                                 Function config
+ DRDY
+                                                                                                                                                      //
+
+                                                                                                                                                        //
+
+                          1                                 twenty four
+                                                                                25       26              27   28         29        30      31                         36   37   38      39    40      41       42         43          44     45   46
+ SCLK
+                                                                                                                                                               //
+                                                                                                                                                                                                                                                        update1orupdate2
+                                                                                                                                                                                                                                                             is set
+
+
+
+
+                                                                                                                       CS1238Configure read timing
+
+        Data ready                           Data(output)                            Register write status          Force High                  DRDY(input)                                                                                                           Data ready
+                                                                                                                                                                                                           DRDY(output)
+
+                                                                                                                                                                                                                                                         Force High
+                              MSB                                         LSB
+                                                                                                                                                      //
+
+                              twenty three                                 0    update1 update2                                             Write command word data                                                 Function config
+ DRDY
+                                                                                                                                                      //
+
+                                                                                                                                                        //
+
+                          1                                 twenty four
+                                                                                25       26              27   28         29        30      31                         36   37   38      39    40      41       42         43          44     45    46
+ SCLK
+                                                                                                                                                               //
+                                                                                                                                                                                                                                                        update1orupdate2
+                                                                                                                                                                                                                                                             cleared
+
+
+
+                                                                                                                              picture9Function configuration timing diagram
+
+
+
+
+             A brief description of the function configuration process is given inDRDY/DOUTAfter changing from high to low:
+
+
+
+                     1.No.1to the firsttwenty fourindivualSCLK, readADCdata. If there is no need to configure the register or read the register
+
+
+                                  register, you can omit the following steps.
+
+
+                     2.No.25to the first26indivualSCLK, read the register write operation status.
+
+                     3.No.27indivualSCLK,BundleDRDY/DOUTThe output is pulled high.
+
+                     4.No.28to the first29indivualSCLK, switchDRDY/DOUTfor input.
+
+                     5.No.30to the first36indivualSCLK, input register to write or read command word data (high bit input first).
+
+
+                     6.No.37indivualSCLK, switchDRDY/DOUTdirection (if writing a register,
+
+                                       DRDY/DOUTis input; if it is to read a register,DRDY/DOUTfor output).
+                     7.No.38to the first45indivualSCLK, input register configuration data or output register configuration data (high bit first input/
+
+
+                     output).
+
+
+                     8.No.46indivualSCLK, switchDRDY/DOUTfor output and putDRDY/DOUTPull high.
+
+                                  update1/ update2is set or cleared.
+
+2.6.7.1 SPICommand word
+
+
+             CS1238have2command words, the length of the command word is7bits, the command words are described as follows:
+
+
+
+                                                                                                                   surface10 CS1238Command word description table
+
+                                                                     command name                                                    command byte                                                  describe
+
+
+                                                      Write configuration register                                                       0x65                                        Write configuration registerConfig
+
+                                                      Read configuration register                                                        0x56                                        Read configuration registerConfig
+
+
+
+
+                                                                                                                                          Rev.1.1                                                                                          No.16Pages, total20Page
+                                                                                                                                                             CS1238
+
+2.6.7.2 SPIregister
+
+           CS1238There is a set of registersConfig.
+
+
+Configregister
+
+        register                               R/W                                                 describe                                                  reset value
+
+          describe                          Reserved bit                                    configuration register                                            0x0C
+
+
+        Configuration bits                B7                                      B6                                    B5                                       B4
+          describe                     Reserved bit                     REFOutput switch                                        ADCOutput rate selection
+
+        Configuration bits                B3                                      B2                                    B1                                       B0
+          describe                                       PGAchoose                                                                       channel selection
+
+
+
+
+                                                      surface11 ConfigRegister description table
+
+Bits           describe
+
+[7]            -                  The chip reserves usage bits.The default is0, write when writing0, don't write1
+
+                                  REFOutput switch:defaultREFoutput on
+[6]            REFO_OFF           1=closureREFoutput.
+                                  0=REFNormal output.
+                                  ADCOutput rate selection:The default is10Hz
+
+                                                        SPEED_SEL[1:0]                                                        describe
+
+
+                                                                   00                                    ADCThe output rate is10Hz
+[5:4]          SPEED_SEL
+                                                                   01                                    ADCThe output rate is40Hz
+
+                                                                   10                                  ADCThe output rate is640Hz
+
+                                                                   11                                 ADCThe output rate is1280Hz
+
+                                  PGAchoose:defaultPGAfor128, in temperature measurement modePGA_SEL=00
+
+                                                                              PGA_SEL[1:0]                            describe
+
+
+                                                                                       00                                 1
+[3:2]          PGA_SEL
+                                                                                       01                                 2
+                                                                                       10                               64
+                                                                                       11                              128
+                                  channel selection: The default channel is channelA
+
+                                                                               CH_SEL[1:0]                            describe
+
+
+                                                                                       00                            aisleA
+[1:0]          CH_SEL[1:0]
+                                                                                       01                            aisleB
+                                                                                       10                             temperature
+
+
+
+                                                                                       11                             short inside
+
+
+
+
+                                                                    Rev.1.1                                                                       No.17Pages, total20Page
+                                                                                                                           CS1238
+
+
+2.6.8 Power downmodel
+
+        whenSCLKgoes from low to high and remains high for more than100µs,CS1238EnterPowerDwon mode, all circuits of the chip
+
+will be turned off at this time, and the power consumption is close to0. whenSCLKWhen returning to low level, the chip will re-enter
+
+normal working state.
+
+                                                                                                                                 Data ready
+                                                             //
+ DRDY
+                                                             //
+
+                                                                                     t11
+                                        t10
+SCLK
+                                                                  PowerDown
+
+
+                                         picture10 CS1238 PowerDownSchematic diagram of the model
+
+
+   symbol                                     describe                                 minimum value      typical value         maximum value
+
+
+
+
+       t10                        SCLKHigh level hold time                              100μs
+
+       t11                  SCLKLow level hold time after falling                          10μs
+
+
+
+
+                                                              Rev.1.1                                                No.18Pages, total20Page
+                                                                                   CS1238
+
+3Chip packaging
+
+   CS1238useSOP14\DIP14Encapsulation.
+
+3.1 SOP-14pin
+
+
+
+
+                              picture11chipSOP14Package size information
+
+
+
+
+                                   MIN                        NOR           MAX
+     SYMBOLS
+                                                                 (mm)
+         A                        1.473                       1.625        1.727
+         A1                       0.101                          -         0.254
+         B                        0.330                       0.406        0.508
+         C                        0.190                       0.203        0.249
+         D                        8.534                       8.661        8.737
+         E                        3.810                       3.911        3.987
+          e                          -                        1.270            -
+         H                        5.791                       5.994        6.197
+
+         L                        0.381                       0.635        1.270
+        θ°                          0°                           -            8°
+
+
+3.2 DIP-14pin
+
+
+
+
+                                             Rev.1.1                       No.19Pages, total20Page
+                                                             CS1238
+
+
+
+
+          picture12chipDIP14Package size information
+
+
+
+
+              MIN                            NOR           MAX
+SYMBOLS
+                                            (mm)
+  A                  -                        -           5.334
+  A1          0.381                           -               -
+  A2          3.175                           3.302       3.429
+  D          18.669                           1.905      19.685
+  E                                          7.62
+  E1          6.223                          6.35         6.477
+   L          2.921                          3.302        3.810
+  eB          8.509                          9.017        9.525
+  θ°            0°                             7°           15°
+
+
+
+
+                         Rev.1.1                       No.20Pages, total20Page
+

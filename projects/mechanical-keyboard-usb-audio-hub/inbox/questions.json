@@ -1,0 +1,14 @@
+{
+  "round": 8,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Same trade-off as round 7, now for laptops whose USB-C port offers more power (1.5 A or 3 A). To keep your per-port promise there (225 mA per port on a 1.5 A laptop port, 500 mA on a 3 A port), the keyboard's safety cut-off must sit above that load, and with part tolerances its upper edge then lands about 22 % above what the laptop advertises. Which do you prefer?",
+      "options": [
+        "Recommended (same choice as round 7): keep 225 mA / 500 mA per port. The cut-off is typically 1.70 A on a 1.5 A laptop port and 3.34 A on a 3 A port, at most about 1.85 A / 3.65 A. That upper edge is only reached when connected devices try to draw more than the keyboard allows; a laptop port that switches off exactly at its rating may then drop the keyboard until it is replugged. No cost. Same manual note as round 7.",
+        "Never let the cut-off exceed what the laptop advertises (1.5 A / 3.0 A). The per-port guarantee then drops to about 164 mA on a 1.5 A laptop port (152 mA in the heavy case) and about 479 mA on a 3 A port (466 mA heavy). No cost."
+      ],
+      "why": "Requirement R21 (round 4 q2, round 3 q1) and the cut-off rule of round 7 q1 cannot both hold on 1.5 A / 3 A hosts with this protection chip's tolerance (-9 % / +8.5 %). Today's 1.5 A setting also current-limits a minimum-tolerance unit at the legitimate 1.553 A load, so it must change either way (design review, conflicts.md C17)."
+    }
+  ]
+}
