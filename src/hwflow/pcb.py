@@ -738,6 +738,8 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     src = workdir / f"{name}_unrouted.kicad_pcb"
     write_board(src, build_board(design, libs, parts))
     (workdir / "krt.log").unlink(missing_ok=True)  # krt_route appends: repair rounds add to the same log
+    from . import seedroute
+    (workdir / seedroute.RECORD).unlink(missing_ok=True)  # the seed copper of this run (krt_route adds to it)
     write_project(workdir, name, design)  # the rules DRC will use: net classes (.kicad_pro) and .kicad_dru
     nets, keep = None, False
     if design.raw.get("blocks"):  # layout blocks: keep their copper from the first pass, skip the nets it closes
@@ -768,6 +770,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     is routed at the track width and at routing.neck_floor and widened where it fits (routing.widen), accepted when
     no narrow stretch is over NECK_MAX_MM. Nets the corridor proof connects only with a neck (corridor.neck_needed)
     route in a pass of their own ahead of the other nets of their isolation side, narrow first (no full-width pass).
+    A constrained net (corridor.constrained) still open after the neck-down gets a seed route through the proof's
+    free space (seedroute.seed, recorded in seedroute.RECORD; HWFLOW_SEEDROUTE=0 switches it off), so the later
+    passes route around it.
     A net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the neck-down off. Nets
     with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
     Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
@@ -790,6 +795,11 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     # nets the corridor proof connects only with a neck: a full-width pass cannot route them, so they route narrow
     # first (then widened), in a pass of their own ahead of the other nets of their isolation side
     necked = _neck_needed(design, src, libs) if neckdown else {}
+    # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)
+    seedable = set()
+    if neckdown and os.environ.get("HWFLOW_SEEDROUTE", "1") != "0":
+        from . import corridor
+        seedable = set(corridor.constrained(design))
     groups: dict[tuple, list[str]] = {}
     for net, cl in classes.items():
         if net not in gnds and (nets is None or net in nets):
@@ -879,7 +889,8 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         if widths and set(pnets) <= set(necked):
             # every net open at the start: the board as it is, its summary listing them as failed
             best = (cur, {"failed_single": list(pnets), "failed": len(pnets)}, len(pnets))
-            notes.append(f"{w} mm: {', '.join(pnets)} routed narrow first (corridor proof: "
+            notes.append(f"{w} mm: {', '.join(pnets)} routed narrow first (corridor proof, exact spacings; the router "
+                         f"keeps {routing.ISO_SLACK:g} mm more from isolation keep-outs: "
                          + ", ".join(f"{n} {necked[n]['plain_mm']:g} mm without a neck" for n in pnets) + ")")
         else:
             best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
@@ -912,7 +923,27 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 notes.append(f"{w} mm: neck-down to {nw:g} mm: {text}")
             else:  # a long narrow stretch is a thinner net, not a neck: leave the net open and say so
                 notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
+        # a constrained net still open: a seed route through the corridor proof's free space (seedroute)
+        open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets) & seedable) if best[2] else []
+        if open_nets:
+            best, text = seed_open(best, f"{tag}s", open_nets)
+            notes += [f"{w} mm: {t}" for t in text]
         return best, notes
+
+    def seed_open(best, tag, snets):
+        """Seed routes for the open nets `snets` on the board of `best`; the accepted ones close in the summary."""
+        from . import seedroute
+        dst = workdir / f"{stem}{tag}.kicad_pcb"
+        try:
+            res = seedroute.seed(design, libs, best[0], dst, snets)
+        except Exception as e:  # noqa: BLE001 - a geometry the seed route cannot build: the nets stay open
+            return best, [f"seed route {', '.join(snets)}: not possible ({type(e).__name__}: {e})"]
+        done = [n for n, r in res.items() if r["ok"]]
+        if done:
+            seedroute.record(workdir, res)
+            summ = seeded(best[1], done)
+            best = (dst, summ, krt_unrouted(summ))
+        return best, [r["msg"] for r in res.values()]
 
     for i, (w, gnets, lays) in enumerate(passes):
         best, notes = route_group(cur, i, gnets, w, i, lays)
@@ -932,6 +963,21 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
     return cur, last, retried, len(passes)
+
+
+def seeded(summary: dict, nets) -> dict:
+    """A router summary with `nets` no longer open (a seed route connected them)."""
+    nets = set(nets)
+    s = dict(summary)
+    fs = [n for n in s.get("failed_single") or [] if n not in nets]
+    fm = [x for x in s.get("failed_multipoint") or [] if not (isinstance(x, dict) and x.get("net_name") in nets)]
+    gone = len(s.get("failed_single") or []) - len(fs) + len(s.get("failed_multipoint") or []) - len(fm)
+    s["failed"] = max(0, int(s.get("failed", 0)) - gone)
+    s["failed_single"], s["failed_multipoint"] = fs, fm
+    s["open_single"] = [n for n in s.get("open_single") or [] if n not in nets]
+    if s.get("pad_pairs_open"):
+        s["pad_pairs_open"] = dict(s["pad_pairs_open"], nets=[n for n in s["pad_pairs_open"].get("nets") or [] if n not in nets])
+    return s
 
 
 def _neck_needed(design: Design, src: Path, libs=None) -> dict[str, dict]:

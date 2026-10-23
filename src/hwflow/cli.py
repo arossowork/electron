@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import budgets, kicad, pcb, placer, postlayout, repair, spice
+from . import budgets, kicad, pcb, placer, postlayout, repair, seedroute, spice
 from .design import Design, check
 from .libs import Libs
 
@@ -316,6 +316,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    h.update((Path(pcb.__file__).with_name("seedroute.py")).read_bytes())  # seed routes of nets the router leaves open
     for f in ("corridor.py", "barrier.py"):  # corridor.neck_needed: which nets route narrow first
         h.update((Path(pcb.__file__).with_name(f)).read_bytes())
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
@@ -398,11 +399,13 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     rep, island = None, 0
     if hit:
         tracks, vias, summary, island, rep = hit["tracks"], hit["vias"], hit["summary"] + " (route cache)", hit["island"], hit["rep"]
+        seeds = hit.get("seeds") or {}
         drc = route_check(tracks, vias, island)  # the full DRC runs again: it is the check of the board kept
         print(f"[layout] route cache hit {key}: router and repair skipped")
     else:
         if not pre:
             tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
+        seeds = seedroute.load(out)  # the seed copper of this route (pcb.krt_route)
         drc = route_check(tracks, vias)
         rounds = int(d.board.get("repair_rounds", 3))
         if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
@@ -422,7 +425,15 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             rep["after"] = len([x for x in drc if x["sev"] == "error"])
             rep["text"] = repair.summary(rep)
             print(f"[layout] {rep['text']}")
-        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep})
+        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep,
+                                 "seeds": seeds})
+    if seeds:  # the final DRC judges the seed copper: an error that touches it removes it
+        tr, vi, dropped = seedroute.drop_on_drc(seeds, tracks, vias, drc)
+        if dropped:
+            tracks, vias = tr, vi
+            drc = route_check(tracks, vias, island)
+            summary += f"; seed route {', '.join(dropped)} removed (a DRC error touches it)"
+            print(f"[layout] seed route {', '.join(dropped)}: removed, a DRC error touches it")
     from .prune import prune
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:

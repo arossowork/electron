@@ -33,6 +33,10 @@ corridor: the net's pads are cut apart at its track width w (class, width_mm, cu
 Interface: findings(design, libs, parts=None, board=None) -> [{check, back_to, refs, nets, need_mm, have_mm, msg,
 at, fixed, layer, blockers}]; margin(...) gives the widest track per constrained net, failing or not; neck_needed(...)
 gives the nets that connect only with necks (the router routes them narrow first).
+
+Spacings are exact: the router keeps routing.ISO_SLACK more from isolation keep-outs, so a corridor within that of the
+floor width can stay closed to it; such a net gets a seed route through this free space (seedroute, exact spacings +
+seedroute.MARGIN_MM).
 """
 
 from __future__ import annotations
@@ -259,7 +263,8 @@ def _finding(model, design, net, nodes, w, fixed_only=False) -> dict:
             "change a spacing (a product decision)" if back == "architecture" else
             "move the movable parts named off the corridor (placement)")
     msg = (f"{net} ({w:g} mm track, layers {', '.join(lays)}): between pads {a} and {b} the widest corridor"
-           f"{where} fits a track of {plain:.2f} mm{neck}, need {w:g} mm. Bounded by "
+           f"{where} fits a track of {plain:.2f} mm{neck}, need {w:g} mm (exact spacings; the router keeps "
+           f"{routing.ISO_SLACK:g} mm more from isolation keep-outs). Bounded by "
            f"{'; '.join(why[:6]) or 'the board edge'}. No router can route it with "
            f"{'the fixed parts and keep-outs alone' if alone else 'this placement'}. Options: {opts}")
     return {"check": NAME, "back_to": back, "refs": refs, "nets": [net], "need_mm": round(w, 3),
