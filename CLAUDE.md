@@ -4,14 +4,15 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 
 ## Layout
 
-- `src/hwflow/`: the EDA engine (design model, SPICE, KiCad schematic and PCB writers, placer, Freerouting bridge, post-layout extraction, optimizer).
+- `src/hwflow/`: the EDA engine (design model, SPICE, KiCad schematic and PCB writers, the layout flow, post-layout extraction, optimizer, firmware headers).
+- `docs/layout-flow.md`: the single layout flow, stage by stage: macro stage, analytic global placement with RUDY density feedback, legalization, local moves, short anneal, pin access, KRT routing with repair.
 - `docs/design-yaml.md`: the design file reference. Read it before you write a `design.yaml`.
 - `.claude/skills/hw-design/`: the orchestrator skill (`/hw-design`).
-- `.claude/agents/`: specialist subagents (requirements, architect, parts, circuit, layout, reviewer).
+- `.claude/agents/`: specialist subagents (requirements, HW/SW partition, architect, parts, circuit, reviewer, layout, firmware).
 - `projects/<name>/`: one folder per product. `examples/` holds reference designs.
 - `evals/`: the evaluation harness (fixtures, product-person simulator, scorer, baseline).
 - `ui/`: the local web UI that drives `claude -p` sessions.
-- `tools/`: Freerouting jar. KiCad is in `~/Applications/KiCad`.
+- `tools/`: KiCadRoutingTools (the router) and the Freerouting jar (fallback). KiCad is in `~/Applications/KiCad`.
 
 ## Rules
 
@@ -36,9 +37,12 @@ uv run hwflow build <proj> --retry-layout   # only when the product person overr
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix
 uv run hwflow nets <proj> [net...]     # routed copper per net: widths, length, necks, layers, vias
+uv run hwflow fw <proj> [--scaffold]   # firmware headers from design.yaml and interface.yaml; 0 errors required
 uv run hwflow report <proj>            # rewrite build/REPORT.md
 uv run pytest -q -m "not slow"         # fast tier (minutes); the full suite (about 20 min) before a merge
 uv run pytest -q                       # deterministic tests, full suite
 ```
+
+`HWFLOW_FLOW=legacy` runs the old annealing-only placement. It is a temporary escape hatch, not a tuning knob.
 
 `build/REPORT.md` is the short feedback after each run. `build/status.json` holds the full data and the `score` card that the evaluations use.

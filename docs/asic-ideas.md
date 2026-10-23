@@ -1,3 +1,28 @@
+# ASIC placement and routing ideas on hwflow: the experiment record
+
+This file records the experiments of 2026-10-23 (branches `asic-ideas` and `diagnose`). Their outcome is the single
+layout flow in `docs/layout-flow.md`. The switches, files and tests named below are what existed **during** the
+experiments. The outcome:
+
+| idea | outcome | where it is now |
+|---|---|---|
+| macro stage (blocks and large parts first, mixed-size global placement) | kept | stage 1, `asicflow.place` |
+| analytic global placement (idea 2a) | kept: HPWL -13 % to -49 % on every design | stage 2, `gplace.py` |
+| RUDY with pad blockage (idea 1), as density feedback of global placement | kept | stage 2, `asicflow.rudy_map` |
+| legalization (2b) | kept | stage 3, `Placer.legalize` |
+| detailed local moves (2c) | kept | stage 4, `Placer.detailed` |
+| short low-temperature anneal with the existing terms | kept | stage 5 |
+| pin access into the narrow-first `necked` path (idea 6) | kept | stage 6, `pinaccess.py`, `asicflow.necked` |
+| KRT routing with neck-down, seed route, region split, repair, prune | kept, unchanged | stage 7 |
+| PathFinder global router as feasibility predictor, net order, layer hints, density source | **removed**: it never predicted a failure, its order lost on 4 of 5 designs, and its hints hurt | `globalroute.py` deleted, with `HWFLOW_GROUTE*`, `HWFLOW_ASIC_DENSITY=groute`, `scripts/groute_bench.py` |
+| pin-access placer term | **removed**: no gain on any proxy, and 2-3 × the placement time | `asicflow.PinAccess`, `HWFLOW_ASIC_ACCESS` deleted |
+| pin-access net order | **removed**: it changed no result and cost a retry order | `HWFLOW_ASIC_ORDER` deleted |
+| RUDY pad blockage inside the annealer cost (`HWFLOW_RUDY_PADS`) | **removed**: replaced by the density feedback of stage 2 | switch and incremental blockage deleted |
+| flows 2 and 3 and macro-first as separate entry points (`HWFLOW_ANALYTIC`, `HWFLOW_ANALYTIC_DP`, `HWFLOW_MACRO_FIRST`) | **removed**: the layout flow supersedes them | switches and `Placer._macro_first` deleted |
+| annealing-only flow | kept for now as `HWFLOW_FLOW=legacy`, to be removed after two more routed designs | `Placer.run` |
+
+The confirmation runs of the single flow are at the end of this file.
+
 # ASIC placement ideas on the hwflow placer
 
 Experiment of 2026-10-23 on branch `asic-ideas`: three ideas from open-source ASIC placement (OpenROAD/RePlAce,

@@ -1,6 +1,6 @@
 ---
 name: hw-design
-description: Autonomous electronics design flow from a product conversation to a verified, routed KiCad PCB. Interviews the product person, finds requirement conflicts, selects parts, captures the schematic in design.yaml, simulates (SPICE, Monte Carlo, derating), optimizes, places and routes with Freerouting, and verifies the layout with post-layout extraction. Use on /hw-design, or when the user wants a circuit or PCB designed, continued, or optimized.
+description: Autonomous electronics design flow from a product conversation to a verified, routed KiCad PCB. Interviews the product person, finds requirement conflicts, selects parts, captures the schematic in design.yaml, partitions functions between hardware and firmware, simulates (SPICE, Monte Carlo, derating), optimizes, places and routes with hwflow's layout flow, verifies the layout with post-layout extraction, and writes the firmware while the board ships. Use on /hw-design, or when the user wants a circuit or PCB designed, continued, or optimized.
 argument-hint: "new <name> [brief] | continue <name> | optimize <name> <criteria>"
 ---
 
@@ -21,6 +21,8 @@ The product person is not an engineer. Ask about outcomes (battery life, size, c
 
 ## Stages
 
+The flow: requirements (1) → HW/SW partition (1b) → architecture (2) → parts (3) → circuit (4) → review (5) → optimize (6, when criteria are named) → floorplan (6b) → layout (7) → fab sign-off (8) → firmware (9), while the board is made and shipped.
+
 Record the stage, the open issues, and the iteration count in `state.md` after each stage. Start `state.md` with two lines: `stage: <n>-<name>` and `status: running | waiting-for-answers | blocked | done`. Keep `state.md` under 40 lines.
 
 1. Requirements (subagent `hw-requirements`). Interview until every requirement has a measurable acceptance criterion and a priority (`must`, `should`, `could`). Cover the power source, the interfaces, the environment, the size, the cost target, the volume, certifications, and the optimization criteria with weights. Write `requirements.yaml` (format below) and `conflicts.md`. A conflict is two requirements that cannot both be met, or one that physics or budget rules out. Examples: battery life against average current, size against connector count, noise against cost. For each conflict, compute the numbers, propose resolutions, and ask the product person to choose. Do not continue with an unresolved must-level conflict.
@@ -30,6 +32,7 @@ Record the stage, the open issues, and the iteration count in `state.md` after e
 4. Circuit and simulation (subagent `hw-circuit`). Write `design.yaml` with the reference circuits from the datasheets. Add a testbench measure for each requirement that SPICE can verify, and tag it with `req`. Loop `uv run hwflow build <proj> --until sim` until check and ERC have zero errors and every measure passes. Then run `--mc 50` and repair yield below 95%. Keep `board` and `floorplan`; name the real parts of each floorplan item (`refs`) and re-run `hwflow floorplan` with the real footprints. Fill the contract numbers that come from circuit results, and run `uv run hwflow fw <proj>` until it reports 0 errors.
 5. Review (subagent `hw-reviewer`). It does an independent review of things that the tools do not check: datasheet application notes, absolute maximum ratings, ESD and reverse-polarity protection, pull-ups, enable and boot pins, connector pinouts, and thermal limits. Fix every finding at `must` level.
 6. Optimize. If the requirements name optimization criteria, write the `optimize` section, run `uv run hwflow optimize <proj>`, show the trade-off to the product person if it changes cost or a spec, and apply it with `--apply`. Then rerun stage 4.
+6b. Floorplan. Before layout, re-run `uv run hwflow floorplan <proj>` on the reviewed design with the real footprints. It must give PASS (or PASS with risks). A failure that needs a size, layer, construction or spec change goes to the product person; a part that does not fit its region goes back to stage 3 or 4.
 7. Layout (subagent `hw-layout`). It starts from the floorplan: the placer keeps parts inside their regions, so no anchors are needed for them. It runs `uv run hwflow build <proj> --until layout --auto --brief`, which places, routes, repairs DRC errors and retries on its own, and does not hand-tune coordinates. It escalates only residual errors that need judgment (footprint keep-outs, creepage, board size or layer changes) with an error list and a PNG; you take size, layer and cost decisions to the product person. A pin swap changes `design.yaml` only; `uv run hwflow fw <proj>` must still report 0 errors.
 8. Sign-off. A board goes to fabrication only once, so every gate below must hold before `state.md` becomes `done`:
    - `uv run hwflow build <proj> --mc 100` gives a PASS verdict, with Monte Carlo yield of 99% or more, and the measures run at the temperature extremes of the requirements (`temps`).

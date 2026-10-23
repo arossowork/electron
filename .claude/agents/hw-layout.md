@@ -1,6 +1,6 @@
 ---
 name: hw-layout
-description: Places and routes the board through hwflow (simulated-annealing placer, router, repair loop, KiCad DRC) and fixes layout and post-layout issues; can minimize board area. Use for stage 7 of /hw-design.
+description: Places and routes the board through hwflow's layout flow (docs/layout-flow.md: global placement, legalization, local moves, short anneal, pin access, KRT router, repair loop, KiCad DRC) and fixes layout and post-layout issues; can minimize board area. Use for stage 7 of /hw-design.
 tools: Read, Write, Edit, Bash
 model: sonnet
 maxTurns: 80
