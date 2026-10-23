@@ -1,4 +1,4 @@
-"""Analytic global placement as the start of the annealing (experiment, docs/asic-ideas.md, `HWFLOW_ANALYTIC=1`).
+"""Analytic global placement, stage 2 of the layout flow (asicflow.place, docs/layout-flow.md).
 
 In the style of ePlace/RePlAce and SimPL: the movable units (parts and layout blocks, at their current rotation) get
 positions that minimise a smooth cost with L-BFGS-B, in rounds of rising density weight and falling smoothing length:
@@ -10,8 +10,8 @@ positions that minimise a smooth cost with L-BFGS-B, in rounds of rising density
 - bounds, edge and region clamps: squared distance of a courtyard outside the board margin, from its edge, or
   outside its floorplan region.
 
-The result is legalized by Placer.legalize (push apart, clamp into the board and rectangular regions). The annealer
-then starts from it at a low temperature. Deterministic for a given start."""
+The result is legalized by Placer.legalize (push apart, clamp into the board and rectangular regions), then refined
+by the detailed moves and a short low-temperature anneal. Deterministic for a given start."""
 
 from __future__ import annotations
 
@@ -112,6 +112,21 @@ class Global:
                 refs = set(pl._refs(u)) if hasattr(u, "members") else {u.ref}
                 if refs & mem:
                     self.region_pen.append((i, ox, oy, hw, hh, rect))
+            # a part with pads on the region's nets (not a member): those pads inside the region box
+            # (Placer._region_cost `pads`)
+            for r, pns in g["pads"].items():
+                if r in mem or r not in P:
+                    continue
+                u = pl._unit(P[r])
+                i = idx.get(id(u), -1)
+                if i < 0:
+                    continue
+                for pn in pns:
+                    px, py = P[r].pad(pn)
+                    w, h = (getattr(P[r], "pad_size", None) or {}).get(pn, (0.6, 0.6))
+                    if P[r].r % 180:
+                        w, h = h, w
+                    self.region_pen.append((i, px - u.x, py - u.y, w / 2, h / 2, rect))
             if g["excl"]:
                 boxes = [rect] if g["rect"] else _rect_cover(g["poly"])
                 for s in g["sides"]:

@@ -800,12 +800,6 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     # nets.<name>.layers: those nets route in passes of their own, the other layers forbidden (router --layer-costs -1:
     # an obstacle that through vias may cross, with no track on it)
     only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(copper)}
-    # experimental global route (HWFLOW_GROUTE=1, docs/asic-ideas.md): net order (and with HWFLOW_GROUTE_LAYERS=1
-    # layer) hints for the router passes
-    from . import globalroute
-    groute = globalroute.for_router(design, libs, src, nets) if globalroute.enabled() else None
-    if groute is not None and os.environ.get("HWFLOW_GROUTE_LAYERS") == "1":
-        only.update({n: L for n, L in globalroute.layer_hints(groute).items() if n not in only})
     neck = float(b["track_mm"])
     floor = routing.neck_floor(b)
     neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
@@ -817,12 +811,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         """The nets of `pnets` that may neck to width `nw`."""
         return [n for n in pnets if minw.get(n, 0.0) <= nw + 1e-9]
     necked = _neck_needed(design, src, libs) if neckdown else {}
-    # combined flow (HWFLOW_FLOW=asic, asicflow.router): nets with a pad without an exit at their width route narrow
-    # first too, and every pass tries the pin-access order (fewest exits first) first
+    # pin access (layout flow, asicflow.necked): nets with a pad without an exit at their width route narrow first too
     from . import asicflow
-    asic = asicflow.router(design, libs, src, nets)
-    if asic:
-        necked = {**asic["necked"], **necked}
+    necked = {**asicflow.necked(design, libs, src, nets), **necked}
     necked = {n: v for n, v in necked.items() if minw.get(n, 0.0) <= floor + 1e-9}
     # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)
     seedable = set()
@@ -881,17 +872,10 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         return cur
 
     def run_pass0(cur, tag, pnets, args, i):
-        vv = variants
-        if groute is not None:  # the global route's order (most constrained first) is tried first
-            pnets = globalroute.order(groute, pnets)
-            vv = globalroute.variants(variants or KRT_VARIANTS[:1 + max(retries, 0)])
-        elif asic and asic["rank"] is not None:  # pin-access order first, the same number of tries
-            pnets = asicflow.order(asic["rank"], pnets)
-            vv = globalroute.variants(variants or KRT_VARIANTS[:1 + max(retries, 0)])
         base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:
             base.append("--keep-input-copper")
-        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, vv)
+        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants)
         log.extend(logs)
         if best is None:
             with (workdir / "krt.log").open("a") as f:

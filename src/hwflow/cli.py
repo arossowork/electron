@@ -328,8 +328,10 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
     h.update((Path(pcb.__file__).with_name("seedroute.py")).read_bytes())  # seed routes of nets the router leaves open
-    for f in ("corridor.py", "barrier.py"):  # corridor.neck_needed: which nets route narrow first
+    for f in ("corridor.py", "barrier.py", "pinaccess.py", "asicflow.py"):  # which nets route narrow first
         h.update((Path(pcb.__file__).with_name(f)).read_bytes())
+    from . import asicflow
+    h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
     h.update((Path(pcb.__file__).with_name("regionroute.py")).read_bytes())  # route groups and their cache
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it

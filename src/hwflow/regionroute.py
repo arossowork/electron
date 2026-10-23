@@ -112,8 +112,10 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
                                    design.raw.get("floorplan"), design.board, rules, pcb.KRT_VARIANTS,
                                    pcb.router_version(design), _knobs()], sort_keys=True, default=str).encode())
     here = Path(__file__)
-    for f in ("pcb.py", "routing.py", "regionroute.py"):
+    for f in ("pcb.py", "routing.py", "regionroute.py", "pinaccess.py"):
         h.update(here.with_name(f).read_bytes())
+    from . import asicflow
+    h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
     if design.raw.get("blocks") and parts is not None:
         from . import blocks
         h.update(here.with_name("blocks.py").read_bytes())
