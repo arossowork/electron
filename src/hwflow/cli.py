@@ -252,10 +252,20 @@ def _run_summary(res: list[dict]) -> list[dict]:
 
 
 def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None) -> tuple[list, list, str, int]:
+    """Route the board. With `d.route_groups` a list (the layout stage sets it), the nets route group by group
+    (regionroute) when they form more than one group, each group's copper cached in build/routecache/groups/; the
+    group rows are appended to that list."""
     out = out or _out(d)
     name = d.name
+    groups = getattr(d, "route_groups", None)
     if d.board.get("router", "krt") == "krt":
         if (pcb.KRT_DIR / "py_router" / "route.py").exists():
+            if groups is not None:
+                from . import regionroute
+                res = regionroute.route(d, libs, parts, out, _out(d) / "routecache")
+                if res is not None:
+                    groups += res[4]
+                    return res[:4]
             return pcb.run_krt(d, libs, parts, out)
         print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
@@ -316,6 +326,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
+    h.update((Path(pcb.__file__).with_name("regionroute.py")).read_bytes())  # route groups and their cache
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
         h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())
@@ -393,15 +404,24 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for the router and DRC
     key = _route_key(d, libs, parts, out, passes)
     hit = json.loads((cache / f"{key}.json").read_text()) if (cache / f"{key}.json").exists() else None
-    rep, island = None, 0
+    rep, island, groups = None, 0, []
     if hit:
         tracks, vias, summary, island, rep = hit["tracks"], hit["vias"], hit["summary"] + " (route cache)", hit["island"], hit["rep"]
+        groups = [dict(g, cache="board cache", seconds=0.0) for g in hit.get("groups") or []]
         drc = route_check(tracks, vias, island)  # the full DRC runs again: it is the check of the board kept
         print(f"[layout] route cache hit {key}: router and repair skipped")
     else:
         if not pre:
-            tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
+            d.route_groups = groups  # regionroute: the group rows land in this list
+            try:
+                tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
+            finally:
+                d.route_groups = None
         drc = route_check(tracks, vias)
+        if any(g["cache"] == "hit" for g in groups):  # reused group copper: the joined board's DRC judges it
+            from . import regionroute
+            tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
+                                                     groups, route_check)
         rounds = int(d.board.get("repair_rounds", 3))
         if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
                 and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
@@ -420,7 +440,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             rep["after"] = len([x for x in drc if x["sev"] == "error"])
             rep["text"] = repair.summary(rep)
             print(f"[layout] {rep['text']}")
-        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep})
+        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep,
+                                 "groups": groups})
     from .prune import prune
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:
@@ -447,6 +468,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "corridors": corridors, "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
             "route_cache": key if hit else None, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
+            "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
+                             for g in groups],
             "seconds": round(time.time() - t0, 1)}
 
 
@@ -519,6 +542,7 @@ def _auto_attempt(k: int) -> dict:
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
             + (", route cache" if r.get("route_cache") else "")
+            + "".join(f", group {g['name']} {g['cache'] if len(g['cache']) < 12 else 're-routed'}" for g in r.get("route_groups") or [])
             + "".join(f", budget {b['name']} {b['value']}/{b['limit']:g} {b['unit']}" + ("" if b["ok"] else " FAIL")
                       for b in r.get("budgets") or []))
     return {"k": k + 1, "r": r, "line": line}
@@ -951,6 +975,9 @@ def write_report(d: Design, history: bool = False) -> str:
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
+        if c.get("route_groups"):
+            from . import regionroute
+            L.append(f"  - route groups: {regionroute.text(c['route_groups'])}")
         if c.get("repair"):
             L.append(f"  - {c['repair']['text']}")
         for x in c.get("conductive_isolation") or []:
