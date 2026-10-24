@@ -1,0 +1,30 @@
+# Parts and interface selection, revision A
+
+Checked 2026-10-24. This is a design selection for the first prototype, not a released bill of materials or a measured audio specification. The first build targets stereo PCM through 384 kHz; 768 kHz is an open extension.
+
+| Function | Working selection | Evidence and reason | Before parts freeze |
+| --- | --- | --- | --- |
+| USB-C audio receiver | [Amanero Combo768](https://www.amanero.com/site/combo768.html), USB-C option | Preprogrammed USB 2.0 Audio Class 2 receiver, local 45.1584/49.152 MHz oscillators and master-mode I²S. [Rev A datasheet, dated 04/08/2025](https://www.amanero.com/drivers/Combo768-D.pdf) specifies 22.5792/24.576 MHz **header MCLK** and a configurable advertised maximum rate. [Firmware history](https://www.amanero.com/site/firmware-history.html) lists 16/24/32-bit formats for the 2026-07-17 firmware. | Confirm supplied firmware and USB-C connector geometry; obtain module CAD/mounting dimensions, configure the USB maximum to 384 kHz, and test each advertised format/rate. Module maximum power remains TBD in its datasheet. |
+| Stereo DAC | [ESS ES9039Q2M](https://www.esstech.com/products-overview/digital-to-analog-converters/sabre-audiophile-dacs/) in synchronous 32-bit I²S slave **hardware mode 8** | [ESS datasheet v0.2.3 (May 2026), Table 7](https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf) specifies automatic sample-rate detection, 64 × fs bit clock, and MCLK at least 64 × fs up to 49.152 MHz. The pairing below meets those limits through 384 kHz without custom DAC-control firmware. | Check actual Amanero I²S word/bit-clock framing at each rate, ESS startup/mute behavior, DAC symbol and footprint, and assembled cost. No final pin map is assigned before KiCad library verification. |
+| DAC analog output stage | ESS datasheet v0.2.3 Figure 33 two-op-amp output stage, using OPA1612 as its example | The drawing shows **one differential DAC channel** feeding both sections of one dual OPA1612. It provides a balanced XLR pair **and a separate single-ended signal/ground tap** from one output. Stereo replication therefore takes four op-amp sections (two dual OPA1612 packages); a further difference amplifier is not inherent to the single-ended volume-pot path. This stage is distinct from the OPA1622 headphone driver. | Port and verify the exact circuit, single-ended tap gain, output swing, rails, and physical packages before freeze. ESS's performance test states `10 Vrms = 0 dBFS input`; establish the actual reference-stage **single-ended** output voltage before setting headphone-stage gain. A 10 Vrms signal would exceed the proposed ±9 V headphone-stage headroom. |
+| Headphone stage | TI [OPA1622](https://www.ti.com/product/OPA1622), provisional | The separate analog-design proposal targets 4.0 Vrms into the 300 Ω HD 6XX. | Set gain from the **actual** DAC-output-stage voltage and verify supply headroom, mute, DC protection and package/pad mapping. |
+| Local power | Separate regulated DAC supplies and headphone rails; exact parts pending | ESS v0.2.3 recommends AVDD first, VCCA about 200 µs later, then AVCC_DAC1/2, followed by chip enable; hardware-mode mute stays asserted until configuration settles. ESS recommends four or more PCB layers with an uninterrupted ground plane beneath the DAC. | Design and verify sequencing, analog-rail noise and shutdown, especially USB-connected/adapter-off behavior. Do not assume the USB module's 50 mA auxiliary output powers the DAC. |
+
+## Clock compatibility for the first build
+
+The [Amanero datasheet](https://www.amanero.com/drivers/Combo768-D.pdf) gives two possible header MCLK frequencies; the [ESS v0.2.3 hardware-mode table](https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf) gives the mode-8 MCLK and 64 × fs BCLK requirements. The ratios below are arithmetic compatibility checks, **not a tested interface**.
+
+| PCM sample rates, kHz | Header MCLK, MHz | MCLK / fs | Required BCLK at 64 × fs, MHz |
+| --- | ---: | ---: | ---: |
+| 44.1 / 48 | 22.5792 / 24.576 | 512 | 2.8224 / 3.072 |
+| 88.2 / 96 | 22.5792 / 24.576 | 256 | 5.6448 / 6.144 |
+| 176.4 / 192 | 22.5792 / 24.576 | 128 | 11.2896 / 12.288 |
+| 352.8 / 384 | 22.5792 / 24.576 | 64 | 22.5792 / 24.576 |
+
+At 705.6/768 kHz the same header MCLK would be only 32 × fs, below ESS mode 8's 64 × fs minimum. Amanero's [firmware history](https://www.amanero.com/site/firmware-history.html) lists an older 45.1584/49.152 MHz MCLK firmware, but its current-board, 32-bit and full-rate compatibility is unverified. Do not advertise 768 kHz on this build unless the complete firmware/clock/DAC combination is qualified. The ESS mode-8 table also prints a strict upper inequality (`fs < 768 kHz`), which requires clarification before promising exactly 768 kHz.
+
+## Performance and cost boundaries
+
+ESS [specifies](https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf) 130 dB A-weighted dynamic range and −120 dB THD+N under stated evaluation-board conditions, including differential-output measurement. Those figures **do not transfer directly to Figure 33's single-ended tap** and are not prototype-board or headphone-jack results. A 32-bit interface is not 32-bit effective analog resolution. Amanero describes low-phase-noise oscillators but publishes **no numerical output-jitter figure** in its product page or Rev A datasheet. Measure clock phase noise/jitter and analog-output noise/sidebands on the prototype before making a jitter claim.
+
+On 2026-10-24, [Amanero listed the module at €79](https://www.amanero.com/site/combo768.html) and [Mouser Europe listed one ES9039Q2M at €16.08](https://eu.mouser.com/en/ProductDetail/ESS-Technology/ES9039Q2M?qs=OcgtsXO%252B3gsGISPYpHXYiA%3D%3D). Those are dated component listings, not a total delivered price or evidence that the €150–250 prototype budget is met. The op-amps, supply, PCB, assembly, enclosure, jack, knob, adapter, taxes and shipping still need a priced BOM.

@@ -1,0 +1,63 @@
+# Architecture floorplan only: no electrical components or fabrication output.
+# Sizes below are working reservations, documented in architecture.md.
+project: desktop_dac_hd6xx
+revision: A
+description: >
+  Desktop USB-C DAC and headphone amplifier for HD6XX; a compiler reference board.
+  Stage 2 placeholder floorplan, not a circuit or a routed PCB.
+board:
+  width_mm: 140
+  height_mm: 80
+  layers: 4
+  thickness_mm: 1.6
+floorplan:
+  construction: single
+  depth:
+    limit_mm: 32
+    source: "architecture.md: 40 mm enclosure height minus 8 mm structural allowance; proposed, not measured."
+    extra:
+      - {name: bottom_standoffs, mm: 4, source: "architecture.md: provisional assembly allowance."}
+      - {name: top_clearance, mm: 2, source: "architecture.md: provisional assembly allowance."}
+  regions:
+    - name: usb
+      kind: other
+      rect: [3, 3, 78, 38]
+      items: [usb_module]
+      source: "architecture.md: 75 x 35 mm module reservation; actual USB-C module CAD pending."
+    - name: dac
+      kind: other
+      rect: [80, 4, 108, 35]
+      items: [dac_stage]
+      source: "architecture.md: movable DAC plus local support near the USB clock source."
+    - name: power
+      kind: other
+      rect: [112, 3, 137, 37]
+      items: [dc_input, power_stage]
+      isolation_mm: 5
+      from: [analog]
+      source: "architecture.md: initial noise-separation trial, not a certified noise/isolation limit."
+    - name: analog
+      kind: other
+      rect: [4, 43, 106, 78]
+      items: [volume, headphone_jack, amplifier, output_protection]
+      source: "architecture.md: front controls and movable analog/protection stages."
+  items:
+    - {name: usb_module, size_mm: [75, 35], height_mm: 15, at: [40.5, 20.5], source: "Estimated module assembly reservation, not verified dimensions; architecture.md."}
+    - {name: dc_input, size_mm: [14, 11], height_mm: 12, at: [124.5, 8.5], source: "Estimated rear DC jack reserve; architecture.md."}
+    - {name: power_stage, size_mm: [20, 22], height_mm: 6, source: "Estimated converter and filtering reserve; architecture.md."}
+    - {name: dac_stage, size_mm: [24, 22], height_mm: 5, source: "Estimated DAC/support reserve; architecture.md."}
+    - {name: volume, size_mm: [22, 18], height_mm: 16, at: [18, 68], source: "Estimated front stereo pot reserve; architecture.md."}
+    - {name: headphone_jack, size_mm: [16, 28], height_mm: 16, at: [94, 64], source: "Estimated front 6.35 mm jack reserve; architecture.md."}
+    - {name: amplifier, size_mm: [24, 20], height_mm: 5, source: "Estimated stereo amplifier reserve; architecture.md."}
+    - {name: output_protection, size_mm: [22, 18], height_mm: 12, source: "Estimated relay and DC detector reserve; architecture.md."}
+  # Coarse inter-block connection estimates, not an electrical netlist.
+  nets:
+    - {between: [usb_module, dac_stage], count: 6}
+    - {between: [dac_stage, volume], count: 2}
+    - {between: [volume, amplifier], count: 2}
+    - {between: [amplifier, output_protection], count: 2}
+    - {between: [output_protection, headphone_jack], count: 2}
+    - {between: [dc_input, power_stage], count: 2}
+    - {between: [power_stage, dac_stage], count: 2}
+    - {between: [power_stage, amplifier], count: 3}
+    - {between: [power_stage, output_protection], count: 2}

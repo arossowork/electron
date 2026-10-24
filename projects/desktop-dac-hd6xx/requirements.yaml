@@ -1,0 +1,76 @@
+product: Desktop USB DAC and headphone amplifier for Sennheiser HD6XX
+optimize_for:
+  - {criterion: noise, weight: 3}
+  - {criterion: cost, weight: 2}
+  - {criterion: size, weight: 1}
+requirements:
+  - id: R1
+    priority: must
+    text: Stereo USB audio from a computer to the user's HD6XX headphones.
+    acceptance: Both channels play correctly into a 300 ohm dummy load and the intended headphones after electrical checks.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User selected USB DAC + headphone amp and identified HD6XX."
+  - id: R2
+    priority: must
+    text: Use an external low-voltage desktop adapter for the analog power supply.
+    acceptance: Power and USB connection orders work without backfeeding the host VBUS or external adapter; no mains circuitry is on this PCB.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User selected external adapter + USB audio."
+  - id: R3
+    priority: must
+    text: Target EUR 150-250 for one working prototype including PCB, parts, assembly, enclosure and adapter.
+    acceptance: Dated delivered-cost estimate including taxes, shipping and minimum assembly quantities is no more than EUR 250 before ordering.
+    verification: inspection
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User selected around EUR 150-250; no purchase authorization."
+  - id: R4
+    priority: must
+    text: Use the project to test improvements to the code-to-PCB compiler.
+    acceptance: Save a baseline on unchanged main, then compare each engine change with the same design and validation gates; retain fixed/movable counts and timing, route and DRC evidence.
+    verification: inspection
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User explicitly requested testing build-system improvements with the discussed design preferences."
+  - id: R5
+    priority: should
+    text: USB-C input; stereo PCM host formats of 16, 24 and 32 bits up to 384 kHz.
+    acceptance: Enumerated formats match the selected DAC; playback and rate transitions work at 44.1, 48, 88.2, 96, 176.4, 192, 352.8 and 384 kHz; unsupported DSD/rates mute or are not advertised.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User asked for USB-C and good performance; 384 kHz is an engineering recommendation, not a user-mandated ceiling."
+  - id: R6
+    priority: should
+    text: Desktop enclosure about 160 x 100 x 40 mm, with a 140 x 80 mm four-layer PCB.
+    acceptance: Real connector, module, control and mounting models fit the selected enclosure, including external cable and knob access.
+    verification: layout
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User delegated reasonable desktop dimensions; architecture working allowance."
+  - id: R7
+    priority: should
+    text: Physical stereo volume knob and 6.35 mm single-ended headphone output on the front.
+    acceptance: Controls are accessible; left/right/sleeve mapping, channel tracking and jack insertion behavior are checked.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "Initial engineering proposal for the user's HD6XX."
+  - id: R8
+    priority: should
+    text: Clean maximum output of 4.0 Vrms per channel into 300 ohms with both channels loaded.
+    acceptance: Meet the output voltage without clipping at 20 Hz, 1 kHz and 20 kHz; finalize noise/distortion limits after DAC and output-stage selection and measure at the jack.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "Engineering headroom target for 300 ohm headphones, not a listening-level target."
+  - id: R9
+    priority: should
+    text: Controlled startup, shutdown, format changes and sustained output DC fault response.
+    acceptance: Hardware defaults to mute/disconnected output; calculate explicit thresholds before schematic freeze. Headphone-connected testing is blocked until dummy-load startup, shutdown and DC-fault checks have been independently reviewed.
+    verification: test
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "Engineering reliability target for the first prototype."
+  - id: R10
+    priority: should
+    text: Separate switching power and sensitive analog placement while retaining a continuous ground reference.
+    acceptance: Check the named placement regions and the final copper paths independently; quantify rail ripple and output noise; do not treat region spacing as audio performance proof.
+    verification: layout
+    evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
+    source: "User requested component/board envelopes; architecture.md defines the provisional geometry."
