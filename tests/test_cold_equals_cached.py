@@ -12,7 +12,7 @@ from hwflow.core import settings as settings_mod
 from hwflow.core.design import Design
 from hwflow.layout.route import krt
 from hwflow.pipeline import runner
-from hwflow.pipeline.exec import execute_stage
+from hwflow.pipeline.exec import STATUS_KEY, execute_stage
 from hwflow.pipeline.runner import BuildOptions, put_project, run_build
 from hwflow.pipeline.spec import STAGE_SPECS, LocalStageCache, StageInput
 
@@ -59,7 +59,11 @@ def _cold_then_cached(proj, monkeypatch, until):
     assert _norm(cold) == _norm(warm)
     status2 = json.loads((proj / "build" / "status.json").read_text())
     for st in [r.stage for r in cold]:
-        assert status1[st] == status2[st]  # skipped stages keep their entry
+        if st == "layout_attempt":
+            continue  # a candidate board: only layout_select (status.json key `layout`) has an entry (#46)
+        key = STATUS_KEY.get(st, st)
+        assert key in status1, f"stage {st} has no status.json entry {key}"
+        assert status1[key] == status2[key]  # skipped stages keep their entry
     assert (proj / "build" / "sim").is_dir()
     return got
 
