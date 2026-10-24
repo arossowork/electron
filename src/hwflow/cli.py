@@ -232,6 +232,8 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
            "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
+    from . import simrobust
+    out.update(simrobust.sim_summary(d, res, w, _out(d) / "simcache"))
     prev = _status(d).get("sim") or {}
     if mc and prev.get("monte_carlo") and prev.get("inputs_hash") == _inputs_hash(d) and prev.get("mc_runs") == mc:
         out["monte_carlo"], out["mc_runs"] = prev["monte_carlo"], mc  # Monte Carlo once per design (backlog 27)
@@ -998,6 +1000,8 @@ def write_report(d: Design, history: bool = False) -> str:
                      + (f"; {x['reason']}" if x.get("reason") else "") + ("; flaky: crashed once, retried" if x.get("flaky") else ""))
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
+        from . import simrobust
+        L += simrobust.report_lines(c)
         if c.get("debug"):
             L.append("  - debug probes (not counted): " + ", ".join(
                 f"{r['analysis']}/{r['name']}={_fmt(r['value'])}" for r in c["debug"][:12])
