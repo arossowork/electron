@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 
-from .contracts import DEFAULT_MEDIA_TYPE, ArtifactNotFound, ArtifactRef, StoreUnavailable
+from hwflow.artifacts import DEFAULT_MEDIA_TYPE, ArtifactNotFound, ArtifactRef, StoreUnavailable
 
 if TYPE_CHECKING:
     from .settings import Settings

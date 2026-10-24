@@ -299,7 +299,7 @@ class RunEnv:
         self.db, self.store, self.tenant_id, self.project_id = db, store, tenant_id, project_id
 
     async def design_version(self, tag: str = "v"):
-        from hwplatform.contracts import ArtifactRef
+        from hwflow.artifacts import ArtifactRef
 
         def sha(s: str) -> str:
             return (s.encode().hex() * 64)[:64]
@@ -314,7 +314,7 @@ class RunEnv:
     async def new_run(self, dv=None, **kw):
         from datetime import UTC, datetime
 
-        from hwplatform.contracts import Run, RunStatus
+        from hwflow.runs import Run, RunStatus
 
         dv = dv or await self.design_version()
         run = Run(

@@ -8,8 +8,8 @@ from collections.abc import AsyncIterator
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
+from hwflow.artifacts import ArtifactNotFound
 
-from ..contracts import ArtifactNotFound
 from ..tenancy import TenantContext
 from .deps import download_store, tenant_store
 

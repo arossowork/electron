@@ -10,20 +10,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
+from hwflow.artifacts import ArtifactNotFound, StoreUnavailable
+from hwflow.ids import uuid7
+from hwflow.runs import TERMINAL, InvalidTransition, Run, RunStatus
 from sqlalchemy import text
 
 from .. import run_options
-from ..contracts import (
-    ArtifactNotFound,
-    BuildInput,
-    DesignInput,
-    InvalidTransition,
-    Ref,
-    Run,
-    RunCtx,
-    RunStatus,
-    StoreUnavailable,
-)
+from ..contracts import BuildInput, DesignInput, RunCtx
 from ..db import Database
 from ..gateway import (
     GatewayError,
@@ -32,7 +25,6 @@ from ..gateway import (
     build_workflow_id,
     design_workflow_id,
 )
-from ..ids import uuid7
 from ..questions import QuestionStore
 from ..runs import PgRunStore, QuotaExceeded, RunNotFound
 from ..tenancy import ProjectRepo, TenantContext
@@ -56,11 +48,6 @@ router = APIRouter(tags=["runs"])
 
 _NO_RUN = "run not found"
 _NO_PROJECT = "project not found"
-TERMINAL = ("succeeded", "failed", "cancelled")
-
-
-def _ref(r) -> Ref:
-    return Ref(r.sha256, r.size, r.media_type, r.name)
 
 
 def run_out(run: Run) -> dict:
@@ -217,8 +204,8 @@ async def start_run(
                 BuildInput(
                     ctx=ctx_arg,
                     design_version_id=dv.id,
-                    design=_ref(dv.design),
-                    project=_ref(dv.project),
+                    design=dv.design,
+                    project=dv.project,
                     options=options,
                     settings_overrides=overrides,
                 ),

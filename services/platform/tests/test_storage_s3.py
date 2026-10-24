@@ -7,8 +7,8 @@ import urllib.request
 import uuid
 
 import pytest
+from hwflow.artifacts import ArtifactNotFound, StoreUnavailable
 
-from hwplatform.contracts import ArtifactNotFound, StoreUnavailable
 from hwplatform.storage import ArtifactHashMismatch, S3ArtifactStore, tenant_key, tenant_prefix
 
 from conftest import S3_BUCKET

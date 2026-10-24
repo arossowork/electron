@@ -4,9 +4,9 @@ import asyncio
 import uuid
 
 import pytest
+from hwflow.runs import RunStatus
 from sqlalchemy import text
 
-from hwplatform.contracts import RunStatus
 from hwplatform.events import Event
 from hwplatform.events.outbox import emit
 

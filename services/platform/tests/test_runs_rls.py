@@ -10,8 +10,8 @@ import uuid
 
 import asyncpg
 import pytest
-
-from hwplatform.contracts import ArtifactRef, RunStatus, StageRecord, StageStatus
+from hwflow.artifacts import ArtifactRef
+from hwflow.runs import RunStatus, StageRecord, StageStatus
 
 from conftest import APP_URL, OWNER_URL, RELAY_URL
 

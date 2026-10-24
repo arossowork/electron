@@ -16,8 +16,8 @@ import time
 
 import httpx
 import pytest
+from hwflow.runs import RunStatus, StageRecord, StageStatus
 
-from hwplatform.contracts import RunStatus, StageRecord, StageStatus
 from hwplatform.db import Database
 from hwplatform.questions import QuestionStore
 from hwplatform.runs import PgRunStore

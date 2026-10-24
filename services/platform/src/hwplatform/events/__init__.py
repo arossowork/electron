@@ -6,7 +6,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from ..ids import uuid7
+from hwflow.ids import uuid7
+from hwflow.runs import rfc3339  # noqa: F401  (re-exported: hwplatform.events.rfc3339)
 
 # ADR 5.2, catalogue v1. Emitting a type that is not listed here is a bug.
 EVENT_TYPES = frozenset(
@@ -33,10 +34,6 @@ EVENT_TYPES = frozenset(
 SCHEMA_VERSION = 1
 DEFAULT_SOURCE = "hwplatform/worker"
 STREAM = "HWFLOW_EVENTS"
-
-
-def rfc3339(t: datetime) -> str:
-    return t.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def nats_subject(tenant_id: uuid.UUID | str, type: str) -> str:

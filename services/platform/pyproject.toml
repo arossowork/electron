@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Hosted multi-tenant hwflow platform: API, tenancy, auth (epic #21)."
 requires-python = ">=3.11"
 dependencies = [
+    "hwflow",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "sqlalchemy[asyncio]>=2.0.30",
@@ -29,6 +30,9 @@ hwplatform-migrate = "hwplatform.main:migrate"
 hwplatform-relay = "hwplatform.main:relay"
 hwplatform-rotate-master = "hwplatform.main:rotate_master"
 hwplatform-purge = "hwplatform.main:purge"
+
+[tool.uv.sources]
+hwflow = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]

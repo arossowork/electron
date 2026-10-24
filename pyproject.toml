@@ -51,7 +51,7 @@ select = ["E", "F", "W"]
 ignore = ["E501", "E701", "E702", "E731", "E741", "F841"]  # F841/E731: existing code, cleaned up later
 
 [tool.importlinter]
-root_packages = ["hwflow", "hwharness"]
+root_packages = ["hwflow", "hwharness", "hwplatform"]
 include_external_packages = true
 
 # Strict contracts (issue #5, docs/import-graph.md). The root-level modules `hwflow.design`, `hwflow.pcb`, ... are
@@ -103,3 +103,23 @@ source_modules = ["hwflow.artifacts", "hwflow.ids", "hwflow.runs"]
 forbidden_modules = ["hwflow.core", "hwflow.sim", "hwflow.schematic", "hwflow.layout", "hwflow.verify", "hwflow.fw",
                      "hwflow.pipeline", "hwflow.commands", "hwflow.cli", "yaml", "pydantic", "pydantic_settings",
                      "ruamel", "numpy"]
+
+# Issue #9: hwplatform (and so the workflow code in it) imports only the stdlib-only contract modules of the engine
+# (hwflow.artifacts, hwflow.runs, hwflow.ids). Every other engine package and every root-level shim is forbidden, direct
+# or indirect, so the platform never pulls the EDA engine (numpy, scipy, ...) into the API or the Temporal sandbox.
+[[tool.importlinter.contracts]]
+name = "hwplatform imports only hwflow.artifacts, hwflow.runs and hwflow.ids from the engine"
+type = "forbidden"
+source_modules = ["hwplatform"]
+forbidden_modules = [
+    "hwflow.core", "hwflow.sim", "hwflow.schematic", "hwflow.layout", "hwflow.verify", "hwflow.fw",
+    "hwflow.pipeline", "hwflow.commands", "hwflow.models", "hwflow.asicflow",
+    "hwflow.barrier", "hwflow.blocks", "hwflow.budgets", "hwflow.cli", "hwflow.corridor",
+    "hwflow.cutcap", "hwflow.design", "hwflow.diagnose", "hwflow.em", "hwflow.feasibility",
+    "hwflow.floorplan", "hwflow.gplace", "hwflow.keepout", "hwflow.kicad", "hwflow.libs",
+    "hwflow.optimize", "hwflow.padiso", "hwflow.partescape", "hwflow.parts", "hwflow.pcb",
+    "hwflow.pinaccess", "hwflow.placer", "hwflow.postlayout", "hwflow.prune",
+    "hwflow.regionroute", "hwflow.repair", "hwflow.routing", "hwflow.sch",
+    "hwflow.seedroute", "hwflow.settings", "hwflow.sexpr", "hwflow.simrobust",
+    "hwflow.spice"
+]

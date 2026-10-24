@@ -7,8 +7,8 @@ import uuid
 import asyncpg
 import nats
 import pytest
+from hwflow.runs import RunStatus
 
-from hwplatform.contracts import RunStatus
 from hwplatform.events import STREAM
 from hwplatform.events.relay import Relay, ensure_stream, stream_config
 

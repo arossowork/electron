@@ -6,16 +6,15 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from hwplatform.contracts import (
+from hwflow.artifacts import ArtifactRef
+from hwflow.runs import (
     TRANSITIONS,
-    ArtifactRef,
     InvalidTransition,
+    RunNotFound,
     RunStatus,
     StageRecord,
     StageStatus,
 )
-from hwplatform.runs import RunNotFound
 
 pytestmark = pytest.mark.integration
 

@@ -12,8 +12,9 @@ import uuid
 
 import httpx
 import pytest
+from hwflow.artifacts import ArtifactRef
+from hwflow.runs import RunStatus, StageRecord, StageStatus
 
-from hwplatform.contracts import ArtifactRef, RunStatus, StageRecord, StageStatus
 from hwplatform.db import Database
 from hwplatform.questions import QuestionStore
 from hwplatform.runs import PgRunStore

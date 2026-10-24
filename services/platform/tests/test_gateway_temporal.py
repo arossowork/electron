@@ -12,8 +12,9 @@ import uuid
 from dataclasses import asdict
 
 import pytest
+from hwflow.artifacts import ArtifactRef
 
-from hwplatform.contracts import BuildInput, QuestionAnswer, Ref, RunCtx
+from hwplatform.contracts import BuildInput, QuestionAnswer, RunCtx
 from hwplatform.gateway import GatewayError, TemporalGateway, WorkflowNotFound
 from hwplatform.settings import Settings
 
@@ -47,8 +48,8 @@ def _input(wf_id: str) -> BuildInput:
     return BuildInput(
         ctx=RunCtx("t", "p", str(uuid.uuid4()), wf_id),
         design_version_id="dv",
-        design=Ref("a" * 64, 1, "application/yaml", "design.yaml"),
-        project=Ref("b" * 64, 2, "application/vnd.hwflow.tree+json", "project"),
+        design=ArtifactRef("a" * 64, 1, "application/yaml", "design.yaml"),
+        project=ArtifactRef("b" * 64, 2, "application/vnd.hwflow.tree+json", "project"),
         options={"until": "sim"},
     )
 

@@ -19,9 +19,10 @@ import uuid
 from collections.abc import Mapping
 
 import yaml
+from hwflow.artifacts import TREE_MEDIA_TYPE, ArtifactRef
+from hwflow.runs import DesignVersionRef
 from sqlalchemy import text
 
-from .contracts import TREE_MEDIA_TYPE, ArtifactRef, DesignVersionRef
 from .db import Database
 from .runs import PgRunStore
 from .storage import S3ArtifactStore

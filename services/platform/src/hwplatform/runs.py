@@ -16,48 +16,30 @@ import json
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from enum import Enum
 from typing import Any
 
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from .contracts import (
-    TRANSITIONS,
-    ArtifactRef,
-    ArtifactStore,
+from hwflow.artifacts import ArtifactRef, ArtifactStore, ref_from_dict, ref_to_dict
+from hwflow.ids import uuid7
+from hwflow.runs import (
+    RUN_EVENT,
+    STAGE_EVENT,
+    USER_VISIBLE,
     DesignVersionRef,
     InvalidTransition,
     Run,
+    RunNotFound,
     RunStatus,
     StageRecord,
     StageStatus,
+    allowed_from,
+    run_to_manifest,
+    stage_update_applies,
 )
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .db import Database
-from .events import rfc3339
 from .events.outbox import emit
-from .ids import uuid7
-
-MANIFEST_SCHEMA = "hwflow.run/1"
-TERMINAL = frozenset({"succeeded", "failed", "cancelled"})
-STAGE_TERMINAL = frozenset({"succeeded", "failed", "skipped", "cancelled"})
-# run artifacts a person looks at (ADR 5.2 artifact.created): the last path segment decides
-USER_VISIBLE = frozenset({"REPORT.md", "board", "fab", "manifest.json"})
-STAGE_EVENT = {
-    "running": "stage.started",
-    "succeeded": "stage.completed",
-    "failed": "stage.failed",
-    "skipped": "stage.skipped",
-}
-RUN_EVENT = {
-    ("queued", "running"): "run.started",
-    ("running", "waiting"): "run.waiting",
-    ("waiting", "running"): "run.resumed",
-}
-
-
-class RunNotFound(KeyError):
-    pass
 
 
 class QuotaExceeded(Exception):
@@ -86,38 +68,8 @@ def _dump(v: Any) -> str | None:
     return None if v is None else json.dumps(v, separators=(",", ":"), default=str)
 
 
-def ref_to_dict(r: ArtifactRef) -> dict:
-    return {"sha256": r.sha256, "size": r.size, "media_type": r.media_type, "name": r.name}
-
-
-def ref_from_dict(d: dict) -> ArtifactRef:
-    return ArtifactRef(
-        d["sha256"], int(d["size"]), d.get("media_type", "application/octet-stream"), d.get("name", "")
-    )
-
-
 def _uuid(v: str | uuid.UUID | None) -> uuid.UUID | None:
     return None if v is None else uuid.UUID(str(v))
-
-
-def _plain(v: Any) -> Any:
-    """asdict leftovers -> JSON: datetimes as RFC 3339 UTC, enums as their value."""
-    if isinstance(v, datetime):
-        return rfc3339(v)
-    if isinstance(v, Enum):
-        return v.value
-    if isinstance(v, dict):
-        return {k: _plain(x) for k, x in v.items()}
-    if isinstance(v, list | tuple):
-        return [_plain(x) for x in v]
-    return v
-
-
-def run_to_manifest(run: Run) -> dict:
-    """ADR 3.2: the Run serialized with dataclasses.asdict plus "schema": "hwflow.run/1"; stages in seq order."""
-    d = dataclasses.asdict(run)
-    d["stages"] = sorted(d["stages"], key=lambda s: (s["seq"], s["key"]))
-    return {"schema": MANIFEST_SCHEMA, **_plain(d)}
 
 
 # --- the store -----------------------------------------------------------------------------------------
@@ -507,7 +459,7 @@ class PgRunStore:
         if verdict is not None and verdict not in ("PASS", "FAIL"):
             raise ValueError(f"verdict must be PASS or FAIL, not {verdict!r}")
         rid = uuid.UUID(str(run_id))
-        allowed_from = sorted(f for f, tos in TRANSITIONS.items() if to.value in tos)
+        af = allowed_from(to.value)  # the engine transition table (hwflow.runs.TRANSITIONS)
         async with self._tx() as s:
             row = (
                 await s.execute(
@@ -521,7 +473,7 @@ class PgRunStore:
                         "WHERE id = :id AND status::text = ANY(CAST(:af AS text[])) "
                         "RETURNING (SELECT status::text FROM runs WHERE id = :id) AS prev"
                     ),
-                    {"to": to.value, "err": _dump(error), "v": verdict, "id": rid, "af": allowed_from},
+                    {"to": to.value, "err": _dump(error), "v": verdict, "id": rid, "af": af},
                 )
             ).first()
             if row is None:
@@ -611,12 +563,7 @@ class PgRunStore:
             )
         ).first()
         status = StageStatus(rec.status).value
-        if (
-            prior
-            and prior.status in STAGE_TERMINAL
-            and status not in STAGE_TERMINAL
-            and rec.attempt <= prior.attempt
-        ):
+        if prior and not stage_update_applies(prior.status, prior.attempt, status, rec.attempt):
             return  # a late replay of an earlier state must not undo a finished stage
         refs = list(rec.outputs.values()) + ([rec.result] if rec.result else [])
         await self._register(s, refs)
