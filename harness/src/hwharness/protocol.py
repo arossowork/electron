@@ -58,6 +58,10 @@ def _recorded_changes(d: Design) -> dict[str, str]:
     return out
 
 
+# what approval_findings reads besides design.yaml (the check stage's declared inputs, hwflow.pipeline.hooks)
+APPROVAL_INPUTS = ("build/approved.json", "conflicts.md", "inbox/")
+
+
 def approval_findings(d: Design) -> list[dict]:
     """Backlog 44: a change of board.layers, board size or BOM cost (above `approval.cost_pct`) against
     build/approved.json is an error unless conflicts.md or an inbox question records it (then a warning until

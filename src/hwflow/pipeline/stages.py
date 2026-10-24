@@ -25,7 +25,7 @@ from ..verify.checks import check
 from ..core.libs import Libs
 from ..core.settings import get_settings
 from .hooks import registry
-from .status import _block_files, _design_hash, _inputs_hash, _out, _status
+from .status import _block_files, _design_hash, _out, _status, current_inputs
 
 
 def stage_check(d: Design, libs: Libs) -> dict:
@@ -69,7 +69,8 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
     out.update(simrobust.sim_summary(d, res, w, _out(d) / "simcache"))
     prev = _status(d).get("sim") or {}
-    if mc and prev.get("monte_carlo") and prev.get("inputs_hash") == _inputs_hash(d) and prev.get("mc_runs") == mc:
+    cur = current_inputs(d)
+    if mc and prev.get("monte_carlo") and cur and prev.get("inputs_hash") == cur and prev.get("mc_runs") == mc:
         out["monte_carlo"], out["mc_runs"] = prev["monte_carlo"], mc  # Monte Carlo once per design (backlog 27)
         print(f"[sim] Monte Carlo {mc} runs reused: inputs unchanged since the last run")
     elif mc:
@@ -228,7 +229,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     if pre:
         _, _, parts, cost, viol, tracks, vias, summary = pre
     elif reuse and pj.exists() and _saved_board(pj) in (None, declared):
-        _apply_layout_size(d)
+        _apply_saved_size(d, pj)
         parts = placer.build_parts(d, libs)
         saved = json.loads(pj.read_text())
         for r, p in parts.items():
@@ -240,8 +241,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     else:
         parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
     tm = {"place_s": round(time.time() - t0, 1)}  # wall time per step (experiment metrics, docs/asic-ideas.md)
-    pj.write_text(json.dumps({"__design_board__": list(declared), **{r: [p.x, p.y, p.r] for r, p in parts.items()}},
-                             indent=1))
+    pj.write_text(json.dumps({"__design_board__": list(declared),
+                              "__board_mm__": [d.board["width_mm"], d.board["height_mm"]],
+                              **{r: [p.x, p.y, p.r] for r, p in parts.items()}}, indent=1))
     d.budget_widths, bud_w = budgets.widths(d, parts)  # requirement budgets: track widths on this placement
     for r in bud_w:
         print(f"[layout] budget {r['name']}: {r['msg']}")
@@ -413,9 +415,12 @@ def _auto_attempt(k: int) -> dict:
     w = out / "auto" / f"a{k + 1}"
     shutil.rmtree(w, ignore_errors=True)
     w.mkdir(parents=True)
-    for f in ("fp-lib-table", "sym-lib-table"):  # DRC reads the library tables next to the board
-        if (out / f).exists():
-            shutil.copy(out / f, w / f)
+    if libs is not None and (out / "fp-lib-table").exists():  # DRC reads the library tables next to the board;
+        kicad.write_lib_tables(d, libs, w)  # written again here: project libraries are relative to the tables
+    else:
+        for f in ("fp-lib-table", "sym-lib-table"):
+            if (out / f).exists():
+                shutil.copy(out / f, w / f)
     seeds = c["seeds"]
     seed0 = get_settings().layout.seed0 + k * seeds  # HWFLOW_SEED0: first placer seed (A/B spread runs)
     use_saved = c["reuse"] and k == 0 and (out / "placement.json").exists()
@@ -663,6 +668,19 @@ def _saved_board(pj: Path):
         return json.loads(pj.read_text()).get("__design_board__")
     except (OSError, ValueError):
         return None
+
+
+def _apply_saved_size(d: Design, pj: Path):
+    """--reuse: the board size the saved placement was made on (`__board_mm__`; older files: the last layout result
+    in status.json)."""
+    try:
+        size = json.loads(pj.read_text()).get("__board_mm__")
+    except (OSError, ValueError):
+        size = None
+    if size:
+        d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = size
+    else:
+        _apply_layout_size(d)
 
 
 def _apply_layout_size(d: Design):

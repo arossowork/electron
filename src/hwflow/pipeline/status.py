@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from ..core.design import Design
@@ -55,30 +56,13 @@ def _design_hash(d) -> str:
     return h.hexdigest()[:12]
 
 
-def _inputs_hash(d) -> str:
-    """Everything a build stage reads besides design.yaml: model files, project libraries and the hwflow code.
-    Two builds with the same inputs give the same results, so `build` skips a stage whose inputs did not change
-    (backlog 27)."""
-    import hashlib
+# What the running stage's inputs are (spec.inputs_id: the cache key without params and state), set by execute_stage.
+# The sim stage reuses a stored Monte Carlo result computed for the same inputs.
+CURRENT_INPUTS: ContextVar[str | None] = ContextVar("hwflow_stage_inputs", default=None)
 
-    from ..core.libs import project_lib_dirs, shared_lib_files
-    h = hashlib.sha1(_design_hash(d).encode())
-    files = [d.dir / f for f in (d.raw.get("sim") or {}).get("includes") or []]
-    files += [d.dir / c.get("spice")["lib"] for c in d.components.values()
-              if isinstance(c.get("spice"), dict) and c.get("spice").get("lib")]
-    files += _block_files(d)
-    files += shared_lib_files(d)  # library/: only the shared libraries this design uses
-    for f in sorted(set(files)):
-        h.update(str(f).encode() + (f.read_bytes() if f.is_file() else b"-"))
-    for root in project_lib_dirs(d):
-        for f in sorted(root.rglob("*")):
-            if f.is_file():
-                st = f.stat()
-                h.update(f"{f.relative_to(root)}:{st.st_size}:{st.st_mtime_ns}".encode())
-    for f in sorted(Path(__file__).parents[1].rglob("*")):
-        if f.suffix in (".py", ".lib") and f.is_file():
-            h.update(f.read_bytes())
-    return h.hexdigest()[:12]
+
+def current_inputs(d) -> str | None:
+    return CURRENT_INPUTS.get()
 
 
 def _block_files(d) -> list[Path]:

@@ -92,3 +92,13 @@ name = "hwflow.pipeline and hwflow.commands do not import hwflow.cli"
 type = "forbidden"
 source_modules = ["hwflow.pipeline", "hwflow.commands"]
 forbidden_modules = ["hwflow.cli"]
+
+# ADR 0001 2.1, 3.1: the contract modules the platform imports (artifacts; ids and runs with #7) are stdlib-only, so
+# importing them pulls in no engine package and no third-party library.
+[[tool.importlinter.contracts]]
+name = "engine contract modules are stdlib-only"
+type = "forbidden"
+source_modules = ["hwflow.artifacts"]
+forbidden_modules = ["hwflow.core", "hwflow.sim", "hwflow.schematic", "hwflow.layout", "hwflow.verify", "hwflow.fw",
+                     "hwflow.pipeline", "hwflow.commands", "hwflow.cli", "yaml", "pydantic", "pydantic_settings",
+                     "ruamel", "numpy"]

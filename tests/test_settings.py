@@ -61,3 +61,27 @@ def test_no_env_reads_outside_settings():
         if n != ALLOWED.get(rel, 0):
             bad.append((rel, n, ALLOWED.get(rel, 0)))
     assert not bad, f"os.environ outside settings.py (file, found, allowed): {bad}"
+
+
+def test_from_snapshot_and_use(monkeypatch, tmp_path):
+    """A stage runs under its run's settings snapshot (key groups), with tools and paths from this machine; threads
+    started inside the block see it too (ADR 0001, 2.5)."""
+    import concurrent.futures as cf
+
+    from hwflow.core import settings as sm
+    monkeypatch.setenv("HWFLOW_SEED0", "7")
+    snap = get_settings().snapshot()
+    monkeypatch.setenv("HWFLOW_SEED0", "9")
+    monkeypatch.setenv("HWFLOW_CAS_DIR", str(tmp_path / "cas"))
+    s = sm.Settings.from_snapshot(snap)
+    assert s.layout.seed0 == 7 and s.paths.cas_dir == str(tmp_path / "cas")
+    with sm.use(s):
+        assert get_settings().layout.seed0 == 7
+        with cf.ThreadPoolExecutor(1) as ex:
+            assert ex.submit(lambda: get_settings().layout.seed0).result() == 7
+    assert get_settings().layout.seed0 == 9
+
+
+def test_cas_dir_default(monkeypatch):
+    monkeypatch.delenv("HWFLOW_CAS_DIR", raising=False)
+    assert get_settings().paths.cas_dir.endswith(".cache/hwflow/cas")

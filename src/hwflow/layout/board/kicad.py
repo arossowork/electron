@@ -24,17 +24,25 @@ def _run(args: list[str], timeout=600) -> subprocess.CompletedProcess:
 
 
 def write_lib_tables(design, libs, outdir: Path):
-    """Project-level sym-lib-table / fp-lib-table with absolute paths for every library used."""
+    """Project-level sym-lib-table / fp-lib-table for every library used: absolute paths, except libraries inside the
+    project, which are relative to the tables (`${KIPRJMOD}/...`), so the tables stay valid when the project moves
+    (a stage runs in a scratch copy, ADR 0001 2.5)."""
     syms = sorted({c.get("symbol").split(":")[0] for c in design.components.values() if c.get("symbol")} | {"power"})
     fps = sorted({c.get("footprint").split(":")[0] for c in design.components.values() if c.get("footprint")})
+    def uri(p: Path) -> str:  # a library inside the project is written relative to the tables (${KIPRJMOD})
+        try:
+            return "${KIPRJMOD}/" + os.path.relpath(Path(p).resolve(), Path(outdir).resolve()).replace(os.sep, "/") \
+                if Path(p).resolve().is_relative_to(Path(design.dir).resolve()) else str(p)
+        except ValueError:
+            return str(p)
     sl = ["(sym_lib_table", "  (version 7)"]
     for lib in syms:
-        sl.append(f'  (lib (name "{lib}")(type "KiCad")(uri "{libs._sym_lib_path(lib)}")(options "")(descr ""))')
+        sl.append(f'  (lib (name "{lib}")(type "KiCad")(uri "{uri(libs._sym_lib_path(lib))}")(options "")(descr ""))')
     fl = ["(fp_lib_table", "  (version 7)"]
     for lib in fps:
         p = next((b / f"{lib}.pretty" for b in libs.extra + [libs.root / "footprints"] if (b / f"{lib}.pretty").exists()), None)
         if p:
-            fl.append(f'  (lib (name "{lib}")(type "KiCad")(uri "{p}")(options "")(descr ""))')
+            fl.append(f'  (lib (name "{lib}")(type "KiCad")(uri "{uri(p)}")(options "")(descr ""))')
     (outdir / "sym-lib-table").write_text("\n".join(sl + [")"]) + "\n")
     (outdir / "fp-lib-table").write_text("\n".join(fl + [")"]) + "\n")
 

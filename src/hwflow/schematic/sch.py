@@ -13,8 +13,17 @@ SCH_VERSION = "20250114"
 G = 1.27
 
 
+_SEQ: list = [None]  # (namespace, next index) while build_schematic runs: UUIDs are a function of the design
+
+
 def uid() -> Q:
-    return Q(str(uuid.uuid4()))
+    """A KiCad UUID. Inside build_schematic it is uuid5(design namespace, running index), so the same design gives
+    the same schematic bytes (a content-addressed output, ADR 0001 2.4); elsewhere a random one."""
+    if _SEQ[0] is None:
+        return Q(str(uuid.uuid4()))
+    ns, n = _SEQ[0]
+    _SEQ[0] = (ns, n + 1)
+    return Q(str(uuid.uuid5(ns, str(n))))
 
 
 def snap(v: float) -> float:
@@ -71,6 +80,14 @@ def _glabel(net, x, y, ang, just):
 
 
 def build_schematic(design: Design, libs) -> list:
+    _SEQ[0] = (uuid.uuid5(uuid.NAMESPACE_URL, f"hwflow:{design.name}"), 0)
+    try:
+        return _build_schematic(design, libs)
+    finally:
+        _SEQ[0] = None
+
+
+def _build_schematic(design: Design, libs) -> list:
     root = uid()
     lib_symbols = ["lib_symbols"]
     embedded = set()

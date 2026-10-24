@@ -268,6 +268,40 @@ A stage function that raises gives `verdict="error"` (type `StageException`), a 
 a hard failure; the report is still rendered. #6 adds `tests/test_cold_equals_cached.py`: a cold and a fully cached
 build of `examples/sensor_preamp` give the same `StageResult`s except `cached` and `seconds`.
 
+### 2.6 As implemented in #6 (amendments to 2.1-2.5)
+
+- **One `layout` spec until #9.** `STAGE_SPECS` has `check, sch, sim, layout, post, fab` (= `STAGES`); #9 splits
+  `layout` into `layout_attempt`/`layout_select`. `layout` declares `layout_select`'s outputs plus `auto` (tree
+  `build/auto/`), params `reuse, auto, attempts, layout_search, seeds, iters, passes, retry_layout` (`workers` is passed
+  as a hint, not keyed). The layout `blocked` pre-check (diagnosis history) stays in the runner, on the project's own
+  `build/`, before the stage is scheduled.
+- **Upstream found by the guard.** `layout` upstream is `sch, sim` (the placer reads `sim.derating` for hot parts);
+  `post` upstream is `layout, sim`. `sch` upstream stays `check` and `sim` upstream `sch` as above.
+- **Tool `kicad-libs`**: KiCad's symbol and footprint libraries (hash of file names and sizes under `paths.kicad_share`),
+  declared by `check, sch, sim, layout, post` (they all read KiCad symbols); the table above had them only implicitly
+  through `kicad-cli`, and `check`/`sim` had no tool.
+- **StageSpec additions**: `unkeyed_state` (state read only on a path whose result is never reused; `layout_history`,
+  which feeds the diagnosis of a failed layout) and `cache_verdicts` (`layout`: `("pass",)`, the others
+  `pass, fail, blocked`). `project_files` returns relpaths present or not, a folder as `"dir/"`; `shared_files`
+  returns probe paths present or not (a new file there shadows a library). Check hooks declare their files with
+  `hwflow.pipeline.hooks.register_check_inputs` (hwharness: `build/approved.json`, `conflicts.md`, `inbox/`); declared
+  `build/...` files go into the project tree.
+- **`cache_key(spec, inp, *, tool_versions, design)`**: `design` is the `Design` loaded from the stage's materialized
+  project (the declared project files are hashed there), so `execute_stage` materializes the project tree first and
+  computes the key second; on a hit the scratch dir is deleted. `key_doc` adds nothing beyond 2.4.
+- **`execute_stage(..., rebuild=False, reuse_verdicts=CACHEABLE, keep_scratch=False)`**: the CLI passes
+  `reuse_verdicts=("pass",)` (it always skipped passed stages only). The materialized project folder is named after
+  the project (`inp.project.name`, the tree ref's name), so a design without `project:` keeps its file names.
+- **Portability fixes the scratch dirs required**: schematic UUIDs are `uuid5(design, index)` (same design, same
+  bytes); library tables write project libraries as `${KIPRJMOD}/...` (each `--auto` attempt writes its own); the
+  SPICE result cache keys an included file by content, not path; `placement.json` keeps `__board_mm__` (the board size
+  of the placement, read by `--reuse` instead of `status.json`); `stage_sim` reuses Monte Carlo by
+  `spec.inputs_id` (12 hex of the key without params and state), passed in a context variable.
+- **`settings.use()`** also sets a process-wide fallback, so threads a stage starts (SPICE pools) see the snapshot.
+- **`LocalCAS`** keeps the first media type in `<sha256>.type` and has `local_path(sha)` (hardlink checkouts). The old
+  `_inputs_hash` (sha1 of all hwflow sources) is gone; `status.json` `inputs_hash` is the cache key prefix.
+- Project state that is not a file in `build/` (`monte_carlo`) is kept as refs in `build/runs/state.json` (3.3).
+
 ## 3. RunStore (#7)
 
 ### 3.1 Run model (`hwflow/runs.py`)

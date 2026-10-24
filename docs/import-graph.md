@@ -11,7 +11,7 @@ Layers, from the top (a package imports only from packages below it):
 
 | Package | Content | Knows |
 |---|---|---|
-| `hwflow.pipeline` | stages, runner, status, report, trace, hooks (`hwflow.hooks` entry points) | everything below |
+| `hwflow.pipeline` | stages, `spec` (StageSpec, cache keys, stage cache), `exec` (execute_stage in a scratch dir), runner, status, report, trace, hooks (`hwflow.hooks` entry points) | everything below |
 | `hwflow.verify` | `postlayout` (extraction, post-layout SPICE), `em` (openEMS), `checks` (the whole `hwflow check`), `blocks` (block authoring: `extract`, `verify`) | layout, sim, core |
 | `hwflow.layout` | `checks` (layout part of `hwflow check`), `feasibility` (registry of pre-layout proofs), `diagnose`; sub-packages `route`, `place`, `board` | sim, core |
 | `hwflow.sim` | `spice`, `simrobust`, `optimize`, `budgets` | core |
@@ -75,6 +75,8 @@ Still cyclic through lazy imports, each inside one package (the layer contracts 
 4. `hwflow.fw` imports none of sim, schematic, layout, verify, pipeline, commands, cli.
 5. Layout layers: `diagnose` > `checks | feasibility` > `route` > `place` > `board`.
 6. `pipeline` and `commands` do not import `cli`.
+7. The contract modules the platform imports (`hwflow.artifacts`; `hwflow.ids`, `hwflow.runs` with #7) are
+   stdlib-only: no engine package, no yaml/pydantic. They sit outside the layers (any layer may import them).
 
 There are no `ignore_imports`. A layer violation is fixed by moving the shared code down, not by an exception.
 

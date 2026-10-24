@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -124,6 +127,7 @@ class PathSettings(_Group):
     krt_dir: str = Field("", validation_alias=AliasChoices("KRT_DIR"))
     freerouting: str = Field("", validation_alias=AliasChoices("FREEROUTING"))
     kicad_share: str = Field("", validation_alias=AliasChoices("KICAD_SHARE"))  # holds symbols/ and footprints/
+    cas_dir: str = Field("", validation_alias=AliasChoices("HWFLOW_CAS_DIR"))  # LocalCAS root and the stage cache
 
     @model_validator(mode="after")
     def _resolve(self):
@@ -133,6 +137,7 @@ class PathSettings(_Group):
         self.tools_dir = self.tools_dir or str(root / "tools")
         self.krt_dir = self.krt_dir or str(Path(self.tools_dir) / "KiCadRoutingTools")
         self.freerouting = self.freerouting or str(Path(self.tools_dir) / "freerouting-2.5.0.jar")
+        self.cas_dir = self.cas_dir or str(Path(os.path.expanduser("~")) / ".cache" / "hwflow" / "cas")
         home = os.path.expanduser("~")
         # "" when KiCad's libraries are not found (libs.share_dir raises): env, Linux, then macOS
         self.kicad_share = _first_existing(
@@ -161,9 +166,39 @@ class Settings(BaseModel):
 
     def key_dump(self) -> dict:
         """The part of the settings that changes the copper or the layout (cache keys): not tool or data paths."""
-        return self.model_dump(mode="json", include={"layout", "repair", "router"})
+        return self.model_dump(mode="json", include=set(KEY_GROUPS))
+
+    @classmethod
+    def from_snapshot(cls, snapshot: Mapping[str, Any]) -> Settings:
+        """The key groups (layout, repair, router) of a run's snapshot; tools and paths from the local environment, so a
+        stage run on another machine uses that machine's binaries and data dirs (ADR 0001, 2.5)."""
+        env = cls()
+        groups = {g: type(getattr(env, g)).model_validate(snapshot[g]) for g in KEY_GROUPS if g in (snapshot or {})}
+        return env.model_copy(update=groups)
+
+
+KEY_GROUPS = ("layout", "repair", "router")
+_CURRENT: ContextVar[Settings | None] = ContextVar("hwflow_settings", default=None)
+_PROCESS: list[Settings] = []  # the same, for threads the block starts (a context variable does not reach a pool)
+
+
+@contextmanager
+def use(settings: Settings) -> Iterator[Settings]:
+    """Make `get_settings()` return `settings` inside the block (a stage run under its run's snapshot), also in the
+    threads started meanwhile (the SPICE runs of a stage use a thread pool)."""
+    tok = _CURRENT.set(settings)
+    _PROCESS.append(settings)
+    try:
+        yield settings
+    finally:
+        _PROCESS.remove(settings)
+        _CURRENT.reset(tok)
 
 
 def get_settings() -> Settings:
-    """Settings from the environment now. Cheap and uncached on purpose: tests change the environment."""
-    return Settings()
+    """Settings from the environment now, or the ones `use()` set. Cheap and uncached on purpose: tests change the
+    environment."""
+    cur = _CURRENT.get()
+    if cur is not None:
+        return cur
+    return _PROCESS[-1] if _PROCESS else Settings()

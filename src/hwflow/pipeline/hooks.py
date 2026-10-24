@@ -7,8 +7,10 @@ the engine runs unchanged.
 
 Hooks:
 - check findings: `fn(design) -> list[finding]`, appended to the findings of the `check` stage.
-- check state: `fn(design, findings) -> {key: value}`, merged into the result of the `check` stage; the stage is
-  re-run (not skipped) when the value computed now differs from the one stored in the last result.
+- check state: `fn(design, findings) -> {key: value}`, merged into the result of the `check` stage.
+- check inputs: `fn(design) -> list[str]`, the project paths the check hooks read besides design.yaml (files, or
+  folders ending in "/"; `build/...` files too). They are inputs of the `check` stage: its cache key hashes them and
+  the stage's scratch copy of the project holds them (ADR 0001, 2.3).
 - report extras: `fn(design) -> dict`, stored in build/status.json under `name` after the report is written. The
   keys in `history_keys` are copied into the line appended to build/history.jsonl.
 - commands: extra `hwflow <name>` subcommands (`add_arguments(parser)`, `run(design, args) -> int`).
@@ -27,6 +29,7 @@ ENTRY_POINT_GROUP = "hwflow.hooks"
 CheckFindings = Callable[[Any], list[dict]]
 CheckState = Callable[[Any, list[dict]], dict]
 ReportExtra = Callable[[Any], dict]
+CheckInputs = Callable[[Any], list[str]]
 
 
 @dataclass
@@ -48,6 +51,7 @@ class CommandHook:
 class Registry:
     check_findings: list[CheckFindings] = field(default_factory=list)
     check_state: list[CheckState] = field(default_factory=list)
+    check_inputs: list[CheckInputs] = field(default_factory=list)
     report_extras: list[ReportHook] = field(default_factory=list)
     commands: dict[str, CommandHook] = field(default_factory=dict)
     loaded: bool = False
@@ -62,6 +66,10 @@ def register_check_findings(fn: CheckFindings) -> None:
 
 def register_check_state(fn: CheckState) -> None:
     _R.check_state.append(fn)
+
+
+def register_check_inputs(fn: CheckInputs) -> None:
+    _R.check_inputs.append(fn)
 
 
 def register_report_extra(name: str, fn: ReportExtra, history_keys: tuple[str, ...] = ()) -> None:

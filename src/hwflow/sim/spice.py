@@ -436,11 +436,11 @@ def netlist_cache_key(netlist: str) -> str:
             _NGSPICE_VERSION.append(p.stdout + p.stderr)
         except (OSError, subprocess.SubprocessError):
             _NGSPICE_VERSION.append("?")
-    h = hashlib.sha1(netlist.encode())
+    def content(m):  # an included file counts by its content, not by its path (a stage runs in a scratch dir)
+        f = Path(m.group(2).strip("\"'"))
+        return m.group(1) + (hashlib.sha1(f.read_bytes()).hexdigest() if f.is_file() else "-")
+    h = hashlib.sha1(re.sub(r"^(\.(?:include|lib)\s+)(\S+)", content, netlist, flags=re.I | re.M).encode())
     h.update(_NGSPICE_VERSION[0].encode())
-    for m in re.finditer(r"^\.(?:include|lib)\s+(\S+)", netlist, re.I | re.M):
-        f = Path(m.group(1).strip("\"'"))
-        h.update(f.read_bytes() if f.is_file() else b"-")
     return h.hexdigest()
 
 

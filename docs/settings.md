@@ -6,7 +6,9 @@ outside `settings.py` reads `os.environ` (`tests/test_settings.py` fails if one 
 subprocess environments that pass the parent environment to a child on purpose: `kicad.py` (kicad-cli), `pcb.py` (the
 router) and `commands/em.py` (the openEMS re-exec).
 
-The resolved settings are saved in `build/status.json` under `settings` for each build. The layout, repair and router
+The resolved settings are saved in `build/status.json` under `settings` for each build. A stage runs under its
+run's snapshot: `Settings.from_snapshot(snap)` takes the layout, repair and router groups from it and tools and paths
+from this machine, and `with settings.use(s):` makes `get_settings()` return it (also in threads started inside). The layout, repair and router
 groups are folded into the route and region cache keys (`Settings.key_dump()`); paths and tool locations are not.
 
 | Setting | Env var | Default | Meaning |
@@ -36,6 +38,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `paths.krt_dir` | `KRT_DIR` | `<tools_dir>/KiCadRoutingTools` | KiCadRoutingTools checkout |
 | `paths.freerouting` | `FREEROUTING` | `<tools_dir>/freerouting-2.5.0.jar` | Freerouting jar |
 | `paths.kicad_share` | `KICAD_SHARE` | first of `/usr/share/kicad`, `/usr/local/share/kicad`, the macOS app | KiCad libraries (`symbols/`, `footprints/`) |
+| `paths.cas_dir` | `HWFLOW_CAS_DIR` | `~/.cache/hwflow/cas` | Local artifact store (`LocalCAS`) and stage cache (`keys/<stage>/<key>.json`) |
 
 Package data (`models/generic.lib`, hashed source files) stays relative to the package. No setting holds a secret;
 `Settings.snapshot()` is where one would be dropped.
