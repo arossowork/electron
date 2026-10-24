@@ -170,6 +170,43 @@ Terminals are net names or `REF.PIN`. Use `REF.PIN` for sources that feed a conn
 
 A measure whose name starts with `dbg_`, or that sets `debug: true`, is a debug probe: the report lists its value apart, and it never counts in the pass ratio, the verdict, the requirement trace, the post-layout comparison or the Monte Carlo yield.
 
+### Convergence fallback
+
+A run whose DC operating point (OP) did not converge cleanly (ngspice reports `gmin stepping failed`, `source stepping failed`, `DC solution failed`, `Transient op failed`; or the run failed with a `singular matrix`) is retried without changing the circuit, cheapest first:
+
+1. `.nodeset` with every node voltage of a clean OP of the same netlist (the analysis' own options and `alter` lines included): at 25 C, else at the nearest temperature of the analysis that converges without help. A nodeset is an initial guess that ngspice releases, not a constraint.
+2. gmin and source stepping: `option gmin=1e-12 gminsteps=100 srcsteps=100`, inserted after the analysis' own options.
+3. Both.
+
+Each step first solves the OP alone (cheap). A step counts only when its OP converges cleanly and is plausible: every net is compared with the reference OP, the report gives the largest move, and a move beyond `max(0.05 V, 5 %)` (`sim.fallback_tol: {v: 0.05, rel: 0.05}`) on a supply net (`class: power`), a scope boundary or a net the analysis measures rejects the step. Moves on other nets are listed, not rejected. The report names the step that produced the result (`convergence fallback <analysis> @ <T>: gmin+source stepping ...`). When no step gives a clean, plausible OP, a run that ngspice called finished is not evidence either: its measures fail with `n/a: DC operating point not trustworthy (...)`. A transient with `uic` computes no OP and gets no fallback, nor does a transient that fails after its OP (`timestep too small` alone). Monte Carlo runs get no fallback. `sim.fallback: false` turns it off.
+
+### Floating nodes
+
+A node with no DC path to ground (only capacitors, MOSFET gates, unsimulated parts or high-impedance model inputs) makes the OP singular. `hwflow` finds them in the netlist before ngspice runs: R, L, V, diodes, transistor junctions, switches, voltage-output controlled sources and the ports of a subckt whose model file it can read (it follows the subckt's own elements) count as DC paths; an element it cannot classify counts as a path, so a leak is never added on a guess. It adds one noiseless resistor (`noisy=0`, default 1 Gohm, `sim.leaks: {ohm: 1e9}`) from each floating island to ground. `hwflow check` warns about each (`floating-node`), so the designer can give the node a real DC path; the report lists each leak with its OP voltage, its current and its corner `1/(2 pi R C)`: the leak changes AC results by less than 0.5 % above 10 times that corner (the report flags a corner within 10x of the lowest analysis frequency). At DC the island has no other conducting element, so the leak only defines its level. `sim.leaks: false` turns it off; `rshunt` in `sim.options` already ties every node to ground, so no leak is added then.
+
+### scope
+
+A scoped analysis simulates one block instead of the whole board, so that a block-level measure (audio noise, a filter response) does not depend on the convergence of unrelated circuitry. It is opt-in per analysis:
+
+```yaml
+    - name: hp_noise
+      cmd: noise v(HP_L) VIN_AUD dec 40 20 20k
+      temps: [0, 25, 40]
+      scope:
+        nets: [HP_L]                  # measured nets (the nets the measures and the cmd name are added)
+        boundary: [5V_SYS, 3V3_D]     # supply nets replaced by a Thevenin source
+        tol: 0.02                     # relative tolerance of the validation gate (default 2 %)
+        atol: 0                       # absolute floor in the measure's unit (default 0)
+        band: [20, 20k]               # impedance-fit band (default: the ac/noise band of the cmd)
+        timeout_s: 120                # bound of each scoped ngspice run (default 120 s, at most the analysis' timeout_s)
+```
+
+`hwflow` keeps every part reachable from the measured nets (and from the noise input source and `i(X)` probes) without crossing a boundary net or ground, so a regulator between a boundary and the block stays in with its noise: put the boundary upstream of every part whose effect the measure must include. Each boundary net reached becomes `V (DC) - R - [L] - node [|| C to ground]`: the DC value is the net's voltage in the full-board OP at that temperature (with the convergence fallback if needed) plus the block's own DC current times R, so the block sees the full-board voltage; the impedance is fitted (R, R+L, R||C or (R+L)||C, the simplest within 1.25x of the best maximum relative error) to the full board's small-signal impedance at the net (an AC run with 1 A injected, the response without injection subtracted, then de-embedded from the block's own load). The fitted resistor is noiseless: noise from beyond the boundary is not in the scoped result. Mutual coupling between two boundaries is not modelled. `alter` lines on devices outside the scope are dropped; scoped OPs start from the full-board OP (`.nodeset`).
+
+The validation gate is mandatory: at every temperature where the full board converges (with a plausible fallback counted), the full and the scoped analysis both run, and every non-debug measure of the scoped run must be within `max(tol x |full|, atol)` of the full one. Passed: the scoped values are the result at every temperature, including those where the full board does not converge. Failed, or no temperature where the full board converges: the scope is rejected; where the full board converged its own result stands, elsewhere every measure fails with `n/a: scope not validated (...)`. The report lists the gate (`scope <analysis>: VALIDATED at ...` or `REJECTED (...)`, full vs scoped per measure and temperature, the boundary models and run times) and `status.json` holds it under `sim.scopes`. Every run goes through the simulation cache, so an unchanged netlist does not rerun the full-board validation. A scope applies to the schematic-level simulation only: post-layout and Monte Carlo runs simulate the full board.
+
+When a full-board analysis does not converge, the report names the nets of ngspice's `check node` messages and suggests a scope.
+
 ## blocks
 
 A layout block is a sub-circuit laid out and checked once: a boost cell, an MCU module with its decoupling, a guard FET pair. The library is `blocks/<name>/block.yaml` in the repository (`uv run hwflow block list`, `uv run hwflow block show <name>`); a project may add its own in `<proj>/blocks/`. A design binds its components to a block's roles:
