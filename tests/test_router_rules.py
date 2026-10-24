@@ -48,7 +48,7 @@ def test_router_pass_sees_the_drc_rules(tmp_path, monkeypatch):
 @needs_router
 @pytest.mark.slow
 def test_large_class_clearance_has_no_drc_clearance_errors(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _project(tmp_path, 1.2)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)
@@ -117,7 +117,7 @@ def _min_gap(segs, a, b):
 @needs_router
 @pytest.mark.slow
 def test_router_keeps_the_creepage_between_isolation_sides(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _iso_project(tmp_path, 1.0)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)
@@ -133,7 +133,7 @@ def test_router_keeps_tracks_out_of_a_tracks_not_allowed_area(tmp_path, monkeypa
     """Rule areas are read by the router from the board itself, so no `disallow` rule is needed for them."""
     from shapely.geometry import LineString, Polygon
     from hwflow import sexpr
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     zone = '''(zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (uuid "5b6c1a0e-3d0a-4c7e-9a11-0a1b2c3d4e0a") (name "KO_T") (hatch edge 0.5)
       (connect_pads (clearance 0)) (min_thickness 0.25)
       (keepout (tracks not_allowed) (vias not_allowed) (pads allowed) (copperpour allowed) (footprints allowed))
@@ -363,7 +363,7 @@ def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, m
 def test_router_keeps_between_mm_between_members(tmp_path):
     """A real KiCadRoutingTools run: two member nets of one group keep between_mm track to track (the isb_ class
     rules) while the group keeps its own distance to the other nets."""
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _between_project(tmp_path, 0.3, 0.6)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)

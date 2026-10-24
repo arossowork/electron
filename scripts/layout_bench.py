@@ -7,7 +7,7 @@ personas, not buildable designs, so they are not in the set. Every run builds in
 (default build/bench/work/), never inside evals/, examples/ or projects/.
 
 Per run the flow is `build --until layout --auto` without SPICE: check and sch run once per design copy (layout needs
-the library tables from sch, not simulation results), then `cli.layout_auto(attempts=4, workers=1)` runs in a child
+the library tables from sch, not simulation results), then `pl_stages.layout_auto(attempts=4, workers=1)` runs in a child
 process (timeout per run) with timing wrappers on placer.place, pcb.run_krt / pcb.krt_route, repair.repair and
 kicad.drc / kicad.drc_fast. A wrapper records only the outermost call, so the router and the fast DRC inside repair
 count as repair. Seeds: run i adds 0, 100, 200 to the placer's seed0 (attempt k then uses seed0 + 4k as usual).
@@ -71,7 +71,8 @@ def design_set() -> dict[str, Path]:
 
 # ---------------------------------------------------------------- child: one design, one seed
 def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
-    from hwflow import cli, kicad, pcb, placer, postlayout, repair
+    from hwflow import kicad, pcb, placer, postlayout, repair
+    from hwflow.pipeline import stages as pl_stages
     from hwflow.design import Design
     from hwflow.libs import Libs
 
@@ -136,7 +137,7 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
     out = rundir / "build"
     t0 = time.time()
     try:
-        r = cli.layout_auto(d, libs, attempts=4, seeds=seeds, iters=iters, workers=1)
+        r = pl_stages.layout_auto(d, libs, attempts=4, seeds=seeds, iters=iters, workers=1)
         err = None
     except Exception as e:  # noqa: BLE001
         r, err = None, f"{type(e).__name__}: {str(e)[:300]}"
@@ -217,7 +218,7 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
 # ---------------------------------------------------------------- parent
 def prep(src: Path, work: Path, name: str) -> Path:
     """Fresh copy of a design in the work dir with check and sch run (library tables, project files)."""
-    from hwflow import cli
+    from hwflow.pipeline import stages as pl_stages
     from hwflow.design import Design
     from hwflow.libs import Libs
     dst = work / name / "prep"
@@ -242,8 +243,8 @@ def prep(src: Path, work: Path, name: str) -> Path:
         print(f"  released {len(freed)} of {len(raw['components'])} parts", flush=True)
     d = Design.load(dst)
     libs = Libs(design=d)
-    c = cli.stage_check(d, libs)
-    s = cli.stage_sch(d, libs)
+    c = pl_stages.stage_check(d, libs)
+    s = pl_stages.stage_sch(d, libs)
     print(f"  prep {name}: check {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors), sch {'OK' if s['ok'] else 'FAIL'} ({s['errors']} ERC errors, ignored)", flush=True)
     return dst
 

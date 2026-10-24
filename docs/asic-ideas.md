@@ -36,7 +36,7 @@ DREAMPlace, OpenDP, macro placement) tried on `placer.py`. Every idea sits behin
 | `HWFLOW_ANALYTIC` | flow 2: global placement, then legalization, then the annealer at a low start temperature | `gplace.py`, `Placer.run` |
 | `HWFLOW_ANALYTIC_DP` | flow 3: global placement, then legalization, then OpenDP-style detailed placement, with no annealing | `gplace.py`, `Placer.detailed` |
 | `HWFLOW_MACRO_FIRST` | idea 3: blocks and large parts first, then the small parts, then everything cool | `Placer._macro_first` |
-| `HWFLOW_SEED0` | the first placer seed of `layout --auto` (attempt k uses seed0 + 4k) | `cli._auto_attempt` |
+| `HWFLOW_SEED0` | the first placer seed of `layout --auto` (attempt k uses seed0 + 4k) | `pipeline.stages._auto_attempt` |
 
 Instrumentation that is always on and changes no result:
 - the layout stage result has `timing` (`place_s`, `route_s`, `repair_s`, `drc_s`; `drc_s` includes the repair's

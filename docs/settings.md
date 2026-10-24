@@ -4,7 +4,7 @@ Every switch and path of the engine is one typed object, `hwflow.settings.Settin
 `get_settings()`: it reads the environment at call time and caches nothing, so tests can `monkeypatch.setenv`. No module
 outside `settings.py` reads `os.environ` (`tests/test_settings.py` fails if one does). The only exceptions are
 subprocess environments that pass the parent environment to a child on purpose: `kicad.py` (kicad-cli), `pcb.py` (the
-router) and `cli.py` (the openEMS re-exec).
+router) and `commands/em.py` (the openEMS re-exec).
 
 The resolved settings are saved in `build/status.json` under `settings` for each build. The layout, repair and router
 groups are folded into the route and region cache keys (`Settings.key_dump()`); paths and tool locations are not.

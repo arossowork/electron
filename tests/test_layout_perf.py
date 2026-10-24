@@ -6,7 +6,8 @@ import time
 
 import pytest
 
-from hwflow import cli, kicad, pcb, repair
+from hwflow import kicad, pcb, repair
+from hwflow.pipeline import stages as pl_stages
 from hwflow.design import Design
 from hwflow.libs import Libs
 
@@ -48,20 +49,20 @@ def test_route_cache_skips_router(tmp_path, monkeypatch):
         calls["drc"] += 1
         return []
 
-    monkeypatch.setattr(cli, "_route_once", route)
+    monkeypatch.setattr(pl_stages, "_route_once", route)
     monkeypatch.setattr(kicad, "drc", drc)
-    r1 = cli.stage_layout(d, libs, seeds=1, iters=200)
+    r1 = pl_stages.stage_layout(d, libs, seeds=1, iters=200)
     assert calls == {"route": 1, "drc": 1} and not r1["route_cache"]
     b1 = (tmp_path / "build" / "perf.kicad_pcb").read_text()
-    r2 = cli.stage_layout(d, libs, reuse=True)
+    r2 = pl_stages.stage_layout(d, libs, reuse=True)
     assert calls == {"route": 1, "drc": 2}, "a cache hit must not call the router, the full DRC runs again"
     assert r2["route_cache"] and r2["segments"] == r1["segments"]
     assert (tmp_path / "build" / "perf.kicad_pcb").read_text() == b1
     d.raw["board"]["clearance_mm"] = 0.3  # other rules: another key
-    cli.stage_layout(d, libs, reuse=True)
+    pl_stages.stage_layout(d, libs, reuse=True)
     assert calls["route"] == 2
     monkeypatch.setenv("KICAD_RIP_PREEXISTING", "1")  # another router environment: another key
-    cli.stage_layout(d, libs, reuse=True)
+    pl_stages.stage_layout(d, libs, reuse=True)
     assert calls["route"] == 3
 
 
@@ -96,14 +97,14 @@ def _run_auto(tmp_path, monkeypatch, plan, workers=4):
         started.append(k)
         sec, r = plan[k]
         time.sleep(sec)
-        w = cli._AUTO["out"] / "auto" / f"a{k + 1}"
+        w = pl_stages._AUTO["out"] / "auto" / f"a{k + 1}"
         w.mkdir(parents=True, exist_ok=True)
         (w / "perf.kicad_pcb").write_text(f"board {k + 1}")
         return {"k": k + 1, "r": r, "line": f"attempt {k + 1}"}
 
-    monkeypatch.setattr(cli, "_auto_attempt", attempt)
-    monkeypatch.setattr(cli, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
-    r = cli.layout_auto(d, libs, attempts=4, workers=workers)
+    monkeypatch.setattr(pl_stages, "_auto_attempt", attempt)
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
+    r = pl_stages.layout_auto(d, libs, attempts=4, workers=workers)
     return r, started, (tmp_path / "build" / "perf.kicad_pcb").read_text()
 
 
@@ -124,22 +125,22 @@ def test_first_attempt_final_starts_no_pool(tmp_path, monkeypatch):
     def no_pool(n):
         raise AssertionError("no pool when attempt 1 is final")
 
-    monkeypatch.setattr(cli, "_auto_pool", no_pool)
+    monkeypatch.setattr(pl_stages, "_auto_pool", no_pool)
     d, libs = _design(tmp_path)
-    monkeypatch.setattr(cli, "_auto_attempt", lambda k: {"k": k + 1, "r": _result(0), "line": f"attempt {k + 1}"})
-    r = cli.layout_auto(d, libs, attempts=4, workers=4)
+    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: {"k": k + 1, "r": _result(0), "line": f"attempt {k + 1}"})
+    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
     assert r["ok"] and r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1
 
 
 def test_all_fixed_parts_run_one_attempt(tmp_path, monkeypatch):
     d, libs = _design(tmp_path)
     d.raw["components"]["R2"]["placement"]["fixed"] = True
-    monkeypatch.setattr(cli, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
     started = []
-    monkeypatch.setattr(cli, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(2), "line": "a"})
+    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(2), "line": "a"})
     d2 = Design.load(tmp_path)
     d2.raw["components"]["R2"]["placement"]["fixed"] = True
-    r = cli.layout_auto(d2, Libs(design=d2), attempts=4)
+    r = pl_stages.layout_auto(d2, Libs(design=d2), attempts=4)
     assert started == [0] and r["auto"]["stopped"] == "all parts fixed: one attempt"
 
 
@@ -151,7 +152,7 @@ def test_early_stop_on_fixed_parts(tmp_path, monkeypatch):
     assert time.time() - t < 3, "the later attempts are not waited for"
     assert started == [0, 1, 2] and r["auto"]["kept"] == 1  # 2 is the best of 1 and 2 (same errors, same vias)
     assert r["auto"]["stopped"] == "stopped: remaining errors are on fixed parts: BT1, U2"
-    assert "stopped: remaining errors are on fixed parts: BT1, U2" in cli._auto_summary(r)
+    assert "stopped: remaining errors are on fixed parts: BT1, U2" in pl_stages._auto_summary(r)
 
 
 def test_reuse_ignores_a_placement_for_another_board_size(tmp_path, monkeypatch):
@@ -160,30 +161,30 @@ def test_reuse_ignores_a_placement_for_another_board_size(tmp_path, monkeypatch)
     out.mkdir(exist_ok=True)
     pj = out / "placement.json"
     pj.write_text(json.dumps({"__design_board__": [74, 46], "R1": [1, 1, 0]}))
-    assert cli._saved_board(pj) == [74, 46]
+    assert pl_stages._saved_board(pj) == [74, 46]
 
     class Placed(Exception):
         pass
 
-    monkeypatch.setattr(cli.placer, "place", lambda *a, **k: (_ for _ in ()).throw(Placed()))
+    monkeypatch.setattr(pl_stages.placer, "place", lambda *a, **k: (_ for _ in ()).throw(Placed()))
     with pytest.raises(Placed):  # the design declares another size: place again instead of reusing
-        cli.stage_layout(d, libs, reuse=True)
+        pl_stages.stage_layout(d, libs, reuse=True)
     pj.write_text(json.dumps({"R1": [1, 1, 0]}))
-    assert cli._saved_board(pj) is None  # a file from before the field: reused as before
+    assert pl_stages._saved_board(pj) is None  # a file from before the field: reused as before
 
 
 def test_hopeless_first_attempt_starts_no_pool(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
     monkeypatch.delenv("HWFLOW_AUTO_MAX_ERRORS", raising=False)
     d, libs = _design(tmp_path)
     started = []
-    monkeypatch.setattr(cli, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(121), "line": "a"})
-    r = cli.layout_auto(d, libs, attempts=4, workers=4)
+    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(121), "line": "a"})
+    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
     assert started == [0] and r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors (limit 40)")
     monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "200")  # under the limit: the other attempts run
-    monkeypatch.setattr(cli, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
     started.clear()
-    r = cli.layout_auto(d, libs, attempts=4, workers=4)
+    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
     assert sorted(started) == [0, 1, 2, 3] and not r["auto"]["stopped"]
 
 
@@ -201,10 +202,10 @@ def test_attempts_have_their_own_directories(tmp_path, monkeypatch):
         (workdir / "perf.kicad_pcb").write_text(str(seed0))
         return _result(0)
 
-    monkeypatch.setattr(cli, "stage_layout", stage)
-    cli._AUTO.update(d=d, libs=libs, out=out, size0=(30, 20), seeds=4, iters=1, passes=1, reuse=True)
+    monkeypatch.setattr(pl_stages, "stage_layout", stage)
+    pl_stages._AUTO.update(d=d, libs=libs, out=out, size0=(30, 20), seeds=4, iters=1, passes=1, reuse=True)
     for k in range(4):
-        assert cli._auto_attempt(k)["k"] == k + 1
+        assert pl_stages._auto_attempt(k)["k"] == k + 1
     assert len(set(dirs)) == 4 and all(x.parent == out / "auto" for x in dirs)
     assert (dirs[0] / "placement.json").exists() and not (dirs[1] / "placement.json").exists()  # only attempt 1 reuses
     assert all((x / "fp-lib-table").exists() for x in dirs)

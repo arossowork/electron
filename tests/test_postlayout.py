@@ -114,7 +114,7 @@ def test_isolation_rules_come_from_design_data(tmp_path):
 
     import yaml
 
-    from hwflow.cli import _design_hash, isolation_distances, trace
+    from hwflow.pipeline import _design_hash, isolation_distances, trace
     from hwflow.design import Design
     from hwflow.pcb import isolation_groups, write_project
     raw = {"project": "iso", "board": {"layers": 2, "isolation": [

@@ -56,3 +56,9 @@ name = "hwflow.cli is not imported by the engine modules"
 type = "forbidden"
 source_modules = ["hwflow.design", "hwflow.pcb", "hwflow.placer", "hwflow.spice", "hwflow.sch", "hwflow.kicad", "hwflow.sexpr"]
 forbidden_modules = ["hwflow.cli"]
+
+[[tool.importlinter.contracts]]
+name = "hwflow.pipeline and hwflow.commands do not import hwflow.cli"
+type = "forbidden"
+source_modules = ["hwflow.pipeline", "hwflow.commands"]
+forbidden_modules = ["hwflow.cli"]

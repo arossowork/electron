@@ -18,7 +18,7 @@ def test_min_width_only_for_nets_that_set_it():
 
 
 def test_net_stats_widths_narrow_length_layers_vias():
-    from hwflow.cli import net_stats
+    from hwflow.pipeline import net_stats
     tracks = [{"net": "AC", "w": 1.0, "x1": 0, "y1": 0, "x2": 3, "y2": 4, "layer": "F.Cu"},
               {"net": "AC", "w": 0.15, "x1": 3, "y1": 4, "x2": 3, "y2": 6, "layer": "F.Cu"}]
     vias = [{"net": "AC", "x": 0, "y": 0}, {"net": "GND", "x": 1, "y": 1}]
@@ -32,7 +32,7 @@ def test_net_stats_widths_narrow_length_layers_vias():
 def _traced(tmp_path, nets_status, reqs):
     import json
     import yaml
-    from hwflow.cli import _design_hash, trace
+    from hwflow.pipeline import _design_hash, trace
     from hwflow.design import Design
     raw = {"project": "mw", "board": {"layers": 2, "gnd_pour": False},
            "nets": {"AC": {"class": "mains", "width_mm": 1.0, "min_width_mm": 1.0, "layers": ["F.Cu"], "req": "R13"}},

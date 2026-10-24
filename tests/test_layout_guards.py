@@ -10,7 +10,8 @@ import pytest
 import yaml
 from shapely.geometry import Point, box
 
-from hwflow import cli, diagnose, floorplan, pcb, placer, postlayout, repair, routing
+from hwflow import diagnose, floorplan, pcb, placer, postlayout, repair, routing
+from hwflow.pipeline import stages as pl_stages
 from hwflow.design import Design, check
 from hwflow.libs import Libs
 
@@ -145,14 +146,14 @@ def test_auto_stops_at_the_wall_time_budget(tmp_path, monkeypatch, capsys):
 
     def attempt(k):
         time.sleep(plan[k])
-        (cli._AUTO["out"] / "auto" / f"a{k + 1}").mkdir(parents=True, exist_ok=True)
+        (pl_stages._AUTO["out"] / "auto" / f"a{k + 1}").mkdir(parents=True, exist_ok=True)
         return {"k": k + 1, "r": _result(2), "line": f"attempt {k + 1} line"}
 
-    monkeypatch.setattr(cli, "_auto_attempt", attempt)
-    monkeypatch.setattr(cli, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
-    monkeypatch.setattr(cli, "layout_diagnosis", lambda d, libs, att: {"attempts": len(att)})
+    monkeypatch.setattr(pl_stages, "_auto_attempt", attempt)
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
+    monkeypatch.setattr(pl_stages, "layout_diagnosis", lambda d, libs, att: {"attempts": len(att)})
     t = time.time()
-    r = cli.layout_auto(d, Libs(design=d), attempts=4, workers=3)
+    r = pl_stages.layout_auto(d, Libs(design=d), attempts=4, workers=3)
     assert time.time() - t < 2.5, "running attempts are not waited for past the budget"
     assert r["auto"]["kept"] == 1
     assert "wall-time budget 0.5 s" in r["auto"]["stopped"] and "1 of 4 attempts" in r["auto"]["stopped"]

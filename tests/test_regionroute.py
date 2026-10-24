@@ -68,7 +68,7 @@ def test_group_key_changes_only_for_the_group_whose_pads_move(tmp_path):
 
 @needs_router
 def test_moving_a_part_in_one_region_reroutes_only_that_group(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     res = stage_layout(two_regions(tmp_path), Libs(), seeds=1, iters=500)
     assert [(g["name"], g["cache"]) for g in res["route_groups"]] == [("hv", "miss"), ("lv", "miss")]
     assert res["unrouted"] == 0 and "2 route groups" in res["router"]

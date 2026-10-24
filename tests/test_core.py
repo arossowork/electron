@@ -204,7 +204,7 @@ def _fake_out(a, extra=""):
 def test_measure_out_of_interval_is_a_warning_when_rows_pass(tmp_path, monkeypatch):
     """Backlog 20: 'Error: measure ... out of interval' with every measure passing is not a FAIL."""
     from hwflow import spice
-    from hwflow.cli import _sim_verdict
+    from hwflow.pipeline.report import _sim_verdict
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     msg = "Error: measure  probe  find(AT) : out of interval\n"
@@ -233,7 +233,7 @@ def test_debug_measures_do_not_count(tmp_path):
     """Backlog 19: a failing dbg_* probe is listed apart and leaves pass/total, verdict and trace alone."""
     import yaml
 
-    from hwflow.cli import stage_sim, trace, _save_status
+    from hwflow.pipeline import stage_sim, trace, _save_status
     proj = _copy_example(tmp_path)
     y = yaml.safe_load((proj / "design.yaml").read_text())
     a = next(x for x in y["sim"]["analyses"] if x["name"] == "dc_op")
@@ -286,7 +286,7 @@ def test_ngspice_crash_is_retried_once(tmp_path, monkeypatch):
 
 
 def test_report_names_the_analysis_that_timed_out(tmp_path):
-    from hwflow.cli import _save_status, stage_sim, write_report
+    from hwflow.pipeline import _save_status, stage_sim, write_report
     import yaml
     proj = _copy_example(tmp_path)
     y = yaml.safe_load((proj / "design.yaml").read_text())
@@ -325,7 +325,7 @@ def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
 
 def test_design_hash_ignores_comments_and_prose(tmp_path):
     """Backlog 58: comments, whitespace and requirement prose do not make results stale; values do."""
-    from hwflow.cli import _design_hash
+    from hwflow.pipeline import _design_hash
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").write_text("requirements:\n  - {id: R1, text: a, evidence: x, verification: simulation}\n")
     d = Design.load(proj)
@@ -347,21 +347,21 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
     Backlog 18: every build appends to build/history.jsonl and keeps the report in build/history/."""
     import json
 
-    from hwflow import cli
+    from hwflow.pipeline import report as pl_report, score, stages as pl_stages, status as pl_status
     from hwflow.libs import Libs
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").unlink(missing_ok=True)
     d = Design.load(proj)
-    cli._save_status(d, "check", cli.stage_check(d, Libs()))
-    text = cli.write_report(d, history=True)
+    pl_status._save_status(d, "check", pl_stages.stage_check(d, Libs()))
+    text = pl_report.write_report(d, history=True)
     assert "Verdict: PASS" in text and "(stale)" not in text
     y = proj / "design.yaml"
     y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
     d = Design.load(proj)
-    monkeypatch.setattr(cli, "HISTORY_KEEP", 1)
-    text = cli.write_report(d, history=True)
+    monkeypatch.setattr(pl_report, "HISTORY_KEEP", 1)
+    text = pl_report.write_report(d, history=True)
     assert "- check (stale): OK" in text and "Verdict: FAIL: stale: check" in text
-    assert cli.score(d)["check_errors"] is None                      # score stays fresh-only
+    assert score(d)["check_errors"] is None                      # score stays fresh-only
     lines = [json.loads(x) for x in (proj / "build" / "history.jsonl").read_text().splitlines()]
     assert [x["verdict"] for x in lines] == ["PASS", "FAIL: stale: check"]
     kept = list((proj / "build" / "history").glob("*.md"))
@@ -370,7 +370,7 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
 
 def test_trace_flags_missing_evidence_files(tmp_path):
     """Backlog 54: file paths cited in evidence must exist and not be empty; URLs and words are ignored."""
-    from hwflow.cli import missing_evidence, trace
+    from hwflow.pipeline import missing_evidence, trace
     (tmp_path / "notes").mkdir()
     (tmp_path / "notes" / "calc.py").write_text("x = 1\n")
     (tmp_path / "SUMMARY.md").write_text("")
@@ -483,7 +483,7 @@ def test_router_retries_a_class_in_another_net_order(tmp_path):
 
 def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monkeypatch):
     """Backlog 23/25: one call places, routes, checks DRC and retries with new placer seeds until the board is clean."""
-    from hwflow import cli
+    from hwflow.pipeline import stages as pl_stages, status as pl_status
     proj = _copy_example(tmp_path)
     d = Design.load(proj)
     seen = []
@@ -497,35 +497,35 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
         return {"ok": not bad, "board_mm": [50, 40], "unrouted": 0, "drc_errors": 2 if bad else 0, "drc_warnings": 0,
                 "placement_violations": [], "vias": 10, "segments": 5, "router": "", "drc": []}
 
-    monkeypatch.setattr(cli, "stage_layout", fake)
-    (cli._out(d) / "placement.json").write_text("{}")
-    r = cli.layout_auto(d, None, reuse=True, attempts=4, seeds=4, workers=1)  # in this process, one at a time
+    monkeypatch.setattr(pl_stages, "stage_layout", fake)
+    (pl_status._out(d) / "placement.json").write_text("{}")
+    r = pl_stages.layout_auto(d, None, reuse=True, attempts=4, seeds=4, workers=1)  # in this process, one at a time
     assert seen == [(True, 1), (False, 5), (False, 9)]
     assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
-    assert (cli._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
-    assert "kept attempt 3 of 3" in cli._auto_summary(r)
+    assert (pl_status._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
+    assert "kept attempt 3 of 3" in pl_stages._auto_summary(r)
 
 
 def test_post_is_stale_when_layout_ran_after_it(tmp_path):
     """Backlog 43: a post-layout result from an older board is marked stale even if design.yaml did not change."""
     import time
 
-    from hwflow import cli
+    from hwflow.pipeline import report as pl_report, score, status as pl_status
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").unlink(missing_ok=True)
     d = Design.load(proj)
     post = {"ok": True, "checks": [], "ir_drop": [], "deltas": [], "regressions": [],
             "metrics": {"area_mm2": 1, "layers": 2, "track_len_mm": 1, "vias": 0}}
-    cli._save_status(d, "post", post)
-    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == []
+    pl_status._save_status(d, "post", post)
+    assert pl_status._stale_stages(pl_status._status(d), pl_status._design_hash(d)) == []
     time.sleep(0.01)
-    cli._save_status(d, "layout", {"ok": True, "board_mm": [50, 40], "router": "", "segments": 0, "vias": 0,
+    pl_status._save_status(d, "layout", {"ok": True, "board_mm": [50, 40], "router": "", "segments": 0, "vias": 0,
                                    "drc_errors": 0, "drc_warnings": 0, "unrouted": 0, "drc": [],
                                    "placement_violations": []})
-    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == ["post"]
-    text = cli.write_report(d)
-    assert "- post-layout (stale)" in text and "stale: post" in text and "post_pass_ratio" in cli.score(d)
-    assert cli.score(d)["post_pass_ratio"] is None
+    assert pl_status._stale_stages(pl_status._status(d), pl_status._design_hash(d)) == ["post"]
+    text = pl_report.write_report(d)
+    assert "- post-layout (stale)" in text and "stale: post" in text and "post_pass_ratio" in score(d)
+    assert score(d)["post_pass_ratio"] is None
 
 
 @pytest.mark.slow
@@ -536,7 +536,8 @@ def test_cost_changes_need_the_product_person(tmp_path, capsys):
 
     import yaml
 
-    from hwflow.cli import approval_findings, main
+    from hwflow.cli import main
+    from hwflow.pipeline import approval_findings
     proj = _copy_example(tmp_path)
     raw = yaml.safe_load((proj / "design.yaml").read_text())
     ref = next(r for r, c in raw["components"].items() if not c.get("virtual"))

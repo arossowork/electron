@@ -223,7 +223,7 @@ def test_post_layout_error_for_a_track_off_its_layers(tmp_path):
 @needs_router
 @pytest.mark.slow
 def test_route_keeps_out_of_cuts_and_on_the_net_layers(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = preamp(tmp_path, nets={"SENS_IN": {"layers": ["F.Cu"]}, "+3V3": {"layers": ["F.Cu"]}},
                regions=[{"name": "slot", "cut": True, "rect": [18, 0, 22, 18]},
                         {"name": "notch", "cut": True, "circle": [40, 30, 5]}])

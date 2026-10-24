@@ -132,7 +132,7 @@ def test_path_resistance_on_routed_copper(tmp_path):
 
 
 def test_budget_with_req_verifies_the_requirement_in_trace(tmp_path):
-    from hwflow.cli import _design_hash, trace
+    from hwflow.pipeline import _design_hash, trace
     d = _design(tmp_path, [GUARD])
     (tmp_path / "requirements.yaml").write_text(yaml.safe_dump({"requirements": [
         {"id": "R4", "text": "guard drop", "verification": "layout"}]}))

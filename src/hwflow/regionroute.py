@@ -83,7 +83,7 @@ def partition(nets, pads: dict[str, list], seed_rows: list[dict]) -> list[dict]:
 
 
 def _knobs() -> list:
-    """Router environment knobs (as cli._route_key)."""
+    """Router environment knobs (as pipeline.stages._route_key)."""
     return get_settings().key_dump()
 
 

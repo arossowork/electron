@@ -3,7 +3,7 @@
 All `os.environ` reads of hwflow live here (tests/test_no_env_reads.py enforces it). The env var names are the ones the
 engine always used. Settings are built at call time by `get_settings()`: nothing is frozen at import, so a test can
 `monkeypatch.setenv(...)` and see the effect on the next call. Subprocess environments (`dict(os.environ, ...)` in
-kicad.py, pcb.py, cli.py) pass the parent environment through to children on purpose; they are the allowlisted exception.
+kicad.py, pcb.py, commands/em.py) pass the parent environment through to children on purpose; they are the allowlisted exception.
 """
 from __future__ import annotations
 

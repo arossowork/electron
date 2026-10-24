@@ -7,7 +7,7 @@ from hwflow.settings import get_settings
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "hwflow"
 # subprocess environments that pass the parent environment through to a child on purpose (file: how many)
-ALLOWED = {"kicad.py": 1, "pcb.py": 1, "cli.py": 2}
+ALLOWED = {"kicad.py": 1, "pcb.py": 1, "commands/em.py": 2}
 
 
 def test_defaults(monkeypatch):
@@ -51,11 +51,12 @@ def test_key_dump_follows_env(monkeypatch):
 
 def test_no_env_reads_outside_settings():
     bad = []
-    for f in sorted(SRC.glob("*.py")):
-        if f.name == "settings.py":
+    for f in sorted(SRC.rglob("*.py")):
+        rel = f.relative_to(SRC).as_posix()
+        if rel == "settings.py":
             continue
         n = len(re.findall(r"os\.environ|os\.getenv|\bgetenv\(", "\n".join(
             line for line in f.read_text().splitlines() if not line.lstrip().startswith("#"))))
-        if n != ALLOWED.get(f.name, 0):
-            bad.append((f.name, n, ALLOWED.get(f.name, 0)))
+        if n != ALLOWED.get(rel, 0):
+            bad.append((rel, n, ALLOWED.get(rel, 0)))
     assert not bad, f"os.environ outside settings.py (file, found, allowed): {bad}"
