@@ -17,8 +17,10 @@ from .contracts import (
     DESIGN_WORKFLOW,
     EVAL_WORKFLOW,
     SIGNAL_ANSWER,
+    SIGNAL_CHAT,
     SIGNAL_RETRY,
     BuildInput,
+    ChatSignal,
     DesignInput,
     EvalInput,
     QuestionAnswer,
@@ -77,6 +79,10 @@ class WorkflowGateway(Protocol):
         ...
 
     async def signal_answer(self, workflow_id: str, answer: QuestionAnswer) -> None: ...
+
+    async def signal_chat(self, workflow_id: str, message: ChatSignal) -> None:
+        """Signal `chat` (#54): a stored chat message of the person is waiting for the agent."""
+        ...
 
     async def signal_retry(self, workflow_id: str) -> None:
         """Signal `retry` (ADR 7.4): a run waiting with llm_key_invalid tries again with the new key."""
@@ -194,6 +200,17 @@ class TemporalGateway:
         handle = await self._handle(workflow_id)
         try:
             await handle.signal(SIGNAL_ANSWER, answer)
+        except RPCError as e:
+            if e.status == RPCStatusCode.NOT_FOUND:
+                raise WorkflowNotFound(workflow_id) from e
+            raise GatewayError(f"cannot signal {workflow_id}: {e.status.name}") from e
+
+    async def signal_chat(self, workflow_id: str, message: ChatSignal) -> None:
+        from temporalio.service import RPCError, RPCStatusCode
+
+        handle = await self._handle(workflow_id)
+        try:
+            await handle.signal(SIGNAL_CHAT, message)
         except RPCError as e:
             if e.status == RPCStatusCode.NOT_FOUND:
                 raise WorkflowNotFound(workflow_id) from e

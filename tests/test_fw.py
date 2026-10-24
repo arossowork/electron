@@ -299,3 +299,64 @@ def test_scaffold_builds_and_runs_on_the_framework(tmp_path):
            f"-I{fwk / 'test'}", f"-I{gen_dir}", f"-I{fw_dir}", "-o", str(exe), *map(str, src)]
     subprocess.run(cmd, check=True, capture_output=True, text=True)
     assert subprocess.run([str(exe)], capture_output=True).returncode == 0
+
+
+# ------------------------------------------------------------------ hwflow fw test (host tests with gcc)
+def _gcc():
+    import shutil
+    if not shutil.which("gcc"):
+        pytest.skip("gcc not installed")
+
+
+def test_fw_test_runs_the_scaffolded_tiny_design(tmp_path):
+    from hwflow.fw.hosttest import host_test
+    _gcc()
+    d = tiny(tmp_path)
+    assert host_test(d, FakeLibs(), d.dir / "build")[0] == 2  # no fw/ yet: nothing to build, says so
+    fw.scaffold(d, d.dir / "fw")
+    rc, text, summary = host_test(d, FakeLibs(), d.dir / "build")
+    assert rc == 0 and "host tests: PASS" in text and summary["ran"] is True, text
+
+
+def test_fw_test_reports_a_failing_check_and_a_compile_error(tmp_path):
+    from hwflow.fw.hosttest import host_test
+    _gcc()
+    d = tiny(tmp_path)
+    fw.scaffold(d, d.dir / "fw")
+    t = d.dir / "fw" / "test" / "test_app.c"
+    good = t.read_text()
+    t.write_text(good.replace('CHECK(fwk_dropped() == 0, "no event lost");',
+                              'CHECK(fwk_dropped() == 0, "no event lost");\n    CHECK(1 == 2, "deliberate failure");'))
+    rc, text, _ = host_test(d, FakeLibs(), d.dir / "build")
+    assert rc == 1 and "deliberate failure" in text and "FAIL" in text, text
+    t.write_text(good.replace("return fwk_fails", "return not_a_symbol"))
+    rc, text, summary = host_test(d, FakeLibs(), d.dir / "build")
+    assert rc == 1 and "compile failed" in text and "not_a_symbol" in text and summary["compiled"] is False
+
+
+def test_fw_test_stops_on_a_contract_error(tmp_path):
+    from hwflow.fw.hosttest import host_test
+    _gcc()
+    bad = copy.deepcopy(TINY)
+    bad["components"]["U1"]["pins"].pop("18")  # BTN no longer reaches the MCU
+    d = tiny(tmp_path, bad)
+    fw.scaffold(d, d.dir / "fw")
+    rc, text, summary = host_test(d, FakeLibs(), d.dir / "build")
+    assert rc == 1 and "contract errors" in text and summary["ran"] is False, text
+
+
+def test_fw_test_command_on_the_thermostat_example():
+    """The example firmware in projects/: 31 host checks through the same command the agent's tool runs."""
+    import shutil
+    import subprocess
+    import sys
+    if not shutil.which("gcc"):
+        pytest.skip("gcc not installed")
+    try:
+        from hwflow.core.libs import Libs
+        Libs(design=Design.load(PROJ)).symbol("Driver_Motor:DRV8837")
+    except (FileNotFoundError, KeyError):
+        pytest.skip("KiCad symbol libraries not installed")
+    cp = subprocess.run([sys.executable, "-m", "hwflow.cli", "fw", "test", str(PROJ)], capture_output=True, text=True)
+    assert cp.returncode == 0 and "host tests: PASS" in cp.stdout, cp.stdout + cp.stderr
+    assert "0 failed" in cp.stdout

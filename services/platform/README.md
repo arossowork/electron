@@ -183,7 +183,8 @@ Everything is under `/api/v1`, bearer JWT, tenant from the token (membership re-
 | POST | `/runs/{id}/cancel` | member | `202`; `409` when already finished. Signals the workflow if it exists; a run still `queued` (no workflow task has started it, e.g. no worker) is marked `cancelled` at once with `run.cancelled`; a `running` one is left to the workflow (ADR 4.6) |
 | GET | `/runs/{id}/manifest`, `/runs/{id}/report` | member | `hwflow.run/1` JSON rendered live; `REPORT.md` as `text/markdown` |
 | GET | `/runs/{id}/artifacts`, `/runs/{id}/artifacts/{name}` | member | list; `302` to a presigned GET (TTL `HWPLATFORM_S3_DOWNLOAD_URL_TTL_S`, 300 s) |
-| GET | `/runs/{id}/questions?status=` | member | open and answered questions |
+| GET | `/runs/{id}/questions?status=` | member | open and answered questions (`auto_answered`: answered by default after the timeout) |
+| GET/POST | `/runs/{id}/chat` | member | the thread; send `{text}` to the agent of an active design run (`201`, signals `chat`; `409` for a build run or a finished one; `503` when the engine is down) |
 | POST | `/questions/{qid}/answer` | member | `{answers: {id: value}}`; `422` unknown id or missing answer without a default; `409` not open or run ended; writes the answer, emits `question.answered`, then signals the workflow (signal failure: `503`, the question stays open) |
 | GET | `/runs/{id}/events`, `/projects/{pid}/events`, `/events` | member | SSE, see below |
 | DELETE | `/projects/{pid}` | owner/admin | members get `403` |
@@ -271,8 +272,15 @@ is the agent frontmatter's (Opus 5.5 `claude-opus-5-5`, Sonnet 5.5 `claude-sonne
   `inbox/questions.json` and `answers.md`.
 - **Questions.** `ask_product_person` ends the session's turn; the workflow saves the workspace as a design
   version, writes the `questions` row (`question.asked`, run `waiting`) and waits on the `answer_question` signal
-  that `POST /questions/{id}/answer` sends, with no timeout unless `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S` is set.
-  The same session then resumes from its saved transcript with the answers.
+  that `POST /questions/{id}/answer` sends. Every question carries `options`, a `recommended` option and a `critical`
+  flag (the tool rejects a call without them). After `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S` (default 3600 s, 0 = none) a
+  non-critical question is answered with the recommended options (`question.auto_answered`, logged in
+  `notes/decisions.md`, "answered by default" in the UI) and a critical one keeps waiting (`question.waiting_critical`).
+  A person can still answer a defaulted question while the run is active: that replaces the default and re-runs the
+  stage that asked and the later ones (ADR 7.8). The same session resumes from its saved transcript with the answers.
+- **Chat.** `POST /runs/{id}/chat` stores a message and signals `chat`; the agent reads it at its next turn
+  boundary and its reply is an `agent.message` event (`GET /runs/{id}/chat` lists the thread; `chat_messages`,
+  migration 0009). `fw_test` runs the firmware host tests (`hwflow fw test`, gcc in the worker image).
 - **Credentials.** The activity resolves the session's credential through the credential port (see "Agent
   credentials" below); it exists only in the CLI subprocess's environment. Usage is recorded per model after each
   result. A rejected or exhausted key: `mark_invalid`, run `waiting` (reason `llm_key_invalid`) until

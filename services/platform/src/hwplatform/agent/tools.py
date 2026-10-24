@@ -4,7 +4,7 @@
 builds, the last build's status.json). The handlers are plain async methods, so a scripted fake runner calls
 them without the SDK; `mcp_server(box)` wraps them as SDK tools. Everything that needs the engine goes through
 a `ToolBackend`: the platform backend starts a linked BuildWorkflow (build, check) or an EngineToolWorkflow on
-the engine queues (lookups, datasheet fetches, trace, fw, floorplan, optimize) and waits for it.
+the engine queues (lookups, datasheet fetches, trace, fw, fw_test, floorplan, optimize) and waits for it.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from .sandbox import MCP_PREFIX
 TEXT_MAX = 40_000  # characters of tool output given back to the model
 UNTIL = ("check", "sch", "sim", "layout", "post", "fab")
 MAX_QUESTIONS = 4
+MAX_OPTIONS = 8
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -147,6 +148,13 @@ SCHEMAS: dict[str, tuple[str, dict]] = {
         "Firmware contract check and headers (as `hwflow fw . [--scaffold]`); scaffold writes fw/ skeletons.",
         {"type": _OBJ, "properties": {"scaffold": {"type": "boolean"}}},
     ),
+    "fw_test": (
+        "Build and run the firmware host tests with gcc (as `hwflow fw test .`, the replacement of "
+        "`make -C fw test`): regenerates build/fw headers, compiles the framework and every .c under fw/ "
+        "(except fw/port/) with -Wall -Wextra -Werror, runs fw/test. Returns the compiler errors or the test "
+        "output; an error result means the tests did not pass.",
+        {"type": _OBJ, "properties": {}},
+    ),
     "floorplan": (
         "Early layout feasibility of the floorplan (as `hwflow floorplan .`).",
         {"type": _OBJ, "properties": {}},
@@ -162,9 +170,13 @@ SCHEMAS: dict[str, tuple[str, dict]] = {
         },
     ),
     "ask_product_person": (
-        "Ask the product person (at most 4 questions, a recommended option first, each option with its cost "
-        "or "
-        "consequence). End your turn right after this call; the answers arrive as the next message.",
+        "Ask the product person (at most 4 questions). Every question needs `options` (2 to 8, each with "
+        "its cost or consequence), `recommended` (one of the options) and `critical` (true or false). "
+        "critical=true only for a choice that changes a cost or performance target or a specification "
+        "(CLAUDE.md: a fix that needs a product decision): the run then waits for the person as long as it "
+        "takes. critical=false: if nobody answers within the timeout (1 h by default) the platform uses your "
+        "recommended option, logs it as a decision, and the person can still override it later. End your "
+        "turn right after this call; the answers arrive as the next message.",
         {
             "type": _OBJ,
             "properties": {
@@ -177,12 +189,18 @@ SCHEMAS: dict[str, tuple[str, dict]] = {
                         "properties": {
                             "id": {"type": "string"},
                             "text": {"type": "string"},
-                            "options": {"type": "array", "items": {"type": "string"}},
-                            "default": {"type": "string"},
+                            "options": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": MAX_OPTIONS,
+                                "items": {"type": "string"},
+                            },
+                            "recommended": {"type": "string", "description": "one of options"},
+                            "critical": {"type": "boolean"},
                             "why": {"type": "string"},
                             "change": {"type": "string", "enum": ["layers", "size", "cost"]},
                         },
-                        "required": ["id", "text"],
+                        "required": ["id", "text", "options", "recommended", "critical"],
                     },
                 }
             },
@@ -295,6 +313,9 @@ class ToolBox:
     async def t_fw(self, a: dict) -> dict:
         return await self._engine("fw", {"scaffold": bool(a.get("scaffold"))}, ws=True)
 
+    async def t_fw_test(self, a: dict) -> dict:
+        return await self._engine("fw_test", {}, ws=True)
+
     async def t_floorplan(self, a: dict) -> dict:
         return await self._engine("floorplan", {}, ws=True)
 
@@ -357,33 +378,64 @@ class ToolBox:
         out, seen = [], set()
         for i, q in enumerate(qs, 1):
             if not isinstance(q, dict):
-                raise ValueError("each question is an object with id and text")
+                raise ValueError(
+                    "each question is an object with id, text, options, recommended and critical"
+                )
             qid = _SAFE_NAME.sub("_", str(q.get("id") or f"q{i}"))[:20] or f"q{i}"
             if qid in seen:
                 raise ValueError(f"question id {qid} repeats")
             seen.add(qid)
-            item: dict[str, Any] = {"id": qid, "text": _str(q, "text", max_len=2000)}
             opts = q.get("options")
-            if opts:
-                if not isinstance(opts, list) or len(opts) > 8:
-                    raise ValueError("options must be a list of at most 8 texts")
-                item["options"] = [str(o)[:500] for o in opts]
-            for k in ("default", "why", "change"):
+            if not isinstance(opts, list) or not 2 <= len(opts) <= MAX_OPTIONS:
+                raise ValueError(f"{qid}: options is required: a list of 2 to {MAX_OPTIONS} texts")
+            opts = [str(o)[:500] for o in opts]
+            if len(set(opts)) != len(opts):
+                raise ValueError(f"{qid}: options repeat")
+            rec = q.get("recommended")
+            if not isinstance(rec, str) or rec not in opts:
+                raise ValueError(f"{qid}: recommended is required and must be exactly one of options")
+            crit = q.get("critical")
+            if not isinstance(crit, bool):
+                raise ValueError(
+                    f"{qid}: critical is required (true or false): true only for a choice that changes a "
+                    "cost or performance target or a specification"
+                )
+            item: dict[str, Any] = {
+                "id": qid,
+                "text": _str(q, "text", max_len=2000),
+                "options": opts,
+                "recommended": rec,
+                "critical": crit,
+                "default": rec,  # what the answer form preselects and what an unanswered question gets
+            }
+            for k in ("why", "change"):
                 if q.get(k):
                     item[k] = str(q[k])[:1000]
             out.append(item)
         self.questions = out
         return _text(f"{len(out)} question(s) sent to the product person. End your turn now.")
 
+    def record_decision(self, text: str, source: str = "") -> int:
+        """Append a decision to the session's list and to `notes/decisions.md` (the design notes: the log that
+        replaces inbox/answers.md). Returns the number of decisions logged so far."""
+        self.decisions.append({"stage": self.stage, "text": text, "source": source})
+        notes = self.ws / "notes"
+        notes.mkdir(exist_ok=True)
+        line = f"- [{self.stage}] {text}" + (f" (source: {source})" if source else "") + "\n"
+        log = notes / "decisions.md"
+        if not log.exists():
+            log.write_text(
+                "# Decision log\n\nDecisions taken without a person's answer, with their source.\n\n"
+            )
+        with log.open("a") as f:
+            f.write(line)
+        return len(self.decisions)
+
     async def t_log_decision(self, a: dict) -> dict:
-        self.decisions.append(
-            {
-                "stage": self.stage,
-                "text": _str(a, "text", max_len=4000),
-                "source": _str(a, "source", required=False, max_len=1000),
-            }
+        n = self.record_decision(
+            _str(a, "text", max_len=4000), _str(a, "source", required=False, max_len=1000)
         )
-        return _text(f"decision {len(self.decisions)} logged")
+        return _text(f"decision {n} logged (notes/decisions.md)")
 
 
 def mcp_server(box: ToolBox):

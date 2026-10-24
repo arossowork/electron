@@ -40,6 +40,7 @@ uv run hwflow run wait <proj> [run_id]    # 0 PASS, 1 FAIL/failed, 2 still runni
 uv run hwflow build <proj> --retry-layout   # only when the product person overrides a blocked layout (docs/layout-diagnosis.md)
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix
+uv run hwflow fw test <proj>           # firmware host tests (gcc): headers, framework + fw/, run
 uv run hwflow nets <proj> [net...]     # routed copper per net: widths, length, necks, layers, vias
 uv run hwflow fw <proj> [--scaffold]   # firmware headers from design.yaml and interface.yaml; 0 errors required
 uv run hwflow report <proj>            # rewrite build/REPORT.md

@@ -2287,7 +2287,7 @@
           "questions"
         ],
         "summary": "Answer a question",
-        "description": "Writes the answer, then signals `answer_question` to the run's workflow. 409 when the question is not open (already answered, expired, cancelled) or its run has ended; 422 for an answer to an unknown question id or a missing answer for a question without a default.",
+        "description": "Writes the answer, then signals `answer_question` to the run's workflow. A question that was answered by default after the timeout (`auto_answered`) can still be answered: that replaces the default, emits `question.answered` with `overrides_default` and the workflow runs the asking stage and the later ones again. 409 when the question is not open (already answered by a person, expired, cancelled) or its run has ended; 422 for an answer to an unknown question id or a missing answer for a question without a default.",
         "operationId": "answer_question_api_v1_questions__question_id__answer_post",
         "security": [
           {
@@ -2366,6 +2366,156 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/chat": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat messages of a run",
+        "description": "The person's messages and the agent's replies, oldest first (at most 500).",
+        "operationId": "list_chat_api_v1_runs__run_id__chat_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessageOut"
+                  },
+                  "title": "Response List Chat Api V1 Runs  Run Id  Chat Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Write to the agent",
+        "description": "Stores the message and signals `chat` to the run's DesignWorkflow. The agent gets it at its next turn boundary (a message sent while a tool runs waits for the tool to end). 409 for a run that is not a design run or has ended; 503 when the workflow engine cannot be reached (nothing is stored).",
+        "operationId": "post_chat_api_v1_runs__run_id__chat_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -2852,6 +3002,99 @@
         },
         "type": "object",
         "title": "Body_upload_design_version_api_v1_projects__project_id__design_versions_post"
+      },
+      "ChatIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ChatIn"
+      },
+      "ChatMessageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "agent"
+            ],
+            "title": "Role"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "role",
+          "body",
+          "user_id",
+          "stage",
+          "created_at",
+          "delivered_at"
+        ],
+        "title": "ChatMessageOut"
       },
       "ConflictIn": {
         "properties": {
@@ -4008,6 +4251,36 @@
               }
             ],
             "title": "Answered At"
+          },
+          "auto_answered": {
+            "type": "boolean",
+            "title": "Auto Answered",
+            "description": "nobody answered in time: the agent's recommended options were used",
+            "default": false
+          },
+          "default_answers": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Answers"
+          },
+          "overridden_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overridden At"
           }
         },
         "type": "object",
@@ -4726,6 +4999,10 @@
     {
       "name": "questions",
       "description": "Questions a design run asks the person, and their answers."
+    },
+    {
+      "name": "chat",
+      "description": "Free chat with the agent of a design run."
     },
     {
       "name": "events",

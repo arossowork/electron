@@ -85,6 +85,7 @@ test("question panel posts the answers (mocked)", async ({ page }) => {
   let open = true;
   let posted: unknown;
   await page.route(`**/api/v1/runs/${runId}`, (r) => r.fulfill({ json: run }));
+  await page.route(`**/api/v1/runs/${runId}/chat`, (r) => r.fulfill({ json: [] }));
   await page.route(`**/api/v1/runs/${runId}/events`, (r) =>
     r.fulfill({ status: 200, contentType: "text/event-stream", body: `id: 1\nevent: question.asked\ndata: ${JSON.stringify({ data: {} })}\n\n` }),
   );
@@ -97,6 +98,7 @@ test("question panel posts the answers (mocked)", async ({ page }) => {
           { id: "note", text: "Anything else?", default: "no" },
         ],
         answers: null, answered_by: null, asked_at: new Date().toISOString(), answered_at: null,
+        auto_answered: false, default_answers: null, overridden_at: null,
       }],
     }),
   );

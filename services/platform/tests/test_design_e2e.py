@@ -74,7 +74,13 @@ class ScriptedRunner:
             "ask_product_person",
             {
                 "questions": [
-                    {"id": "q1", "text": "Battery?", "options": ["CR2032", "AA"], "default": "CR2032"}
+                    {
+                        "id": "q1",
+                        "text": "Battery?",
+                        "options": ["CR2032", "AA"],
+                        "recommended": "CR2032",
+                        "critical": True,
+                    }
                 ]
             },
         )
@@ -499,3 +505,163 @@ def test_operator_subscription_token_limit_wait_and_no_token_leak(
                 assert part not in hist and part not in caplog.text and part not in api_text
                 assert not any(part in e for e in env_rows)
                 assert not any(part.encode() in b for b in blobs)
+
+
+class ChatRunner:
+    """One `requirements` stage in three sessions: (0) works until the test says the chat was sent, takes it at
+    the turn boundary, answers it, then asks a NON-critical question; (1) resumes with the defaulted answer and
+    works until the test has overridden it; (2) resumes with the override."""
+
+    def __init__(self):
+        self.calls: list[tuple[str | None, str]] = []  # (resume, prompt)
+        self.chat_sent, self.override_sent = threading.Event(), threading.Event()
+        self.in_tool, self.second_started = threading.Event(), threading.Event()
+        self.seen_chat: list[list[str]] = []
+        self.decisions_file = ""
+
+    async def run(self, spec, box, hooks):
+        from hwplatform.agent.runner import SessionResult
+
+        n = len(self.calls)
+        self.calls.append((spec.resume, spec.prompt))
+        sid = spec.resume or str(uuid.uuid4())
+        hooks.on_session(sid)
+        t = spec.config_dir / "projects" / "-ws" / f"{sid}.jsonl"
+        t.parent.mkdir(parents=True, exist_ok=True)
+        with t.open("a") as f:
+            f.write(json.dumps({"n": n}) + "\n")
+        await hooks.on_usage("claude-opus-5-5", {"input_tokens": 10, "output_tokens": 2})
+        if n == 0:
+            self.seen_chat.append(await hooks.take_chat())  # the start of the stage: nothing yet
+            self.in_tool.set()  # a long tool call: the chat message arrives meanwhile ...
+            await asyncio.to_thread(self.chat_sent.wait, 60)
+            self.seen_chat.append(await hooks.take_chat())  # ... and is taken at the turn boundary
+            await hooks.on_reply("5 V rail noted.")
+            question = {
+                "id": "q1",
+                "text": "Battery?",
+                "options": ["CR2032", "AA"],
+                "recommended": "AA",
+                "critical": False,
+            }
+            r = await box.call("ask_product_person", {"questions": [question]})
+            assert not r.get("is_error")
+        elif n == 1:
+            assert "q1 (Battery?): AA [DEFAULT" in spec.prompt
+            self.decisions_file = (spec.ws / "notes" / "decisions.md").read_text()
+            self.second_started.set()
+            await asyncio.to_thread(self.override_sent.wait, 60)
+            (spec.ws / "requirements.yaml").write_text("requirements:\n  - id: R1\n    battery: AA\n")
+        else:
+            assert "was `AA`" in spec.prompt and "is now `CR2032`" in spec.prompt
+            (spec.ws / "requirements.yaml").write_text("requirements:\n  - id: R1\n    battery: CR2032\n")
+        return SessionResult(sid, text=f"stage pass {n}")
+
+
+def test_design_run_chat_default_after_timeout_and_override(api_settings, validator, tmp_path, s3_client):
+    """The whole path through API, Temporal, activities and Postgres: a chat message sent during a tool call
+    reaches the agent at the turn boundary and its reply is an `agent.message`; a non-critical question nobody
+    answers within the timeout (2 s here) is answered with the recommended option and logged in the design notes;
+    the person's late answer overrides it and the stage runs again with the change."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy import text as sql
+
+    from hwplatform.api.app import create_app
+    from hwplatform.db import Database
+    from hwplatform.gateway import TemporalGateway
+    from hwplatform.mail import InMemoryEmailSender
+    from hwplatform.settings import Settings
+
+    runner = ChatRunner()
+    wset = api_settings(worker_dir=str(tmp_path / "worker"))
+    with Stack(wset, runner, tmp_path) as stack:
+        app = create_app(
+            api_settings(agent_question_timeout_s=2),
+            key_validator=validator,
+            email_sender=InMemoryEmailSender(),
+            gateway=TemporalGateway(Settings(temporal_address=stack.box["address"])),
+        )
+        with TestClient(app, client=("10.9.8.8", 5000)) as c:
+            a = Account(c, "design-chat")
+            r = c.put(f"{V1}/tenant/llm-keys/anthropic", json={"api_key": KEY1}, headers=a.h)
+            assert r.status_code == 200, r.text
+            p = a.project("chatty")
+            dv = c.post(
+                f"{V1}/projects/{p['id']}/design-versions",
+                files=[("bundle", ("p.tar.gz", _bundle(), "application/gzip"))],
+                headers=a.h,
+            ).json()
+            options = {"brief": "A probe.", "stages": ["requirements"]}
+            body = {"kind": "design", "design_version_id": dv["id"], "options": options}
+            rid = c.post(f"{V1}/projects/{p['id']}/runs", json=body, headers=a.h).json()["id"]
+            chat = f"{V1}/runs/{rid}/chat"
+
+            # 1. chat during the tool call: stored and signalled at once, delivered at the turn boundary
+            assert runner.in_tool.wait(60)
+            r = c.post(chat, json={"text": "make it a 5 V rail"}, headers=a.h)
+            assert r.status_code == 201, r.text
+            assert c.get(chat, headers=a.h).json()[0]["delivered_at"] is None  # the agent has not read it yet
+            runner.chat_sent.set()
+            replies = _wait(
+                lambda: [m for m in c.get(chat, headers=a.h).json() if m["role"] == "agent"], "reply"
+            )
+            assert replies[0]["body"] == "5 V rail noted." and replies[0]["stage"] == "requirements"
+            thread = c.get(chat, headers=a.h).json()
+            assert [m["role"] for m in thread] == ["user", "agent"] and thread[0]["delivered_at"]
+            assert runner.seen_chat == [[], ["make it a 5 V rail"]]
+
+            # 2. nobody answers: after the timeout the recommended option is used, and logged in the notes
+            qs = f"{V1}/runs/{rid}/questions"
+            q = _wait(
+                lambda: [x for x in c.get(qs, headers=a.h).json() if x["auto_answered"]], "the default"
+            )[0]
+            assert q["answers"] == {"q1": "AA"} and q["answered_by"] is None
+            assert runner.second_started.wait(60)
+            assert 'No answer to "Battery?" within the timeout' in runner.decisions_file
+            assert "default after timeout, PM round 1, q1" in runner.decisions_file
+
+            # 3. the late answer overrides it; the stage runs again with the change
+            r = c.post(f"{V1}/questions/{q['id']}/answer", json={"answers": {"q1": "CR2032"}}, headers=a.h)
+            assert r.status_code == 200, r.text
+            runner.override_sent.set()
+            final = _wait(
+                lambda: (
+                    (g := c.get(f"{V1}/runs/{rid}", headers=a.h).json())["status"] in ("succeeded", "failed")
+                    and g
+                ),
+                "the end",
+            )
+            assert final["status"] == "succeeded", final
+            assert len(runner.calls) == 3 and runner.calls[0][0] is None
+            assert "Answers of the product person, round 1" in runner.calls[1][1]
+            assert runner.calls[1][0] == runner.calls[2][0]  # both resumed the stage's session
+            st = [s for s in final["stages"] if s["key"] == "requirements"][0]
+            assert st["status"] == "succeeded" and st["summary"]["rerun"]["attempt"] == 2
+
+            async def event_rows():
+                db = Database.from_settings(api_settings())
+                try:
+                    async with db.tx(tenant_id=uuid.UUID(a.tenant_id)) as s:
+                        rows = await s.execute(
+                            sql(
+                                "SELECT type, envelope->'data' AS d FROM outbox WHERE run_id = :r ORDER BY id"
+                            ),
+                            {"r": uuid.UUID(rid)},
+                        )
+                        return [(x.type, x.d) for x in rows.all()]
+                finally:
+                    await db.dispose()
+
+            ev = asyncio.run(event_rows())
+            kinds = [t for t, _ in ev]
+            for want in (
+                "user.message",
+                "agent.message",
+                "question.asked",
+                "question.auto_answered",
+                "question.answered",
+                "run.completed",
+            ):
+                assert want in kinds, kinds
+            assert kinds.index("question.auto_answered") < kinds.index("question.answered")
+            assert [d for t, d in ev if t == "question.answered"][-1]["overrides_default"] is True

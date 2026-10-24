@@ -433,6 +433,10 @@ class FakeGateway:
         self._check()
         self.signals.append((workflow_id, answer))
 
+    async def signal_chat(self, workflow_id, message):
+        self._check()
+        self.signals.append((workflow_id, message))
+
     async def signal_retry(self, workflow_id):
         self._check()
         self.signals.append((workflow_id, "retry"))

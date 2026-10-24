@@ -3,6 +3,8 @@
 # KiCadRoutingTools router, and optionally Java + Freerouting. No Claude CLI, no UI, no KiCad GUI, no 3D models.
 #   docker build -f deploy/images/worker.Dockerfile -t hwplatform-worker:dev .
 #   docker build -f deploy/images/worker.Dockerfile --build-arg WITH_FREEROUTING=0 -t hwplatform-worker:dev .
+# gcc and libc6-dev (about 80 MiB with the sanitizer and LTO parts removed, measured on ubuntu:24.04) are
+# there for `hwflow fw test` (firmware host tests, #54); make is not needed.
 # The agent worker (#15) gets its own image later. docker/Dockerfile stays the all-in-one image for local use.
 ARG UBUNTU=ubuntu:24.04
 
@@ -54,7 +56,7 @@ ARG WITH_RENDER=0
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common gpg-agent ca-certificates \
  && add-apt-repository -y ppa:kicad/kicad-10.0-releases \
  && apt-get update && apt-get install -y --no-install-recommends \
-      kicad kicad-symbols kicad-footprints ngspice tini locales \
+      kicad kicad-symbols kicad-footprints ngspice tini locales gcc libc6-dev \
  && if [ "$WITH_RENDER" = 1 ]; then apt-get install -y --no-install-recommends xvfb xauth libgl1-mesa-dri; fi \
  && if [ "$WITH_FREEROUTING" = 1 ]; then apt-get install -y --no-install-recommends openjdk-21-jre-headless; fi \
  && sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen \
@@ -62,6 +64,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
  && cd /usr/bin && rm -f kicad eeschema pcbnew gerbview pl_editor pcb_calculator bitmap2component \
  && if [ "$WITH_RENDER" != 1 ]; then rm -f /usr/lib/x86_64-linux-gnu/libLLVM.so.* /usr/lib/x86_64-linux-gnu/libgallium-*.so; fi \
  && rm -f /usr/lib/jvm/*/lib/server/classes*.jsa \
+ && G=/usr/lib/gcc/x86_64-linux-gnu/13 && rm -rf $G/lto1 $G/lto-wrapper $G/liblto_plugin.so $G/plugin $G/libgomp* $G/libasan.* \
+      $G/libtsan.* $G/liblsan.* $G/libubsan.* $G/libhwasan.* $G/libitm.* $G/libquadmath.* \
+      /usr/lib/x86_64-linux-gnu/libasan.* /usr/lib/x86_64-linux-gnu/libtsan.* /usr/lib/x86_64-linux-gnu/liblsan.* \
+      /usr/lib/x86_64-linux-gnu/libubsan.* /usr/lib/x86_64-linux-gnu/libhwasan.* \
  && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale \
       /usr/share/kicad/demos /usr/share/kicad/template /usr/share/kicad/3dmodels /usr/share/kicad/help /usr/share/kicad/internat \
       /var/cache/apt /var/log/*.log \
@@ -71,9 +77,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
 COPY --from=build /opt/python /opt/python
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /opt/tools /opt/tools
-# Engine data that is not yet part of the hwflow package (blocks/, library/): HWFLOW_ROOT points at it.
+# Engine data that is not yet part of the hwflow package (blocks/, library/, the firmware framework): HWFLOW_ROOT points
+# at it. `hwflow fw test` (#54, the agent's fw_test tool) compiles fw/framework with the product firmware.
 COPY blocks /opt/hwflow/blocks
 COPY library /opt/hwflow/library
+COPY fw/framework /opt/hwflow/fw/framework
 
 # Everything that writes goes under SCRATCH, which the pod mounts as an emptyDir (readOnlyRootFilesystem: true).
 # The entrypoint script creates the directories; SCRATCH-derived paths are overridable with env vars.

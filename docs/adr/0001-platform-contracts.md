@@ -726,7 +726,10 @@ gaps. A breaking change to `data` bumps the version in `dataschema`; additive fi
 | `stage.completed`, `stage.failed` | key, stage, verdict, cached, seconds, summary / key, stage, error {type, message, retryable}, attempt |
 | `stage.skipped` | key, reason (`until`, `hard_failure:<stage>`, `cutoff`, `budget`) |
 | `question.asked` | question_id, stage, questions [{id, text, options?, default?}] |
-| `question.answered`, `question.expired` | question_id, answered_by, answers / question_id |
+| `question.answered`, `question.expired` | question_id, answered_by, answers, overrides_default? / question_id |
+| `question.auto_answered` | question_id, stage, answers (the agent's recommended options, after the timeout; #54) |
+| `question.waiting_critical` | question_id, stage (a critical question still open after the timeout; #54) |
+| `user.message`, `agent.message` | message_id, text, user_id / message_id, text, stage, reply_to (chat, #54) |
 | `artifact.created` | name, ref (user-visible run artifacts only: REPORT.md, board, fab, manifest) |
 | `design_version.created` | design_version_id, seq, source, content_sha256 |
 
@@ -899,7 +902,7 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
   `USE_EXISTING`: a retried call joins the running build, the same build after it ended is a new run of the same
   ID. The activity cancels the builds it started when it is cancelled; the workflow also cancels the ones it
   knows by ID.
-- **Questions (7.3).** No timeout by default (`question_timeout_s=None`, set by `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S`
+- **Questions (7.3).** (The timeout and the `QuestionExpired` failure are superseded by 7.8, #54.) No timeout by default (`question_timeout_s=None`, set by `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S`
   at run start): how long a person may take is a product decision, and a waiting workflow costs nothing. The
   workspace is saved as a design version when a question is asked, and the stage resumes the same session
   (`resume`) with the answers. After `ask_product_person` the tool box refuses every tool but `log_decision`, and
@@ -938,8 +941,8 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
   egress policy of its own (Postgres, Temporal, SeaweedFS, DNS, HTTPS to public addresses). Measured: about 112 MiB
   for the idle worker and about 200 MiB for a starting session, so a separate pod costs about 112 MiB in the
   reduced stack. 4.10's worker default changes: every queue, and a process without the SDK drops `hwflow-agent`.
-- **Open.** The firmware stage cannot run its host tests (gcc, `make test`) without a shell; it needs an engine
-  tool for them. `simulate_answer` is 7.7 (#19).
+- **Open.** The firmware stage cannot run its host tests (gcc, `make test`) without a shell: solved by `fw_test` in
+  7.8 (#54). `simulate_answer` is 7.7 (#19).
 
 ### 7.7 As implemented in #19 (EvalWorkflow, simulate_answer, baselines)
 
@@ -973,6 +976,65 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
   (`hwharness.evals.simulator`), the tenant's credential through the credential port, the same `LlmKeyInvalid` and
   `LlmRateLimited` handling as `agent_stage` (the workflow turns them into the same waits). The hidden specification
   travels in the activity input and never enters an agent workspace.
+
+### 7.8 As implemented in #54 (question policy, chat, firmware host tests)
+
+**Question schema.** `ask_product_person` takes up to 4 questions, each `{id, text, options (2 to 8), recommended
+(exactly one of options), critical (boolean), why?, change?}`. A call without `options`, `recommended` or
+`critical`, or with a `recommended` that is not an option, is rejected with a tool error the model can correct; the
+tool box stores the item with `default = recommended` (what the answer form preselects). The prompts
+(`hwharness.prompts.preamble`, the tool description) say when `critical` is true: only for a choice that changes a
+cost or performance target or a specification, which is CLAUDE.md's rule "If a fix needs a product decision (cost
+against performance, a changed spec), you ask the product person". Everything else is non-critical, and the
+agent must be able to live with its own recommended option.
+
+**Timeout.** `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S` (default 3600; 0 or empty = none) becomes `DesignInput.question_timeout_s`.
+`DesignWorkflow._ask` waits on `answer_question` with that durable timer.
+- Non-critical (every item `critical: false` with a recommended option): at the timeout `record_question(auto_answered)`
+  answers the row with the recommended options (`answered_by` NULL, `auto_answered`, `default_answers`;
+  `question.auto_answered`; `questions.status` stays `answered`), the run resumes, and `agent_stage` gets
+  `defaulted=[ids]`. The agent is told in its message which answers are defaults, and the activity writes each
+  one as a decision with source `default after timeout, PM round N, qX` (`ToolBox.record_decision`: the `decisions`
+  of the stage output and `notes/decisions.md`; `log_decision` appends to the same file). If a person answered in the
+  same instant, the update finds the row no longer open (`human`) and the workflow uses their signal.
+- Any critical item makes the whole question critical, as does a missing flag (a question from before #54): no
+  timeout. After the timer the workflow emits `question.waiting_critical` once (`record_question(critical_wait)`),
+  sets `state.waiting.critical`, and keeps waiting. The UI highlights the card.
+- `QuestionExpired` and `question.expired` are no longer produced for design runs.
+
+**Late answer.** The row of a defaulted question accepts one more answer while its run is active
+(`POST /questions/{id}/answer`): `QuestionStore.override` records it (`answered_by` the person, `auto_answered`
+false, `overridden_at`, `default_answers` kept) and emits `question.answered` with `overrides_default: true`, then
+signals `answer_question` with `overrides_default`. A second one is 409; so is an answer after the run ended (the
+workflow is gone: a limit of this version). The workflow applies it at the next stage boundary and re-runs the
+**affected stages**: the stage that asked, and every later stage that has already run (their work may rest on the
+old answer). The asking stage resumes its own saved session with `override_message` (what was the default, what
+it is now); a later stage resumes its own session with the same message and checks its files against the change;
+stages that have not run yet run normally on the updated workspace. Each re-run is a new scheduling of the stage
+(`seq` grows, `run_stages.attempt` counts the runs: `stage.started` again) and its summary carries
+`rerun: {attempt, changes}`. An override equal to the default changes nothing. Several overrides in a row are
+collected; the earliest asking stage wins.
+
+**Chat.** `POST /runs/{id}/chat {text}` (design runs, active only) stores the message (`chat_messages`, migration
+0009, tenant RLS, `delivered_at` NULL), emits `user.message` and signals `chat` to the DesignWorkflow, which counts
+the signals (query `state.chat_messages`); the text lives only in the table. `agent_stage` takes the undelivered
+messages (`ChatStore.take_pending`, one statement that marks them delivered) before the first prompt of the session
+and at every turn boundary: `SdkRunner.run` sends a follow-up `client.query` after each `ResultMessage` while there
+is chat and the session did not ask the person or hit a limit. A message sent while a tool runs therefore waits for
+the end of the turn (the SDK has no way to inject into a running turn). The text of the turn that carried chat is
+the agent's reply: a row with role `agent` and an `agent.message` event. If the session fails, taken-but-unanswered
+messages are released for the next attempt. `GET /runs/{id}/chat` lists the thread. A message sent after the last
+stage began but before the run ends is delivered by that stage's session if it is still running, otherwise it stays
+queued; the run page shows it as "queued". The web run page has a chat panel (history from the API, updates from the
+run's SSE stream) and the "answered by default" badge with a form to replace the default.
+
+**Firmware host tests.** `hwflow fw test <proj>` (`hwflow.fw.hosttest`) regenerates `build/fw`, compiles
+`fw/framework` and every `*.c` under the project's `fw/` except `fw/port/` with `gcc -std=c11 -Wall -Wextra
+-Werror`, runs the binary and exits with its status (no make, no uv: it works in a hosted workspace). MCP tool
+`fw_test` -> `EngineToolWorkflow` -> `engine_tool` on `hwflow-engine` (policy 900 s), over the workspace tree; the
+agent's `make -C projects/<p>/fw test` maps to it in the tool table of the prompt. The worker image gains `gcc` and
+`libc6-dev` (no make) and `fw/framework` under `HWFLOW_ROOT`; the sanitizer and LTO parts of gcc are removed. Measured
+on ubuntu:24.04: +127 MiB untrimmed, +85 MiB trimmed (see the CI "Image size" step for the whole image).
 
 ## 8. Reduced (M1) vs full (M2) stack
 

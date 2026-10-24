@@ -27,6 +27,9 @@ SIGNAL_CHILD_RATE_LIMITED = "child_rate_limited"
 SIGNAL_ANSWER = "answer_question"
 # PUT /tenant/llm-keys/anthropic signals `retry`: a run waiting with llm_key_invalid tries again (ADR 7.4).
 SIGNAL_RETRY = "retry"
+# A chat message of the person (#54): payload ChatSignal. The text is in `chat_messages`; the signal tells
+# the run.
+SIGNAL_CHAT = "chat"
 ENGINE_TOOL_WORKFLOW = "EngineToolWorkflow"  # one engine lookup or command of an agent tool (ADR 7.6)
 
 Q_ENGINE = "hwflow-engine"
@@ -84,6 +87,7 @@ ENGINE_TOOLS = (
     "fetch_url",
     "trace",
     "fw",
+    "fw_test",
     "floorplan",
     "optimize",
 )
@@ -135,7 +139,7 @@ STAGE_POLICY = {
 # `retry`), so a long rate limit or a key fix never uses up the retry budget of a worker crash (ADR 7.6).
 AGENT_POLICY = Policy(7200, 120, 30, 2, 600, 5)
 AGENT_NON_RETRYABLE = (*errors.NON_RETRYABLE, errors.LlmRateLimited)
-ENGINE_TOOL_POLICY = {"optimize": Policy(3600, 60, 10, 2, 300, 3)}
+ENGINE_TOOL_POLICY = {"optimize": Policy(3600, 60, 10, 2, 300, 3), "fw_test": Policy(900, 60, 5, 2, 120, 2)}
 ENGINE_TOOL_DEFAULT_POLICY = Policy(600, 60, 5, 2, 120, 3)
 # The workflow's rate-limit timer: the first wait and the cap (it doubles in between).
 RATE_LIMIT_BACKOFF_S = (60.0, 1800.0)
@@ -182,7 +186,9 @@ class DesignInput:
     brief: str
     answerer: str = "human"  # "human" | "simulator"
     stages: list[str] = field(default_factory=list)  # empty = DESIGN_STAGES
-    # None: wait for an answer without a limit (ADR 7.6); a number of seconds: then QuestionExpired.
+    # Seconds a question waits for a person (#54, ADR 7.7): a non-critical one is then answered with the
+    # agent's recommended options; a critical one keeps waiting (and `question.waiting_critical` is emitted).
+    # None: no timeout at all (the evals simulator answers; a run started without the setting).
     question_timeout_s: float | None = None
     parent_run_id: str | None = None  # an EvalWorkflow's run (#19)
     # EvalWorkflow trials (#19): `model` replaces the model of every stage; `budget_usd` caps every
@@ -211,6 +217,10 @@ class AgentStageInput:
     questions: list[dict] = field(default_factory=list)
     resume: str | None = None
     round: int = 0  # question rounds so far in this run (the agent cites "PM round N, qX")
+    # ids of `questions` that nobody answered in time (their answers are the recommended options) (#54)
+    defaulted: list[str] = field(default_factory=list)
+    # resume "override" (#54): the person replaced defaulted answers: [{question_id, stage, text, was, now}]
+    overrides: list[dict] = field(default_factory=list)
     model: str = ""  # replaces the stage's model (an alias or an ID); "" = the platform's setting
     budget_usd: float | None = None  # replaces the session cost cap when lower than the platform's
 
@@ -237,13 +247,17 @@ class RecordQuestion:
     """record_question (ADR 7.3), a local activity. op "ask": the questions row (id = question_id, so a
     retried call inserts nothing new) with question.asked, then running -> waiting (reason question).
     "resumed": waiting -> running (run.resumed). "expired" / "cancelled": the row's status (question.expired).
-    "key_wait": running -> waiting (reason llm_key_invalid); "key_resumed": back to running."""
+    "key_wait": running -> waiting (reason llm_key_invalid); "key_resumed": back to running.
+    "auto_answered" (#54): the timeout passed on a non-critical question: the row is answered with `answers`
+    (question.auto_answered); the result is "auto", or "human" when a person answered first.
+    "critical_wait": the timeout passed on a critical question: question.waiting_critical."""
 
     ctx: RunCtx
     op: str
     question_id: str | None = None
     stage: str = ""
     questions: list[dict] = field(default_factory=list)
+    answers: dict = field(default_factory=dict)  # auto_answered: the recommended options
 
 
 @dataclass(frozen=True)
@@ -319,6 +333,15 @@ class QuestionAnswer:
     question_id: str
     answers: dict
     answered_by: str
+    # a late answer to a question that was answered by default (#54): the workflow reruns the affected stages
+    overrides_default: bool = False
+
+
+@dataclass(frozen=True)
+class ChatSignal:
+    """Payload of the signal `chat` (#54)."""
+
+    message_id: str
 
 
 @dataclass(frozen=True)

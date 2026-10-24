@@ -31,6 +31,7 @@ from hwplatform.contracts import (
     QUEUES,
     AgentStageInput,
     AgentStageOutput,
+    ChatSignal,
     DesignInput,
     DesignOutput,
     DesignVersionInput,
@@ -78,6 +79,7 @@ class DesignFakes(Fakes):
         self.starts: list = []
         self.scheduled: list = []
         self.run_status: dict[str, str] = {}
+        self.auto_result = "auto"  # what record_question(auto_answered) reports: "human" = a person was first
 
     @activity.defn(name=A_RECORD_RUN)
     async def record_run(self, r: RecordRun) -> RecordedRun:
@@ -98,6 +100,8 @@ class DesignFakes(Fakes):
     @activity.defn(name=A_RECORD_QUESTION)
     async def record_question(self, r: RecordQuestion) -> str:
         self.questions.append(r)
+        if r.op == "auto_answered":
+            return self.auto_result
         return r.question_id or ""
 
     @activity.defn(name=A_GET_DESIGN_VERSION)
@@ -294,14 +298,266 @@ def test_question_wait_answer_continue():
     assert res.stages["requirements"]["rounds"] == 1
 
 
-def test_question_timeout_when_configured():
-    f = DesignFakes({"requirements": [asks]})
+SESSION = ArtifactRef("e" * 64, 5, "application/x-hwflow-agent-session+tar.gz", "session")
+
+
+def asks_one(critical: bool, recommended: str = "AA"):
+    """A session that asks one question (item shape as the tool box builds it) and ends its turn."""
+
+    async def fn(inp, n):
+        return AgentStageOutput(
+            "needs_answers",
+            ws(50),
+            SESSION,
+            f"sess-{inp.stage}",
+            questions=[
+                {
+                    "id": "q1",
+                    "text": "Battery?",
+                    "options": ["CR2032", "AA"],
+                    "recommended": recommended,
+                    "critical": critical,
+                    "default": recommended,
+                }
+            ],
+        )
+
+    return fn
+
+
+def test_timeout_answers_a_non_critical_question_with_the_recommended_option():
+    """1 h of workflow time (skipped by the time-skipping server): the recommended option is used."""
+    f = DesignFakes({"requirements": [asks_one(False), done]})
     a = design_arg(["requirements"], question_timeout_s=3600)
-    with pytest.raises(WorkflowFailureError) as ei:
-        run(f, a)
-    assert ei.value.cause.type == errors.QuestionExpired
-    assert f.ops() == ["ask", "expired"] and [r.to for r in f.runs] == ["running", "failed"]
-    assert f.keys("failed") == ["requirements"]
+    res = run(f, a)
+    assert res.status == "succeeded"
+    assert f.ops() == ["ask", "auto_answered", "resumed"]
+    auto = f.questions[1]
+    assert auto.answers == {"q1": "AA"} and auto.question_id == f.questions[0].question_id
+    second = f.agent_calls[1]
+    assert second.resume == "answers" and second.answers == {"q1": "AA"} and second.defaulted == ["q1"]
+    assert second.session_id == "sess-requirements" and second.round == 1
+    assert [r.to for r in f.runs] == ["running", "succeeded"]  # not failed: QuestionExpired is gone
+
+
+def test_a_person_who_answers_at_the_timeout_wins():
+    f = DesignFakes({"requirements": [asks_one(False), done]})
+    f.auto_result = "human"  # record_question found the question already answered
+
+    async def drive(env, h):
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(hours=2))  # the time-skipping server runs the 1 h timer
+        await wait_for(lambda: "auto_answered" in f.ops(), "the timeout")
+        await asyncio.sleep(0.3)
+        assert len(f.agent_calls) == 1  # it waits for the person's signal now
+        await h.signal(
+            DesignWorkflow.answer_question, QuestionAnswer(f.questions[0].question_id, {"q1": "CR2032"}, "u1")
+        )
+
+    res = run(f, design_arg(["requirements"], question_timeout_s=3600), drive)
+    assert res.status == "succeeded" and f.agent_calls[1].answers == {"q1": "CR2032"}
+    assert f.agent_calls[1].defaulted == []
+
+
+def test_critical_question_keeps_waiting_and_tells_the_ui():
+    f = DesignFakes({"requirements": [asks_one(True), done]})
+    a = design_arg(["requirements"], question_timeout_s=3600)
+
+    async def drive(env, h):
+        t0 = await env.get_current_time()
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(seconds=3601))
+        await wait_for(lambda: "critical_wait" in f.ops(), "the notification")
+        assert (await env.get_current_time()) - t0 >= timedelta(hours=1)
+        assert (await h.query("state"))["waiting"] == {
+            "reason": "question",
+            "question_id": f.questions[0].question_id,
+            "critical": True,
+        }
+        await env.sleep(timedelta(days=3))  # no timeout for a critical question
+        assert f.ops() == ["ask", "critical_wait"] and len(f.agent_calls) == 1
+        await h.signal(
+            DesignWorkflow.answer_question, QuestionAnswer(f.questions[0].question_id, {"q1": "CR2032"}, "u1")
+        )
+
+    res = run(f, a, drive)
+    assert res.status == "succeeded"
+    assert f.ops() == ["ask", "critical_wait", "resumed"]  # one notification, then the answer
+    assert f.agent_calls[1].answers == {"q1": "CR2032"} and f.agent_calls[1].defaulted == []
+
+
+def test_a_question_with_one_critical_item_is_critical():
+    async def mixed(inp, n):
+        out = await asks_one(False)(inp, n)
+        return AgentStageOutput(
+            "needs_answers",
+            out.workspace,
+            out.session,
+            out.session_id,
+            questions=[*out.questions, {**out.questions[0], "id": "q2", "critical": True}],
+        )
+
+    f = DesignFakes({"requirements": [mixed, done]})
+    a = design_arg(["requirements"], question_timeout_s=60)
+
+    async def drive(env, h):
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(minutes=5))
+        await wait_for(lambda: "critical_wait" in f.ops(), "the notification")
+        await h.signal(
+            DesignWorkflow.answer_question, QuestionAnswer(f.questions[0].question_id, {"q1": "AA"}, "u1")
+        )
+
+    assert run(f, a, drive).status == "succeeded" and "auto_answered" not in f.ops()
+
+
+def test_no_timeout_without_the_setting():
+    f = DesignFakes({"requirements": [asks_one(False), done]})
+
+    async def drive(env, h):
+        await wait_for(lambda: f.ops() == ["ask"], "the question")
+        await env.sleep(timedelta(days=30))
+        assert f.ops() == ["ask"]
+        await h.signal(
+            DesignWorkflow.answer_question, QuestionAnswer(f.questions[0].question_id, {"q1": "AA"}, "u")
+        )
+
+    assert run(f, design_arg(["requirements"]), drive).status == "succeeded"
+
+
+async def _override(h, f, answers=None):
+    await h.signal(
+        DesignWorkflow.answer_question,
+        QuestionAnswer(f.questions[0].question_id, answers or {"q1": "CR2032"}, "u1", True),
+    )
+
+
+def test_late_answer_reruns_the_asking_stage():
+    """Defaulted at the timeout; the person answers while the stage goes on: when it ends, it runs again
+    with the changed answer (its own session), then the next stage."""
+    gate = asyncio.Event()
+
+    async def requirements_done(inp, n):
+        if inp.resume == "answers":
+            await gate.wait()
+        return await done(inp, n)
+
+    f = DesignFakes({"requirements": [asks_one(False), requirements_done], "partition": [done]})
+    a = design_arg(["requirements", "partition"], question_timeout_s=3600)
+
+    async def drive(env, h):
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(seconds=3601))
+        await wait_for(lambda: len(f.agent_calls) == 2, "the stage after the default")
+        await _override(h, f)
+        await asyncio.sleep(0.3)
+        gate.set()
+
+    res = run(f, a, drive)
+    assert res.status == "succeeded"
+    assert [(c.stage, c.resume) for c in f.agent_calls] == [
+        ("requirements", None),
+        ("requirements", "answers"),
+        ("requirements", "override"),
+        ("partition", None),
+    ]
+    redo = f.agent_calls[2]
+    change = {"question_id": "q1", "stage": "requirements", "text": "Battery?", "was": "AA", "now": "CR2032"}
+    assert redo.overrides == [change] and redo.session_id == "sess-requirements"
+    assert redo.workspace == ws(1)  # from what the stage left
+    assert f.agent_calls[3].resume is None and f.agent_calls[3].overrides == []  # nothing to redo there
+    runs_of = [(s.key, s.status, s.attempt) for s in f.stages if s.key == "requirements"]
+    assert runs_of == [
+        ("requirements", "running", 1),
+        ("requirements", "succeeded", 1),
+        ("requirements", "running", 2),
+        ("requirements", "succeeded", 2),
+    ]
+    done2 = [s for s in f.stages if s.key == "requirements" and s.attempt == 2 and s.status == "succeeded"][0]
+    assert done2.out.summary["rerun"]["changes"] == [change]
+    assert [s.seq for s in f.stages if s.status == "running"] == [1, 2, 3]  # a rerun is a new scheduling
+
+
+def test_late_answer_in_a_later_stage_reruns_that_stage_and_the_ones_after():
+    gate = asyncio.Event()
+
+    async def partition_done(inp, n):
+        if n == 0:
+            await gate.wait()
+        return await done(inp, n)
+
+    f = DesignFakes(
+        {
+            "requirements": [asks_one(False), done],
+            "partition": [partition_done],
+            "parts": [done],
+        }
+    )
+    a = design_arg(["requirements", "partition", "parts"], question_timeout_s=3600)
+
+    async def drive(env, h):
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(seconds=3601))
+        await wait_for(lambda: [c.stage for c in f.agent_calls][-1:] == ["partition"], "the second stage")
+        await _override(h, f)
+        await asyncio.sleep(0.3)
+        gate.set()
+
+    res = run(f, a, drive)
+    assert res.status == "succeeded"
+    assert [(c.stage, c.resume) for c in f.agent_calls] == [
+        ("requirements", None),
+        ("requirements", "answers"),
+        ("partition", None),
+        ("requirements", "override"),
+        ("partition", "override"),
+        ("parts", None),
+    ]
+    again = f.agent_calls[4]  # a later stage is told what changed, and resumes its own session
+    assert again.session_id == "sess-partition" and again.overrides[0]["now"] == "CR2032"
+    assert f.agent_calls[3].workspace == ws(2) and again.workspace == ws(1)
+
+
+def test_late_answer_equal_to_the_default_changes_nothing():
+    f = DesignFakes({"requirements": [asks_one(False), done]})
+    gate = asyncio.Event()
+
+    async def held(inp, n):
+        await gate.wait()
+        return await done(inp, n)
+
+    f.agent["requirements"] = [asks_one(False), held]
+
+    async def drive(env, h):
+        await wait_for(lambda: "ask" in f.ops(), "the question")
+        await env.sleep(timedelta(seconds=3601))
+        await wait_for(lambda: len(f.agent_calls) == 2, "the stage after the default")
+        await _override(h, f, {"q1": "AA"})
+        await asyncio.sleep(0.3)
+        gate.set()
+
+    assert run(f, design_arg(["requirements"], question_timeout_s=3600), drive).status == "succeeded"
+    assert len(f.agent_calls) == 2
+
+
+def test_chat_signals_are_counted_and_the_run_goes_on():
+    f = DesignFakes({"requirements": [done]})
+    gate = asyncio.Event()
+
+    async def held(inp, n):
+        await gate.wait()
+        return await done(inp, n)
+
+    f.agent["requirements"] = [held]
+
+    async def drive(env, h):
+        await wait_for(lambda: len(f.agent_calls) == 1, "the session")
+        await h.signal(DesignWorkflow.chat_message, ChatSignal("m1"))
+        await h.signal(DesignWorkflow.chat_message, ChatSignal("m2"))
+        assert (await h.query("state"))["chat_messages"] == 2
+        gate.set()
+
+    assert run(f, design_arg(["requirements"]), drive).status == "succeeded"
 
 
 def test_invalid_key_waits_for_the_retry_signal():

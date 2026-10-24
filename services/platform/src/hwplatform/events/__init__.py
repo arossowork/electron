@@ -27,6 +27,10 @@ EVENT_TYPES = frozenset(
         "question.asked",
         "question.answered",
         "question.expired",
+        "question.auto_answered",
+        "question.waiting_critical",
+        "user.message",
+        "agent.message",
         "artifact.created",
         "design_version.created",
     }

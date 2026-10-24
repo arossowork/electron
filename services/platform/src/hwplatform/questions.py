@@ -1,7 +1,8 @@
 """Questions of a run (ADR 0001, sections 6 and 7.3): the person is asked, the answer wakes the workflow.
 
 The worker (`record_question`, #15) calls `ask`; the API calls `answer`. Every state change writes its event to
-the outbox in the same transaction (`question.asked`, `question.answered`).
+the outbox in the same transaction (`question.asked`, `question.answered`, and for the timeout policy `question.auto_answered`,
+`question.waiting_critical`).
 """
 
 from __future__ import annotations
@@ -32,11 +33,14 @@ class Question:
     run_id: str
     stage: str
     status: str  # open | answered | expired | cancelled
-    questions: list[dict]  # [{id, text, options?, default?}]
+    questions: list[dict]  # [{id, text, options, recommended, critical, default, why?, change?}]
     answers: dict | None
     answered_by: str | None
     asked_at: datetime
     answered_at: datetime | None
+    auto_answered: bool = False  # answered by the workflow with the recommended options after the timeout
+    default_answers: dict | None = None  # what the default was (kept after a person overrides it)
+    overridden_at: datetime | None = None
 
 
 def _j(v):
@@ -54,6 +58,9 @@ def _row(r) -> Question:
         answered_by=str(r["answered_by"]) if r["answered_by"] else None,
         asked_at=r["asked_at"],
         answered_at=r["answered_at"],
+        auto_answered=bool(r["auto_answered"]),
+        default_answers=_j(r["default_answers"]),
+        overridden_at=r["overridden_at"],
     )
 
 
@@ -200,3 +207,105 @@ class QuestionStore:
                     f"runs/{row.run_id}/questions/{q}",
                     {"question_id": str(q)},
                 )
+
+    async def auto_answer(self, qid: str | uuid.UUID, answers: dict) -> Question | None:
+        """open -> answered with the agent's recommended options, because nobody answered within the timeout
+        (non-critical question). Emits `question.auto_answered`. None when the question is no longer open (a person
+        answered at the same moment: theirs counts)."""
+        q = uuid.UUID(str(qid))
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            row = (
+                await s.execute(
+                    text(
+                        "UPDATE questions SET status = 'answered', answers = CAST(:a AS jsonb), "
+                        "default_answers = CAST(:a AS jsonb), auto_answered = true, answered_at = now() "
+                        "WHERE id = :i AND status = 'open' RETURNING run_id, stage"
+                    ),
+                    {"a": json.dumps(answers), "i": q},
+                )
+            ).first()
+            if row is None:
+                return None
+            await emit(
+                s,
+                self.tenant_id,
+                row.run_id,
+                "question.auto_answered",
+                f"runs/{row.run_id}/questions/{q}",
+                {"question_id": str(q), "stage": row.stage, "answers": answers},
+            )
+            return await self._get(s, q)
+
+    async def waiting_critical(self, qid: str | uuid.UUID) -> bool:
+        """Emit `question.waiting_critical` for a critical question still open after the timeout, so the UI can
+        highlight it. False when it is no longer open."""
+        q = uuid.UUID(str(qid))
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            row = (
+                await s.execute(
+                    text("SELECT run_id, stage FROM questions WHERE id = :i AND status = 'open'"), {"i": q}
+                )
+            ).first()
+            if row is None:
+                return False
+            await emit(
+                s,
+                self.tenant_id,
+                row.run_id,
+                "question.waiting_critical",
+                f"runs/{row.run_id}/questions/{q}",
+                {"question_id": str(q), "stage": row.stage},
+            )
+            return True
+
+    async def override(
+        self, qid: str | uuid.UUID, answers: dict, answered_by: str | uuid.UUID | None
+    ) -> Question:
+        """A person's late answer to a question that was answered by default: records it and emits
+        `question.answered` with `overrides_default: true` (the workflow then reruns the affected stages).
+        QuestionNotOpen when the question was not answered by default (or already overridden)."""
+        q = uuid.UUID(str(qid))
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            row = (
+                await s.execute(
+                    text(
+                        "UPDATE questions SET answers = CAST(:a AS jsonb), answered_by = :by, auto_answered = false, "
+                        "overridden_at = now(), answered_at = now() "
+                        "WHERE id = :i AND status = 'answered' AND auto_answered RETURNING run_id, default_answers"
+                    ),
+                    {
+                        "a": json.dumps(answers),
+                        "by": uuid.UUID(str(answered_by)) if answered_by else None,
+                        "i": q,
+                    },
+                )
+            ).first()
+            if row is None:
+                await self._get(s, q)  # raises QuestionNotFound
+                raise QuestionNotOpen(str(q))
+            await emit(
+                s,
+                self.tenant_id,
+                row.run_id,
+                "question.answered",
+                f"runs/{row.run_id}/questions/{q}",
+                {
+                    "question_id": str(q),
+                    "answered_by": str(answered_by) if answered_by else "simulator",
+                    "answers": answers,
+                    "overrides_default": True,
+                    "default_answers": _j(row.default_answers),
+                },
+            )
+            return await self._get(s, q)
+
+    async def revert_override(self, qid: str | uuid.UUID) -> None:
+        """Undo `override` when the workflow could not be signalled."""
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            await s.execute(
+                text(
+                    "UPDATE questions SET answers = default_answers, answered_by = NULL, auto_answered = true, "
+                    "overridden_at = NULL WHERE id = :i AND status = 'answered' AND overridden_at IS NOT NULL"
+                ),
+                {"i": uuid.UUID(str(qid))},
+            )

@@ -15,6 +15,16 @@ polling: signals and timers only.
 A worker restart: finished stages are in the history and do not run again; a stage cut by a crash is retried
 by Temporal (heartbeat timeout) and resumes its session from the last snapshot the activity heartbeated.
 
+Questions (#54, ADR 7.7): `question_timeout_s` (the setting, default 1 h) is a durable timer on every
+question. A question whose items are all `critical: false` is then answered with the agent's `recommended`
+options (`record_question(auto_answered)`: `question.auto_answered`) and the stage goes on, the defaulted
+answers marked as such in the agent's message and in `notes/decisions.md`. A question with any critical item
+keeps waiting without a limit; `question.waiting_critical` tells the UI once. A person's late answer to a
+defaulted question (signal `answer_question` with `overrides_default`) is applied at the next stage boundary:
+the stage that asked and every later stage that already ran run again (each resumes its own session and is
+told what changed), then the run goes on. Chat (`chat` signal): the message is stored by the API and the agent
+activity takes it at its next turn boundary, so the workflow only counts the signals (query `state`).
+
 Cancellation: the running agent_stage is cancelled and waited for (it cancels the builds it started), the
 linked builds this run knows are cancelled by ID, an open question is marked cancelled, then
 record_run(cancelled).
@@ -52,10 +62,12 @@ with workflow.unsafe.imports_passed_through():
         RATE_LIMIT_RESET_MAX_S,
         RECORD_POLICY,
         SIGNAL_ANSWER,
+        SIGNAL_CHAT,
         SIGNAL_CHILD_RATE_LIMITED,
         SIGNAL_RETRY,
         AgentStageInput,
         AgentStageOutput,
+        ChatSignal,
         DesignInput,
         DesignOutput,
         DesignVersionInput,
@@ -82,6 +94,11 @@ def _agent_retry() -> RetryPolicy:
         maximum_attempts=p.attempts,
         non_retryable_error_types=list(AGENT_NON_RETRYABLE),
     )
+
+
+def _recommended(q: dict):
+    r = q.get("recommended")
+    return r if r is not None else q.get("default")
 
 
 def _ref(d) -> ArtifactRef | None:
@@ -120,11 +137,23 @@ class DesignWorkflow:
         self.stage: str | None = None
         self.started: dict[str, str] = {}
         self.started_seq: dict[str, int] = {}
+        self.attempts: dict[str, int] = {}  # stage -> times it ran (a rerun after an override is another)
+        self.chat: list[str] = []  # message ids of `chat` signals
+        self.overrides: list[QuestionAnswer] = []  # late answers to defaulted questions, in arrival order
+        self.overrides_seen = 0
+        self.asked: dict[str, dict] = {}  # question id -> {stage, questions, defaults}
 
     # -- signals and the state query ----------
     @workflow.signal(name=SIGNAL_ANSWER)
     def answer_question(self, a: QuestionAnswer) -> None:
-        self.answers[a.question_id] = a
+        if a.overrides_default:
+            self.overrides.append(a)
+        else:
+            self.answers[a.question_id] = a
+
+    @workflow.signal(name=SIGNAL_CHAT)
+    def chat_message(self, m: ChatSignal) -> None:
+        self.chat.append(m.message_id)
 
     @workflow.signal(name=SIGNAL_RETRY)
     def retry(self) -> None:
@@ -132,7 +161,13 @@ class DesignWorkflow:
 
     @workflow.query(name="state")
     def state(self) -> dict:
-        return {"stage": self.stage, "waiting": self.waiting, "builds": list(self.builds)}
+        return {
+            "stage": self.stage,
+            "waiting": self.waiting,
+            "builds": list(self.builds),
+            "chat_messages": len(self.chat),
+            "overrides": len(self.overrides),
+        }
 
     # -- local and engine activities ----------
     async def _local(self, name: str, arg, result_type=None):
@@ -157,6 +192,7 @@ class DesignWorkflow:
                 seq=self.started_seq[stage],
                 status=status,
                 started_at=self.started.get(stage),
+                attempt=self.attempts.get(stage, 1),
                 **kw,
             ),
         )
@@ -226,16 +262,25 @@ class DesignWorkflow:
         verdict: str | None = None
         rounds = 0
         stages: dict[str, dict] = {}
-        for stage in list(arg.stages) or list(DESIGN_STAGES):
+        stage_list = list(arg.stages) or list(DESIGN_STAGES)
+        sessions: dict[str, tuple[ArtifactRef | None, str | None]] = {}  # stage -> its last session
+        changes: list[dict] = []  # defaulted answers a person replaced (#54)
+        redo_from = len(stage_list)  # stages from here on run again, told about `changes`
+        i = 0
+        while i < len(stage_list):
+            stage = stage_list[i]
+            redo = changes if i >= redo_from and stage in self.attempts else []  # ran before: runs again
             self.stage = stage
             self.seq += 1
+            self.attempts[stage] = self.attempts.get(stage, 0) + 1
             self.started_seq[stage] = self.seq
             self.started[stage] = self._now()
             await self._record_stage(stage, "running")
-            out, rounds = await self._stage(stage, workspace, version_id, rounds)
+            out, rounds = await self._stage(stage, workspace, version_id, rounds, sessions.get(stage), redo)
             if out.workspace.sha256 != workspace.sha256:
                 version_id = await self._save(out.workspace, version_id, f"agent: {stage}")
             workspace = out.workspace
+            sessions[stage] = (out.session, out.session_id)
             verdict = out.verdict or verdict
             summary = {
                 "summary": out.summary[:1500],
@@ -245,6 +290,8 @@ class DesignWorkflow:
                 "builds": len(out.builds),
                 "usage": out.usage,
             }
+            if redo:
+                summary["rerun"] = {"attempt": self.attempts[stage], "changes": redo}
             stages[stage] = {"summary": out.summary[:300], "rounds": rounds, "verdict": out.verdict}
             done = StageOut(
                 stage=stage,
@@ -256,9 +303,34 @@ class DesignWorkflow:
                 summary=summary,
             )
             await self._record_stage(stage, "succeeded", ended_at=self._now(), out=done)
+            new = self._take_overrides()
+            if new:  # a person replaced a default: the stage that asked and all later ones run again
+                changes = [*changes, *new]
+                redo_from = min(stage_list.index(c["stage"]) for c in new if c["stage"] in stage_list)
+                i = redo_from if redo_from <= i else i + 1
+                continue
+            i += 1
         self.stage = None
         rec = await self._record_run("succeeded", verdict=verdict)
         return DesignOutput(arg.ctx.run_id, rec.status, verdict, version_id, stages)
+
+    def _take_overrides(self) -> list[dict]:
+        """The overrides that arrived since the last call, as changes {question_id, stage, text, was, now}; an
+        answer equal to the default changes nothing."""
+        new, self.overrides_seen = self.overrides[self.overrides_seen :], len(self.overrides)
+        out = []
+        for a in new:
+            q = self.asked.get(a.question_id)
+            if q is None:
+                continue
+            texts = {str(x.get("id")): x.get("text", "") for x in q["questions"]}
+            for qid, now in a.answers.items():
+                was = q["defaults"].get(qid)
+                if qid in texts and str(now) != str(was):
+                    out.append(
+                        {"question_id": qid, "stage": q["stage"], "text": texts[qid], "was": was, "now": now}
+                    )
+        return out
 
     async def _save(self, workspace: ArtifactRef, parent: str, message: str) -> str:
         """A new design version from the workspace; one without a valid design.yaml keeps the old version."""
@@ -276,14 +348,21 @@ class DesignWorkflow:
         return dv.id
 
     async def _stage(
-        self, stage: str, workspace: ArtifactRef, version_id: str, rounds: int
+        self,
+        stage: str,
+        workspace: ArtifactRef,
+        version_id: str,
+        rounds: int,
+        last_session: tuple[ArtifactRef | None, str | None] | None = None,
+        redo: list[dict] | None = None,
     ) -> tuple[AgentStageOutput, int]:
-        """One stage to its end: question rounds, key waits and rate-limit timers included."""
-        session: ArtifactRef | None = None
-        session_id: str | None = None
+        """One stage to its end: question rounds, key waits and rate-limit timers included. `redo`: this run
+        of the stage follows a person's override of defaulted answers; it resumes the stage's last session."""
+        session, session_id = last_session if redo and last_session else (None, None)
         answers: dict | None = None
         questions: list[dict] = []
-        resume: str | None = None
+        defaulted: list[str] = []
+        resume: str | None = "override" if redo else None
         backoff = RATE_LIMIT_BACKOFF_S[0]
         while True:
             try:
@@ -300,6 +379,8 @@ class DesignWorkflow:
                         questions=questions,
                         resume=resume,
                         round=rounds,
+                        defaulted=defaulted,
+                        overrides=list(redo or []) if resume == "override" else [],
                         model=self.arg.model,
                         budget_usd=self.arg.budget_usd,
                     ),
@@ -337,7 +418,7 @@ class DesignWorkflow:
             rounds += 1
             version_id = await self._save(workspace, version_id, f"agent: {stage}, questions round {rounds}")
             questions = list(out.questions)
-            answers = await self._ask(stage, questions)
+            answers, defaulted = await self._ask(stage, questions)
             resume = "answers"
 
     async def _rate_wait(self, det: dict, backoff: float) -> float:
@@ -400,29 +481,43 @@ class DesignWorkflow:
                 else:
                     raise _Failed(_error(e)) from None
 
-    async def _ask(self, stage: str, questions: list[dict]) -> dict:
+    async def _ask(self, stage: str, questions: list[dict]) -> tuple[dict, list[str]]:
+        """(answers, ids defaulted after the timeout). Policy: ADR 7.7 and the module docstring."""
         qid = str(workflow.uuid4())
         await self._question("ask", question_id=qid, stage=stage, questions=questions)
         self.open_question = qid
         self.waiting = {"reason": "question", "question_id": qid}
+        self.asked[qid] = {"stage": stage, "questions": questions, "defaults": {}}
         if self.arg.answerer == "simulator":  # #19: the evals product-person simulator answers
             got = await self._simulate(stage, qid, questions)
             self.answers[qid] = QuestionAnswer(qid, got, "simulator")
+        # all items explicitly non-critical and with a recommended option: the question may be defaulted
+        defaultable = all(q.get("critical") is False and _recommended(q) is not None for q in questions)
         t = self.arg.question_timeout_s
+        defaulted: list[str] = []
         try:
             await workflow.wait_condition(
                 lambda: qid in self.answers, timeout=timedelta(seconds=t) if t else None
             )
         except TimeoutError:
-            await self._question("expired", question_id=qid)
-            self.open_question = None
-            raise _Failed(
-                {"type": errors.QuestionExpired, "message": f"no answer in {t:.0f} s", "retryable": False}
-            ) from None
+            if defaultable:
+                defaults = {str(q["id"]): _recommended(q) for q in questions}
+                who = await self._question("auto_answered", question_id=qid, answers=defaults)
+                if who == "auto":
+                    self.asked[qid]["defaults"] = defaults
+                    self.open_question = None
+                    self.waiting = None
+                    await self._question("resumed", question_id=qid)
+                    return defaults, list(defaults)
+                # a person answered first: their signal is on its way
+            else:
+                self.waiting = {"reason": "question", "question_id": qid, "critical": True}
+                await self._question("critical_wait", question_id=qid)
+            await workflow.wait_condition(lambda: qid in self.answers)
         self.open_question = None
         self.waiting = None
         await self._question("resumed", question_id=qid)
-        return dict(self.answers[qid].answers)
+        return dict(self.answers[qid].answers), defaulted
 
     async def _wait_for_key(self, stage: str, reason: str) -> None:
         seen = self.retries

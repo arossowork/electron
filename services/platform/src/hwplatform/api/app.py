@@ -20,6 +20,7 @@ from ..settings import Settings, get_settings
 from ..storage import make_s3_client
 from . import (
     routes_auth,
+    routes_chat,
     routes_designs,
     routes_evals,
     routes_events,
@@ -45,6 +46,7 @@ OPENAPI_TAGS = [
         "description": "Evaluations: fixtures run as design workflows, scored against a baseline.",
     },
     {"name": "questions", "description": "Questions a design run asks the person, and their answers."},
+    {"name": "chat", "description": "Free chat with the agent of a design run."},
     {"name": "events", "description": "Server-sent events: replay from the outbox, then live."},
 ]
 
@@ -124,6 +126,7 @@ def create_app(
     v1.include_router(routes_runs.router)
     v1.include_router(routes_evals.router)
     v1.include_router(routes_questions.router)
+    v1.include_router(routes_chat.router)
     v1.include_router(routes_events.router)
     app.include_router(v1)
 

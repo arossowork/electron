@@ -217,6 +217,26 @@ class QuestionOut(BaseModel):
     answered_by: uuid.UUID | None
     asked_at: datetime
     answered_at: datetime | None
+    auto_answered: bool = Field(
+        default=False, description="nobody answered in time: the agent's recommended options were used"
+    )
+    default_answers: dict[str, Any] | None = None
+    overridden_at: datetime | None = None
+
+
+class ChatIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ChatMessageOut(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    role: Literal["user", "agent"]
+    body: str
+    user_id: uuid.UUID | None
+    stage: str | None
+    created_at: datetime
+    delivered_at: datetime | None
 
 
 class AnswerIn(BaseModel):

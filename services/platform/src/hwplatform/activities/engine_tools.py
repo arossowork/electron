@@ -4,8 +4,9 @@ The agent worker has no KiCad, ngspice or internet egress. Its MCP tools start a
 runs this activity where the tools are:
 
 - `lib_sym`, `lib_show`, `lib_fp`, `lib_pads`, `parts_search`: `hwflow lib ...` / `hwflow parts ...`.
-- `trace`, `fw`, `floorplan`, `optimize`: the command on the workspace tree (materialized in a scratch dir,
-  with the last build's status.json as build/status.json); `fw --scaffold` and `optimize --apply` give back
+- `trace`, `fw`, `fw_test` (`hwflow fw test`: the firmware host tests with gcc), `floorplan`, `optimize`: the
+  command on the workspace tree (materialized in a scratch dir, with the last build's status.json as
+  build/status.json); `fw --scaffold` and `optimize --apply` give back
   the tree.
 - `fetch_url`: a public http(s) document, at most 20 MiB, stored in the tenant's S3 prefix (with a text
   version of a PDF). Private, loopback, link-local and other non-global addresses are refused, for every
@@ -94,6 +95,8 @@ def argv_for(tool: str, args: dict, proj: str) -> list[str]:
         return ["trace", proj]
     if tool == "floorplan":
         return ["floorplan", proj]
+    if tool == "fw_test":
+        return ["fw", "test", proj]
     if tool == "fw":
         return ["fw", proj, *(["--scaffold"] if args.get("scaffold") else [])]
     if tool == "optimize":

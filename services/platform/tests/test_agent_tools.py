@@ -101,28 +101,80 @@ def test_fetch_url_saves_under_datasheets(box, tmp_path):
     assert names == ["datasheets/etc_x_y.pdf", "datasheets/etc_x_y.pdf.txt"]
 
 
+Q1 = {"id": "q1", "text": "Battery?", "options": ["CR2032", "AA"], "recommended": "AA", "critical": False}
+Q2 = {
+    "id": "q2",
+    "text": "Board size?",
+    "options": ["30 mm", "50 mm"],
+    "recommended": "50 mm",
+    "critical": True,
+}
+
+
+def ask(box, *qs):
+    return call(box, "ask_product_person", {"questions": list(qs)})
+
+
 def test_ask_ends_the_turn(box):
     assert call(box, "ask_product_person", {"questions": []}).get("is_error")
-    assert call(box, "ask_product_person", {"questions": [{"text": "q"}] * 5}).get("is_error")
-    r = call(
-        box,
-        "ask_product_person",
-        {"questions": [{"id": "q1", "text": "Battery?", "options": ["CR2032", "AA"]}, {"text": "Size?"}]},
-    )
+    assert call(box, "ask_product_person", {"questions": [Q1] * 5}).get("is_error")
+    r = ask(box, Q1, {**Q2, "id": "q 2", "why": "area", "change": "size", "extra": "dropped"})
     assert not r.get("is_error") and box.ended
     assert box.questions == [
-        {"id": "q1", "text": "Battery?", "options": ["CR2032", "AA"]},
-        {"id": "q2", "text": "Size?"},
+        {**Q1, "default": "AA"},
+        {**Q2, "id": "q_2", "default": "50 mm", "why": "area", "change": "size"},
     ]
     assert call(box, "build", {"until": "sim"}).get("is_error") and not box.backend.builds
     assert not call(box, "log_decision", {"text": "chose X", "source": "datasheet p3"}).get("is_error")
     assert box.decisions == [{"stage": "circuit", "text": "chose X", "source": "datasheet p3"}]
+    log = (box.ws / "notes" / "decisions.md").read_text()  # the design notes keep the decision log
+    assert "- [circuit] chose X (source: datasheet p3)" in log
+
+
+@pytest.mark.parametrize(
+    "bad, why",
+    [
+        ({k: v for k, v in Q1.items() if k != "options"}, "options"),
+        ({**Q1, "options": ["only one"], "recommended": "only one"}, "options"),
+        ({**Q1, "options": "CR2032,AA"}, "options"),
+        ({**Q1, "options": ["AA", "AA"]}, "repeat"),
+        ({k: v for k, v in Q1.items() if k != "recommended"}, "recommended"),
+        ({**Q1, "recommended": "Lithium"}, "recommended"),
+        ({k: v for k, v in Q1.items() if k != "critical"}, "critical"),
+        ({**Q1, "critical": "false"}, "critical"),
+        ({**Q1, "critical": None}, "critical"),
+    ],
+)
+def test_ask_rejects_a_question_without_the_policy_fields(box, bad, why):
+    """options, recommended (one of options) and critical (a boolean) are required: the model gets a tool
+    error it can correct, and nothing is asked."""
+    r = ask(box, Q2, bad)
+    assert r.get("is_error") and why in text(r) and "q1" in text(r)
+    assert box.questions == [] and not box.ended
+    assert not ask(box, Q2, Q1).get("is_error")  # the corrected call goes through
+
+
+def test_ask_schema_requires_the_policy_fields():
+    from hwplatform.agent.tools import SCHEMAS
+
+    item = SCHEMAS["ask_product_person"][1]["properties"]["questions"]["items"]
+    assert {"options", "recommended", "critical"} <= set(item["required"])
+    assert (
+        item["properties"]["critical"] == {"type": "boolean"}
+        and item["properties"]["options"]["minItems"] == 2
+    )
+    assert "critical" in SCHEMAS["ask_product_person"][0] and "timeout" in SCHEMAS["ask_product_person"][0]
+
+
+def test_fw_test_is_an_engine_tool_on_the_workspace(box):
+    r = call(box, "fw_test")
+    assert text(r) == "fw_test ok" and box.backend.engine_calls == [("fw_test", {}, True)]
 
 
 def test_mcp_server_lists_every_tool(box):
     srv = mcp_server(box)
     assert srv["type"] == "sdk" and srv["name"] == "hwflow"
-    assert len(TOOL_NAMES) == 14 and "ask_product_person" in TOOL_NAMES and "fetch_url" in TOOL_NAMES
+    assert len(TOOL_NAMES) == 15 and "ask_product_person" in TOOL_NAMES and "fetch_url" in TOOL_NAMES
 
 
 # -- engine tool arguments and the URL check ----------
@@ -145,6 +197,7 @@ def test_argv_for_never_lets_a_value_become_an_option():
         "--apply",
     ]
     assert argv_for("fw", {"scaffold": True}, "p") == ["fw", "p", "--scaffold"]
+    assert argv_for("fw_test", {"scaffold": True, "x": "--y"}, "p") == ["fw", "test", "p"]
     for tool, args in [
         ("parts_search", {"category": "--help"}),
         ("parts_search", {"category": "R", "filters": {"--x": "1"}}),
@@ -293,3 +346,40 @@ def test_engine_tool_policies_cover_every_tool():
 
     assert set(ENGINE_TOOL_QUEUE) <= set(ENGINE_TOOLS)
     assert json.dumps(sorted(ENGINE_TOOLS))
+
+
+REPO = Path(__file__).resolve().parents[3]
+
+
+def test_fw_test_activity_runs_the_example_firmware(tmp_path):
+    """The engine tool end to end below the Temporal layer: the workspace tree of the example firmware
+    (projects/home-thermostat-3) is materialized, `hwflow fw test` builds and runs its host tests with gcc."""
+    import shutil
+    from types import SimpleNamespace
+
+    from hwflow.artifacts import put_tree
+
+    from hwplatform.activities.engine_tools import EngineTools
+    from hwplatform.contracts import EngineToolInput, RunCtx
+
+    if not shutil.which("gcc"):
+        pytest.skip("gcc not installed")
+    store = LocalCAS(tmp_path / "cas")
+    example = REPO / "projects" / "home-thermostat-3"
+    tree = put_tree(store, example, name="workspace", include=lambda r: r.parts[0] != "build")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    deps = SimpleNamespace(store=lambda tenant: store, scratch=lambda: scratch)
+    ctx = RunCtx("t", "p", "r", "k")
+    out = asyncio.run(EngineTools(deps).engine_tool(EngineToolInput(ctx, "fw_test", {}, tree)))
+    assert out.ok and "host tests: PASS" in out.text and "0 failed" in out.text, out.text
+    assert (
+        str(tmp_path) not in out.text and out.workspace is None
+    )  # paths scrubbed; a test run writes nothing back
+    # a broken test source comes back as a failed result the agent can read, not as an exception
+    bad = tmp_path / "bad"
+    shutil.copytree(example, bad, ignore=shutil.ignore_patterns("build"))
+    (bad / "fw" / "test" / "test_app.c").write_text("int main(void){ return undefined_symbol; }\n")
+    tree = put_tree(store, bad, name="workspace", include=lambda r: r.parts[0] != "build")
+    out = asyncio.run(EngineTools(deps).engine_tool(EngineToolInput(ctx, "fw_test", {}, tree)))
+    assert not out.ok and "compile failed" in out.text and "undefined_symbol" in out.text, out.text

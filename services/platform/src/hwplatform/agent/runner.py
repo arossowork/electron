@@ -106,11 +106,24 @@ class SessionResult:
     denied: list[dict] = field(default_factory=list)
 
 
+async def _no_chat() -> list[str]:
+    return []
+
+
+async def _no_reply(text: str) -> None:
+    return None
+
+
 @dataclass
 class Hooks:
     on_usage: Callable[[str, dict], Awaitable[None]]
     on_message: Callable[[str], None] = lambda line: None
     on_session: Callable[[str], None] = lambda sid: None
+    # Chat (#54): `take_chat` gives the person's messages that arrived since the last call (and marks them
+    # delivered); the runner calls it before the first prompt and at every turn boundary. `on_reply` receives
+    # the agent's reply text to a turn that carried chat messages.
+    take_chat: Callable[[], Awaitable[list[str]]] = _no_chat
+    on_reply: Callable[[str], Awaitable[None]] = _no_reply
 
 
 class AgentRunner(Protocol):
@@ -273,49 +286,62 @@ class SdkRunner:
         after_ask = 0
         try:
             async with ClaudeSDKClient(options=self.options(spec, box, guard, stderr)) as client:
-                await client.query(spec.prompt)
-                async for msg in client.receive_response():
-                    sid = getattr(msg, "session_id", None) or (
-                        (getattr(msg, "data", None) or {}).get("session_id")
-                        if isinstance(msg, SystemMessage)
-                        else None
-                    )
-                    if sid and sid != res.session_id:
-                        res.session_id = sid
-                        hooks.on_session(sid)
-                    if isinstance(msg, AssistantMessage):
-                        if msg.error and res.error is None:
-                            res.error = _ASSISTANT_ERRORS.get(msg.error, None)
-                        for b in msg.content:
-                            if isinstance(b, ToolUseBlock):
-                                hooks.on_message(f"{b.name}")
-                            elif isinstance(b, TextBlock) and b.text.strip():
-                                hooks.on_message(b.text.strip().splitlines()[0][:200])
-                        if box.ended:  # asked the product person: the turn must end now
-                            after_ask += 1
-                            if after_ask > 3:
-                                await client.interrupt()
-                    elif isinstance(msg, RateLimitEvent):
-                        info = msg.rate_limit_info
-                        if info.status == "rejected" and info.resets_at:
-                            import time
+                from hwharness.prompts import chat_message
 
-                            res.retry_after_s = max(1.0, float(info.resets_at) - time.time())
-                    elif isinstance(msg, ResultMessage):
-                        for model, usage in usage_by_model(msg, spec.model):
-                            await hooks.on_usage(model, usage)
-                        res.num_turns, res.stop, res.text = (
-                            msg.num_turns,
-                            msg.subtype,
-                            (msg.result or "")[:4000],
+                pending = await hooks.take_chat()  # chat that arrived before the stage started
+                prompt = spec.prompt + ("\n\n" + chat_message(pending) if pending else "")
+                await client.query(prompt)
+                while True:  # one pass per turn; a turn ends at its ResultMessage (the turn boundary)
+                    async for msg in client.receive_response():
+                        sid = getattr(msg, "session_id", None) or (
+                            (getattr(msg, "data", None) or {}).get("session_id")
+                            if isinstance(msg, SystemMessage)
+                            else None
                         )
-                        if msg.is_error and msg.subtype not in LIMIT_STOPS:
-                            res.error = (
-                                res.error
-                                or classify_status(msg.api_error_status)
-                                or limit_message(res.text)
-                                or FAILED
+                        if sid and sid != res.session_id:
+                            res.session_id = sid
+                            hooks.on_session(sid)
+                        if isinstance(msg, AssistantMessage):
+                            if msg.error and res.error is None:
+                                res.error = _ASSISTANT_ERRORS.get(msg.error, None)
+                            for b in msg.content:
+                                if isinstance(b, ToolUseBlock):
+                                    hooks.on_message(f"{b.name}")
+                                elif isinstance(b, TextBlock) and b.text.strip():
+                                    hooks.on_message(b.text.strip().splitlines()[0][:200])
+                            if box.ended:  # asked the product person: the turn must end now
+                                after_ask += 1
+                                if after_ask > 3:
+                                    await client.interrupt()
+                        elif isinstance(msg, RateLimitEvent):
+                            info = msg.rate_limit_info
+                            if info.status == "rejected" and info.resets_at:
+                                import time
+
+                                res.retry_after_s = max(1.0, float(info.resets_at) - time.time())
+                        elif isinstance(msg, ResultMessage):
+                            for model, usage in usage_by_model(msg, spec.model):
+                                await hooks.on_usage(model, usage)
+                            res.num_turns, res.stop, res.text = (
+                                msg.num_turns,
+                                msg.subtype,
+                                (msg.result or "")[:4000],
                             )
+                            if msg.is_error and msg.subtype not in LIMIT_STOPS:
+                                res.error = (
+                                    res.error
+                                    or classify_status(msg.api_error_status)
+                                    or limit_message(res.text)
+                                    or FAILED
+                                )
+                    if pending and res.text and not res.error:
+                        await hooks.on_reply(res.text)  # the agent's reply to the chat of this turn
+                    if box.ended or res.error or res.stop in LIMIT_STOPS:
+                        break
+                    pending = await hooks.take_chat()  # chat that came in while the agent worked
+                    if not pending:
+                        break
+                    await client.query(chat_message(pending))
         except ProcessError as e:
             if getattr(e, "subtype", None) in LIMIT_STOPS:  # max turns / budget: the stage ends, not an error
                 res.stop = e.subtype

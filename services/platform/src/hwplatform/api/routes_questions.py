@@ -26,9 +26,12 @@ router = APIRouter(tags=["questions"])
     response_model=QuestionOut,
     summary="Answer a question",
     description=(
-        "Writes the answer, then signals `answer_question` to the run's workflow. 409 when the question is not "
-        "open (already answered, expired, cancelled) or its run has ended; 422 for an answer to an unknown "
-        "question id or a missing answer for a question without a default."
+        "Writes the answer, then signals `answer_question` to the run's workflow. A question that was answered by "
+        "default after the timeout (`auto_answered`) can still be answered: that replaces the default, emits "
+        "`question.answered` with `overrides_default` and the workflow runs the asking stage and the later ones "
+        "again. 409 when the question is not open (already answered by a person, expired, cancelled) or its run "
+        "has ended; 422 for an answer to an unknown question id or a missing answer for a question without a "
+        "default."
     ),
     responses={
         404: {"model": ErrorOut},
@@ -49,7 +52,8 @@ async def answer_question(
         q = await qs.get(question_id)
     except QuestionNotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "question not found") from e
-    if q.status != "open":
+    override = q.status == "answered" and q.auto_answered
+    if q.status != "open" and not override:
         raise HTTPException(status.HTTP_409_CONFLICT, f"question is {q.status}")
     ids = {x.get("id") for x in q.questions}
     unknown = sorted(set(body.answers) - ids)
@@ -72,16 +76,27 @@ async def answer_question(
     if row.status in ("succeeded", "failed", "cancelled"):
         raise HTTPException(status.HTTP_409_CONFLICT, f"run already {row.status}")
     try:
-        done = await qs.answer(question_id, body.answers, ctx.user_id)
+        if override:
+            done = await qs.override(question_id, body.answers, ctx.user_id)
+        else:
+            done = await qs.answer(question_id, body.answers, ctx.user_id)
     except QuestionNotOpen as e:  # answered by someone else in between
         raise HTTPException(status.HTTP_409_CONFLICT, "question is not open") from e
     try:
         await gateway.signal_answer(
             row.workflow_id,
-            QuestionAnswer(question_id=str(question_id), answers=body.answers, answered_by=str(ctx.user_id)),
+            QuestionAnswer(
+                question_id=str(question_id),
+                answers=body.answers,
+                answered_by=str(ctx.user_id),
+                overrides_default=override,
+            ),
         )
     except GatewayError as e:  # nobody was woken: let the person answer again
         log.warning("signal for question %s failed: %s", question_id, e)
-        await qs.reopen(question_id)
+        if override:
+            await qs.revert_override(question_id)
+        else:
+            await qs.reopen(question_id)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "workflow engine unavailable") from e
     return dataclasses.asdict(done)

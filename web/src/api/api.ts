@@ -17,6 +17,7 @@ export type EvalDetail = S["EvalOut"];
 export type Baseline = S["BaselineOut"];
 export type Artifact = S["ArtifactOut"];
 export type Question = S["QuestionOut"];
+export type ChatMessage = S["ChatMessageOut"];
 export type LlmKey = S["LlmKeyOut"];
 export type CredentialType = NonNullable<S["LlmKeyIn"]["credential_type"]>;
 export interface Page<T> {
@@ -28,7 +29,12 @@ export interface QuestionItem {
   id: string;
   text: string;
   options?: string[];
+  /** The agent's pick; an unanswered non-critical question gets it after the timeout. */
+  recommended?: string;
+  /** Critical: the run waits for the person without a limit. */
+  critical?: boolean;
   default?: string;
+  why?: string;
 }
 
 export const auth = {
@@ -85,6 +91,8 @@ export const runs = {
   artifacts: (id: string) => get<Artifact[]>(`/runs/${id}/artifacts`),
   questions: (id: string) => get<Question[]>(`/runs/${id}/questions`),
   answer: (qid: string, answers: Record<string, string>) => post<unknown>(`/questions/${qid}/answer`, { answers }),
+  chat: (id: string) => get<ChatMessage[]>(`/runs/${id}/chat`),
+  sendChat: (id: string, text: string) => post<ChatMessage>(`/runs/${id}/chat`, { text }),
 };
 
 export const evals = {

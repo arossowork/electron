@@ -12,6 +12,7 @@ import {
 import { session } from "../api/client";
 import { follow, type SseMessage, type StreamState } from "../api/sse";
 import { Markdown } from "../components/Markdown";
+import { ChatPanel, DefaultedQuestions } from "./RunChat";
 import { Badge, ErrorBox, errText, fmtBytes, fmtTime, useLoad } from "../components/ui";
 
 const TERMINAL_EVENTS = new Set(["run.completed", "run.failed", "run.cancelled"]);
@@ -38,7 +39,11 @@ export function eventLine(m: SseMessage): string | null {
     case "question.asked":
       return "waiting for answers";
     case "question.answered":
-      return "answers received";
+      return d.overrides_default ? "answer replaced the default; the stage runs again" : "answers received";
+    case "question.auto_answered":
+      return "no answer in time: the recommended option was used";
+    case "question.waiting_critical":
+      return "a critical question is still waiting for you";
     default:
       return m.event.startsWith("run.") ? m.event : null;
   }
@@ -48,10 +53,12 @@ export function RunPage() {
   const { runId = "" } = useParams();
   const run = useLoad(() => runs.get(runId), `run:${runId}`);
   const questions = useLoad(() => runs.questions(runId), `q:${runId}`);
+  const chat = useLoad(() => runs.chat(runId), `chat:${runId}`);
+  const [critical, setCritical] = useState<Set<string>>(new Set());
   const [log, setLog] = useState<string[]>([]);
   const [stream, setStream] = useState<{ state: StreamState; info?: string }>({ state: "connecting" });
-  const reloads = useRef({ run: run.reload, q: questions.reload });
-  reloads.current = { run: run.reload, q: questions.reload };
+  const reloads = useRef({ run: run.reload, q: questions.reload, chat: chat.reload });
+  reloads.current = { run: run.reload, q: questions.reload, chat: chat.reload };
 
   useEffect(() => {
     const ac = new AbortController();
@@ -67,11 +74,20 @@ export function RunPage() {
       onMessage: (m) => {
         const l = eventLine(m);
         if (l) setLog((old) => [...old.slice(-199), l]);
+        if (m.event === "question.waiting_critical") {
+          try {
+            const id = (JSON.parse(m.data) as { data?: { question_id?: string } }).data?.question_id;
+            if (id) setCritical((old) => new Set(old).add(id));
+          } catch {
+            /* a malformed event is only a missing highlight */
+          }
+        }
         if (m.event !== "stage.progress") {
           clearTimeout(t);
           t = setTimeout(() => {
             void reloads.current.run();
             void reloads.current.q();
+            if (m.event === "user.message" || m.event === "agent.message") void reloads.current.chat();
           }, 250);
         }
       },
@@ -98,12 +114,22 @@ export function RunPage() {
         <QuestionPanel
           key={q.id}
           q={q}
+          waitingCritical={critical.has(q.id)}
           onAnswered={async () => {
             await questions.reload();
             await run.reload();
           }}
         />
       ))}
+      <DefaultedQuestions
+        qs={questions.data ?? []}
+        active={!done}
+        onChanged={async () => {
+          await questions.reload();
+          await run.reload();
+        }}
+      />
+      {r && r.kind === "design" && <ChatPanel runId={runId} messages={chat.data ?? []} active={!done} onSent={chat.reload} />}
       {r && <Stages run={r} />}
       {log.length > 0 && (
         <section className="card">
@@ -204,12 +230,13 @@ function Log({ lines }: { lines: string[] }) {
   );
 }
 
-function QuestionPanel({ q, onAnswered }: { q: Question; onAnswered: () => Promise<void> }) {
+function QuestionPanel({ q, onAnswered, waitingCritical = false }: { q: Question; onAnswered: () => Promise<void>; waitingCritical?: boolean }) {
   const items = q.questions as unknown as QuestionItem[];
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(items.map((i) => [i.id, i.default ?? ""])));
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(items.map((i) => [i.id, i.recommended ?? i.default ?? ""])));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
-  const missing = items.some((i) => !vals[i.id] && i.default === undefined);
+  const missing = items.some((i) => !vals[i.id] && i.default === undefined && i.recommended === undefined);
+  const anyCritical = items.some((i) => i.critical);
   async function submit() {
     setBusy(true);
     setErr(undefined);
@@ -223,13 +250,25 @@ function QuestionPanel({ q, onAnswered }: { q: Question; onAnswered: () => Promi
     setBusy(false);
   }
   return (
-    <section className="card" aria-label="Open questions" data-testid="questions">
+    <section className={`card${waitingCritical ? " critical" : ""}`} aria-label="Open questions" data-testid="questions">
       <h2>
-        The run needs your answers <span className="muted">(stage {q.stage})</span>
+        The run needs your answers <span className="muted">(stage {q.stage})</span>{" "}
+        {waitingCritical && (
+          <span className="badge bad" data-testid="critical-waiting">
+            critical: waiting for you
+          </span>
+        )}
       </h2>
+      {!anyCritical && (
+        <p className="muted">If nobody answers in time, the agent goes on with its recommended option (you can still replace it).</p>
+      )}
       {items.map((i) => (
         <div key={i.id}>
-          <label htmlFor={`q-${q.id}-${i.id}`}>{i.text}</label>
+          <label htmlFor={`q-${q.id}-${i.id}`}>
+            {i.text}
+            {i.critical && <span className="badge bad"> critical</span>}
+            {i.recommended && <span className="muted"> (recommended: {i.recommended})</span>}
+          </label>
           {i.options?.length ? (
             <select id={`q-${q.id}-${i.id}`} value={vals[i.id]} onChange={(e) => setVals({ ...vals, [i.id]: e.target.value })}>
               {i.default === undefined && <option value="">Choose…</option>}

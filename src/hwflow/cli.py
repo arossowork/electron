@@ -105,6 +105,14 @@ def cmd_optimize(d: Design, a) -> int:
     return 0
 
 
+def cmd_fw_test(d: Design, a) -> int:
+    from .fw.hosttest import host_test
+    rc, text, summary = host_test(d, Libs(design=d), _out(d))
+    print(text)
+    _save_status(d, "fw_test", {**summary, "design_hash": _design_hash(d), "at": time.time()})
+    return rc
+
+
 def cmd_fw(d: Design, a) -> int:
     from . import fw
     path, findings = fw.run(d, Libs(design=d), _out(d))
@@ -195,7 +203,9 @@ def main(argv=None):
     sub.add_parser("trace").add_argument("project")
     p = sub.add_parser("fw", help="firmware headers build/fw/board.h, events.h, modules.h from design.yaml and the "
                                   "HW/SW contract interface.yaml (docs/hwsw-codesign.md)")
-    p.add_argument("project")
+    p.add_argument("target", nargs="+", metavar="[test] project",
+                   help="`fw <proj>`: generate the headers; `fw test <proj>`: also build and run the firmware host "
+                        "tests with gcc (exit 0 = pass)")
     p.add_argument("--scaffold", action="store_true", help="also write fw/ module skeletons, app wiring, Makefile and "
                                                            "a host-test stub (never overwrites)")
     p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
@@ -230,6 +240,13 @@ def main(argv=None):
         if a.detach:
             return runcmd.detach(a.project, list(sys.argv[1:] if argv is None else argv))
 
+    if a.cmd == "fw":
+        if a.target[0] == "test" and len(a.target) == 2:
+            a.project, a.fw_test = a.target[1], True
+        elif len(a.target) == 1:
+            a.project, a.fw_test = a.target[0], False
+        else:
+            ap.error("fw: usage `fw <project> [--scaffold]` or `fw test <project>`")
     d = _load(a.project)
     if a.cmd == "netlist":
         sim = d.raw.get("sim") or {}
@@ -248,7 +265,7 @@ def main(argv=None):
     if a.cmd == "optimize":
         return cmd_optimize(d, a)
     if a.cmd == "fw":
-        return cmd_fw(d, a)
+        return cmd_fw_test(d, a) if a.fw_test else cmd_fw(d, a)
     if a.cmd == "floorplan":
         return cmd_floorplan(d, a)
 

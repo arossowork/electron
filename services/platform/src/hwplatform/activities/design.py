@@ -53,6 +53,11 @@ class DesignActivities:
             await self._transition(r, RunStatus.running, reason="question", question_id=r.question_id)
         elif r.op in ("expired", "cancelled"):
             await qs.set_status(r.question_id, r.op)
+        elif r.op == "auto_answered":  # the timeout passed on a non-critical question (#54)
+            done = await qs.auto_answer(r.question_id, dict(r.answers))
+            return "auto" if done is not None else "human"
+        elif r.op == "critical_wait":  # ... on a critical one: tell the UI, keep waiting
+            await qs.waiting_critical(r.question_id)
         elif r.op == "key_wait":
             await self._transition(r, RunStatus.waiting, reason="llm_key_invalid")
         elif r.op == "key_resumed":

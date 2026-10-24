@@ -306,3 +306,32 @@ th {
   max-width: 420px;
   margin: 40px auto;
 }
+
+.card.critical {
+  border-color: var(--bad, #c0392b);
+  box-shadow: 0 0 0 2px var(--bad, #c0392b) inset;
+}
+.chat {
+  max-height: 320px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chat .msg {
+  max-width: 85%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  white-space: pre-wrap;
+}
+.chat .msg.user {
+  align-self: flex-end;
+  border: 1px solid var(--accent);
+}
+.chat .msg .who {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 2px;
+}

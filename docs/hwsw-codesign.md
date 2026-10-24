@@ -148,7 +148,7 @@ A contract change regenerates the headers on every `make test`, so a renamed eve
 
 ### Verification without hardware
 
-- **Host tests** (`make -C projects/<p>/fw test`, gcc). One test per `failure_modes` `sw` line and per contract number that a requirement limits, plus a simulated day (event counts, sensor-on time, no dropped event, watchdog gap). The framework has its own self-tests (`make -C fw/framework test`).
+- **Host tests** (`make -C projects/<p>/fw test`, gcc; or `uv run hwflow fw test <proj>`, which needs no make or uv inside the project: it regenerates `build/fw`, compiles the framework and every `.c` under `fw/` except `fw/port/` and runs the binary; the hosted agent calls it as the `fw_test` tool). One test per `failure_modes` `sw` line and per contract number that a requirement limits, plus a simulated day (event counts, sensor-on time, no dropped event, watchdog gap). The framework has its own self-tests (`make -C fw/framework test`).
 - **Simulated board.** `test/sim_board.c` models what the firmware sees: GPIO levels with timing, the cell through the divider, the I2C device registers, peripheral-timed outputs. Its numbers come from `notes/`; the electrical truth stays in SPICE.
 - **SPICE as test vectors** (next step). Measures tagged with `req` in `build/status.json` can be exported as sim inputs; here they are copied by hand.
 - **Multi-wake scenarios.** SPICE runs one wake per analysis, unless a testbench chains wakes (thermostat `r35_two_wake_*`). Logic that carries state across wakes is checked by host tests.

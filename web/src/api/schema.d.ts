@@ -582,9 +582,33 @@ export interface paths {
         put?: never;
         /**
          * Answer a question
-         * @description Writes the answer, then signals `answer_question` to the run's workflow. 409 when the question is not open (already answered, expired, cancelled) or its run has ended; 422 for an answer to an unknown question id or a missing answer for a question without a default.
+         * @description Writes the answer, then signals `answer_question` to the run's workflow. A question that was answered by default after the timeout (`auto_answered`) can still be answered: that replaces the default, emits `question.answered` with `overrides_default` and the workflow runs the asking stage and the later ones again. 409 when the question is not open (already answered by a person, expired, cancelled) or its run has ended; 422 for an answer to an unknown question id or a missing answer for a question without a default.
          */
         post: operations["answer_question_api_v1_questions__question_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat messages of a run
+         * @description The person's messages and the agent's replies, oldest first (at most 500).
+         */
+        get: operations["list_chat_api_v1_runs__run_id__chat_get"];
+        put?: never;
+        /**
+         * Write to the agent
+         * @description Stores the message and signals `chat` to the run's DesignWorkflow. The agent gets it at its next turn boundary (a message sent while a tool runs waits for the tool to end). 409 for a run that is not a design run or has ended; 503 when the workflow engine cannot be reached (nothing is stored).
+         */
+        post: operations["post_chat_api_v1_runs__run_id__chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -744,6 +768,42 @@ export interface components {
              * @default
              */
             message: string;
+        };
+        /** ChatIn */
+        ChatIn: {
+            /** Text */
+            text: string;
+        };
+        /** ChatMessageOut */
+        ChatMessageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "agent";
+            /** Body */
+            body: string;
+            /** User Id */
+            user_id: string | null;
+            /** Stage */
+            stage: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
         };
         /** ConflictIn */
         ConflictIn: {
@@ -1208,6 +1268,18 @@ export interface components {
             asked_at: string;
             /** Answered At */
             answered_at: string | null;
+            /**
+             * Auto Answered
+             * @description nobody answered in time: the agent's recommended options were used
+             * @default false
+             */
+            auto_answered: boolean;
+            /** Default Answers */
+            default_answers?: {
+                [key: string]: unknown;
+            } | null;
+            /** Overridden At */
+            overridden_at?: string | null;
         };
         /** RefreshIn */
         RefreshIn: {
@@ -3021,6 +3093,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_chat_api_v1_runs__run_id__chat_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageOut"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_chat_api_v1_runs__run_id__chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

@@ -36,6 +36,7 @@ from ..agent import workspace as wsmod
 from ..agent.backend import PlatformBackend
 from ..agent.runner import KEY_EXHAUSTED, KEY_INVALID, RATE_LIMITED, Hooks, SessionSpec
 from ..agent.tools import ToolBox
+from ..chat import ChatStore
 from ..contracts import (
     A_AGENT_STAGE,
     AGENT_SNAPSHOT_EVERY_S,
@@ -91,10 +92,13 @@ def budget_cap(platform: float | None, requested: float | None) -> float | None:
 
 
 def prompt_for(inp: AgentStageInput, start: Start, can_resume: bool) -> str:
-    from hwharness.prompts import RETRY_MESSAGE, answers_message, first_message
+    from hwharness.prompts import RETRY_MESSAGE, answers_message, first_message, override_message
 
     if start.resume == "answers" and inp.answers is not None:
-        msg = answers_message(inp.questions, inp.answers, inp.round)
+        msg = answers_message(inp.questions, inp.answers, inp.round, inp.defaulted)
+        return msg if can_resume else first_message(inp.stage, inp.brief) + "\n\n" + msg
+    if start.resume == "override" and inp.overrides:
+        msg = override_message(inp.stage, inp.overrides)
         return msg if can_resume else first_message(inp.stage, inp.brief) + "\n\n" + msg
     if start.resume in ("retry", "restart") and can_resume:
         return RETRY_MESSAGE
@@ -174,6 +178,28 @@ class AgentActivities:
 
         backend = PlatformBackend(self.deps.db, store, self.deps.temporal, ctx, on_wait=on_message)
         box = ToolBox(dirs.ws, backend, stage=inp.stage, on_event=on_message)
+        defaulted = start.resume == "answers" and bool(inp.defaulted)
+        if defaulted:  # answers nobody gave in time: the decision is logged in the design notes
+            for item in inp.questions:
+                if str(item.get("id")) in inp.defaulted:
+                    rec = (inp.answers or {}).get(str(item["id"]))
+                    box.record_decision(
+                        f'No answer to "{item.get("text", "")}" within the timeout: used the '
+                        f'recommended option "{rec}" (non-critical; the person can still override it)',
+                        f"default after timeout, PM round {inp.round}, {item['id']}",
+                    )
+        chat = ChatStore(self.deps.db, ctx.tenant_id)
+        taken: list[str] = []  # chat messages handed to the agent in this attempt
+
+        async def take_chat() -> list[str]:
+            msgs = await chat.take_pending(ctx.run_id)
+            taken.extend(m.id for m in msgs)
+            return [m.body for m in msgs]
+
+        async def on_reply(text: str) -> None:
+            await chat.post_agent(ctx.run_id, text, inp.stage, list(taken))
+            taken.clear()
+
         spec = SessionSpec(
             ws=dirs.ws,
             home=dirs.home,
@@ -209,9 +235,15 @@ class AgentActivities:
 
         hb = asyncio.create_task(beat())
         try:
-            res = await self.deps.runner.run(spec, box, Hooks(on_usage, on_message, on_session))
+            res = await self.deps.runner.run(
+                spec, box, Hooks(on_usage, on_message, on_session, take_chat, on_reply)
+            )
         except asyncio.CancelledError:
             await asyncio.shield(backend.cancel_builds(list(box.builds)))
+            await asyncio.shield(chat.release(taken))
+            raise
+        except Exception:
+            await chat.release(taken)  # the agent may not have seen them: the next attempt delivers them
             raise
         finally:
             hb.cancel()
@@ -229,6 +261,8 @@ class AgentActivities:
             log.warning(
                 "run %s stage %s: %d tool calls denied by the sandbox", ctx.run_id, inp.stage, len(res.denied)
             )
+        if res.error:
+            await chat.release(taken)
         if res.error in (KEY_INVALID, KEY_EXHAUSTED):
             await creds.mark_invalid(ctx.tenant_id, cred)
             raise ApplicationError(

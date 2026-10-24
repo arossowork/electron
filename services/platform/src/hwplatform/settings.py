@@ -107,8 +107,10 @@ class Settings(BaseSettings):
     agent_fallback_model: str = ""
     agent_max_budget_usd: float | None = None  # per stage session (the SDK stops the session above it)
     agent_prompts_dir: str = ""
-    # A question waits this long for an answer, then the run fails with QuestionExpired. None: no limit.
-    agent_question_timeout_s: float | None = None
+    # A question waits this long for a person (#54): then a non-critical one is answered with the agent's
+    # recommended options (`question.auto_answered`), a critical one keeps waiting
+    # (`question.waiting_critical`). 0 or None: no timeout.
+    agent_question_timeout_s: float | None = 3600.0
     # Evaluations (#19). The simulated product person's model (an alias or an ID; as HWFLOW_PM_MODEL
     # locally), the
     # most trials one evaluation runs at once when the request does not say, and the most trials it may have.
