@@ -232,3 +232,13 @@ def test_classify_and_usage():
             },
         )
     ]
+
+
+def test_write_launcher_twice_in_one_sandbox(tmp_path):
+    """A resumed stage writes the launcher again into the same read-only stub; it must replace it."""
+    first = write_launcher(tmp_path / "bin", sys.executable, "/opt/claude-a")
+    second = write_launcher(tmp_path / "bin", sys.executable, "/opt/claude-b")
+    assert first == second
+    assert "/opt/claude-b" in second.read_text()
+    assert oct(second.stat().st_mode & 0o777) == "0o500"
+    assert [p.name for p in (tmp_path / "bin").iterdir()] == ["claude"]

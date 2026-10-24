@@ -129,10 +129,14 @@ def write_launcher(dest_dir: Path, python: str, real_cli: str) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     p = dest_dir / "claude"
     q = lambda s: "'" + s.replace("'", "'\"'\"'") + "'"  # noqa: E731
-    p.write_text(
+    # Write a new file and rename it over the old one: the stub is read-only, so a second session in the same
+    # sandbox (a resumed stage) could not open it for writing.
+    tmp = dest_dir / f".claude.{os.getpid()}.tmp"
+    tmp.write_text(
         f'#!/bin/sh\n{REAL_CLI_ENV}={q(real_cli)} exec {q(python)} -I -m hwplatform.agent.launch "$@"\n'
     )
-    p.chmod(0o500)
+    tmp.chmod(0o500)
+    os.replace(tmp, p)
     return p
 
 
