@@ -68,7 +68,7 @@ jobs:
           docker history hwplatform-worker:ci --format '{{.Size}}	{{.CreatedBy}}' | cut -c1-100 | head -12
       - name: Smoke - hwflow check and build --until sim (read-only root, non-root user)
         run: |
-          docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g \
+          docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g,exec \
             -v "$PWD/examples:/examples:ro" -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" \
             hwplatform-worker:ci /smoke.sh sim
       - name: Entry points on PATH

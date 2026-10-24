@@ -14,12 +14,12 @@ Needs a C compiler: `$CC`, else `gcc`.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
 from ..core.design import Design
+from ..core.settings import get_settings
 from . import repo_root, run
 
 CFLAGS = ["-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-const-variable", "-O1"]
@@ -50,7 +50,7 @@ def sources(fw_dir: Path) -> tuple[list[Path], list[Path]]:
 def host_test(d: Design, libs, out_dir: Path) -> tuple[int, str, dict]:
     """(exit code, text, summary). 0: tests passed; 1: a contract error, a compile error or a failing test;
     2: nothing to build (no fw/ or no test); 3: no C compiler or no framework."""
-    cc = shutil.which(os.environ.get("CC") or "gcc")
+    cc = shutil.which(get_settings().tools.cc or "gcc")
     if cc is None:
         return 3, "no C compiler (gcc) on this machine: the firmware host tests cannot run here", {"ran": False}
     fw_dir = Path(d.dir).resolve() / "fw"

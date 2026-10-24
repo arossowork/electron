@@ -135,7 +135,7 @@ Web adds a request of 16 MiB and the worker 384 MiB (limit 1.5 GiB while a build
 
 ```
 docker build -f deploy/images/worker.Dockerfile -t hwplatform-worker:dev .
-docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g \
+docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g,exec \
   -v "$PWD/examples:/examples:ro" -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" hwplatform-worker:dev /smoke.sh layout
 ```
 

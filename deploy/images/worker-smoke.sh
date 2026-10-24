@@ -1,8 +1,9 @@
 #!/bin/bash
 # Smoke test of the worker image, run inside it (CI and by hand):
-#   docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g -v "$PWD/examples:/examples:ro" \
+#   docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g,exec -v "$PWD/examples:/examples:ro" \
 #     -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" hwplatform-worker:dev /smoke.sh [sim|layout]
-# Runs as the image's non-root user on a read-only root file system; every write goes to /scratch, except ngspice, whose
+# Runs as the image's non-root user on a read-only root file system; every write goes to /scratch (mounted exec: `hwflow
+# fw test` runs the binary it builds there), except ngspice, whose
 # tmpfile() (glibc, P_tmpdir) writes to /tmp: mount an emptyDir/tmpfs there too.
 set -euo pipefail
 until=${1:-sim}

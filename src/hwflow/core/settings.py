@@ -98,6 +98,7 @@ class ToolSettings(_Group):
     """External programs. Empty string: not found. Order: env var, PATH, then the old macOS locations."""
     kicad_cli: str = Field("", validation_alias=AliasChoices("KICAD_CLI"))
     java: str = Field("", validation_alias=AliasChoices("JAVA"))
+    cc: str = Field("", validation_alias=AliasChoices("CC"))  # C compiler of `hwflow fw test`; "" = gcc
     ngspice: str = Field("", validation_alias=AliasChoices("HWFLOW_NGSPICE"))
     openems_python: str = Field("", validation_alias=AliasChoices("HWFLOW_OPENEMS_PYTHON"))
     em_reexec: bool = Field(False, validation_alias=AliasChoices("HWFLOW_EM_REEXEC"))  # set by hwflow for its child
