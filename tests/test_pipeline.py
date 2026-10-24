@@ -9,7 +9,7 @@ from hwflow import pcb
 from hwflow.cli import main
 
 needs_a_router = pytest.mark.skipif(
-    not ((pcb.KRT_DIR / "py_router" / "route.py").exists() or Path(pcb.FREEROUTING).exists()),
+    not ((pcb.krt_dir() / "py_router" / "route.py").exists() or Path(pcb.freerouting_jar()).exists()),
     reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
 
