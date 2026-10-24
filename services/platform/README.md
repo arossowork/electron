@@ -20,6 +20,7 @@ src/hwplatform/
   contracts.py     ArtifactRef/ArtifactStore and Run/RunStore types from ADR 0001 (until hwflow.artifacts/runs land)
   runs.py          PgRunStore: runs, stages, artifact refs, project state, manifest export (#7)
   ids.py           uuid7()
+  observability/   JSON logs + context (contextvars), request id middleware, Prometheus metrics, Temporal activity interceptor (#18, docs/runbook.md)
   events/          Event (CloudEvents envelope), outbox.emit(), relay.Relay (outbox -> NATS JetStream) (#11), sse (SSE streams, #12)
   gateway.py       WorkflowGateway: start/cancel/signal Temporal workflows (TemporalGateway; tests use a fake) (#12)
   designs.py       design versions from an upload: files + tree artifact in S3, content-addressed (#12)

@@ -111,6 +111,16 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8080
 
+    # Observability (#18): JSON logs on stdout, /metrics on the API port and the worker health port.
+    log_level: str = "INFO"
+    log_format: str = "json"  # "json" | "text" (terminal)
+    metrics_enabled: bool = True
+    # Tracing is off in M1 (no collector deployed): on, the Temporal worker adds the SDK's TracingInterceptor
+    # (needs opentelemetry-sdk and an exporter set up by the deployment) and log lines carry trace_id/span_id.
+    otel_enabled: bool = False
+    # Temporal SDK (core) metrics in Prometheus format on this address, e.g. "0.0.0.0:9464"; empty = off.
+    temporal_metrics_bind: str = ""
+
     @field_validator("app_db_role")
     @classmethod
     def _role_is_identifier(cls, v: str) -> str:

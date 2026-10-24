@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from ..db import Database
 from ..events.sse import stream_run, stream_tenant
+from ..observability.metrics import SSE_CONNECTIONS
 from ..tenancy import ProjectRepo, TenantContext
 from .deps import get_db, tenant_context
 from .routes_runs import load_run
@@ -34,8 +35,17 @@ def _last_id(header: str | None, query: int | None) -> int | None:
     return None
 
 
+async def _counted(gen):
+    SSE_CONNECTIONS.inc()
+    try:
+        async for frame in gen:
+            yield frame
+    finally:
+        SSE_CONNECTIONS.dec()
+
+
 def _response(gen) -> StreamingResponse:
-    return StreamingResponse(gen, media_type="text/event-stream", headers=_SSE_HEADERS)
+    return StreamingResponse(_counted(gen), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.get(

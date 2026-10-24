@@ -85,8 +85,14 @@ def _fail(dst: Path, type_: str, message: str) -> int:
 def main(argv: list[str]) -> int:
     from hwflow.pipeline.exec import run_child
 
+    from ..observability.child import setup_child, write_rusage_at_exit
+    from ..settings import get_settings
+
     src, dst = Path(argv[0]), Path(argv[1])
     j = json.loads(src.read_text())
+    st = get_settings()
+    setup_child(j, level=st.log_level, fmt=st.log_format)
+    write_rusage_at_exit(dst.with_name("rusage.json"))
     gone = missing_tools(j["spec"])
     if gone:
         return _fail(

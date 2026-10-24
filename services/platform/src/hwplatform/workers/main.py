@@ -20,8 +20,10 @@ import signal
 from datetime import timedelta
 
 from ..contracts import Q_AGENT, QUEUES, SLOTS
+from ..observability import configure_logging
 from ..settings import Settings, get_settings
 
+# prometheus_client is imported lazily below: the Temporal sandbox re-imports modules that import this one.
 log = logging.getLogger("hwplatform.worker")
 
 DEFAULT_QUEUES = tuple(q for q in QUEUES if q != Q_AGENT)
@@ -36,7 +38,9 @@ def sandbox_runner():
     )
 
 
-def build_workers(client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows=None, activities=None, **kw):
+def build_workers(
+    client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows=None, activities=None, otel=False, **kw
+):
     """One temporalio Worker per queue. `workflows` / `activities` override what is registered, `kw` goes to
     every
     Worker (tests)."""
@@ -44,9 +48,12 @@ def build_workers(client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows
 
     from ..activities import activities_for
     from ..contracts import Q_ENGINE
+    from ..observability import metrics
+    from ..observability.temporal import interceptors
     from ..workflows import WORKFLOWS
 
     kw.setdefault("graceful_shutdown_timeout", timedelta(seconds=15))
+    kw.setdefault("interceptors", interceptors(otel))  # log context + activity metrics (#18)
     out = []
     for q in queues:
         s = slots.get(q, {"activities": 1})
@@ -54,6 +61,7 @@ def build_workers(client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows
         wfs = (workflows if workflows is not None else WORKFLOWS) if q == Q_ENGINE else []
         if not acts and not wfs:
             continue
+        metrics.SLOTS_MAX.labels(q).set(s.get("activities", 1))
         out.append(
             Worker(
                 client,
@@ -90,6 +98,7 @@ class Health:
         )
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        ctype = "text/plain"
         try:
             line = (await asyncio.wait_for(reader.readline(), 5)).decode("latin-1").split()
             path = line[1] if len(line) > 1 else ""
@@ -97,12 +106,19 @@ class Health:
                 code, body = 200, "ok"
             elif path.startswith("/readyz"):
                 code, body = (200, "ready") if self.ready() else (503, "not ready")
+            elif path.startswith("/metrics"):
+                from ..observability import metrics
+
+                code, (body, ctype) = 200, metrics.render()
             else:
                 code, body = 404, "not found"
+            if isinstance(body, str):
+                body = body.encode()
             reason = {200: "OK", 503: "Service Unavailable", 404: "Not Found"}[code]
             writer.write(
-                f"HTTP/1.0 {code} {reason}\r\nContent-Type: text/plain\r\nContent-Length: {len(body)}"
-                f"\r\nConnection: close\r\n\r\n{body}".encode()
+                f"HTTP/1.0 {code} {reason}\r\nContent-Type: {ctype}\r\nContent-Length: {len(body)}"
+                f"\r\nConnection: close\r\n\r\n".encode()
+                + body
             )
             await writer.drain()
         except (TimeoutError, ConnectionError, OSError):
@@ -114,13 +130,35 @@ class Health:
         return await asyncio.start_server(self.handle, host, port)
 
 
+def temporal_runtime(settings: Settings):
+    """The SDK's core metrics (task latencies, poller and slot counts) in Prometheus format on their own port,
+    `temporal_metrics_bind`; None = the default runtime without an endpoint. One Runtime per process."""
+    global _runtime
+    if not settings.temporal_metrics_bind:
+        return None
+    if _runtime is None:
+        from temporalio.runtime import PrometheusConfig, Runtime, TelemetryConfig
+
+        _runtime = Runtime(
+            telemetry=TelemetryConfig(metrics=PrometheusConfig(bind_address=settings.temporal_metrics_bind))
+        )
+    return _runtime
+
+
+_runtime = None
+
+
 async def connect(settings: Settings, stop: asyncio.Event):
     """The Temporal client, retrying every 5 s until it connects (or the worker is told to stop)."""
     from temporalio.client import Client
 
     while not stop.is_set():
         try:
-            return await Client.connect(settings.temporal_address, namespace=settings.temporal_namespace)
+            return await Client.connect(
+                settings.temporal_address,
+                namespace=settings.temporal_namespace,
+                runtime=temporal_runtime(settings),
+            )
         except Exception as e:  # noqa: BLE001 - Temporal not up yet: /readyz says 503 meanwhile
             log.warning(
                 "cannot reach Temporal at %s (%s); retrying", settings.temporal_address, type(e).__name__
@@ -157,6 +195,7 @@ async def run(queues=DEFAULT_QUEUES, settings: Settings | None = None) -> None:
             client,
             deps,
             queues,
+            otel=settings.otel_enabled,
             graceful_shutdown_timeout=timedelta(seconds=settings.worker_shutdown_grace_s),
         )
         log.info("worker polling %s on %s", ", ".join(queues), settings.temporal_address)
@@ -194,7 +233,7 @@ def main(argv: list[str] | None = None) -> None:
     unknown = sorted(set(queues) - set(QUEUES))
     if unknown:
         p.error(f"unknown queues: {', '.join(unknown)} (known: {', '.join(QUEUES)})")
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    configure_logging("worker", level=settings.log_level, fmt=settings.log_format)
     asyncio.run(run(queues, settings))
 
 

@@ -1,0 +1,303 @@
+{{- /* Optional metrics store and dashboards (issue #18): VictoriaMetrics single node scraping api and worker, and
+       Grafana with one provisioned dashboard. Off by default; `kubectl logs | jq` and /metrics need neither. */ -}}
+{{- if .Values.observability.enabled }}
+{{- $vm := dict "root" . "c" "victoriametrics" }}
+{{- $vmName := include "hwp.name" $vm }}
+{{- $apiScrape := include "hwp.name" (dict "root" . "c" "api-metrics") }}
+{{- $workerScrape := include "hwp.name" (dict "root" . "c" "worker-metrics") }}
+{{- $ns := .Release.Namespace }}
+---
+# Headless Services: one DNS A record per pod, so the scrape config sees every replica.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $apiScrape }}
+  labels: {{- include "hwp.labels" (dict "root" . "c" "api") | nindent 4 }}
+spec:
+  clusterIP: None
+  selector: {{- include "hwp.selector" (dict "root" . "c" "api") | nindent 4 }}
+  ports: [{name: http, port: 8080, targetPort: http}]
+{{- if .Values.worker.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $workerScrape }}
+  labels: {{- include "hwp.labels" (dict "root" . "c" "worker") | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: hwflow-platform
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    hwflow.io/role: worker
+  ports:
+    - {name: health, port: {{ .Values.observability.workerMetricsPort }}}
+    {{- if .Values.observability.temporalSdkMetrics }}
+    - {name: sdk, port: {{ .Values.observability.temporalSdkMetricsPort }}}
+    {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $vmName }}
+  labels: {{- include "hwp.labels" $vm | nindent 4 }}
+data:
+  scrape.yml: |
+    global:
+      scrape_interval: {{ .Values.observability.scrapeInterval }}
+    scrape_configs:
+      - job_name: api
+        metrics_path: /metrics
+        dns_sd_configs:
+          - {names: ["{{ $apiScrape }}.{{ $ns }}.svc"], type: A, port: 8080}
+      {{- if .Values.worker.enabled }}
+      - job_name: worker
+        metrics_path: /metrics
+        dns_sd_configs:
+          - {names: ["{{ $workerScrape }}.{{ $ns }}.svc"], type: A, port: {{ .Values.observability.workerMetricsPort }}}
+      {{- if .Values.observability.temporalSdkMetrics }}
+      - job_name: worker-temporal-sdk
+        metrics_path: /metrics
+        dns_sd_configs:
+          - {names: ["{{ $workerScrape }}.{{ $ns }}.svc"], type: A, port: {{ .Values.observability.temporalSdkMetricsPort }}}
+      {{- end }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $vmName }}
+  labels: {{- include "hwp.labels" $vm | nindent 4 }}
+spec:
+  selector: {{- include "hwp.selector" $vm | nindent 4 }}
+  ports: [{name: http, port: 8428, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $vmName }}
+  labels: {{- include "hwp.labels" $vm | nindent 4 }}
+spec:
+  serviceName: {{ $vmName }}
+  replicas: 1
+  selector:
+    matchLabels: {{- include "hwp.selector" $vm | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $vm | nindent 8 }}
+      annotations:
+        checksum/config: {{ .Values.observability | toJson | sha256sum }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.observability) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: victoriametrics
+          image: {{ include "hwp.image" .Values.images.victoriametrics }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - -storageDataPath=/data
+            - -retentionPeriod={{ .Values.observability.retention }}
+            - -promscrape.config=/config/scrape.yml
+            - -httpListenAddr=:8428
+            - -memory.allowedPercent=60
+            - -search.maxConcurrentRequests=4
+          env:
+            - {name: GOMEMLIMIT, value: {{ .Values.observability.victoriametrics.goMemLimit | quote }}}
+          ports: [{name: http, containerPort: 8428}]
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            initialDelaySeconds: 20
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.observability.victoriametrics.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /config, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: {{ $vmName }}}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.observability.persistence.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.observability.persistence.size }}}}
+{{- if .Values.observability.grafana.enabled }}
+{{- $g := dict "root" . "c" "grafana" }}
+{{- $gName := include "hwp.name" $g }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $gName }}-provisioning
+  labels: {{- include "hwp.labels" $g | nindent 4 }}
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        uid: victoriametrics
+        type: prometheus
+        access: proxy
+        url: http://{{ $vmName }}:8428
+        isDefault: true
+        jsonData: {timeInterval: {{ .Values.observability.scrapeInterval }}}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: hwflow
+        folder: hwflow
+        type: file
+        allowUiUpdates: false
+        options: {path: /var/lib/grafana-dashboards}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $gName }}-dashboards
+  labels: {{- include "hwp.labels" $g | nindent 4 }}
+data:
+  hwflow-platform.json: |
+{{ .Files.Get "dashboards/hwflow-platform.json" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $gName }}
+  labels: {{- include "hwp.labels" $g | nindent 4 }}
+spec:
+  selector: {{- include "hwp.selector" $g | nindent 4 }}
+  ports: [{name: http, port: 3000, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $gName }}
+  labels: {{- include "hwp.labels" $g | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "hwp.selector" $g | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $g | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.observability) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+      containers:
+        - name: grafana
+          image: {{ include "hwp.image" .Values.images.grafana }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- include "hwp.secretEnv" (dict "root" . "name" "GF_SECURITY_ADMIN_PASSWORD" "key" "grafana-admin-password" "optional" true) | nindent 12 }}
+            - {name: GF_PATHS_PROVISIONING, value: /etc/grafana-provisioning}
+            - {name: GF_USERS_ALLOW_SIGN_UP, value: "false"}
+            - {name: GF_ANALYTICS_REPORTING_ENABLED, value: "false"}
+            - {name: GF_ANALYTICS_CHECK_FOR_UPDATES, value: "false"}
+            - {name: GF_PLUGINS_PLUGIN_ADMIN_ENABLED, value: "false"}
+            - {name: GF_LOG_MODE, value: console}
+            - {name: GF_LOG_CONSOLE_FORMAT, value: json}
+            - {name: GOMEMLIMIT, value: {{ .Values.observability.grafana.goMemLimit | quote }}}
+          ports: [{name: http, containerPort: 3000}]
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 30
+            initialDelaySeconds: 30
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.observability.grafana.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/grafana}
+            - {name: tmp, mountPath: /tmp}
+            - {name: provisioning, mountPath: /etc/grafana-provisioning/datasources/datasource.yaml, subPath: datasource.yaml, readOnly: true}
+            - {name: provisioning, mountPath: /etc/grafana-provisioning/dashboards/dashboards.yaml, subPath: dashboards.yaml, readOnly: true}
+            - {name: dashboards, mountPath: /var/lib/grafana-dashboards, readOnly: true}
+      volumes:
+        - {name: data, emptyDir: {sizeLimit: 128Mi}}
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+        - name: provisioning
+          configMap: {name: {{ $gName }}-provisioning}
+        - name: dashboards
+          configMap: {name: {{ $gName }}-dashboards}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+{{- $sel := dict "app.kubernetes.io/name" "hwflow-platform" "app.kubernetes.io/instance" .Release.Name }}
+---
+# VictoriaMetrics scrapes the worker pods (health port and the optional Temporal SDK metrics port); only Grafana
+# queries VictoriaMetrics; Grafana itself is reached by port-forward (kubectl -n {{ $ns }} port-forward svc/{{ include "hwp.name" (dict "root" . "c" "grafana") }} 3000).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-worker-metrics
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      hwflow.io/role: worker
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - {port: {{ .Values.observability.workerMetricsPort }}, protocol: TCP}
+        {{- if .Values.observability.temporalSdkMetrics }}
+        - {port: {{ .Values.observability.temporalSdkMetricsPort }}, protocol: TCP}
+        {{- end }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $sel | nindent 14 }}
+              app.kubernetes.io/component: victoriametrics
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-victoriametrics-8428
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      app.kubernetes.io/component: victoriametrics
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{port: 8428, protocol: TCP}]
+      from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $sel | nindent 14 }}
+              app.kubernetes.io/component: grafana
+{{- if .Values.observability.grafana.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-grafana-3000
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      app.kubernetes.io/component: grafana
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{port: 3000, protocol: TCP}]
+{{- end }}
+{{- end }}
+{{- end }}

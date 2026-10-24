@@ -23,6 +23,7 @@ import logging
 import asyncpg
 from nats.js.api import DiscardPolicy, RetentionPolicy, StorageType, StreamConfig
 
+from ..observability import metrics
 from ..settings import Settings
 from . import STREAM
 
@@ -118,6 +119,7 @@ class Relay:
 
     async def close(self) -> None:
         self.is_leader = False
+        metrics.RELAY_LEADER.set(0)
         if self._nc is not None:
             with contextlib.suppress(Exception):
                 await self._nc.close()
@@ -130,7 +132,21 @@ class Relay:
         if self._pg is None:
             raise RuntimeError("relay is not connected")
         self.is_leader = bool(await self._pg.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", LOCK_NAME))
+        metrics.RELAY_LEADER.set(1 if self.is_leader else 0)
         return self.is_leader
+
+    async def observe_backlog(self) -> tuple[int, float]:
+        """Unpublished rows and the age of the oldest, into the gauges (one indexed query; every replica)."""
+        if self._pg is None:
+            return 0, 0.0
+        n, age = await self._pg.fetchrow(
+            "SELECT count(*), COALESCE(EXTRACT(EPOCH FROM now() - min(created_at)), 0)::float8 "
+            "FROM outbox WHERE published_at IS NULL"
+        )
+        metrics.RELAY_BACKLOG.set(n)
+        metrics.OUTBOX_UNPUBLISHED.set(n)
+        metrics.RELAY_LAG.set(age)
+        return n, age
 
     # -- one batch ------------------------------------------------------------------------------
     async def publish_batch(self) -> int:
@@ -162,6 +178,7 @@ class Relay:
                     "UPDATE outbox SET published_at = now() WHERE id = ANY($1::bigint[])", done
                 )
         self.published += len(done)
+        metrics.RELAY_PUBLISHED.inc(len(done))
         if failure is not None:
             raise failure
         return len(done)
@@ -189,11 +206,13 @@ class Relay:
                     if self._pg is None:
                         await self.connect()
                     if not self.is_leader and not await self.try_lead():
+                        await self.observe_backlog()
                         await self._sleep(stop, self.poll_s)
                         continue
                     while not stop.is_set():
                         self._wake.clear()
                         n = await self.publish_batch()
+                        await self.observe_backlog()
                         backoff = 0.5
                         if n >= self.batch:
                             continue

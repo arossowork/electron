@@ -47,6 +47,8 @@ images:
   seaweedfs: {repository: chrislusf/seaweedfs, tag: "4.48"}
   awsCli: {repository: amazon/aws-cli, tag: 2.34.0}
   nats: {repository: nats, tag: 2.14.8-alpine}
+  victoriametrics: {repository: victoriametrics/victoria-metrics, tag: v1.131.0}
+  grafana: {repository: grafana/grafana, tag: 12.2.0}
 
 api:
   replicas: 1
@@ -152,6 +154,32 @@ nats:
   resources:
     requests: {cpu: 20m, memory: 32Mi}
     limits: {cpu: 200m, memory: 128Mi}
+
+# Optional metrics store and dashboards (issue #18, docs/runbook.md). Off: the API and the worker still serve /metrics
+# and log JSON to stdout, which is enough with `kubectl logs | jq`. On: VictoriaMetrics (single node) scrapes
+# api and worker, Grafana shows one provisioned dashboard (port-forward, no Ingress). The Grafana admin password is
+# the optional Secret key `grafana-admin-password` (else the image default admin/admin: port-forward only).
+observability:
+  enabled: false
+  priorityClassName: ""
+  scrapeInterval: 30s
+  retention: 7d          # -retentionPeriod of VictoriaMetrics (a bare number is months)
+  workerMetricsPort: 8081   # the worker health server: /livez /readyz /metrics (HWPLATFORM_WORKER_HEALTH_PORT)
+  # The Temporal SDK's own metrics (poller, task latency, slots) on a second worker port; off by default.
+  temporalSdkMetrics: false
+  temporalSdkMetricsPort: 9464
+  persistence: {size: 1Gi, storageClassName: ""}
+  victoriametrics:
+    goMemLimit: 96MiB
+    resources:
+      requests: {cpu: 20m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 160Mi}
+  grafana:
+    enabled: true
+    goMemLimit: 160MiB
+    resources:
+      requests: {cpu: 20m, memory: 96Mi}
+      limits: {cpu: 500m, memory: 256Mi}
 
 # Hook Jobs (migrations, namespace, bucket) are short-lived; they request little.
 hookResources:

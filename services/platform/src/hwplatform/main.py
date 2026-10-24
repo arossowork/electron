@@ -80,16 +80,15 @@ def ensure_infra() -> None:
 def relay() -> None:
     """hwplatform-relay: publish the outbox to NATS JetStream (also runs inside hwplatform-api)."""
     import asyncio
-    import logging
 
     from .events.relay import Relay
-    from .logredact import install_log_redaction
+    from .observability import configure_logging
     from .settings import get_settings
 
-    install_log_redaction()
-    logging.basicConfig(level=logging.INFO)
+    s = get_settings()
+    configure_logging("relay", level=s.log_level, fmt=s.log_format)
     try:
-        asyncio.run(Relay(get_settings()).run())
+        asyncio.run(Relay(s).run())
     except KeyboardInterrupt:
         pass
 
@@ -135,11 +134,15 @@ def run() -> None:
     import uvicorn
 
     from .api.app import create_app
+    from .observability import configure_logging
     from .settings import get_settings
 
     s = get_settings()
     s.require_jwt_secret()
-    uvicorn.run(create_app(s), host=s.host, port=s.port, proxy_headers=True)
+    configure_logging("api", level=s.log_level, fmt=s.log_format)
+    # log_config=None: uvicorn keeps our JSON handler; the access line comes from the observability middleware
+    app = create_app(s)
+    uvicorn.run(app, host=s.host, port=s.port, proxy_headers=True, log_config=None, access_log=False)
 
 
 if __name__ == "__main__":

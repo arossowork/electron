@@ -129,6 +129,14 @@ Reduced profile, k3d on k3s v1.31 (the same k3s family as the VPS), after the sm
 
 Web adds a request of 16 MiB and the worker 384 MiB (limit 1.5 GiB while a build runs), so the requests at rest are about 1.3 GiB, under the 1.5 GiB target. Postgres grows with its page cache and the worker is the one that spikes; none of this includes the other apps on the node.
 
+## Observability (issue #18)
+
+Always on, no extra pods: the API, the relay and the worker log one JSON object per line to stdout (`kubectl logs | jq`), and serve Prometheus metrics (`/metrics` on the API port 8080 and on the worker health port 8081). The procedures are in `docs/runbook.md`.
+
+Optional, `--set observability.enabled=true` (off in both profiles): a VictoriaMetrics single-node StatefulSet (`<release>-victoriametrics`, 1 GiB PVC, 7 days) that scrapes the API and every worker pod through two headless Services, and a Grafana Deployment with the data source and the dashboard `hwflow platform` (`dashboards/hwflow-platform.json`) provisioned from ConfigMaps. Grafana has no Ingress: `kubectl -n hwflow-platform port-forward svc/hwp-grafana 3000:3000`. `observability.grafana.enabled=false` keeps only the store (query it with `port-forward svc/hwp-victoriametrics 8428`); `observability.temporalSdkMetrics=true` also exposes the Temporal SDK metrics of the worker on port 9464 and scrapes them. NetworkPolicies are added for the scrape (VictoriaMetrics to the worker ports) and the queries (Grafana to VictoriaMetrics). The Grafana admin password is the optional Secret key `grafana-admin-password`.
+
+Measured on k3d (k3s v1.31, reduced profile without web and worker, observability on, two idle minutes after the first scrapes, `kubectl top`): VictoriaMetrics 26 MiB, Grafana 103 MiB, so 129 MiB together (requests 64 + 96 = 160 MiB, limits 160 + 256 MiB). The rest of the stack in the same run: api 99, postgres 71, temporal 82, seaweedfs 32, nats 9 MiB. Do not enable it on the shared VPS unless there are 200 MiB to spare; the logs and `/metrics` need none of it.
+
 ## Coexisting with the other apps on the VPS
 
 - Own namespace (`hwflow-platform`), own Services; the existing `hwflow` UI and `singing` apps are untouched. The only shared pieces are the PriorityClasses and the host nginx (one more file in `apps.d/`).

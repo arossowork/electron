@@ -29,6 +29,9 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from ..contracts import A_STAGE, HEARTBEAT_EVERY_S, KILL_GRACE_S, StageActivityInput, StageOut, errors
+from ..observability import context as logctx
+from ..observability import metrics as obs_metrics
+from ..observability.child import forward_line, read_rusage
 from .deps import Deps
 from .wire import out_from_json, out_to_json
 
@@ -72,6 +75,7 @@ def job_doc(inp: StageActivityInput, scratch: Path, tool_cache: Path) -> dict:
         },
         "scratch_root": str(scratch),
         "tool_cache_dir": str(tool_cache),
+        "log_context": logctx.export(),  # tenant_id, run_id, workflow_id, ... bound again by the child (#18)
         "rebuild": inp.rebuild,
         "reuse_verdicts": list(REUSE_VERDICTS),
     }
@@ -144,6 +148,7 @@ class StageActivity:
                         last["line"] = ln[:500]
                         lines.append(ln)
                         del lines[:-40]
+                        forward_line(ln)  # the child's output as log lines of this run (#18)
 
             reader = asyncio.create_task(read())
             try:
@@ -160,6 +165,9 @@ class StageActivity:
                 await asyncio.shield(kill_group(proc))
                 raise
             rc = proc.returncode
+            rss = read_rusage(job / "rusage.json")
+            if rss:
+                obs_metrics.CHILD_RSS.labels(inp.stage).observe(rss)
             doc = None
             try:
                 doc = json.loads((job / "out.json").read_text())
