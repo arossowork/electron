@@ -9,6 +9,10 @@ src/hwplatform/
   settings.py      pydantic-settings, env prefix HWPLATFORM_
   db.py            async engine; Database.tx(tenant_id, user_id, lookup_email) = one transaction with the RLS context
   models.py        tenants, users, memberships, projects, refresh_tokens (SQLAlchemy 2)
+  crypto.py        envelope encryption (AES-256-GCM, DEK wrapped by a versioned master key keyring)
+  llm_keys.py      BYOK service: store/validate/read a tenant's LLM key; get_tenant_llm_key(); record_usage()
+  rotation.py      hwplatform-rotate-master: re-wrap all DEKs under the newest master key
+  logredact.py     log record factory that redacts sk-ant-... patterns
   tenancy.py       TenantContext + repositories; every query filters by ctx.tenant_id
   security.py      argon2id passwords, JWT access tokens, opaque refresh tokens
   storage.py       object keys tenants/<tenant_id>/... (S3 use comes with #10/#12)
@@ -31,6 +35,7 @@ Endpoints (`/api/v1`, OpenAPI at `/docs`):
 | GET | `/auth/me` | user, current tenant and role, all tenants of the user |
 | GET | `/tenant` | current tenant, incl. the `max_concurrent_runs` quota |
 | GET/POST | `/tenant/members` | list; add an existing user by e-mail (owner/admin; only the owner adds admins). No e-mail is sent. |
+| PUT/GET/DELETE | `/tenant/llm-keys/anthropic` | owner/admin: store (validated first), status (never the key), delete the tenant's Claude API key (#14) |
 | POST/GET | `/projects` | create, list |
 | GET/DELETE | `/projects/{id}` | get, delete; another tenant's project is a 404 |
 
@@ -44,6 +49,7 @@ uv sync --all-packages                                   # or: uv sync --package
 export HWPLATFORM_MIGRATION_DATABASE_URL=postgresql+asyncpg://hwflow:<HWFLOW_DB_PASSWORD>@127.0.0.1:15432/hwflow
 export HWPLATFORM_DATABASE_URL=postgresql+asyncpg://hwflow_app:<HWFLOW_APP_DB_PASSWORD>@127.0.0.1:15432/hwflow
 export HWPLATFORM_JWT_SECRET=$(openssl rand -hex 32)
+export HWPLATFORM_MASTER_KEY=$(openssl rand -base64 32)   # BYOK key encryption; keep it, losing it loses all stored keys
 uv run --package hwplatform hwplatform-migrate           # alembic upgrade head, as the owner role
 uv run --package hwplatform hwplatform-api               # uvicorn on 127.0.0.1:8080 (HWPLATFORM_HOST/PORT)
 ```
@@ -90,6 +96,19 @@ Object storage: `storage.tenant_key(tenant_id, *segments)` builds `tenants/<tena
 - **Access token:** JWT HS256 (`HWPLATFORM_JWT_SECRET`, at least 32 bytes), 15 minutes, claims `sub` (user), `tid` (tenant), `role` (informational), `typ=access`, `iss`. The algorithm is pinned on decode.
 - **Refresh token:** opaque `rt.<tenant hex>.<256-bit secret>`, 30 days, stored as SHA-256 in `refresh_tokens`. Each refresh spends the token and issues a new one in the same family. Presenting a spent token revokes the whole family (reuse detection). Logout revokes the family. The tenant id in the token tells the API which RLS context to open for the lookup.
 - **Switching tenant:** log in again with `tenant_id`.
+
+## BYOK: the tenant's own Claude API key (#14)
+
+Each tenant brings and pays for its own key. The agent worker (#15) calls `get_tenant_llm_key(db, keyring, tenant_id)` and uses only that key; there is no platform-wide key to fall back to.
+
+- **Storage:** table `tenant_llm_keys` (`tenant_id`, `provider='anthropic'`, `ciphertext`, `nonce`, `wrapped_dek`, `key_version`, `last4`, `status`, `created_at`, `rotated_at`, `last_validated_at`), unique per tenant and provider, tenant RLS like the other tenant tables. `llm_usage` (`tenant_id`, `run_id`, `model`, input/output/cache tokens, `at`) is append-only for the app role; `record_usage(db, tenant_id, model, response.usage, run_id=)` fills it from an API `usage` object.
+- **Envelope encryption** (`crypto.py`): a random 256-bit DEK per key seals the API key with AES-256-GCM; a master key (KEK) wraps the DEK. Associated data is `tenant_id:provider` for both seals, so a row copied to another tenant fails authentication.
+- **Master keys:** `HWPLATFORM_MASTER_KEY` = base64 of 32 bytes (version 1), from a k8s Secret or `.env`. For rotation use a keyring `HWPLATFORM_MASTER_KEYS="2:<b64>,1:<b64>"`: the highest version encrypts, every listed version decrypts. Without a master key the API starts and the key endpoints answer 503.
+- **Rotating the master key:** add the new version to `HWPLATFORM_MASTER_KEYS` (keep the old), restart the API (new keys use the new version), run `hwplatform-rotate-master` (re-wraps every DEK; ciphertexts and plaintext keys are untouched), then remove the old version. The command connects with `HWPLATFORM_MIGRATION_DATABASE_URL` (the owner role): the migration gives that role, and only that role, a cross-tenant SELECT/UPDATE policy on `tenant_llm_keys`.
+- **Validation:** PUT first calls `GET {HWPLATFORM_ANTHROPIC_API_BASE}/v1/models` with `x-api-key` and `anthropic-version`. 401/403 gives 422 (not stored); network error or other status gives 502 (not stored). Tests inject a fake through `create_app(key_validator=...)`.
+- **Never returned, never logged:** responses carry only provider, `last4`, status and timestamps; the request body has no pydantic constraints (so a 422 cannot echo the key); `logredact.install_log_redaction()` replaces `sk-ant-...` in every log record, including exception text.
+- Replacing a key sets `rotated_at`; deleting removes the row. `mark_invalid()` lets the worker flag a key the provider refused (status `invalid`, `get_tenant_llm_key` then returns None).
+- Not done here: exhausted-key/rate-limit retry in the workflow (that belongs to the worker, #15).
 
 ## Swapping for OIDC (Keycloak, M2)
 

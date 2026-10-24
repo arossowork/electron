@@ -10,7 +10,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -90,3 +90,37 @@ class RefreshToken(Base):
     created_at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(Tz)
     revoked_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)
+
+
+class TenantLlmKey(Base):
+    """A tenant's own LLM API key (BYOK, #14), envelope-encrypted: see crypto.py. One row per provider."""
+
+    __tablename__ = "tenant_llm_keys"
+    __table_args__ = (UniqueConstraint("tenant_id", "provider"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(32), default="anthropic")
+    ciphertext: Mapped[bytes] = mapped_column(LargeBinary)  # AES-256-GCM(DEK, api key), tag included
+    nonce: Mapped[bytes] = mapped_column(LargeBinary)
+    wrapped_dek: Mapped[bytes] = mapped_column(LargeBinary)  # nonce || AES-256-GCM(KEK, DEK)
+    key_version: Mapped[int] = mapped_column(Integer)  # master key (KEK) version that wrapped the DEK
+    last4: Mapped[str] = mapped_column(String(4))
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | invalid
+    created_at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
+    rotated_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)
+    last_validated_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)
+
+
+class LlmUsage(Base):
+    """Tokens a tenant's key was charged, from the `usage` object of an API response."""
+
+    __tablename__ = "llm_usage"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)  # FK once runs exist (#12)
+    model: Mapped[str] = mapped_column(String(100))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_creation_input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_read_input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    at: Mapped[datetime] = mapped_column(Tz, default=utcnow)

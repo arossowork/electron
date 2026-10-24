@@ -14,14 +14,17 @@ dependencies = [
     "email-validator>=2.1",
     "argon2-cffi>=23.1",
     "pyjwt>=2.8",
+    "cryptography>=43",
+    "httpx>=0.27",
 ]
 
 [project.scripts]
 hwplatform-api = "hwplatform.main:run"
 hwplatform-migrate = "hwplatform.main:migrate"
+hwplatform-rotate-master = "hwplatform.main:rotate_master"
 
 [dependency-groups]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [build-system]
 requires = ["uv_build>=0.10.0,<0.12.0"]

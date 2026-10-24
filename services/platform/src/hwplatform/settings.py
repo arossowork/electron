@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     access_token_ttl_s: int = 15 * 60
     refresh_token_ttl_s: int = 30 * 24 * 3600
 
+    # BYOK envelope encryption (#14). HWPLATFORM_MASTER_KEY = one base64 32-byte key (version 1).
+    # HWPLATFORM_MASTER_KEYS = "<version>:<base64>,<version>:<base64>" keyring for rotation: the highest
+    # version encrypts, every listed version decrypts. Both come from a k8s Secret / .env.
+    master_key: SecretStr = Field(default=SecretStr(""))
+    master_keys: SecretStr = Field(default=SecretStr(""))
+    anthropic_api_base: str = "https://api.anthropic.com"
+    anthropic_version: str = "2023-06-01"
+
     default_max_concurrent_runs: int = 2
     s3_bucket: str = "hwflow-artifacts"
 

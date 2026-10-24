@@ -1,4 +1,4 @@
-"""Entry points: hwplatform-api (uvicorn) and hwplatform-migrate (alembic upgrade head)."""
+"""Entry points: hwplatform-api (uvicorn), hwplatform-migrate (alembic), hwplatform-rotate-master."""
 
 from __future__ import annotations
 
@@ -31,6 +31,23 @@ def migrate(argv: list[str] | None = None) -> None:
         command.downgrade(cfg, target)
     else:
         command.upgrade(cfg, target)
+
+
+def rotate_master() -> None:
+    """hwplatform-rotate-master: re-wrap every tenant's data key under the newest master key.
+
+    Add the new key to HWPLATFORM_MASTER_KEYS first (keep the old ones), run this as the schema owner
+    (HWPLATFORM_MIGRATION_DATABASE_URL), then remove old versions that no row uses any more.
+    """
+    import asyncio
+
+    from .logredact import install_log_redaction
+    from .rotation import rotate_all
+    from .settings import get_settings
+
+    install_log_redaction()
+    n, newest = asyncio.run(rotate_all(get_settings()))
+    print(f"re-wrapped {n} data key(s) under master key version {newest}")
 
 
 def run() -> None:

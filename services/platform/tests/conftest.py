@@ -11,6 +11,7 @@ If the database does not answer, every test marked `integration` is skipped. The
 from __future__ import annotations
 
 import asyncio
+import base64
 import os
 import uuid
 
@@ -24,6 +25,7 @@ APP_URL = os.environ.get(
     "HWPLATFORM_TEST_APP_URL", "postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow"
 )
 JWT_SECRET = "test-secret-" + "x" * 40
+MASTER_KEY = base64.b64encode(b"m" * 32).decode()
 
 
 def sa_url(url: str) -> str:
@@ -62,17 +64,39 @@ def settings(db_ready):
         database_url=sa_url(APP_URL),
         migration_database_url=sa_url(OWNER_URL),
         jwt_secret=JWT_SECRET,
+        master_key=MASTER_KEY,
         db_pool_size=2,
     )
 
 
+class FakeValidator:
+    """Stands in for the Anthropic API: keys containing 'rejected' are refused, 'down' = unreachable."""
+
+    def __init__(self):
+        self.seen: list[str] = []
+
+    async def __call__(self, api_key: str) -> None:
+        from hwplatform.llm_keys import KeyRejected, ValidatorUnavailable
+
+        self.seen.append(api_key)
+        if "rejected" in api_key:
+            raise KeyRejected("the Anthropic API rejected this key")
+        if "down" in api_key:
+            raise ValidatorUnavailable("cannot reach the Anthropic API")
+
+
 @pytest.fixture(scope="session")
-def client(settings):
+def validator():
+    return FakeValidator()
+
+
+@pytest.fixture(scope="session")
+def client(settings, validator):
     from fastapi.testclient import TestClient
 
     from hwplatform.api.app import create_app
 
-    with TestClient(create_app(settings)) as c:
+    with TestClient(create_app(settings, key_validator=validator)) as c:
         yield c
 
 
