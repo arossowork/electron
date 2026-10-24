@@ -1,0 +1,153 @@
+{{- /* Hook Jobs. They run as the schema owner / admin, so they are the only pods besides purge that hold the owner
+       password. Install order: Postgres, NATS, SeaweedFS and Temporal are ordinary resources and start first; the
+       hooks wait for their dependency themselves, so they work with and without `helm --wait`. */ -}}
+{{- $pg := include "hwp.name" (dict "root" . "c" "postgres") }}
+{{- $s3 := include "hwp.name" (dict "root" . "c" "seaweedfs") }}
+{{- $nats := include "hwp.name" (dict "root" . "c" "nats") }}
+{{- $tmp := include "hwp.name" (dict "root" . "c" "temporal") }}
+{{- $m := dict "root" . "c" "migrate" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hwp.name" $m }}-{{ .Release.Revision }}
+  labels: {{- include "hwp.labels" $m | nindent 4 }}
+  annotations:
+    # post-install: the database is part of this release, so it does not exist yet at pre-install.
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 4
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $m | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- include "hwp.priority" (dict "root" . "v" .Values.api) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "hwp.image" .Values.images.api }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [/bin/sh, -c]
+          args:
+            - |
+              set -e
+              {{ include "hwp.waitTcp" (dict "host" $pg "port" 5432) }}
+              {{ include "hwp.waitTcp" (dict "host" $nats "port" 4222) }}
+              exec hwplatform-migrate
+          env:
+            {{- include "hwp.appEnv" $m | nindent 12 }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.hookResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 16Mi}}
+---
+{{- $b := dict "root" . "c" "bucket" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hwp.name" $b }}-{{ .Release.Revision }}
+  labels: {{- include "hwp.labels" $b | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $b | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- include "hwp.priority" (dict "root" . "v" .Values.seaweedfs) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: bucket
+          image: {{ include "hwp.image" .Values.images.awsCli }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [/bin/sh, -c]
+          args:
+            - |
+              set -e
+              until aws --endpoint-url "http://{{ $s3 }}:8333" s3api list-buckets >/dev/null 2>&1; do echo "waiting for seaweedfs"; sleep 3; done
+              for b in "$S3_BUCKET" {{ if .Values.backup.enabled }}{{ if not .Values.backup.target.endpoint }}"$BACKUP_BUCKET"{{ end }}{{ end }}; do
+                aws --endpoint-url "http://{{ $s3 }}:8333" s3api head-bucket --bucket "$b" 2>/dev/null \
+                || aws --endpoint-url "http://{{ $s3 }}:8333" s3api create-bucket --bucket "$b"
+              done
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}
+            - {name: S3_BUCKET, value: {{ .Values.seaweedfs.bucket | quote }}}
+            - {name: BACKUP_BUCKET, value: {{ .Values.backup.bucket | quote }}}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_ACCESS_KEY_ID" "key" "s3-access-key") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_SECRET_ACCESS_KEY" "key" "s3-secret-key") | nindent 12 }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.hookResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+---
+{{- $n := dict "root" . "c" "temporal-setup" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hwp.name" $n }}-{{ .Release.Revision }}
+  labels: {{- include "hwp.labels" $n | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $n | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- include "hwp.priority" (dict "root" . "v" .Values.temporal) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: setup
+          image: {{ include "hwp.image" .Values.images.temporalAdminTools }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              A="--address {{ $tmp }}:7233"
+              NS={{ .Values.temporal.namespace | quote }}
+              until temporal operator namespace describe $A -n "$NS" >/dev/null 2>&1 \
+                 || temporal operator namespace create $A -n "$NS" --retention {{ .Values.temporal.namespaceRetention | quote }}; do
+                echo "waiting for temporal"; sleep 3; done
+              # Search attributes (Keyword). `create` fails when one exists, so check the list first.
+              have=$(temporal operator search-attribute list $A -n "$NS" 2>/dev/null || true)
+              for sa in {{ join " " .Values.temporal.searchAttributes }}; do
+                echo "$have" | grep -qw "$sa" || temporal operator search-attribute create $A -n "$NS" --name "$sa" --type Keyword
+              done
+              temporal operator search-attribute list $A -n "$NS"
+          env:
+            - {name: HOME, value: /tmp}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.hookResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}

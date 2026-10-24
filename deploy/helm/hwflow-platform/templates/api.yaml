@@ -1,0 +1,102 @@
+{{- $c := dict "root" . "c" "api" }}
+{{- $name := include "hwp.name" $c }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "hwp.selector" $c | nindent 4 }}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels: {{- include "hwp.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $c | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.api) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "hwp.image" .Values.images.api }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [hwplatform-api]
+          env:
+            {{- include "hwp.appEnv" $c | nindent 12 }}
+            - {name: HWPLATFORM_HOST, value: 0.0.0.0}
+            - {name: HWPLATFORM_PORT, value: "8080"}
+            - {name: HWPLATFORM_RELAY_ENABLED, value: {{ .Values.api.relayEnabled | quote }}}
+            {{- range $k, $v := .Values.api.extraEnv }}
+            - {name: {{ $k }}, value: {{ $v | quote }}}
+            {{- end }}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 20
+            initialDelaySeconds: 20
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 128Mi}}
+{{- if .Values.web.enabled }}
+{{- $w := dict "root" . "c" "web" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hwp.name" $w }}
+  labels: {{- include "hwp.labels" $w | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "hwp.selector" $w | nindent 4 }}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hwp.name" $w }}
+  labels: {{- include "hwp.labels" $w | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels: {{- include "hwp.selector" $w | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $w | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.web) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ include "hwp.image" .Values.images.web }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [{name: http, containerPort: {{ .Values.web.containerPort }}}]
+          readinessProbe:
+            tcpSocket: {port: http}
+            periodSeconds: 10
+          securityContext:
+            {{- toYaml (omit .Values.containerSecurityContext "readOnlyRootFilesystem") | nindent 12 }}
+            readOnlyRootFilesystem: {{ .Values.web.readOnlyRootFilesystem }}
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+{{- end }}
