@@ -1,0 +1,16 @@
+* Standalone single-channel TI OPA1622 macromodel DC operating-point isolation
+.include ../lib/spice/opa1622_ti.lib
+VPOS VPOS 0 DC 9
+VNEG VNEG 0 DC -9
+VIN IN 0 DC 0
+RFB OUT FB 10k
+RG FB 0 10k
+RL OUT 0 300
+XU1 IN FB VPOS VNEG OUT OPA1622
+.control
+set noaskquit
+op
+print v(in) v(fb) v(out)
+quit
+.endc
+.end

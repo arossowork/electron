@@ -1,21 +1,32 @@
 # Desktop DAC and headphone amplifier
 
-A USB DAC and desktop headphone amp for Luca's Sennheiser HD6XX, and a real reference board for improving the code-to-PCB build pipeline.
+A USB-C DAC and desktop headphone amplifier for Luca's 300 Ω Sennheiser HD6XX, and a reference circuit for improving the code-to-PCB compiler. Target: stereo PCM through 384 kHz, physical volume knob, 6.35 mm output, external regulated 5 V adapter, and a EUR 150–250 complete prototype. No parts have been ordered.
 
-The agreed product is USB audio plus an external low-voltage power adapter, with a target of €150–250 for one working prototype including assembly, enclosure and supply. No parts have been ordered. Start with an approximately 160 × 100 × 40 mm enclosure and 140 × 80 mm four-layer PCB; these are proposed working dimensions, not a verified enclosure fit.
+The working PCB remains **140 × 80 mm, four layers**, inside a provisional **160 × 100 × 40 mm** enclosure. `design.yaml` now contains **235 real components and 128 nets**, plus a measured envelope for the separate Amanero module. It is the single authoritative circuit source. Four connector anchors are fixed; the other 231 components are movable within explicit regions.
 
-The first interface target is USB-C, stereo PCM with 16/24/32-bit host formats up to 384 kHz. The preferred path is an Amanero Combo768 USB-C receiver feeding an ESS ES9039Q2M DAC and OPA1622 headphone amplifier. The documented receiver clock output supports the proposed DAC configuration through 384 kHz; 768 kHz needs a different validated clock/firmware arrangement. The complete signal chain, its configuration and bench tests determine supported formats; a receiver capability alone is insufficient. Prioritize analog noise, distortion, clean output into 300 Ω and reliable startup over the maximum advertised sample rate.
+The circuit includes an Amanero Combo768 interface, ES9039Q2M hardware-mode DAC, two OPA1612 output-stage packages, OPA1622 headphone driver, relay/DC protection, and sequenced/monitored supplies. The custom receiver footprint follows Amanero's sequential row numbering. The exact panel pot, jack, enclosure and harness construction remain open.
 
-`design.yaml` is an executable **architecture floorplan with placeholder blocks**, not a schematic or fabrication design. Every size reservation is identified as an estimate. Real parts, pins, courtyards, routing, electrical verification and cost remain to be completed. Do not send this project for manufacture.
+## Current evidence
 
-- `requirements.yaml`: user decisions and separate engineering targets.
-- `architecture.md`: signal path, clocking, power boundaries and physical assumptions.
-- `parts.md`: receiver/DAC selection and clock compatibility.
-- `analog-design.md`: amplifier calculations and protection proposal.
-- `compiler-experiments.md`: baseline and controlled compiler experiments.
-- `notes/floorplan-baseline.md`: measured initial check and setup findings.
-- `state.md`: current stage and remaining work.
+| Gate | Result |
+|---|---|
+| Source checks and symbol/footprint mapping | PASS: 0 errors, 5 warnings |
+| Generated KiCad schematic ERC | PASS: 0 errors, 4 warnings |
+| Source-to-KiCad connectivity | PASS: all 683 assigned pins match |
+| Real-footprint floorplan | PASS: 60% fill, 29.6 mm depth, 0 quick-placement violations |
+| Amplifier model simulation | FAILED to converge; no valid output measurement |
+| Startup/shutdown and fault waveforms | NOT CHECKED |
+| Routed PCB, DRC and manufacturing output | NOT CHECKED; circuit verification prerequisite remains open |
+| Delivered cost and product requirements | Unpriced/incomplete; 0 of 10 requirements verified |
 
-Keep the source circuit and the compiler changes separately reviewable. First measure unchanged main at `ca10fa8e0b9d67745787734b979e784f4422a3ec`. Fix only mechanically constrained items; let the compiler place ordinary components within explicit constraints. Preserve inspectable failure explanations and distinguish PASS, FAILED and NOT CHECKED.
+This is a reviewable circuit checkpoint, not a fabrication-ready board. [SUMMARY.md](SUMMARY.md) and [notes/circuit-baseline.md](notes/circuit-baseline.md) distinguish the completed checks from the remaining gates. The generated schematic and floorplan are in `build/` and can be regenerated; never edit them manually.
 
-Initial architecture check: placeholder floorplan PASS in 4.9 s; the deliberately undersized DAC region failed with a named fit diagnostic. All ten product requirements remain unverified. The circuit and routing baseline still require actual components and footprints.
+Three compiler corrections are separately reviewable: [explicit verification evidence](notes/verification-baseline.md), [clearance-preserving final placement rounding](notes/placement-clearance.md), and [complete schematic exports](notes/schematic-page-sizing.md). The final fast suite passed 293 tests (2 skipped, 14 deselected). No routing-speed improvement is claimed.
+
+- [requirements.yaml](requirements.yaml): user choices, targets and acceptance criteria.
+- [architecture.md](architecture.md), [analog-design.md](analog-design.md), [parts.md](parts.md): architecture and original calculations.
+- [notes/dac-circuit.md](notes/dac-circuit.md), [notes/analog-circuit.md](notes/analog-circuit.md), [notes/power-circuit.md](notes/power-circuit.md): circuit decisions and source documents.
+- [notes/mechanics.md](notes/mechanics.md): module CAD measurements and remaining assembly work.
+- [notes/models.md](notes/models.md): model provenance and limitations.
+- [compiler-experiments.md](compiler-experiments.md): controlled comparison protocol.
+- [state.md](state.md): restart point.

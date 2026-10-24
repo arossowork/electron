@@ -1,63 +1,1817 @@
-# Architecture floorplan only: no electrical components or fabrication output.
-# Sizes below are working reservations, documented in architecture.md.
+# Reviewable revision-A circuit; fabrication and listening gates are not complete.
+# Source decisions and model limitations are in notes/*-circuit.md.
 project: desktop_dac_hd6xx
 revision: A
-description: >
-  Desktop USB-C DAC and headphone amplifier for HD6XX; a compiler reference board.
-  Stage 2 placeholder floorplan, not a circuit or a routed PCB.
+description: >-
+  Desktop USB-C DAC and HD6XX headphone amplifier; circuit capture under verification, not fabrication-ready.
 board:
   width_mm: 140
   height_mm: 80
   layers: 4
   thickness_mm: 1.6
+  # Low-current rails fit 0.5 mm QFN pin escape; current_a still widens high-current nets.
+  power_track_mm: 0.3
 floorplan:
   construction: single
   depth:
     limit_mm: 32
-    source: "architecture.md: 40 mm enclosure height minus 8 mm structural allowance; proposed, not measured."
+    source: 'architecture.md: provisional enclosure allowance; module/support and panel controls not mechanically released.'
     extra:
-      - {name: bottom_standoffs, mm: 4, source: "architecture.md: provisional assembly allowance."}
-      - {name: top_clearance, mm: 2, source: "architecture.md: provisional assembly allowance."}
+    - name: bottom_standoffs
+      mm: 4
+      source: Provisional assembly allowance.
+    - name: top_clearance
+      mm: 2
+      source: Provisional assembly allowance.
   regions:
-    - name: usb
-      kind: other
-      rect: [3, 3, 78, 38]
-      items: [usb_module]
-      source: "architecture.md: 75 x 35 mm module reservation; actual USB-C module CAD pending."
-    - name: dac
-      kind: other
-      rect: [80, 4, 108, 35]
-      items: [dac_stage]
-      source: "architecture.md: movable DAC plus local support near the USB clock source."
-    - name: power
-      kind: other
-      rect: [112, 3, 137, 37]
-      items: [dc_input, power_stage]
-      isolation_mm: 5
-      from: [analog]
-      source: "architecture.md: initial noise-separation trial, not a certified noise/isolation limit."
-    - name: analog
-      kind: other
-      rect: [4, 43, 106, 78]
-      items: [volume, headphone_jack, amplifier, output_protection]
-      source: "architecture.md: front controls and movable analog/protection stages."
+  - name: usb
+    kind: keepout
+    rect:
+    - 2
+    - 0
+    - 36
+    - 71
+    items:
+    - usb_module
+    source: 'notes/mechanics.md: official module CAD bounds plus edge allowance; reserve module envelope.'
+  - name: power
+    kind: other
+    rect:
+    - 38
+    - 2
+    - 137
+    - 35
+    items:
+    - dc_input
+    - power_stage
+    isolation_mm: 5
+    from:
+    - analog
+    - dac
+    source: Repacked inside agreed outline for real power parts; 5 mm separation is an engineering placement rule, not
+      noise proof.
+  - name: dac
+    kind: other
+    rect:
+    - 38
+    - 43
+    - 76
+    - 78
+    items:
+    - usb_header
+    - dac_stage
+    - volume
+    source: Short interface from module at left; DAC support and panel-pot header.
+  - name: analog
+    kind: other
+    rect:
+    - 80
+    - 43
+    - 137
+    - 78
+    items:
+    - amplifier
+    - output_protection
+    - headphone_jack
+    source: Analog output/filter/driver and normally-open output protection.
   items:
-    - {name: usb_module, size_mm: [75, 35], height_mm: 15, at: [40.5, 20.5], source: "Estimated module assembly reservation, not verified dimensions; architecture.md."}
-    - {name: dc_input, size_mm: [14, 11], height_mm: 12, at: [124.5, 8.5], source: "Estimated rear DC jack reserve; architecture.md."}
-    - {name: power_stage, size_mm: [20, 22], height_mm: 6, source: "Estimated converter and filtering reserve; architecture.md."}
-    - {name: dac_stage, size_mm: [24, 22], height_mm: 5, source: "Estimated DAC/support reserve; architecture.md."}
-    - {name: volume, size_mm: [22, 18], height_mm: 16, at: [18, 68], source: "Estimated front stereo pot reserve; architecture.md."}
-    - {name: headphone_jack, size_mm: [16, 28], height_mm: 16, at: [94, 64], source: "Estimated front 6.35 mm jack reserve; architecture.md."}
-    - {name: amplifier, size_mm: [24, 20], height_mm: 5, source: "Estimated stereo amplifier reserve; architecture.md."}
-    - {name: output_protection, size_mm: [22, 18], height_mm: 12, source: "Estimated relay and DC detector reserve; architecture.md."}
-  # Coarse inter-block connection estimates, not an electrical netlist.
-  nets:
-    - {between: [usb_module, dac_stage], count: 6}
-    - {between: [dac_stage, volume], count: 2}
-    - {between: [volume, amplifier], count: 2}
-    - {between: [amplifier, output_protection], count: 2}
-    - {between: [output_protection, headphone_jack], count: 2}
-    - {between: [dc_input, power_stage], count: 2}
-    - {between: [power_stage, dac_stage], count: 2}
-    - {between: [power_stage, amplifier], count: 3}
-    - {between: [power_stage, output_protection], count: 2}
+  - name: usb_module
+    size_mm:
+    - 32
+    - 69.258
+    height_mm: 15
+    at:
+    - 19
+    - 35.629
+    source: 'notes/mechanics.md: CAD XY bounds; 15 mm height includes provisional support allowance.'
+  - name: usb_header
+    refs:
+    - J100
+    height_mm: 9
+    source: Custom sequential-row footprint; short harness mating/orientation remains a mechanical gate.
+  - name: dc_input
+    refs:
+    - J300
+    height_mm: 12
+    source: PJ-102AH selected footprint; enclosure cutout not finalized.
+  - name: power_stage
+    groups:
+    - power
+    height_mm: 22
+    source: 'notes/power-circuit.md: maximum seated C340 height; all parts use real courtyards.'
+  - name: dac_stage
+    groups:
+    - dac
+    height_mm: 5
+    source: Real footprints; conservative support-component height.
+  - name: volume
+    refs:
+    - J200
+    height_mm: 9
+    source: Panel-pot harness header; pot/enclosure selection still open.
+  - name: headphone_jack
+    refs:
+    - J201
+    height_mm: 9
+    source: Panel jack harness header; jack/enclosure selection still open.
+  - name: amplifier
+    groups:
+    - analog
+    height_mm: 3
+    source: OPA1612/OPA1622 output-stage footprints.
+  - name: output_protection
+    groups:
+    - protection
+    height_mm: 6
+    source: G6K relay and comparator/logic footprints; body-height allowance.
+nets:
+  GND:
+    class: ground
+  3V3_D:
+    class: power
+    current_a: 0.04
+  3V3_C:
+    class: power
+    current_a: 0.02
+  3V3_A:
+    class: power
+    current_a: 0.05
+  DAC_DVDD: {}
+  DAC_EN: {}
+  PWR_GOOD: {}
+  DAC_MUTE_N: {}
+  AUDIO_READY:
+    class: signal
+  USB_CABLE: {}
+  USB_MUTE: {}
+  USB_DSDOE: {}
+  USB_I2S_DATA:
+    class: fast
+  USB_I2S_BCLK:
+    class: fast
+  USB_I2S_LRCLK:
+    class: fast
+  USB_I2S_MCLK:
+    class: fast
+  I2S_DATA_BUF:
+    class: fast
+  I2S_BCLK_BUF:
+    class: fast
+  I2S_LRCLK_BUF:
+    class: fast
+  I2S_MCLK_BUF:
+    class: fast
+  I2S_DATA:
+    class: fast
+  I2S_BCLK:
+    class: fast
+  I2S_LRCLK:
+    class: fast
+  I2S_MCLK:
+    class: fast
+  DAC_L_P:
+    sensitive: true
+    class: signal
+  DAC_L_N:
+    sensitive: true
+    class: signal
+  DAC_R_P:
+    sensitive: true
+    class: signal
+  DAC_R_N:
+    sensitive: true
+    class: signal
+  DAC_MODE: {}
+  DAC_HW2: {}
+  DAC_DELAY_RC: {}
+  DAC_DELAY_DISCH: {}
+  DAC_DELAY_B: {}
+  DAC_DELAY_OK: {}
+  USB_MUTE_N: {}
+  USB_PCM_ONLY: {}
+  BUFFER_OE_N: {}
+  STREAM_OK: {}
+  MUTE_FAULT: {}
+  VPOS:
+    class: power
+    current_a: 0.15
+  VNEG:
+    class: power
+    current_a: 0.15
+  V5_SYS:
+    class: power
+    current_a: 0.035
+  AMP_ENABLE:
+    class: signal
+  DC_OK_RAW:
+    class: signal
+  DC_OK:
+    class: signal
+  VOL_L:
+    class: signal
+    sensitive: true
+  VOL_R:
+    class: signal
+    sensitive: true
+  DAC_SE_L:
+    class: signal
+    sensitive: true
+  DAC_SE_R:
+    class: signal
+    sensitive: true
+  AMP_L:
+    class: signal
+    sensitive: true
+  AMP_R:
+    class: signal
+    sensitive: true
+  HP_L:
+    class: signal
+  HP_R:
+    class: signal
+  ADAPTER_5V:
+    class: power
+    current_a: 1.5
+    external_supply: true
+  ADAPTER_FUSED:
+    class: power
+    current_a: 1.5
+  V5_HOLD:
+    class: power
+    current_a: 0.15
+  P_SW:
+    class: switching
+    current_a: 0.5
+  N_SW:
+    class: switching
+    current_a: 0.5
+  P10V5_RAW:
+    class: power
+    current_a: 0.15
+  N10V_RAW:
+    class: power
+    current_a: 0.15
+  DC_ARM_DELAY:
+    class: signal
+  DC_ARM_DISCHARGE:
+    class: signal
+  RELAY_DELAY:
+    class: signal
+  RELAY_DISCHARGE:
+    class: signal
+  RELAY_DELAYED:
+    class: signal
+  RELAY_ENABLE:
+    class: signal
+  RELAY_COIL_CMD:
+    class: signal
+  RELAY_BASE:
+    class: signal
+  RELAY_COIL_LO:
+    class: signal
+components:
+  J100:
+    value: Combo768_USB-C_module_header
+    mpn: Combo768
+    datasheet: https://www.amanero.com/drivers/Combo768-D.pdf
+    symbol: Connector_Generic:Conn_02x10_Odd_Even
+    footprint: dac_audio:Combo768_Header_2x10_P2.54mm
+    package_pads: 20
+    group: usb
+    spice: false
+    pins: {'1': USB_CABLE, '3': USB_I2S_DATA, '4': USB_I2S_BCLK, '5': USB_I2S_LRCLK, '6': USB_I2S_MCLK, '7': USB_DSDOE, '8':
+        GND, '11': USB_MUTE, '13': GND, '14': GND, '15': GND}
+    nc: ['2', '9', '10', '12', '16', '17', '18', '19', '20']
+    placement:
+      x: 42
+      y: 48
+      rot: 0
+      fixed: true
+  U100:
+    value: ES9039Q2M
+    mpn: ES9039Q2M
+    datasheet: https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf
+    symbol: dac_audio:ES9039Q2M
+    footprint: Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.3x3.3mm
+    package_pads: 33
+    package_pitch_mm: 0.5
+    group: dac
+    spice: false
+    pins: {'1': 3V3_A, '2': DAC_L_N, '3': DAC_L_P, '4': GND, '5': GND, '6': DAC_R_N, '7': DAC_R_P, '8': 3V3_A, '9':
+        DAC_DVDD, '10': 3V3_D, '11': GND, '12': I2S_BCLK, '13': I2S_LRCLK, '14': I2S_DATA, '15': GND, '16': GND, '17':
+        GND, '18': DAC_EN, '19': DAC_HW2, '20': DAC_MUTE_N, '25': GND, '26': GND, '27': GND, '29': DAC_MODE, '30': GND, '31':
+        3V3_C, '32': I2S_MCLK, '33': GND}
+    nc: ['21', '22', '23', '24', '28']
+  U103:
+    value: SN74LVC244A
+    mpn: SN74LVC244APWR
+    datasheet: https://www.ti.com/lit/ds/symlink/sn74lvc244a.pdf
+    symbol: dac_audio:SN74LVC244A
+    footprint: Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm
+    package_pads: 20
+    package_pitch_mm: 0.65
+    group: dac
+    spice: false
+    pins: {'1': BUFFER_OE_N, '2': USB_I2S_DATA, '4': USB_I2S_BCLK, '6': USB_I2S_LRCLK, '8': USB_I2S_MCLK, '10': GND, '11':
+        GND, '12': I2S_MCLK_BUF, '13': GND, '14': I2S_LRCLK_BUF, '15': GND, '16': I2S_BCLK_BUF, '17': GND, '18':
+        I2S_DATA_BUF, '19': 3V3_D, '20': 3V3_D}
+    nc: ['3', '5', '7', '9']
+  U101:
+    value: SN74LVC14A
+    mpn: SN74LVC14APWR
+    datasheet: https://www.ti.com/lit/ds/symlink/sn74lvc14a.pdf
+    symbol: dac_audio:SN74LVC14A
+    footprint: Package_SO:TSSOP-14_4.4x5mm_P0.65mm
+    package_pads: 14
+    package_pitch_mm: 0.65
+    group: dac
+    spice: false
+    pins: {'1': DAC_DELAY_RC, '2': DAC_DELAY_B, '3': DAC_DELAY_B, '4': DAC_DELAY_OK, '5': USB_MUTE, '6': USB_MUTE_N, '7':
+        GND, '8': USB_PCM_ONLY, '9': USB_DSDOE, '10': BUFFER_OE_N, '11': DAC_EN, '12': MUTE_FAULT, '13': AUDIO_READY, '14':
+        3V3_D}
+  U102:
+    value: SN74LV21A
+    mpn: SN74LV21APWR
+    datasheet: https://www.ti.com/lit/ds/symlink/sn74lv21a.pdf
+    symbol: dac_audio:SN74LV21A
+    footprint: Package_SO:TSSOP-14_4.4x5mm_P0.65mm
+    package_pads: 14
+    package_pitch_mm: 0.65
+    group: dac
+    spice: false
+    pins: {'1': PWR_GOOD, '2': USB_CABLE, '4': USB_MUTE_N, '5': USB_PCM_ONLY, '6': STREAM_OK, '7': GND, '8': AUDIO_READY,
+      '9': STREAM_OK, '10': DAC_EN, '12': DAC_DELAY_OK, '13': 3V3_D, '14': 3V3_D}
+    nc: ['3', '11']
+  M100:
+    value: BSS138
+    mpn: BSS138
+    datasheet: https://www.onsemi.com/download/data-sheet/pdf/bss138-d.pdf
+    symbol: Transistor_FET:BSS138
+    footprint: Package_TO_SOT_SMD:SOT-23
+    package_pads: 3
+    group: dac
+    spice: false
+    pins: {'1': MUTE_FAULT, '2': GND, '3': DAC_MUTE_N}
+  D100:
+    value: BAT54WS
+    mpn: BAT54WS-7-F
+    datasheet: https://www.diodes.com/datasheet/download/BAT54WS.pdf
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    package_pads: 2
+    group: dac
+    spice: false
+    pins: {'1': DAC_EN, '2': DAC_DELAY_DISCH} # K at DAC_EN; A via R118 to RC
+  R100: {value: 47k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': DAC_MODE, '2': GND}, group:
+      dac}
+  R101: {value: 47k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': 3V3_D, '2': DAC_HW2},
+      group: dac}
+  R102: {value: 47k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': 3V3_D, '2': DAC_MUTE_N},
+      group: dac}
+  R103: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': DAC_EN, '2': GND}, group:
+      dac}
+  R104: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_CABLE, '2': GND},
+      group: dac}
+  R105: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': PWR_GOOD, '2': GND},
+      group: dac}
+  R106: {value: 22k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': DAC_EN, '2': DAC_DELAY_RC},
+    group: dac}
+  R107: {value: 47k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': 3V3_D, '2': BUFFER_OE_N},
+      group: dac}
+  R108: {value: 33, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': I2S_DATA_BUF, '2': I2S_DATA},
+    group: dac}
+  R109: {value: 33, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': I2S_BCLK_BUF, '2': I2S_BCLK},
+    group: dac}
+  R110: {value: 33, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': I2S_LRCLK_BUF, '2':
+        I2S_LRCLK}, group: dac}
+  R111: {value: 33, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': I2S_MCLK_BUF, '2': I2S_MCLK},
+    group: dac}
+  R112: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_I2S_DATA, '2': GND},
+      group: dac}
+  R113: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_I2S_BCLK, '2': GND},
+      group: dac}
+  R114: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_I2S_LRCLK, '2': GND},
+      group: dac}
+  R115: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_I2S_MCLK, '2': GND},
+      group: dac}
+  R116: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_MUTE, '2': GND},
+      group: dac}
+  R117: {value: 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': USB_DSDOE, '2': GND},
+      group: dac}
+  R118: {value: 2.2k, mpn: 0603 1% 2.2k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {'1': DAC_DELAY_RC, '2':
+        DAC_DELAY_DISCH}, group: dac}
+  C100: {value: 1u, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        3V3_D, '2': GND}, decouples: U100, group: dac}
+  C101: {value: 1u, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        3V3_C, '2': GND}, decouples: U100, group: dac}
+  C102: {value: 1u, mpn: T491A105K010AT, symbol: Device:C_Polarized, footprint:
+      Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A, voltage_rating_v: 10, pins: {'1': 3V3_A, '2': GND}, decouples: U100,
+    group: dac}
+  C103: {value: 1u, mpn: T491A105K010AT, symbol: Device:C_Polarized, footprint:
+      Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A, voltage_rating_v: 10, pins: {'1': 3V3_A, '2': GND}, decouples: U100,
+    group: dac}
+  C104: {value: 1u, mpn: T491A105K010AT, symbol: Device:C_Polarized, footprint:
+      Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A, voltage_rating_v: 10, pins: {'1': DAC_DVDD, '2': GND}, decouples:
+      U100, group: dac}
+  C105: {value: 1u, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        DAC_DELAY_RC, '2': GND}, group: dac}
+  C106: {value: 100n, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        3V3_D, '2': GND}, decouples: U101, group: dac}
+  C107: {value: 100n, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        3V3_D, '2': GND}, decouples: U102, group: dac}
+  C108: {value: 100n, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, voltage_rating_v: 10, pins: {'1':
+        3V3_D, '2': GND}, decouples: U103, group: dac}
+  U200:
+    value: OPA1612 left channel
+    mpn: OPA1612AIDR
+    datasheet: https://www.ti.com/lit/ds/symlink/opa1612.pdf
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    spice: {lib: lib/spice/analog_wrappers.lib, subckt: OPA1612_DUAL, ports: ['3', '2', '1', '5', '6', '7', '8', '4'],
+        source: vendor}
+    group: analog
+    pins: {'3': GND, '2': AINV_L, '1': AOUT_L, '5': DAC_L_P, '6': DAC_L_N, '7': BOUT_L, '8': VPOS, '4': VNEG}
+  U201:
+    value: OPA1612 right channel
+    mpn: OPA1612AIDR
+    datasheet: https://www.ti.com/lit/ds/symlink/opa1612.pdf
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    spice: {lib: lib/spice/analog_wrappers.lib, subckt: OPA1612_DUAL, ports: ['3', '2', '1', '5', '6', '7', '8', '4'],
+        source: vendor}
+    group: analog
+    pins: {'3': GND, '2': AINV_R, '1': AOUT_R, '5': DAC_R_P, '6': DAC_R_N, '7': BOUT_R, '8': VPOS, '4': VNEG}
+  R200: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_L_P, '2': AOUT_L}}
+  R201: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_L_P, '2': AOUT_L}}
+  C200: {value: 510pF, mpn: C0G 0603 510pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_L_P, '2': AOUT_L}}
+  R202: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_L_N, '2': BOUT_L}}
+  R203: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_L_N, '2': BOUT_L}}
+  C201: {value: 510pF, mpn: C0G 0603 510pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_L_N, '2': BOUT_L}}
+  R204: {value: 4.7k, mpn: thin-film 0603 0.1% 4.7k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AOUT_L, '2': AINV_L}}
+  R205: {value: 4.7k, mpn: thin-film 0603 0.1% 4.7k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AINV_L, '2': BOUT_L}}
+  C202: {value: 10pF, mpn: C0G 0603 10pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': AOUT_L, '2': AINV_L}}
+  R206: {value: 140, mpn: thin-film 0603 0.1% 140R, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AOUT_L, '2': DAC_L_BAL}}
+  C203: {value: 2.2nF, mpn: C0G 0603 2.2nF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_L_BAL, '2': GND}}
+  R207: {value: 140, mpn: thin-film 0603 0.1% 140R, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': BOUT_L, '2': DAC_SE_L}}
+  C204: {value: 2.2nF, mpn: C0G 0603 2.2nF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_SE_L, '2': GND}}
+  R208: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_R_P, '2': AOUT_R}}
+  R209: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_R_P, '2': AOUT_R}}
+  C205: {value: 510pF, mpn: C0G 0603 510pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_R_P, '2': AOUT_R}}
+  R210: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_R_N, '2': BOUT_R}}
+  R211: {value: 3.6k, mpn: thin-film 0603 0.1% 3.6k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': DAC_R_N, '2': BOUT_R}}
+  C206: {value: 510pF, mpn: C0G 0603 510pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_R_N, '2': BOUT_R}}
+  R212: {value: 4.7k, mpn: thin-film 0603 0.1% 4.7k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AOUT_R, '2': AINV_R}}
+  R213: {value: 4.7k, mpn: thin-film 0603 0.1% 4.7k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AINV_R, '2': BOUT_R}}
+  C207: {value: 10pF, mpn: C0G 0603 10pF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': AOUT_R, '2': AINV_R}}
+  R214: {value: 140, mpn: thin-film 0603 0.1% 140R, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': AOUT_R, '2': DAC_R_BAL}}
+  C208: {value: 2.2nF, mpn: C0G 0603 2.2nF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_R_BAL, '2': GND}}
+  R215: {value: 140, mpn: thin-film 0603 0.1% 140R, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      analog, pins: {'1': BOUT_R, '2': DAC_SE_R}}
+  C209: {value: 2.2nF, mpn: C0G 0603 2.2nF 50V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      analog, voltage_rating_v: 50, pins: {'1': DAC_SE_R, '2': GND}}
+  C210: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U200, voltage_rating_v: 16, pins: {'1': VPOS, '2': GND}}
+  C211: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U200, voltage_rating_v: 16, pins: {'1': VNEG, '2': GND}}
+  C212: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U201, voltage_rating_v: 16, pins: {'1': VPOS, '2': GND}}
+  C213: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U201, voltage_rating_v: 16, pins: {'1': VNEG, '2': GND}}
+  J200:
+    value: Stereo volume potentiometer panel header (CW, wiper, CCW per gang)
+    symbol: Connector_Generic:Conn_01x06
+    footprint: Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical
+    spice: false
+    pins: {'1': DAC_SE_L, '2': VOL_L, '3': GND, '4': DAC_SE_R, '5': VOL_R, '6': GND}
+    placement:
+      x: 58
+      y: 76
+      rot: 90
+      fixed: true
+    group: controls
+  U202:
+    value: OPA1622
+    mpn: OPA1622IDRCR
+    datasheet: https://www.ti.com/lit/ds/symlink/opa1622.pdf
+    symbol: Amplifier_Audio:OPA1622
+    footprint: Package_SON:Texas_S-PVSON-N10
+    spice: {lib: lib/spice/analog_wrappers.lib, subckt: OPA1622_DUAL, ports: ['1', '10', '9', '5', '6', '7', '2', '4', '8',
+        '3', '11'], source: vendor}
+    group: analog
+    pins: {'1': VOL_L, '10': FB_L, '9': AMP_L, '5': VOL_R, '6': FB_R, '7': AMP_R, '2': VPOS, '4': VNEG, '8': AMP_ENABLE, '3':
+        GND, '11': VNEG}
+  R240: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: analog, pins: {
+      '1': AMP_L, '2': FB_L}}
+  R241: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: analog, pins: {
+      '1': FB_L, '2': GND}}
+  R242: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: analog, pins: {
+      '1': AMP_R, '2': FB_R}}
+  R243: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: analog, pins: {
+      '1': FB_R, '2': GND}}
+  R244: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': AMP_ENABLE, '2': GND}}
+  R245: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': 3V3_D, '2': VREF_1V65}}
+  R246: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': VREF_1V65, '2': GND}}
+  C240: {value: 10uF, mpn: 0805 X7R 10uF 10V, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, group:
+      protection, voltage_rating_v: 10, pins: {'1': VREF_1V65, '2': GND}}
+  R247: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': AMP_L, '2': SENSE_L}}
+  R248: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': VREF_1V65, '2': SENSE_L}}
+  C241: {value: 1uF, mpn: 0603 X7R 1uF 10V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, voltage_rating_v: 10, pins: {'1': SENSE_L, '2': VREF_1V65}}
+  D203: {value: BAT54WS-7-F negative input clamp L, mpn: BAT54WS-7-F, datasheet:
+      https://www.diodes.com/datasheet/download/BAT54WS.pdf, symbol: Device:D_Schottky, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_SCHOTTKY}, pins: {'1': SENSE_L, '2': GND}}
+  D204: {value: BAT54WS-7-F positive input clamp L, mpn: BAT54WS-7-F, datasheet:
+      https://www.diodes.com/datasheet/download/BAT54WS.pdf, symbol: Device:D_Schottky, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_SCHOTTKY}, pins: {'1': 3V3_D, '2': SENSE_L}}
+  R249: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': AMP_R, '2': SENSE_R}}
+  R250: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': VREF_1V65, '2': SENSE_R}}
+  C242: {value: 1uF, mpn: 0603 X7R 1uF 10V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, voltage_rating_v: 10, pins: {'1': SENSE_R, '2': VREF_1V65}}
+  D205: {value: BAT54WS-7-F negative input clamp R, mpn: BAT54WS-7-F, datasheet:
+      https://www.diodes.com/datasheet/download/BAT54WS.pdf, symbol: Device:D_Schottky, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_SCHOTTKY}, pins: {'1': SENSE_R, '2': GND}}
+  D206: {value: BAT54WS-7-F positive input clamp R, mpn: BAT54WS-7-F, datasheet:
+      https://www.diodes.com/datasheet/download/BAT54WS.pdf, symbol: Device:D_Schottky, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_SCHOTTKY}, pins: {'1': 3V3_D, '2': SENSE_R}}
+  R251: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': 3V3_D, '2': VTH_LO}}
+  R252: {value: 21k, mpn: 0603 1% 21k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': VTH_LO, '2': GND}}
+  R253: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': 3V3_D, '2': VTH_HI}}
+  R254: {value: 48.1k, mpn: 0603 1% 48.1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      protection, pins: {'1': VTH_HI, '2': GND}}
+  R255: {value: 10k, mpn: 0603 1% 10k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': 3V3_D, '2': DC_OK_RAW}}
+  U203:
+    value: LM339B
+    mpn: LM339BDR
+    datasheet: https://www.ti.com/lit/ds/symlink/lm339b.pdf
+    symbol: Comparator:LM339
+    footprint: Package_SO:SOIC-14_3.9x8.7mm_P1.27mm
+    spice: {lib: lib/spice/analog_wrappers.lib, subckt: LM339_QUAD, ports: ['2', '1', '13', '14', '4', '5', '6', '7', '10',
+        '11', '8', '9', '3', '12'], source: behavioral}
+    group: protection
+    pins: {'2': DC_OK_RAW, '4': SENSE_L, '5': VTH_HI, '1': DC_OK_RAW, '6': VTH_LO, '7': SENSE_L, '13': DC_OK_RAW, '10':
+        SENSE_R, '11': VTH_HI, '14': DC_OK_RAW, '8': VTH_LO, '9': SENSE_R, '3': 3V3_D, '12': GND}
+  C245: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U203, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  U204:
+    value: 74LVC2G00 fault latch (arm after DC_ARM; reset on disarm)
+    mpn: SN74LVC2G00DCTR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC2G00.pdf
+    symbol: 74xGxx:74LVC2G00
+    footprint: Package_SO:VSSOP-8_2.3x2mm_P0.5mm
+    spice: false
+    group: protection
+    pins: {'1': DC_ARM, '2': DC_OK_N, '7': DC_OK, '5': DC_OK_RAW, '6': DC_OK, '3': DC_OK_N, '4': GND, '8': 3V3_D}
+  C246: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U204, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  U205:
+    value: 74LVC1G08 enable AND
+    mpn: SN74LVC1G08DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G08.pdf
+    symbol: 74xGxx:74LVC1G08
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    pins: {'1': AUDIO_READY, '2': DC_OK, '3': GND, '4': AMP_ENABLE, '5': 3V3_D}
+  C247: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U205, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  R256: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': AUDIO_READY, '2': DC_ARM_DELAY}}
+  C243: {value: 47uF, mpn: 1210 X7R 47uF 10V, symbol: Device:C, footprint: Capacitor_SMD:C_1210_3225Metric, group:
+      protection, voltage_rating_v: 10, pins: {'1': DC_ARM_DELAY, '2': GND}}
+  R260: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': DC_ARM_DELAY, '2': GND}}
+  D200: {value: BAS316 arm-delay fast discharge, mpn: BAS316, datasheet:
+      https://assets.nexperia.com/documents/data-sheet/BAS16_SER.pdf, symbol: Device:D, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_GENERIC}, pins: {'1': AUDIO_READY, '2': DC_ARM_DISCHARGE}}
+  U206:
+    value: 74LVC1G17 DC detector arm delay
+    mpn: SN74LVC1G17DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G17.pdf
+    symbol: 74xGxx:74LVC1G17
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    nc: ['1']
+    pins: {'2': DC_ARM_DELAY, '3': GND, '4': DC_ARM, '5': 3V3_D}
+  C248: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U206, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  U207:
+    value: 74LVC1G08 relay arm gate
+    mpn: SN74LVC1G08DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G08.pdf
+    symbol: 74xGxx:74LVC1G08
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    pins: {'1': AUDIO_READY, '2': DC_ARM, '3': GND, '4': RELAY_ARM, '5': 3V3_D}
+  C249: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U207, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  U208:
+    value: 74LVC1G08 relay fault gate
+    mpn: SN74LVC1G08DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G08.pdf
+    symbol: 74xGxx:74LVC1G08
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    pins: {'1': RELAY_ARM, '2': DC_OK, '3': GND, '4': RELAY_ENABLE, '5': 3V3_D}
+  C250: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U208, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  R257: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': RELAY_ENABLE, '2': RELAY_DELAY}}
+  C244: {value: 4.7uF, mpn: 0805 X7R 4.7uF 10V, symbol: Device:C, footprint: Capacitor_SMD:C_0805_2012Metric, group:
+      protection, voltage_rating_v: 10, pins: {'1': RELAY_DELAY, '2': GND}}
+  R261: {value: 1M, mpn: 0603 1% 1M, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': RELAY_DELAY, '2': GND}}
+  D202: {value: BAS316 relay-delay fast discharge, mpn: BAS316, datasheet:
+      https://assets.nexperia.com/documents/data-sheet/BAS16_SER.pdf, symbol: Device:D, footprint: Diode_SMD:D_SOD-323,
+      group: protection, spice: {model: D_GENERIC}, pins: {'1': RELAY_ENABLE, '2': RELAY_DISCHARGE}}
+  U209:
+    value: 74LVC1G17 relay close delay
+    mpn: SN74LVC1G17DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G17.pdf
+    symbol: 74xGxx:74LVC1G17
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    nc: ['1']
+    pins: {'2': RELAY_DELAY, '3': GND, '4': RELAY_DELAYED, '5': 3V3_D}
+  C251: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U209, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+  R258: {value: 1k, mpn: 0603 1% 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': RELAY_COIL_CMD, '2': RELAY_BASE}}
+  R259: {value: 100k, mpn: 0603 1% 100k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group: protection,
+      pins: {'1': RELAY_BASE, '2': GND}}
+  Q200:
+    value: BC817 relay low-side driver
+    mpn: BC817-40
+    datasheet: https://www.nexperia.com/product/BC817-40
+    symbol: Transistor_BJT:BC817
+    footprint: Package_TO_SOT_SMD:SOT-23
+    spice: {model: NPN_GENERIC, ports: ['3', '1', '2']}
+    group: protection
+    pins: {'1': RELAY_BASE, '2': GND, '3': RELAY_COIL_LO}
+  D201: {value: SS14 coil flyback, mpn: SS14, symbol: Device:D, footprint: Diode_SMD:D_SMA, group: protection, spice: {
+        model: D_SCHOTTKY}, pins: {'1': V5_SYS, '2': RELAY_COIL_LO}}
+  K200:
+    value: Omron G6K-2F-Y DC5
+    mpn: G6K-2F-Y DC5
+    datasheet: https://omronfs.omron.com/en_US/ecb/products/pdf/en-g6k.pdf
+    symbol: analog_audio:G6K-2F-Y
+    footprint: Relay_SMD:Relay_DPDT_Omron_G6K-2F-Y
+    spice: false
+    group: protection
+    nc: ['2', '7']
+    pins: {'1': V5_SYS, '3': AMP_L, '4': HP_L, '5': HP_R, '6': AMP_R, '8': RELAY_COIL_LO}
+  J201:
+    value: Panel 6.35 mm stereo jack header
+    symbol: Connector_Generic:Conn_01x03
+    footprint: Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical
+    spice: false
+    pins: {'1': HP_L, '2': HP_R, '3': GND}
+    placement:
+      x: 123
+      y: 76
+      rot: 90
+      fixed: true
+    group: controls
+  J300:
+    value: 5V DC center-positive
+    symbol: Connector:Barrel_Jack_Switch
+    footprint: Connector_BarrelJack:BarrelJack_CUI_PJ-102AH_Horizontal
+    pins:
+      '1': ADAPTER_5V
+      '2': GND
+    group: power
+    nc:
+    - '3'
+    mpn: PJ-102AH
+    spice: false
+    placement:
+      x: 124
+      y: 15
+      rot: 180
+      fixed: true
+  F300:
+    value: 1.5A hold PTC
+    symbol: Device:Polyfuse
+    footprint: Fuse:Fuse_1206_3216Metric
+    pins:
+      '1': ADAPTER_5V
+      '2': ADAPTER_FUSED
+    group: power
+    mpn: 1206L150/12SL
+    spice: false
+  M300:
+    value: AO3401A
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    pins:
+      '1': REV_GATE
+      '2': V5_SYS
+      '3': ADAPTER_FUSED
+    group: power
+    mpn: AO3401A
+    spice: false
+  R300:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': REV_GATE
+      '2': GND
+    group: power
+  D300:
+    value: SMBJ5.0A
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SMB
+    pins:
+      '1': ADAPTER_FUSED
+      '2': GND
+    group: power
+    mpn: SMBJ5.0A
+    spice: false
+  C300:
+    value: 22uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': V5_SYS
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+  C301:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_SYS
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+  R354:
+    value: '2.2'
+    symbol: Device:R
+    footprint: Resistor_SMD:R_2512_6332Metric
+    pins:
+      '1': V5_SYS
+      '2': PWR_HOLD_CHARGE
+    group: power
+    mpn: CRCW25122R20FKEGHP
+  D301:
+    value: B340A
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SMA
+    pins:
+      '1': V5_HOLD
+      '2': PWR_HOLD_CHARGE
+    group: power
+    mpn: B340A-13-F
+  C340:
+    value: 4700uF
+    symbol: Device:C_Polarized
+    footprint: Capacitor_THT:CP_Radial_D16.0mm_P7.50mm
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    mpn: EEUFR1A472S
+    voltage_rating_v: 10
+    height_mm: 22
+  C341:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+  U334:
+    value: TPS3808G50
+    symbol: Power_Supervisor:TPS3808DBV
+    footprint: Package_TO_SOT_SMD:SOT-23-6
+    pins:
+      '1': ADAPTER_OK
+      '2': GND
+      '3': V5_HOLD
+      '4': SUP_CT
+      '5': V5_SYS
+      '6': V5_HOLD
+    group: power
+    mpn: TPS3808G50DBVR
+    spice: false
+  R352:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': ADAPTER_OK
+    group: power
+  R353:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': SUP_CT
+    group: power
+  C345:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U334
+  U310:
+    value: TPS65131RGE
+    symbol: Regulator_Switching:TPS65131RGE
+    footprint: Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm_ThermalVias
+    pins:
+      '1': P_SW
+      '24': P_SW
+      '2': GND
+      '3': GND
+      '4': V5_SYS
+      '5': V5_SYS
+      '6': V5_SYS
+      '8': V5_SYS
+      '9': GND
+      '10': V5_SYS
+      '11': GND
+      '13': N_SW
+      '14': N_SW
+      '15': N10V_RAW
+      '16': N_FB
+      '17': TPS_VREF
+      '18': N_COMP
+      '19': GND
+      '21': P_COMP
+      '22': P_FB
+      '23': P10V5_RAW
+      '25': GND
+    group: power
+    nc:
+    - '7'
+    - '12'
+    - '20'
+    mpn: TPS65131RGER
+    spice: false
+  L310:
+    value: 4.7uH
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Sunlord_MWSA0503S
+    pins:
+      '1': V5_SYS
+      '2': P_SW
+    group: power
+    mpn: MWSA0503S-4R7MT
+  L311:
+    value: 4.7uH
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Sunlord_MWSA0503S
+    pins:
+      '1': N_SW
+      '2': GND
+    group: power
+    mpn: MWSA0503S-4R7MT
+  D310:
+    value: B5819W
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-123
+    pins:
+      '1': P10V5_RAW
+      '2': P_SW
+    group: power
+    mpn: B5819W
+  D311:
+    value: B5819W
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-123
+    pins:
+      '1': N_SW
+      '2': N10V_RAW
+    group: power
+    mpn: B5819W
+  R310:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P10V5_RAW
+      '2': P_FB
+    group: power
+  R311:
+    value: 130k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P_FB
+      '2': GND
+    group: power
+  R312:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N10V_RAW
+      '2': N_FB
+    group: power
+  R313:
+    value: 121k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N_FB
+      '2': TPS_VREF
+    group: power
+  C335:
+    value: 6.8pF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': P10V5_RAW
+      '2': P_FB
+    group: power
+    voltage_rating_v: 50
+  C336:
+    value: 7.5pF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': N10V_RAW
+      '2': N_FB
+    group: power
+    voltage_rating_v: 50
+  C310:
+    value: 220nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': TPS_VREF
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C311:
+    value: 10nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': P_COMP
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C312:
+    value: 4.7nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': N_COMP
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C313:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': V5_SYS
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U310
+  C314:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_SYS
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U310
+  C315:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': P10V5_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+  C316:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': P10V5_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+  C317:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': N10V_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+  C318:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': N10V_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+  R314:
+    value: 2.2k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P10V5_RAW
+      '2': GND
+    group: power
+  R315:
+    value: 2.2k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': N10V_RAW
+    group: power
+  U311:
+    value: TPS7A3901
+    symbol: Regulator_Linear:TPS7A39
+    footprint: Package_SON:Texas_S-PVSON-N10_ThermalVias
+    pins:
+      '1': P10V5_RAW
+      '2': P10V5_RAW
+      '3': PM_NR
+      '4': GND
+      '5': N10V_RAW
+      '6': VNEG
+      '7': N_REG_FB
+      '8': PM_BUF
+      '9': P_REG_FB
+      '10': VPOS
+      '11': GND
+    group: power
+    mpn: TPS7A3901DSCR
+    spice: false
+  R316:
+    value: 66.5k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': VPOS
+      '2': P_REG_FB
+    group: power
+  R317:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P_REG_FB
+      '2': GND
+    group: power
+  R318:
+    value: 75k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': VNEG
+      '2': N_REG_FB
+    group: power
+  R319:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N_REG_FB
+      '2': PM_BUF
+    group: power
+  C319:
+    value: 10nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PM_NR
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C320:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': P10V5_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+    decouples: U311
+  C321:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': N10V_RAW
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+    decouples: U311
+  C322:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': VPOS
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+    decouples: U311
+  C323:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': VNEG
+      '2': GND
+    group: power
+    voltage_rating_v: 25
+    decouples: U311
+  U320:
+    value: TPS7A2033
+    symbol: Regulator_Linear:TPS7A20xxxDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins:
+      '1': V5_HOLD
+      '2': GND
+      '3': EN_D
+      '5': 3V3_D
+    group: power
+    nc:
+    - '4'
+    mpn: TPS7A2033PDBVR
+    spice: false
+  U321:
+    value: TPS7A2033
+    symbol: Regulator_Linear:TPS7A20xxxDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins:
+      '1': V5_HOLD
+      '2': GND
+      '3': EN_C
+      '5': 3V3_C
+    group: power
+    nc:
+    - '4'
+    mpn: TPS7A2033PDBVR
+    spice: false
+  U322:
+    value: TPS7A2033
+    symbol: Regulator_Linear:TPS7A20xxxDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins:
+      '1': V5_HOLD
+      '2': GND
+      '3': EN_A
+      '5': 3V3_A
+    group: power
+    nc:
+    - '4'
+    mpn: TPS7A2033PDBVR
+    spice: false
+  C324:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': 3V3_D
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U320
+  C326:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': 3V3_C
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U321
+  C328:
+    value: 10uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    pins:
+      '1': 3V3_A
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U322
+  C325:
+    value: 1uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U320
+  C327:
+    value: 1uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U321
+  C329:
+    value: 1uF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U322
+  U330:
+    value: 74HC14
+    symbol: 74xx:74HC14
+    footprint: Package_SO:SOIC-14_3.9x8.7mm_P1.27mm
+    pins:
+      '1': PWR_C_DELAY_RC
+      '2': PWR_C_DELAY_N
+      '3': PWR_C_DELAY_N
+      '4': PWR_EN_C_RISE
+      '5': PWR_A_DELAY_RC
+      '6': PWR_A_DELAY_N
+      '9': PWR_A_DELAY_N
+      '8': PWR_EN_A_RISE
+      '11': PWR_DAC_DELAY_RC
+      '10': PWR_DAC_DELAY_N
+      '13': PWR_DAC_DELAY_N
+      '12': PWR_DAC_EN_DELAY
+      '7': GND
+      '14': 3V3_D
+    group: power
+    mpn: SN74HC14DR
+    spice: false
+  R330:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': PWR_C_DELAY_RC
+    group: power
+  C330:
+    value: 22nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_C_DELAY_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  R331:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_C
+      '2': PWR_A_DELAY_RC
+    group: power
+  C331:
+    value: 22nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_A_DELAY_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  R332:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_A
+      '2': PWR_DAC_DELAY_RC
+    group: power
+  C332:
+    value: 22nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_DAC_DELAY_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C333:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U330
+  U333:
+    value: 74HC14
+    symbol: 74xx:74HC14
+    footprint: Package_SO:SOIC-14_3.9x8.7mm_P1.27mm
+    pins:
+      '1': PWR_HOLD_A_RC
+      '2': PWR_HOLD_A_N
+      '3': PWR_HOLD_A_N
+      '4': PWR_HOLD_A
+      '5': PWR_HOLD_C_RC
+      '6': PWR_HOLD_C_N
+      '9': PWR_HOLD_C_N
+      '8': PWR_HOLD_C
+      '11': PWR_HOLD_D_RC
+      '10': PWR_HOLD_D_N
+      '13': PWR_HOLD_D_N
+      '12': EN_D
+      '7': GND
+      '14': V5_HOLD
+    group: power
+    mpn: SN74HC14DR
+    spice: false
+  R360:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_A_RC
+      '2': GND
+    group: power
+  R361:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_C_RC
+      '2': GND
+    group: power
+  R362:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_D_RC
+      '2': GND
+    group: power
+  C342:
+    value: 4.7nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_A_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C343:
+    value: 22nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_C_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  C344:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': PWR_HOLD_D_RC
+      '2': GND
+    group: power
+    voltage_rating_v: 16
+  D340:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_HOLD_A_RC
+      '2': ADAPTER_OK
+    group: power
+    mpn: BAT54WS-7-F
+  D341:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_HOLD_C_RC
+      '2': ADAPTER_OK
+    group: power
+    mpn: BAT54WS-7-F
+  D342:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_HOLD_D_RC
+      '2': ADAPTER_OK
+    group: power
+    mpn: BAT54WS-7-F
+  C346:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': V5_HOLD
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U333
+  R363:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': EN_C
+    group: power
+  D343:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_EN_C_RISE
+      '2': EN_C
+    group: power
+    mpn: BAT54WS-7-F
+  D344:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_HOLD_C
+      '2': EN_C
+    group: power
+    mpn: BAT54WS-7-F
+  R364:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': EN_A
+    group: power
+  D345:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_EN_A_RISE
+      '2': EN_A
+    group: power
+    mpn: BAT54WS-7-F
+  D346:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_HOLD_A
+      '2': EN_A
+    group: power
+    mpn: BAT54WS-7-F
+  U331:
+    value: LM393
+    symbol: Comparator:LM393
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    pins:
+      '1': PWR_GOOD
+      '2': P_REF
+      '3': P_SENSE
+      '4': GND
+      '5': N_REF
+      '6': N_SENSE
+      '7': PWR_GOOD
+      '8': 3V3_D
+    group: power
+    mpn: LM393DR
+    spice: false
+  R333:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': VPOS
+      '2': P_SENSE
+    group: power
+  R334:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P_SENSE
+      '2': GND
+    group: power
+  R335:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': P_REF
+    group: power
+  R336:
+    value: 28.7k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': P_REF
+      '2': GND
+    group: power
+  R337:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': N_SENSE
+    group: power
+  R338:
+    value: 330k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N_SENSE
+      '2': VNEG
+    group: power
+  R339:
+    value: 68k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N_SENSE
+      '2': GND
+    group: power
+  R340:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': N_REF
+    group: power
+  R341:
+    value: 10.5k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': N_REF
+      '2': GND
+    group: power
+  D349:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': N_SENSE
+      '2': GND
+    group: power
+    mpn: BAT54WS-7-F
+  R342:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': PWR_GOOD
+    group: power
+  C334:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U331
+  U332:
+    value: LM393
+    symbol: Comparator:LM393
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    pins:
+      '1': PWR_GOOD
+      '2': C_REF
+      '3': C_SENSE
+      '4': GND
+      '5': A_SENSE
+      '6': A_REF
+      '7': PWR_GOOD
+      '8': 3V3_D
+    group: power
+    mpn: LM393DR
+    spice: false
+  R344:
+    value: 200k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_C
+      '2': C_SENSE
+    group: power
+  R345:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': C_SENSE
+      '2': GND
+    group: power
+  R346:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': C_REF
+    group: power
+  R347:
+    value: 46.4k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': C_REF
+      '2': GND
+    group: power
+  R348:
+    value: 200k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_A
+      '2': A_SENSE
+    group: power
+  R349:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': A_SENSE
+      '2': GND
+    group: power
+  R350:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': A_REF
+    group: power
+  R351:
+    value: 46.4k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': A_REF
+      '2': GND
+    group: power
+  C337:
+    value: 100nF
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': GND
+    group: power
+    voltage_rating_v: 10
+    decouples: U332
+  D347:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': ADAPTER_OK
+      '2': PWR_GOOD
+    group: power
+    mpn: BAT54WS-7-F
+  R343:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': 3V3_D
+      '2': DAC_EN
+    group: power
+  D330:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_DAC_EN_DELAY
+      '2': DAC_EN
+    group: power
+    mpn: BAT54WS-7-F
+  D331:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': PWR_GOOD
+      '2': DAC_EN
+    group: power
+    mpn: BAT54WS-7-F
+  D348:
+    value: BAT54WS
+    symbol: Device:D_Schottky
+    footprint: Diode_SMD:D_SOD-323
+    pins:
+      '1': ADAPTER_OK
+      '2': DAC_EN
+    group: power
+    mpn: BAT54WS-7-F
+  C214: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U202, voltage_rating_v: 16, pins: {'1': VPOS, '2': GND}}
+  C215: {value: 470nF, mpn: 0603 X7R 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group: analog,
+      decouples: U202, voltage_rating_v: 16, pins: {'1': VNEG, '2': GND}}
+  R262: {value: 1k, mpn: thin-film 0603 1% 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      protection, pins: {'1': DC_ARM_DELAY, '2': DC_ARM_DISCHARGE}}
+  R263: {value: 1k, mpn: thin-film 0603 1% 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, group:
+      protection, pins: {'1': RELAY_DELAY, '2': RELAY_DISCHARGE}}
+  U210:
+    value: 74LVC1G08 final relay qualification
+    mpn: SN74LVC1G08DBVR
+    datasheet: https://assets.nexperia.com/documents/data-sheet/74LVC1G08.pdf
+    symbol: 74xGxx:74LVC1G08
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    spice: false
+    group: protection
+    pins: {'1': RELAY_DELAYED, '2': RELAY_ENABLE, '3': GND, '4': RELAY_COIL_CMD, '5': 3V3_D}
+  C252: {value: 100nF, mpn: C0G/X7R 0603 100nF 16V, symbol: Device:C, footprint: Capacitor_SMD:C_0603_1608Metric, group:
+      protection, decouples: U210, voltage_rating_v: 16, pins: {'1': 3V3_D, '2': GND}}
+sim:
+  includes: [lib/spice/opa1622_ti.lib, lib/spice/opa161x_ti.lib]
+  sources:
+  - {name: VPOS, p: VPOS, n: GND, value: DC 9}
+  - {name: VNEG, p: VNEG, n: GND, value: DC -9}
+  - {name: VINL, p: VOL_L, n: GND, value: DC 0 AC 2 SIN(0 2.828427 1k)}
+  - {name: VINR, p: VOL_R, n: GND, value: DC 0 AC 2 SIN(0 2.828427 1k)}
+  - {name: RL, p: AMP_L, n: GND, value: '300'}
+  - {name: RR, p: AMP_R, n: GND, value: '300'}
+  analyses:
+  - name: 4vrms_two_channel
+    timeout_s: 30
+    cmd: tran 1u 6m
+    measures:
+    - {name: left_vrms, meas: rms v(AMP_L) from=5m to=6m, min: 3.8, max: 4.2, unit: Vrms, req: R8}
+    - {name: right_vrms, meas: rms v(AMP_R) from=5m to=6m, min: 3.8, max: 4.2, unit: Vrms, req: R8}
+  # This attempts the OPA1622 gain/load check using TI's macromodel and
+  # ideal ±9 V supplies. It does not verify DAC full scale, pot, protection,
+  # relay, rail tolerance, thermal behavior, distortion/noise, or safety.

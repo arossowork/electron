@@ -1,4 +1,6 @@
-# Analog design proposal
+# Analog target and initial calculations
+
+Current circuit capture and validation status are in `notes/analog-circuit.md` and `notes/circuit-baseline.md`. The calculations below explain the design target; they do not represent measured performance.
 
 ## User decisions and provisional inputs
 
@@ -25,10 +27,10 @@ Hold the OPA1622 disabled by default. Enable only after the rails and DAC output
 
 ## Open validation before schematic freeze
 
-Confirm the chosen DAC’s full-scale voltage, output impedance, power and interface compatibility; confirm the USB/adapter power and ground arrangement; verify OPA1622 symbol, footprint, pin mapping and VEE thermal-pad connection from TI and KiCad libraries; verify TPS65131 reference topology, output capability and switching-noise filtering; choose and verify the jack, pot and relay footprints; and price the assembled enclosure/PSU/BOM against the prototype budget. Simulate the amplifier at 300 Ω and build/measure both channels at 20 Hz, 1 kHz and 20 kHz, including clipping, distortion, startup transient, DC fault response and temperature. No circuit has been built or simulated, and no pin or footprint mapping has yet been verified.
+Confirm the chosen DAC’s full-scale voltage, output impedance, power and interface compatibility; confirm the USB/adapter power and ground arrangement; verify OPA1622 symbol, footprint, pin mapping and VEE thermal-pad connection from TI and KiCad libraries; verify TPS65131 reference topology, output capability and switching-noise filtering; choose and verify the jack, pot and relay footprints; and price the assembled enclosure/PSU/BOM against the prototype budget. Simulate the amplifier at 300 Ω and build/measure both channels at 20 Hz, 1 kHz and 20 kHz, including clipping, distortion, startup transient, DC fault response and temperature. The component-level circuit has now been captured, pin/footprint mappings checked, and its generated schematic passed ERC with zero errors. The attempted amplifier simulation did not converge; no physical circuit or measured output result exists.
 
 ## Primary references
 
 - [TI OPA1622 datasheet](https://www.ti.com/lit/ds/symlink/opa1622.pdf)
 - [TI TPS65131 datasheet](https://www.ti.com/lit/ds/symlink/tps65131.pdf)
-- [ESS ES9039Q2M v0.2.3 datasheet](https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf): analog output stage still needs to be designed and verified.
+- [ESS ES9039Q2M v0.2.3 datasheet](https://www.esstech.com/wp-content/uploads/2026/05/ES9039Q2M_Datasheet_v0.2.3.pdf): Figure 33 output stage is transcribed in the current circuit; electrical performance remains unverified.

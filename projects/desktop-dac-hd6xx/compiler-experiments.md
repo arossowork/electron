@@ -1,6 +1,6 @@
 # Compiler baseline: desktop DAC and HD6XX amplifier
 
-This board is a reference case for the proposed DSL-to-PCB compiler. First capture what unchanged `hwflow` does at commit `ca10fa8e0b9d67745787734b979e784f4422a3ec`; then compare any compiler change against the same design and toolchain. No circuit build or routing timing result has been collected yet. The four circuit benchmark cases below remain **NOT CHECKED**. The separate [architecture-only baseline](notes/floorplan-baseline.md) records the placeholder floorplan and its negative fit check.
+This board is a reference case for the proposed DSL-to-PCB compiler. First capture what unchanged `hwflow` does at commit `ca10fa8e0b9d67745787734b979e784f4422a3ec`; then compare any compiler change against the same design and toolchain. Circuit capture, source checks, schematic/ERC and a real-footprint feasibility run are now recorded in [notes/circuit-baseline.md](notes/circuit-baseline.md). The four controlled routing benchmark cases below remain **NOT CHECKED**, blocked on circuit simulation/protection validation. The separate [architecture-only baseline](notes/floorplan-baseline.md) records the placeholder floorplan and its negative fit check.
 
 ## Freeze the input
 
@@ -10,7 +10,7 @@ Run each case in its own copy under `projects/` so its generated `build/` data c
 
 ## Four runs
 
-These circuit/build/routing cases begin only after circuit capture and real footprint verification. The present placeholder design supports an early floorplan check and an impossible-fit diagnostic; running its empty circuit through a build would not measure placement or routing performance.
+These circuit/build/routing cases begin only after circuit capture and real footprint verification. The current design has real components, but has not cleared its circuit simulation gate; a feasibility run does not substitute for a completed routing benchmark.
 
 | Case | Input and command | What to compare |
 | --- | --- | --- |
@@ -27,13 +27,15 @@ One current limitation is worth observing explicitly: a floorplan region can con
 
 | Case | Floorplan | Layout / DRC | Wall time | Fixed positions | Cache / route groups | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| Cold | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Real circuit and footprints pending |
-| Warm | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Real circuit and footprints pending |
-| Local edit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Real circuit and footprints pending |
-| Impossible fit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Real circuit and footprints pending |
+| Cold | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
+| Warm | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
+| Local edit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
+| Impossible fit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
 
 ## Findings during setup
 
-On this baseline, `trace()` treats nonempty evidence prose for inspection/test requirements as coverage; even text saying “NOT CHECKED” can appear verified. This project therefore leaves `evidence` empty until a real result exists. A later compiler change should make evidence state explicit and test absent, failed and stale results. Do not count document text as proof.
+On this baseline, `trace()` treats nonempty evidence prose for inspection/test requirements as coverage; even text saying “NOT CHECKED” can appear verified. This project therefore leaves `evidence` empty until a real result exists. The separate evidence patch now requires an explicit status, a current evidence hash and a nonempty project-local artifact; absent, failed and stale cases have regression coverage. See [verification-baseline.md](notes/verification-baseline.md). Do not count document text as proof.
 
 The original container build also selected the newest KRT binary despite pinned source, then failed on a version mismatch without Cargo. The environment-only correction pins the matching release; see the measured setup and floorplan results in `notes/floorplan-baseline.md`.
+
+Two verified compiler corrections are in this checkpoint: explicit evidence semantics and clearance-preserving placement snapping. The source-specific ERC short was a custom symbol geometry mistake, fixed in the project library; it was not attributed to the generator. `BOM cost: $0.00` currently accompanies a list of missing prices and must be read as **unpriced**, not a zero-cost estimate. A future report improvement should represent incomplete cost directly.

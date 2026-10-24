@@ -1,0 +1,29 @@
+* Package wrappers around the TI single-amplifier vendor models copied here.
+* They only map dual-package pins; they do not model OPA1622 EN, GND, or EP.
+.SUBCKT OPA1612_DUAL INPA INNA OUTA INPB INNB OUTB VPOS VNEG
+XA INPA INNA VPOS VNEG OUTA OPA161x
+XB INPB INNB VPOS VNEG OUTB OPA161x
+.ENDS OPA1612_DUAL
+
+* Physical symbol order: +A,-A,OUTA,+B,-B,OUTB,V+,V-,EN,GND,EP.
+* EN/GND/EP are package pins; TI's single-channel macromodel has no EN pin.
+.SUBCKT OPA1622_DUAL INPA INNA OUTA INPB INNB OUTB VPOS VNEG EN GND EP
+XA INPA INNA VPOS VNEG OUTA OPA1622
+XB INPB INNB VPOS VNEG OUTB OPA1622
+.ENDS OPA1622_DUAL
+
+* Behavioral level-shifted open-collector comparator, only for threshold tests.
+* It is not a vendor LM339 macromodel; input offset, delay, and saturation are absent.
+.SUBCKT LM339_OC INP INN OUT VCC VEE
+BCTRL CTRL 0 V=if(V(INP,INN)<0,1,0)
+SOUT OUT VEE CTRL 0 SWOC
+.MODEL SWOC SW(RON=20 ROFF=1e12 VT=0.5 VH=0)
+.ENDS LM339_OC
+
+* Four comparator package, physical order follows Comparator:LM339 symbol pins.
+.SUBCKT LM339_QUAD OUT1 OUT2 OUT3 OUT4 IN1N IN1P IN2N IN2P IN3N IN3P IN4N IN4P VCC VEE
+X1 IN1P IN1N OUT1 VCC VEE LM339_OC
+X2 IN2P IN2N OUT2 VCC VEE LM339_OC
+X3 IN3P IN3N OUT3 VCC VEE LM339_OC
+X4 IN4P IN4N OUT4 VCC VEE LM339_OC
+.ENDS LM339_QUAD

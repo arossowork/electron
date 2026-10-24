@@ -33,12 +33,12 @@ requirements:
     evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
     source: "User explicitly requested testing build-system improvements with the discussed design preferences."
   - id: R5
-    priority: should
+    priority: must
     text: USB-C input; stereo PCM host formats of 16, 24 and 32 bits up to 384 kHz.
     acceptance: Enumerated formats match the selected DAC; playback and rate transitions work at 44.1, 48, 88.2, 96, 176.4, 192, 352.8 and 384 kHz; unsupported DSD/rates mute or are not advertised.
     verification: test
     evidence: ""  # UNVERIFIED: add an actual result artifact only after checking.
-    source: "User asked for USB-C and good performance; 384 kHz is an engineering recommendation, not a user-mandated ceiling."
+    source: "User accepted 384 kHz for revision A on 2026-10-24 and requested proceeding with the real circuit/PCB and compiler improvements; USB-C and 16/24/32-bit formats follow the selected architecture."
   - id: R6
     priority: should
     text: Desktop enclosure about 160 x 100 x 40 mm, with a 140 x 80 mm four-layer PCB.
