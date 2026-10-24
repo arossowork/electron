@@ -67,6 +67,14 @@ jobs:
           helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set ingress.enabled=true --set temporal.ui.enabled=true \
             --set networkPolicy.enabled=false --set backup.enabled=false --set purge.enabled=false \
             | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          # The agent's operator credential (#15): a read-only Secret file only when a secretName is set.
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" \
+            --set agent.operatorCredential.secretName=hwflow-claude \
+            --set agent.subscriptionTenantIds=00000000-0000-4000-8000-000000000001 > /tmp/opcred.yaml
+          kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0 /tmp/opcred.yaml
+          grep -q "secretName: hwflow-claude" /tmp/opcred.yaml
+          grep -q "HWPLATFORM_OPERATOR_CREDENTIAL_FILE" /tmp/opcred.yaml
+          ! grep -qE "operator-credential|HWPLATFORM_OPERATOR_CREDENTIAL_FILE|HWPLATFORM_SUBSCRIPTION_TENANT_IDS" /tmp/reduced.yaml /tmp/full.yaml
       - name: No secret values in the chart
         run: |
           ! grep -rniE "(password|secret|key): *['\"]?[A-Za-z0-9+/=]{16,}" "$CHART" --include='*.yaml' \

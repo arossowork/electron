@@ -241,7 +241,7 @@ Without the flag, read the token from the API's stdout (`E-MAIL to=... ev.<token
 
 ## BYOK: the tenant's own Claude API key (#14)
 
-Each tenant brings and pays for its own key. The agent worker (#15) calls `get_tenant_llm_key(db, keyring, tenant_id)` and uses only that key; there is no platform-wide key to fall back to.
+Each tenant brings and pays for its own key. The agent worker (#15) resolves it through `hwplatform.credentials` and uses only that key; the only other credential is the operator's own, for the operator's own tenants ("Agent credentials" below).
 
 - **Storage:** table `tenant_llm_keys` (`tenant_id`, `provider='anthropic'`, `ciphertext`, `nonce`, `wrapped_dek`, `key_version`, `last4`, `status`, `created_at`, `rotated_at`, `last_validated_at`), unique per tenant and provider, tenant RLS like the other tenant tables. `llm_usage` (`tenant_id`, `run_id`, `model`, input/output/cache tokens, `at`) is append-only for the app role; `record_usage(db, tenant_id, model, response.usage, run_id=)` fills it from an API `usage` object.
 - **Envelope encryption** (`crypto.py`): a random 256-bit DEK per key seals the API key with AES-256-GCM; a master key (KEK) wraps the DEK. Associated data is `tenant_id:provider` for both seals, so a row copied to another tenant fails authentication.
@@ -273,10 +273,12 @@ is the agent frontmatter's (Opus 5.5 `claude-opus-5-5`, Sonnet 5.5 `claude-sonne
   version, writes the `questions` row (`question.asked`, run `waiting`) and waits on the `answer_question` signal
   that `POST /questions/{id}/answer` sends, with no timeout unless `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S` is set.
   The same session then resumes from its saved transcript with the answers.
-- **BYOK.** The activity reads the tenant's key; it exists only in the CLI subprocess's environment. Usage is
-  recorded per model after each result. A rejected or exhausted key: `mark_invalid`, run `waiting` (reason
-  `llm_key_invalid`) until `PUT /tenant/llm-keys/anthropic` sends `retry` (72 h at most). A rate limit: a workflow
-  timer (the API's reset time, else 60 s doubling to 30 min). Signals and timers only, no polling.
+- **Credentials.** The activity resolves the session's credential through the credential port (see "Agent
+  credentials" below); it exists only in the CLI subprocess's environment. Usage is recorded per model after each
+  result. A rejected or exhausted key: `mark_invalid`, run `waiting` (reason `llm_key_invalid`) until
+  `PUT /tenant/llm-keys/anthropic` sends `retry` (72 h at most). A rate limit: a workflow timer of the reset time
+  the credential's adapter gives (the API's, or a subscription window's, up to 24 h per timer), else 60 s doubling
+  to 30 min; a `retry` signal ends the wait early. Signals and timers only, no polling.
 - **Resume.** Every 5 min and at the end of a session the activity stores the workspace tree and the transcript
   (`application/x-hwflow-agent-session+tar.gz`) in S3 and heartbeats their refs. A stage cut by a worker restart
   is retried by Temporal and resumes the same session from the last snapshot; finished stages are not run again.
@@ -288,6 +290,53 @@ is the agent frontmatter's (Opus 5.5 `claude-opus-5-5`, Sonnet 5.5 `claude-sonne
   runs it as its own Deployment in both modes (`agent.*` values): sharing the reduced-mode worker pod would save
   about 112 MiB but put the session next to the build tools, the scratch of every build and the wider worker
   egress, and would need the SDK in the 2.9 GB worker image.
+
+### Agent credentials: one port, two adapters (#15)
+
+`hwplatform.credentials.CredentialService` is the port: `resolve(tenant_id)` gives the session's credential (its
+CLI environment comes from `Credential.env()`), `put` validates and stores one, `mark_invalid`, `record_usage`, and
+`limit_wait` turns a limit message into a wait. The adapters:
+
+| Type | Secret | CLI environment | Validation | Limit wait |
+|---|---|---|---|---|
+| `api_key` (default, every tenant) | Anthropic API key `sk-ant-api...` | `ANTHROPIC_API_KEY` | `GET /v1/models` (#14) | the API's reset time, else the workflow's backoff |
+| `subscription_token` (operator tenants only) | `claude setup-token` OAuth token `sk-ant-oat...` | `CLAUDE_CODE_OAUTH_TOKEN` | format only by default (no documented cheap check; the first session's auth error marks it invalid); injectable (`create_app(token_validator=...)`) | the window's reset from the CLI's usage-limit message (`hwharness.limits`, the local harness's parser) |
+
+A session gets exactly one of the two variables: the other is blank and the launcher drops it, so a worker-level
+`ANTHROPIC_API_KEY` never rides along with a token. `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR` and
+`ANTHROPIC_AUTH_TOKEN` are never inherited.
+
+- **Storage.** The same `tenant_llm_keys` row and envelope encryption, plus `credential_type` (migration 0007):
+  still one active credential per tenant and provider. `PUT /tenant/llm-keys/anthropic` takes
+  `{"api_key": "...", "credential_type": "api_key" | "subscription_token"}` and validates with that type's
+  adapter; GET shows `credential_type` and `last4` only. `logredact` redacts both formats (`sk-ant-...`).
+- **Policy and the gate.** The Agent SDK terms: "Unless previously approved, Anthropic does not allow third party
+  developers to offer claude.ai login or rate limits for their products, including agents built on the Claude
+  Agent SDK. Use the API key authentication methods described in the Quickstart instead." So subscription
+  credentials are for the operator's own tenants only: `HWPLATFORM_SUBSCRIPTION_TENANT_IDS` (comma-separated
+  tenant UUIDs; empty, the default, = none). Any other tenant gets 403 on PUT of a `subscription_token`, and a
+  subscription row of a tenant that is not listed (any more) is never resolved: the gate is checked on every
+  resolve, not only on PUT.
+- **The operator credential (`k8s_secret`).** Helm `agent.operatorCredential.{secretName, key, type}` mounts one
+  key of an existing Secret as a read-only file, `/var/run/secrets/hwflow/agent/<key>` (`defaultMode: 0400`; with
+  the pod's `fsGroup` the kubelet makes it 0440, group 10001), never as env, values or a ConfigMap. The worker
+  reads it at every resolve, so a rotated Secret applies without a restart; a missing or malformed file is a clear
+  `CredentialUnavailable` (the run waits for a key like a missing one) unless the tenant has its own credential.
+  Only the listed tenants get it; `agent.credentialOrder` (`HWPLATFORM_CREDENTIAL_ORDER`) is `operator,db` (the
+  default: the mounted credential, else the tenant's own) or `db,operator`. Every other tenant gets only its own
+  stored API key. The Secret must be in the release namespace; an existing one in namespace `hwflow` (made with
+  `kubectl -n hwflow create secret generic hwflow-claude --from-literal=token=<claude setup-token>`) is copied with
+  `kubectl -n hwflow get secret hwflow-claude -o yaml | sed '/namespace:/d;/uid:/d;/resourceVersion:/d;/creationTimestamp:/d' | kubectl -n <release-ns> apply -f -`.
+  A rejected operator credential is logged (type and last 4) for the operator to replace; no database row changes.
+- **Web.** Settings has a credential-type chooser; the subscription option says it is for operator tenants only.
+
+Tests: `tests/test_credentials.py` (both adapters through one contract with fake validators, the gate on and off
+at PUT and at resolve, the operator file: rotation, missing file, wrong tenant, order; the one-credential
+environment; the runner's limit detection; redaction of both formats; the port against the database and the API),
+`tests/test_workflow_design.py` (a subscription window's 4 h wait under time-skipping, and `retry` ending a wait)
+and `tests/test_design_e2e.py` (an operator tenant's token through the API, the gateway and the real activities:
+the session gets only `CLAUDE_CODE_OAUTH_TOKEN`, the limit becomes a 3 h timer, and the token is in no history,
+event, log line, S3 object or API answer).
 
 ### Agent sandbox: threat model
 
@@ -305,7 +354,7 @@ sandbox treats the session as untrusted code and does not rely on the model beha
 | Exfiltrate data or reach internal services over the network | The agent pod's NetworkPolicy allows DNS, Postgres, Temporal and SeaweedFS, and HTTPS (443) to public addresses only (`networkPolicy.agentEgressCidrs` pins it to Anthropic's ranges or a proxy). WebSearch runs on Anthropic's side. `fetch_url` runs on the engine queue and refuses non-http(s), ports other than 80/443, credentials in the URL and any host with a private, loopback, link-local or reserved address; it checks the connected peer and each redirect (at most 5) and caps the body at 20 MiB. |
 | Reach another tenant | The workspace, transcript and versions are the run's tenant's S3 prefix and RLS rows; every tool call carries the run's `RunCtx`, never one from the model. |
 | Abuse the engine through arguments | Engine tools build their `hwflow` command lines from validated fields (`--` before free text, `--opt=value`), never a shell string. |
-| Leak the tenant's key | It is fetched inside the activity and goes only into the subprocess environment: not in workflow inputs, heartbeats, errors, events, logs (`logredact`), transcripts or artifacts. `tests/test_design_e2e.py` checks the histories, the outbox, the captured logs and every S3 object of the run's tenant for it. |
+| Leak the tenant's key or token | It is resolved inside the activity and goes only into the subprocess environment: not in workflow inputs, heartbeats, errors, events, logs (`logredact`), transcripts or artifacts. `tests/test_design_e2e.py` checks the histories, the outbox, the captured logs and every S3 object of the run's tenant for it, for an API key and for a subscription token. |
 | Run up cost | `max_turns` per stage (the agents' `maxTurns`), optional `HWPLATFORM_AGENT_MAX_BUDGET_USD`, usage recorded per model, and the run's 2 h activity timeout. |
 | Escape the container | uid 10001, read-only root, all capabilities dropped, no privilege escalation, seccomp RuntimeDefault, no service-account token, the workspace on an emptyDir. |
 
@@ -321,11 +370,14 @@ guard, the launcher's environment, the SDK options), `tests/test_agent_tools.py`
 building, the URL check, workspace snapshots, the stage prompts) and `tests/test_design_e2e.py` (the API, the
 real gateway and activities with a scripted runner, and the key-leak checks).
 
-The real Claude API smoke (`tests/test_agent_smoke.py`: one short Haiku session through the sandbox, a few cents
-on the key you give it) runs only on request; the default suite and CI never collect it:
+The real Claude API smoke (`tests/test_agent_smoke.py`, marker `anthropic_smoke`: one short Haiku session through
+the sandbox with an MCP tool call, a few cents on an API key) runs only on request and with a credential in the
+environment; the default suite and CI never collect it. It prints the turns, tokens and duration:
 
 ```
-HWPLATFORM_AGENT_SMOKE=1 ANTHROPIC_API_KEY=sk-ant-... uv run --package hwplatform --extra agent pytest -q tests/test_agent_smoke.py
+ANTHROPIC_API_KEY=sk-ant-api... uv run --package hwplatform --extra agent pytest -q -s -m anthropic_smoke tests/test_agent_smoke.py
+# or, the operator's own subscription token, with ANTHROPIC_API_KEY unset:
+CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat... uv run --package hwplatform --extra agent pytest -q -s -m anthropic_smoke tests/test_agent_smoke.py
 ```
 
 ## Swapping for OIDC (Keycloak, M2)

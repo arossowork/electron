@@ -124,6 +124,22 @@ agent:
   models: ""
   maxBudgetUsd: ""
   extraEnv: {}
+  # Subscription tokens (`claude setup-token`, sk-ant-oat...) and the operator credential below are for the
+  # operator's own tenants only: comma-separated tenant UUIDs. Empty (the default) = no tenant may use one; every
+  # tenant then runs on its own Anthropic API key (BYOK). Anthropic's Agent SDK terms: "Unless previously
+  # approved, Anthropic does not allow third party developers to offer claude.ai login or rate limits for their
+  # products". See services/platform/README.md "Agent credentials".
+  subscriptionTenantIds: ""
+  # The operator's credential, from an existing Secret in the release namespace (never in values or a ConfigMap).
+  # It is mounted read-only as a file, /var/run/secrets/hwflow/agent/<key> (mode 0400), not as env, and read at
+  # every session start, so a rotated Secret applies without a restart. Only the tenants of subscriptionTenantIds
+  # get it; `credentialOrder` "operator,db" tries it before their own stored credential, "db,operator" after.
+  #   kubectl -n <release-ns> create secret generic hwflow-claude --from-literal=token=<claude setup-token>
+  operatorCredential:
+    secretName: ""
+    key: token
+    type: subscription_token  # subscription_token | api_key
+  credentialOrder: "operator,db"
   # One session at a time per pod (SLOTS hwflow-agent = 1): the workspace, the transcript and the CLI's own files.
   scratchSize: 2Gi
   resources:

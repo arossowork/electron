@@ -45,6 +45,13 @@ worker:
 agent:
   enabled: true
   priorityClassName: apps-high
+  # Operator tenants only (empty = none; every tenant brings its own API key). To run your own tenant on your
+  # Claude subscription, copy the Secret into the release namespace and list the tenant:
+  #   kubectl -n hwflow get secret hwflow-claude -o yaml | sed '/namespace:/d;/uid:/d;/resourceVersion:/d;/creationTimestamp:/d' \
+  #     | kubectl -n <release-ns> apply -f -
+  #   subscriptionTenantIds: "<your tenant UUID>"
+  #   operatorCredential: {secretName: hwflow-claude, key: token, type: subscription_token}
+  subscriptionTenantIds: ""
   scratchSize: 1Gi
   resources:
     requests: {cpu: 50m, memory: 320Mi}

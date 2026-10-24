@@ -908,7 +908,21 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
   workflow waits on a timer (the API's reset time, else 60 s doubling to 30 min) and runs the stage again from
   the snapshot in the error details, instead of activity retries. A tenant without a usable key (reason `no_key`)
   waits for `retry` like a rejected one and then starts the stage fresh. Usage comes from
-  `ResultMessage.model_usage`, per model.
+  `ResultMessage.model_usage`, per model. A known reset time is waited for in full (up to 24 h per timer,
+  `RATE_LIMIT_RESET_MAX_S`), not capped at 30 min, and a `retry` signal ends any rate-limit wait early.
+- **Credentials (amends 7.4: "No platform-wide key exists").** The activity no longer calls
+  `get_tenant_llm_key`; it resolves the credential through one port, `hwplatform.credentials.CredentialService`
+  (`resolve`, `put`, `mark_invalid`, `record_usage`, `limit_wait`), with two adapters: `api_key` (as 7.4,
+  `ANTHROPIC_API_KEY`) and `subscription_token` (a `claude setup-token` OAuth token, `CLAUDE_CODE_OAUTH_TOKEN`,
+  never together with an API key; its usage-limit message is parsed by `hwharness.limits`, moved there from
+  `hwharness.agent`, into the timer). `tenant_llm_keys.credential_type` (migration 0007) says which; still one
+  active credential per tenant and provider. The Agent SDK terms forbid offering claude.ai login or subscription
+  limits to third parties without approval, so a subscription credential is for the tenants of
+  `HWPLATFORM_SUBSCRIPTION_TENANT_IDS` only (empty by default): PUT gives 403 to any other tenant, and `resolve`
+  checks the list again every time. For those tenants only, an operator credential mounted from a Kubernetes
+  Secret (`k8s_secret`, a read-only file read at each resolve) comes first (`HWPLATFORM_CREDENTIAL_ORDER`,
+  default `operator,db`). Every other tenant still has no platform-wide key. The runner also classifies a
+  result whose text is a usage-limit message as `rate_limited`.
 - **Resume after a crash.** `agent_stage` snapshots the workspace tree and the transcript
   (`CLAUDE_CONFIG_DIR/projects`, media type `application/x-hwflow-agent-session+tar.gz`, whole JSONL lines) every
   `AGENT_SNAPSHOT_EVERY_S` (300 s) and at the end, and heartbeats their refs (no secret). A retried attempt starts

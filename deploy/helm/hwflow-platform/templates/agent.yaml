@@ -56,6 +56,16 @@ spec:
             {{- with .Values.agent.maxBudgetUsd }}
             - {name: HWPLATFORM_AGENT_MAX_BUDGET_USD, value: {{ . | quote }}}
             {{- end }}
+            {{- with .Values.agent.subscriptionTenantIds }}
+            - {name: HWPLATFORM_SUBSCRIPTION_TENANT_IDS, value: {{ . | quote }}}
+            {{- end }}
+            - {name: HWPLATFORM_CREDENTIAL_ORDER, value: {{ .Values.agent.credentialOrder | quote }}}
+            {{- with .Values.agent.operatorCredential }}
+            {{- if .secretName }}
+            - {name: HWPLATFORM_OPERATOR_CREDENTIAL_FILE, value: "/var/run/secrets/hwflow/agent/{{ .key }}"}
+            - {name: HWPLATFORM_OPERATOR_CREDENTIAL_TYPE, value: {{ .type | quote }}}
+            {{- end }}
+            {{- end }}
             {{- range $k, $v := .Values.agent.extraEnv }}
             - {name: {{ $k }}, value: {{ $v | quote }}}
             {{- end }}
@@ -80,9 +90,25 @@ spec:
           volumeMounts:
             - {name: scratch, mountPath: /scratch}
             - {name: tmp, mountPath: /tmp}
+            {{- if .Values.agent.operatorCredential.secretName }}
+            - {name: operator-credential, mountPath: /var/run/secrets/hwflow/agent, readOnly: true}
+            {{- end }}
       # a design session can run for an hour; the activity resumes elsewhere from its last snapshot
       terminationGracePeriodSeconds: 60
       volumes:
         - {name: scratch, emptyDir: {sizeLimit: {{ .Values.agent.scratchSize }}}}
         - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        {{- with .Values.agent.operatorCredential }}
+        {{- if .secretName }}
+        {{- if not (has .type (list "subscription_token" "api_key")) }}
+        {{- fail "agent.operatorCredential.type must be subscription_token or api_key" }}
+        {{- end }}
+        # the operator credential (hwplatform.credentials, k8s_secret): one key of an existing Secret, as a file
+        - name: operator-credential
+          secret:
+            secretName: {{ .secretName }}
+            defaultMode: 0400
+            items: [{key: {{ .key }}, path: {{ .key }}}]
+        {{- end }}
+        {{- end }}
 {{- end }}
