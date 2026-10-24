@@ -25,7 +25,7 @@ The cost: script running on the page (XSS) could read `sessionStorage`. The defe
 
 ## Downloads
 
-Artifact downloads use `fetch` (so the bearer token is sent) and save the blob. The API either streams the object (no `HWPLATFORM_S3_PUBLIC_URL`, the dev default) or answers 302 to a presigned URL. In the second case the browser follows the redirect with a plain cross-origin request, so the bucket needs a CORS rule allowing `GET` from the web origin, and the web container needs that origin in `connect-src`: set `WEB_CSP_CONNECT_EXTRA=https://s3.example.com` (compose) or the `CSP_CONNECT_EXTRA` env of the image.
+Artifact downloads use `fetch` (so the bearer token is sent) and save the blob. The API either streams the object (no `HWPLATFORM_S3_PUBLIC_URL`, the dev default) or answers 302 to a presigned URL. In the second case the browser follows the redirect with a plain cross-origin request, so two things must allow it. (1) The bucket needs a CORS rule for `GET`/`HEAD` from the web origin: `hwplatform-migrate` sets it (idempotently, replacing the rule set of the bucket) from `HWPLATFORM_WEB_ORIGINS` (comma separated; the compose stack defaults it to `http://127.0.0.1:${WEB_PORT}`; empty means no rule). SeaweedFS supports `PutBucketCors`; check it with a preflight: `curl -i -X OPTIONS -H 'Origin: <web origin>' -H 'Access-Control-Request-Method: GET' '<presigned url>'` answers 200 with `Access-Control-Allow-Origin`. (2) The CSP of the web container needs the S3 origin in `connect-src`: set `WEB_CSP_CONNECT_EXTRA=https://s3.example.com` (compose; several origins separated by a space) or the `CSP_CONNECT_EXTRA` env of the image. Without it the browser blocks the redirected request even when the CORS rule is right.
 
 ## Typed API client
 
@@ -42,7 +42,7 @@ npm run typecheck && npm test && npm run build
 
 ## Serve: the compose stack
 
-`deploy/compose/platform.yaml` has a `web` profile with `api` (image from `deploy/compose/api.Dockerfile`: `python:3.12-slim` and `uv sync --frozen --package hwplatform`; it runs `hwplatform-migrate` and then `hwplatform-api`), a one-shot that registers the Temporal search attributes the API sets (`HwTenantId`, `HwProjectId`, `HwRunId`, `HwRunKind`), and `web` (`web/Dockerfile`: node build, then `nginxinc/nginx-unprivileged:1.29.3-alpine-slim`, about 20 MB). nginx serves the SPA, proxies `/api/` to the API with buffering off for SSE, and sets CSP, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `nosniff` and a restrictive `Permissions-Policy`.
+`deploy/compose/platform.yaml` has a `web` profile with `api` (image from `deploy/compose/api.Dockerfile`: `python:3.12-slim` and `uv sync --frozen --package hwplatform`; it runs `hwplatform-migrate`, which also registers the Temporal search attributes the API sets (`HwTenantId`, `HwProjectId`, `HwRunId`, `HwRunKind`) and the bucket CORS rule, and then `hwplatform-api`), and `web` (`web/Dockerfile`: node build, then `nginxinc/nginx-unprivileged:1.29.3-alpine-slim`, about 20 MB). nginx serves the SPA, proxies `/api/` to the API with buffering off for SSE, and sets CSP, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `nosniff` and a restrictive `Permissions-Policy`.
 
 ```
 cp deploy/compose/.env.example deploy/compose/.env
@@ -52,7 +52,7 @@ cp deploy/compose/.env.example deploy/compose/.env
 COMPOSE_PROFILES=web scripts/platform.sh up    # then http://127.0.0.1:8088 (WEB_PORT)
 ```
 
-No worker runs in this stack (workflows are #9/#15), so a started run stays `queued`; cancel returns 202 and the status changes only when a worker handles it. Several stacks can coexist with `COMPOSE_PROJECT_NAME` and different `*_PORT`/`WEB_PORT`.
+No worker runs in this stack (workflows are #9/#15), so a started run stays `queued`; cancel of a `queued` run (no workflow has started it) turns it `cancelled` at once; a `running` one changes only when its workflow has stopped. Several stacks can coexist with `COMPOSE_PROJECT_NAME` and different `*_PORT`/`WEB_PORT`.
 
 ## Tests
 

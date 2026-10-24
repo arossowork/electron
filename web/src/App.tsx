@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
 import { auth } from "./api/api";
 import { useAuth, useMe } from "./auth";
-import { Dialog, ErrorBox, errText } from "./components/ui";
+import { ErrorBox } from "./components/ui";
 import { AcceptInvitePage, LoginPage, SignupPage, VerifyPage } from "./pages/AuthPages";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
@@ -37,9 +37,19 @@ function Protected() {
 
 function Shell() {
   const me = useMe();
-  const { logout } = useAuth();
+  const { logout, refreshMe } = useAuth();
   const nav = useNavigate();
-  const [switchTo, setSwitchTo] = useState<string | null>(null);
+  const [switchErr, setSwitchErr] = useState<unknown>();
+  async function switchTo(tenantId: string) {
+    setSwitchErr(undefined);
+    try {
+      await auth.switchTenant(tenantId);
+      await refreshMe();
+      nav("/projects");
+    } catch (x) {
+      setSwitchErr(x);
+    }
+  }
   return (
     <div className="shell">
       <header>
@@ -54,7 +64,7 @@ function Shell() {
             aria-label="Tenant"
             style={{ width: "auto" }}
             value={me.tenant_id}
-            onChange={(e) => e.target.value !== me.tenant_id && setSwitchTo(e.target.value)}
+            onChange={(e) => e.target.value !== me.tenant_id && void switchTo(e.target.value)}
           >
             {me.tenants.map((t) => (
               <option key={t.id} value={t.id}>
@@ -78,53 +88,10 @@ function Shell() {
         </button>
       </header>
       <main>
+        <ErrorBox error={switchErr} />
         <Outlet />
       </main>
-      {switchTo && <SwitchTenant tenantId={switchTo} onClose={() => setSwitchTo(null)} />}
     </div>
-  );
-}
-
-/** The API has no switch endpoint: a login with `tenant_id` issues tokens for that tenant, so ask for the password. */
-function SwitchTenant({ tenantId, onClose }: { tenantId: string; onClose: () => void }) {
-  const me = useMe();
-  const { refreshMe } = useAuth();
-  const nav = useNavigate();
-  const [pw, setPw] = useState("");
-  const [err, setErr] = useState<unknown>();
-  const [busy, setBusy] = useState(false);
-  const name = me.tenants.find((t) => t.id === tenantId)?.name;
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await auth.login(me.email, pw, tenantId);
-      await refreshMe();
-      onClose();
-      nav("/projects");
-    } catch (x) {
-      setErr(errText(x));
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog onClose={onClose}>
-      <form onSubmit={submit}>
-        <h2>Switch to {name}</h2>
-        <p className="muted">Confirm your password to get a session for this tenant.</p>
-        <label htmlFor="sw-pw">Password</label>
-        <input id="sw-pw" type="password" autoComplete="current-password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
-        <ErrorBox error={err} />
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="primary" disabled={busy || !pw}>
-            Switch
-          </button>
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </Dialog>
   );
 }
 

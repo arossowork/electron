@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     # Presigned download URLs (#12): the S3 endpoint a browser can reach (SeaweedFS behind the ingress).
     # Empty (dev): the API streams the object itself.
     s3_public_url: str = ""
+    # Origins of the web UI (comma separated, e.g. "https://app.example.com"). hwplatform-migrate sets a CORS
+    # rule on the artifact bucket for them, so the browser may follow a presigned download URL.
+    # The web container's CSP must allow the S3 origin in connect-src too
+    # (WEB_CSP_CONNECT_EXTRA, docs/web.md).
+    # Empty: no rule.
+    web_origins: str = ""
     s3_download_url_ttl_s: int = 300
 
     # Temporal (#12 starts, cancels and signals workflows; the workflows are #9)
@@ -103,6 +109,9 @@ class Settings(BaseSettings):
         if not v.replace("_", "").isalnum() or not v[0].isalpha():
             raise ValueError("app_db_role must be a plain SQL identifier")
         return v
+
+    def web_origin_list(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.web_origins.split(",") if o.strip()]
 
     def require_jwt_secret(self) -> bytes:
         key = self.jwt_secret.get_secret_value().encode()

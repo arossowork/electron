@@ -13,6 +13,7 @@ src/hwplatform/
   llm_keys.py      BYOK service: store/validate/read a tenant's LLM key; get_tenant_llm_key(); record_usage()
   rotation.py      hwplatform-rotate-master: re-wrap all DEKs under the newest master key
   logredact.py     log record factory that redacts sk-ant-... patterns
+  bootstrap.py     hwplatform-migrate extras: bucket CORS rule, Temporal search attributes (idempotent)
   tenancy.py       TenantContext + repositories; every query filters by ctx.tenant_id
   security.py      argon2id passwords, JWT access tokens, opaque refresh tokens
   storage.py       object keys tenants/<tenant_id>/...; S3ArtifactStore (boto3), one instance per tenant (#6)
@@ -44,6 +45,7 @@ Endpoints (`/api/v1`, OpenAPI at `/docs`):
 | POST | `/auth/verify` | `{token}` from the e-mail: creates user, tenant and owner membership; returns tokens |
 | POST | `/auth/login` | `{email, password, tenant_id?}`; `tenant_id` picks one of the user's tenants; `429` when limited or locked |
 | POST | `/auth/refresh` | rotates the refresh token |
+| POST | `/auth/switch-tenant` | body `{refresh_token, tenant_id}`: spends the refresh token like `/auth/refresh` and returns tokens for another tenant the user is a member of (`403` if not a member, the token stays valid; `401` invalid or reused token; same rate limit as refresh) |
 | POST | `/auth/logout` | revokes the login session (the refresh-token family) |
 | GET | `/auth/me` | user, current tenant and role, all tenants of the user |
 | GET | `/tenant` | current tenant, incl. the `max_concurrent_runs` quota |
@@ -147,6 +149,7 @@ Migration `0005_outbox`: `outbox` (bigserial id, unique `event_id`, tenant, run,
 - **Writing.** `events.outbox.emit(session, tenant_id, run_id, type, subject, data)` runs in the caller's session: it bumps `runs.event_seq` under the row lock (a gapless `seq` per run) and inserts the row. `PgRunStore` calls it in the same transaction as every state change, so a rolled-back change leaves no event and a committed one always has it. `events.Event` builds the CloudEvents 1.0 envelope (`specversion`, `id` UUIDv7, `type`, `source`, `subject`, `time`, `dataschema` `hwflow.events/<type>/1`, extensions `tenantid`, `runid`, `seq`, `data`); types outside the ADR 5.2 catalogue are refused.
 - **Relay** (`events.relay.Relay`). Leader election with `pg_try_advisory_lock(hashtext('hwflow.outbox.relay'))` on its own connection (one relay publishes; the lock frees when the leader dies). It wakes on `LISTEN outbox` or every `HWPLATFORM_RELAY_POLL_S` (1 s), reads up to `HWPLATFORM_RELAY_BATCH` (100) unpublished rows `FOR UPDATE SKIP LOCKED` in id order, publishes each to `hwflow.<tenant_id>.<type>` with header `Nats-Msg-Id: <event_id>`, waits for the JetStream ack and sets `published_at`. A crash between the ack and the UPDATE republishes after restart, and the stream drops the duplicate (duplicate window 2 h): at-least-once delivery, one copy in the stream. Errors reconnect with backoff. It runs inside `hwplatform-api` as a background task started and stopped by the lifespan hook (`HWPLATFORM_RELAY_ENABLED=false` disables it), and standalone as `hwplatform-relay`.
 - **Stream** `HWFLOW_EVENTS`: subjects `hwflow.>`, file storage, limits retention, 7 days, 512 MiB, discard old, duplicate window 2 h, 1 replica. Created or updated idempotently by `hwplatform-migrate` (it exits 1 if NATS is unreachable after migrating; an empty `HWPLATFORM_NATS_URL` skips it) and by the relay at start.
+- **Bootstrap in `hwplatform-migrate`** (`bootstrap.py`, after the stream; each step exits 1 on failure, runs any number of times): the CORS rule `GET`/`HEAD` on the artifact bucket for `HWPLATFORM_WEB_ORIGINS` (comma separated; empty skips it) so a browser can follow a presigned download, and the Temporal search attributes `HwTenantId`, `HwProjectId`, `HwRunId`, `HwRunKind` (Keyword) in `HWPLATFORM_TEMPORAL_NAMESPACE`, added through the operator service when missing (an empty `HWPLATFORM_TEMPORAL_ADDRESS` skips it). The bucket must exist already (the bucket job creates it).
 - **Ordering caveat.** Rows are published in `id` order, but `id` is assigned at INSERT; a transaction with a lower id can commit after a higher one, so a consumer can see two events of a run swapped. The per-run `seq` is gapless and authoritative: the SSE replay (#12) reads the outbox ordered by `seq`.
 
 Not done here: the durable consumers (`notifier`, `eval-scorer`, #19). The SSE bridge is in the API section below.
@@ -163,7 +166,7 @@ Everything is under `/api/v1`, bearer JWT, tenant from the token (membership re-
 | POST | `/projects/{pid}/runs` | member | `{kind: build\|design, design_version_id, options, settings_overrides?}` and optional `Idempotency-Key`. `202` queued; `200` when the same build is already active or the key was used; `429 quota_exceeded`; `422` for options outside the allowlist; `503` when Temporal is down (the run is marked `failed`) |
 | GET | `/projects/{pid}/runs?kind=&status=` | member | summaries, paged |
 | GET | `/runs/{id}` | member | run with `stages[]`, `verdict`, `error` |
-| POST | `/runs/{id}/cancel` | member | `202`; `409` when already finished |
+| POST | `/runs/{id}/cancel` | member | `202`; `409` when already finished. Signals the workflow if it exists; a run still `queued` (no workflow task has started it, e.g. no worker) is marked `cancelled` at once with `run.cancelled`; a `running` one is left to the workflow (ADR 4.6) |
 | GET | `/runs/{id}/manifest`, `/runs/{id}/report` | member | `hwflow.run/1` JSON rendered live; `REPORT.md` as `text/markdown` |
 | GET | `/runs/{id}/artifacts`, `/runs/{id}/artifacts/{name}` | member | list; `302` to a presigned GET (TTL `HWPLATFORM_S3_DOWNLOAD_URL_TTL_S`, 300 s) |
 | GET | `/runs/{id}/questions?status=` | member | open and answered questions |
@@ -192,12 +195,12 @@ Not done here: `POST /evals` (EvalWorkflow, #19), the `PUT /tenant/llm-keys` sig
 
 ## Hardening (#26)
 
-**Rate limits and lockout** (`auth/ratelimit.py`, table `auth_events`, no Redis). Each request on login, signup, refresh and verify appends an event for its e-mail and its client IP; the window count decides. Over the limit gives `429` with `Retry-After`, and the rejected attempt is not recorded. After `lockout_threshold` failed logins for an e-mail (or `lockout_ip_threshold` for an IP) within `lockout_window_s`, the e-mail (IP) is locked even for the right password; the lock ends when the failures leave the window. A successful login clears the e-mail's failures. Limits apply identically to unknown e-mails, so they reveal nothing. Defaults (all `HWPLATFORM_RATE_*`, `HWPLATFORM_LOCKOUT_*`):
+**Rate limits and lockout** (`auth/ratelimit.py`, table `auth_events`, no Redis). Each request on login, signup, refresh, switch-tenant and verify appends an event for its e-mail and its client IP; the window count decides. Over the limit gives `429` with `Retry-After`, and the rejected attempt is not recorded. After `lockout_threshold` failed logins for an e-mail (or `lockout_ip_threshold` for an IP) within `lockout_window_s`, the e-mail (IP) is locked even for the right password; the lock ends when the failures leave the window. A successful login clears the e-mail's failures. Limits apply identically to unknown e-mails, so they reveal nothing. Defaults (all `HWPLATFORM_RATE_*`, `HWPLATFORM_LOCKOUT_*`):
 
 | Action | Window | Per e-mail | Per IP |
 |---|---|---|---|
 | login | 60 s | 10 | 30 |
-| refresh, verify | 60 s | | 60 |
+| refresh, switch-tenant, verify | 60 s | | 60 |
 | signup | 1 h | 3 | 10 |
 | lockout (failed logins) | 15 min | 5 | 50 |
 

@@ -47,6 +47,8 @@ export const auth = {
     }
     session.clear();
   },
+  /** Session in another tenant of the user, from the refresh token (no password). */
+  switchTenant: (tenant_id: string) => session.switchTenant(tenant_id),
   me: () => get<Me>("/auth/me"),
   acceptInvite: (token: string) => post<S["AcceptInviteOut"]>("/auth/accept-invite", { token }),
 };

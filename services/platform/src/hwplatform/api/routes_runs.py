@@ -312,7 +312,7 @@ async def get_run(
     response_model=RunOut,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Cancel a run",
-    description="Asks the workflow to cancel; the run turns `cancelled` when the workflow has stopped its work.",
+    description="Asks the workflow to cancel. A queued run (no workflow has started it) turns `cancelled` at once; a running one turns `cancelled` when the workflow has stopped its work.",
     responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}, 503: {"model": ErrorOut}},
 )
 async def cancel_run(
@@ -326,17 +326,23 @@ async def cancel_run(
         raise HTTPException(status.HTTP_409_CONFLICT, f"run already {run.status.value}")
     try:
         await gateway.cancel(run.workflow_id or "")
-    except WorkflowNotFound:  # no workflow to stop it: mark the run ourselves
+    except WorkflowNotFound:  # no workflow to stop it (never started, history gone)
+        pass
+    except GatewayError as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "workflow engine unavailable") from e
+    # ADR 4.6: a running workflow records `cancelled` itself once its work has stopped. A run still `queued`
+    # has no workflow task running (no worker yet, or no workflow at all), so nobody else will record it:
+    # transition it here, which also emits run.cancelled. The cancel request stays on the workflow (if any), so
+    # a worker that picks it up later stops at once; its record_run(running) then hits a terminal state.
+    run = await load_run(db, ctx, run_id)
+    if run.status.value == "queued":
         try:
             run = await PgRunStore(db, ctx.tenant_id).transition(
                 run.run_id, RunStatus.cancelled, event_data={"by": str(ctx.user_id)}
             )
-        except InvalidTransition as e:
-            raise HTTPException(status.HTTP_409_CONFLICT, "run already finished") from e
-        return run_out(run)
-    except GatewayError as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "workflow engine unavailable") from e
-    return run_out(await load_run(db, ctx, run_id))
+        except InvalidTransition:  # the workflow moved it on in the meantime: report what it is now
+            run = await load_run(db, ctx, run_id)
+    return run_out(run)
 
 
 @router.get(

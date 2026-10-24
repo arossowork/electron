@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from .. import invites
 from ..auth import AuthError
-from ..auth.local import LocalAuthBackend, TokenPair, normalize_email
+from ..auth.local import LocalAuthBackend, NotAMember, TokenPair, normalize_email
 from ..auth.ratelimit import AuthGuard, RateLimited
 from ..db import Database
 from ..models import Membership, Tenant, User
@@ -25,10 +25,12 @@ from .schemas import (
     AcceptedOut,
     AcceptInviteIn,
     AcceptInviteOut,
+    ErrorOut,
     LoginIn,
     MeOut,
     RefreshIn,
     SignupIn,
+    SwitchTenantIn,
     TenantRef,
     TokenOut,
     VerifyIn,
@@ -128,6 +130,32 @@ async def refresh(
         raise rate_limited(e) from e
     try:
         return _out(await auth.refresh(body.refresh_token))
+    except AuthError as e:
+        raise unauthorized("invalid refresh token") from e
+
+
+@router.post(
+    "/switch-tenant",
+    response_model=TokenOut,
+    summary="Open a session in another of the user's tenants",
+    responses={401: {"model": ErrorOut}, 403: {"model": ErrorOut}, 429: {"model": ErrorOut}},
+)
+async def switch_tenant(
+    body: SwitchTenantIn,
+    request: Request,
+    auth: LocalAuthBackend = Depends(_local),
+    guard: AuthGuard = Depends(get_guard),
+) -> TokenOut:
+    """Rotate like /auth/refresh, but the new tokens are for `tenant_id` (the user must be a member), so the
+    UI needs no password. The presented refresh token is spent; the new one starts a session in that tenant."""
+    try:
+        await guard.hit("switch", ip=client_ip(request))
+    except RateLimited as e:
+        raise rate_limited(e) from e
+    try:
+        return _out(await auth.switch_tenant(body.refresh_token, body.tenant_id))
+    except NotAMember as e:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not a member of that tenant") from e
     except AuthError as e:
         raise unauthorized("invalid refresh token") from e
 

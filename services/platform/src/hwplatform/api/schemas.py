@@ -24,6 +24,11 @@ class RefreshIn(BaseModel):
     refresh_token: str = Field(max_length=512)
 
 
+class SwitchTenantIn(BaseModel):
+    refresh_token: str = Field(max_length=512)
+    tenant_id: uuid.UUID
+
+
 class AcceptedOut(BaseModel):
     detail: str
 

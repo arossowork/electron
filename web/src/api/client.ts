@@ -94,6 +94,39 @@ export const session = {
     })();
     return inflight;
   },
+  /**
+   * Open a session in another tenant of the user with the refresh token (POST /auth/switch-tenant), no password.
+   * The refresh token is single-use, so this waits for a refresh in flight and blocks new ones meanwhile.
+   * Throws ApiError: 403 (not a member) keeps the current session, 401 ends it.
+   */
+  async switchTenant(tenantId: string): Promise<void> {
+    if (inflight) await inflight;
+    const rt = refreshToken ?? readStore();
+    if (!rt) throw new ApiError(401, "not signed in");
+    let failure: ApiError | null = null;
+    inflight = (async () => {
+      try {
+        const r = await fetch(`${API}/auth/switch-tenant`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ refresh_token: rt, tenant_id: tenantId }),
+        });
+        if (r.ok) {
+          session.set((await r.json()) as TokenOut);
+          return true;
+        }
+        if (r.status === 401) session.clear();
+        failure = await errorOf(r);
+        return false;
+      } catch {
+        failure = new ApiError(0, "network error");
+        return false;
+      } finally {
+        inflight = null;
+      }
+    })();
+    if (!(await inflight) && failure) throw failure;
+  },
 };
 
 export interface RequestOpts {

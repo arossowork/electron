@@ -47,6 +47,34 @@ describe("session", () => {
   });
 });
 
+describe("switchTenant", () => {
+  it("posts the refresh token and the tenant, stores the rotated tokens, needs no password", async () => {
+    session.set(tok("a1", "R1"));
+    const calls: { url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, body: JSON.parse(init.body as string) });
+        return json({ ...tok("a2", "R2"), tenant_id: "T2" });
+      }),
+    );
+    await session.switchTenant("T2");
+    expect(calls).toEqual([{ url: "/api/v1/auth/switch-tenant", body: { refresh_token: "R1", tenant_id: "T2" } }]);
+    expect(session.accessToken()).toBe("a2");
+    expect(sessionStorage.getItem("hwflow.refresh")).toBe("R2");
+  });
+
+  it("keeps the session when the user is not a member (403), ends it when the token is refused (401)", async () => {
+    session.set(tok("a1", "R1"));
+    vi.stubGlobal("fetch", vi.fn(async () => json({ detail: "not a member of that tenant" }, 403)));
+    await expect(session.switchTenant("T3")).rejects.toMatchObject({ status: 403, detail: "not a member of that tenant" });
+    expect(session.hasSession()).toBe(true);
+    vi.stubGlobal("fetch", vi.fn(async () => json({ detail: "invalid refresh token" }, 401)));
+    await expect(session.switchTenant("T3")).rejects.toMatchObject({ status: 401 });
+    expect(session.hasSession()).toBe(false);
+  });
+});
+
 describe("request", () => {
   it("sends the bearer token, refreshes on 401 and retries once", async () => {
     session.set(tok("old", "R1"));

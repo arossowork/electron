@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
@@ -18,6 +18,10 @@ from ..models import Membership, PendingSignup, RefreshToken, Role, Tenant, User
 from ..settings import Settings
 from ..tenancy import slugify
 from .backend import AuthBackend, AuthError, Principal
+
+
+class NotAMember(AuthError):
+    """The user has no membership in the requested tenant."""
 
 
 @dataclass(frozen=True)
@@ -203,6 +207,55 @@ class LocalAuthBackend(AuthBackend):
                 rt.revoked_at = now
                 if m is not None:
                     result = await self._new_session(s, rt.user_id, tenant_id, m.role, family_id=rt.family_id)
+        if result is None:  # raised after the commit, so a family revocation sticks
+            raise AuthError("invalid refresh token")
+        return result
+
+    async def switch_tenant(self, refresh_token: str, tenant_id: uuid.UUID) -> TokenPair:
+        """Spend the refresh token and open a session in another tenant the user is a member of, without the
+        password. Same rules as `refresh` (reuse of a spent token revokes its family); the new token starts a
+        new family in the target tenant. Not a member: NotAMember, and the presented token stays valid."""
+        try:
+            source = security.parse_refresh_token(refresh_token)
+        except security.TokenError as e:
+            raise AuthError("invalid refresh token") from e
+        now = datetime.now(UTC)
+        h = security.hash_token(refresh_token)
+        result: TokenPair | None = None
+        not_member = False
+        async with self.db.tx(tenant_id=source) as s:
+            q = (
+                select(RefreshToken)
+                .where(RefreshToken.tenant_id == source, RefreshToken.token_hash == h)
+                .with_for_update()
+            )
+            rt = (await s.execute(q)).scalar_one_or_none()
+            if rt is None:
+                raise AuthError("invalid refresh token")
+            if rt.revoked_at is not None:
+                await self._revoke_family(s, rt.family_id, now)
+            elif rt.expires_at > now:
+                # the memberships of the user are visible with the user in the RLS context (as in login)
+                await s.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(rt.user_id)})
+                m = (
+                    await s.execute(
+                        select(Membership).where(
+                            Membership.tenant_id == tenant_id, Membership.user_id == rt.user_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                if m is None:
+                    not_member = True
+                else:
+                    rt.revoked_at = now
+                    await s.flush()
+                    # the new refresh token belongs to the target tenant: move the RLS context there
+                    await s.execute(
+                        text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
+                    )
+                    result = await self._new_session(s, rt.user_id, tenant_id, m.role)
+        if not_member:
+            raise NotAMember("no membership in the requested tenant")
         if result is None:  # raised after the commit, so a family revocation sticks
             raise AuthError("invalid refresh token")
         return result

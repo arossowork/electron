@@ -134,6 +134,9 @@ def test_signup_and_refresh_are_limited(make_client):
     c = make_client(**loose(rate_refresh_ip_max=2))
     codes = [c.post("/api/v1/auth/refresh", json={"refresh_token": "rt.x.y"}).status_code for _ in range(3)]
     assert codes == [401, 401, 429]
+    c = make_client(**loose(rate_refresh_ip_max=2))
+    sw = {"refresh_token": "rt.x.y", "tenant_id": "00000000-0000-0000-0000-000000000000"}
+    assert [c.post("/api/v1/auth/switch-tenant", json=sw).status_code for _ in range(3)] == [401, 401, 429]
 
 
 def test_limit_tables_are_global_and_append_only_for_the_app(db_ready):

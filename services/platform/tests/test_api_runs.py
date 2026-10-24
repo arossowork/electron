@@ -312,8 +312,41 @@ def test_cancel(api, gateway, world):
     r = api.post(f"{V1}/runs/{run2['id']}/cancel", headers=a.h)
     assert r.status_code == 202 and r.json()["status"] == "cancelled"
     assert api.post(f"{V1}/runs/{run2['id']}/cancel", headers=a.h).status_code == 409
+    run3 = start(api, a, p, dv, {"mc": 3}).json()
     gateway.fail = True
-    assert api.post(f"{V1}/runs/{run['id']}/cancel", headers=a.h).status_code == 503
+    assert api.post(f"{V1}/runs/{run3['id']}/cancel", headers=a.h).status_code == 503
+    assert api.get(f"{V1}/runs/{run3['id']}", headers=a.h).json()["status"] == "queued"
+
+
+def test_cancel_queued_run_with_workflow_but_no_worker_is_cancelled_and_emits_event(
+    api, gateway, world, run_async
+):
+    # the workflow exists (started) but no worker ran its first task: the run is still `queued`
+    a, p, dv = world
+    run = start(api, a, p, dv, {"mc": 7}).json()
+    assert run["status"] == "queued"
+    r = api.post(f"{V1}/runs/{run['id']}/cancel", headers=a.h)
+    assert r.status_code == 202 and r.json()["status"] == "cancelled"
+    assert gateway.cancelled == [run["workflow_id"]]  # the workflow is still told to stop
+    assert api.get(f"{V1}/runs/{run['id']}", headers=a.h).json()["status"] == "cancelled"
+
+    async def events(db):
+        from sqlalchemy import text
+
+        async with db.tx(tenant_id=a.tenant_id) as s:
+            q = text("SELECT type FROM outbox WHERE run_id = CAST(:r AS uuid)")
+            return list((await s.execute(q, {"r": run["id"]})).scalars())
+
+    assert "run.cancelled" in run_async(events)
+
+
+def test_cancel_running_run_is_left_to_the_workflow(api, gateway, world, run_async):
+    a, p, dv = world
+    run = start(api, a, p, dv, {"mc": 8}).json()
+    run_async(lambda db: PgRunStore(db, a.tenant_id).transition(run["id"], RunStatus.running))
+    r = api.post(f"{V1}/runs/{run['id']}/cancel", headers=a.h)
+    assert r.status_code == 202 and r.json()["status"] == "running"
+    assert gateway.cancelled == [run["workflow_id"]]
 
 
 # --- run detail, manifest, report, artifacts ------------------------------------------------------------

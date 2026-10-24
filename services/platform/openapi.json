@@ -173,6 +173,78 @@
         }
       }
     },
+    "/api/v1/auth/switch-tenant": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Open a session in another of the user's tenants",
+        "description": "Rotate like /auth/refresh, but the new tokens are for `tenant_id` (the user must be a member), so the\nUI needs no password. The presented refresh token is spent; the new one starts a session in that tenant.",
+        "operationId": "switch_tenant_api_v1_auth_switch_tenant_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTenantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
@@ -1283,7 +1355,7 @@
           "runs"
         ],
         "summary": "Cancel a run",
-        "description": "Asks the workflow to cancel; the run turns `cancelled` when the workflow has stopped its work.",
+        "description": "Asks the workflow to cancel. A queued run (no workflow has started it) turns `cancelled` at once; a running one turns `cancelled` when the workflow has stopped its work.",
         "operationId": "cancel_run_api_v1_runs__run_id__cancel_post",
         "security": [
           {
@@ -3271,6 +3343,26 @@
           "error"
         ],
         "title": "StageOut"
+      },
+      "SwitchTenantIn": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "maxLength": 512,
+            "title": "Refresh Token"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token",
+          "tenant_id"
+        ],
+        "title": "SwitchTenantIn"
       },
       "TenantOut": {
         "properties": {

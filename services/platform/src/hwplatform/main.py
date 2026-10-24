@@ -32,6 +32,7 @@ def migrate(argv: list[str] | None = None) -> None:
     else:
         command.upgrade(cfg, target)
         ensure_event_stream()
+        ensure_infra()
 
 
 def ensure_event_stream() -> None:
@@ -48,6 +49,32 @@ def ensure_event_stream() -> None:
         asyncio.run(ensure_stream_at(url))
     except Exception as e:
         sys.exit(f"hwplatform-migrate: database migrated, but JetStream setup at {url} failed: {e!r}")
+
+
+def ensure_infra() -> None:
+    """Bucket CORS rule and Temporal search attributes (idempotent; see bootstrap.py)."""
+    import asyncio
+
+    from . import bootstrap
+    from .settings import get_settings
+
+    s = get_settings()
+    try:
+        if bootstrap.ensure_bucket_cors(s):
+            print(f"hwplatform-migrate: bucket {s.s3_bucket} CORS allows {', '.join(s.web_origin_list())}")
+    except Exception as e:
+        sys.exit(f"hwplatform-migrate: database migrated, but the CORS rule on {s.s3_bucket} failed: {e!r}")
+    if not s.temporal_address:
+        return
+    try:
+        added = asyncio.run(bootstrap.ensure_search_attributes(s))
+    except Exception as e:
+        sys.exit(
+            f"hwplatform-migrate: database migrated, but the Temporal search attributes at "
+            f"{s.temporal_address} failed: {e!r}"
+        )
+    if added:
+        print(f"hwplatform-migrate: registered search attributes {', '.join(added)}")
 
 
 def relay() -> None:

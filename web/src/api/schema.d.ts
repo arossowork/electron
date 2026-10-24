@@ -83,6 +83,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/switch-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a session in another of the user's tenants
+         * @description Rotate like /auth/refresh, but the new tokens are for `tenant_id` (the user must be a member), so the
+         *     UI needs no password. The presented refresh token is spent; the new one starts a session in that tenant.
+         */
+        post: operations["switch_tenant_api_v1_auth_switch_tenant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -342,7 +363,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel a run
-         * @description Asks the workflow to cancel; the run turns `cancelled` when the workflow has stopped its work.
+         * @description Asks the workflow to cancel. A queued run (no workflow has started it) turns `cancelled` at once; a running one turns `cancelled` when the workflow has stopped its work.
          */
         post: operations["cancel_run_api_v1_runs__run_id__cancel_post"];
         delete?: never;
@@ -1021,6 +1042,16 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** SwitchTenantIn */
+        SwitchTenantIn: {
+            /** Refresh Token */
+            refresh_token: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+        };
         /** TenantOut */
         TenantOut: {
             /**
@@ -1243,6 +1274,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    switch_tenant_api_v1_auth_switch_tenant_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchTenantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };

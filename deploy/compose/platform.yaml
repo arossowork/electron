@@ -177,22 +177,6 @@ services:
   # Set HWPLATFORM_JWT_SECRET (>= 32 bytes) and HWPLATFORM_MASTER_KEY (base64 of 32 bytes) in .env; for a local
   # trial without e-mail also HWPLATFORM_DEV_AUTO_VERIFY=true (never in production).
 
-  # One-shot: the search attributes the API sets when it starts a workflow (ADR 0001, section 4.4).
-  temporal-search-attributes:
-    profiles: [web]
-    image: temporalio/admin-tools:1.31.4
-    mem_limit: 128m
-    depends_on:
-      temporal-namespace: {condition: service_completed_successfully}
-    restart: "no"
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        for a in HwTenantId HwProjectId HwRunId HwRunKind; do
-          temporal operator search-attribute list --address temporal:7233 -n default 2>/dev/null | grep -q "^ *$$a " \
-          || temporal operator search-attribute create --address temporal:7233 -n default --name "$$a" --type Keyword
-        done
-
   api:
     <<: *restart
     profiles: [web]
@@ -206,7 +190,7 @@ services:
       nats: {condition: service_healthy}
       temporal: {condition: service_healthy}
       seaweedfs-bucket: {condition: service_completed_successfully}
-      temporal-search-attributes: {condition: service_completed_successfully}
+      temporal-namespace: {condition: service_completed_successfully}
     environment:
       HWPLATFORM_HOST: 0.0.0.0
       HWPLATFORM_DATABASE_URL: postgresql+asyncpg://hwflow_app:${HWFLOW_APP_DB_PASSWORD}@postgres:5432/hwflow
@@ -220,6 +204,8 @@ services:
       HWPLATFORM_S3_SECRET_KEY: ${S3_SECRET_KEY}
       HWPLATFORM_S3_BUCKET: ${S3_BUCKET:-hwflow-artifacts}
       HWPLATFORM_NATS_URL: nats://nats:4222
+      # hwplatform-migrate sets the bucket CORS rule for these origins and registers the Temporal search attributes.
+      HWPLATFORM_WEB_ORIGINS: ${HWPLATFORM_WEB_ORIGINS:-http://127.0.0.1:${WEB_PORT:-8088}}
       HWPLATFORM_TEMPORAL_ADDRESS: temporal:7233
       # The only caller is the web container (nginx): trust its X-Forwarded-For for the per-IP rate limits.
       FORWARDED_ALLOW_IPS: "*"
