@@ -1387,9 +1387,17 @@ class Placer:
 
     def _finish(self, movable):
         self.legalize()
-        for p in movable:  # snap to 0.05 mm grid
+        self.cost()
+        for p in movable:  # snap to 0.05 mm grid only when hard constraints do not worsen
+            old = (p.x, p.y)
+            before = (self.t_ov, self.t_bnd, self.t_ko, self.t_iso)
             p.x, p.y = round(p.x / 0.05) * 0.05, round(p.y / 0.05) * 0.05
-            self._refs(p)
+            self._update(self._refs(p))
+            after = (self.t_ov, self.t_bnd, self.t_ko, self.t_iso)
+            if any(a > b + 1e-9 for a, b in zip(after, before)):
+                p.x, p.y = old
+                self._refs(p)
+                self._undo()
         self.legalize()
         return self.cost()
 
