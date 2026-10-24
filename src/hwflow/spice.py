@@ -126,19 +126,32 @@ DEFAULT_TOL = {"R": 0.01, "C": 0.10, "L": 0.20}
 DEFAULT_PORTS = {"D": ["2", "1"], "Q": ["1", "2", "3"], "M": ["1", "2", "3"]}
 
 
-def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None = None,
-                    ammeters: bool = False) -> tuple[list[str], list[str], set[str]]:
-    """Return (element lines, unmodeled refs, extra lib files)."""
+class Block:
+    """The netlist lines of one element group: a design component (`eid` = its reference), a testbench
+    element (`eid` = its lower-case name) or the node map's extra lines (`eid` = "~extra")."""
+
+    __slots__ = ("eid", "lines", "nodes")
+
+    def __init__(self, eid: str, lines: list[str], nodes: set[str] | None = None):
+        self.eid, self.lines, self.nodes = eid, lines, set(nodes or ())
+
+
+def component_blocks(design: Design, nm: NodeMap, values: dict[str, float] | None = None,
+                     ammeters: bool = False) -> tuple[list[Block], list[str], set[str]]:
+    """Return (one Block per simulated component, unmodeled refs, extra lib files)."""
     values = values or {}
-    lines, unmodeled, libs = [], [], set()
+    blocks, unmodeled, libs = [], [], set()
     for c in design.components.values():
         sp = c.get("spice")
         if sp is False or (isinstance(sp, dict) and sp.get("skip")) or c.get("virtual"):
             continue
         sp = sp if isinstance(sp, dict) else {}
+        lines: list[str] = []
+        nodes: set[str] = set()
 
         def node(pin):
             n = nm.pin(c.ref, pin)
+            nodes.add(n)
             if ammeters and not n.startswith("nc_"):
                 a = f"am_{c.ref}_{pin}".lower()
                 lines.append(f"Vam_{c.ref}_{pin} {n} {a} 0")
@@ -163,6 +176,7 @@ def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None
                     lines.append(f"R{c.ref}_esr {mid} {b} {parse_value(sp['esr']):g}")
             else:
                 lines.append(f"{k}{c.ref} {a} {b} {val:g}")
+            blocks.append(Block(c.ref, lines, nodes))
             continue
         if "subckt" in sp:
             if sp.get("lib"):
@@ -170,6 +184,7 @@ def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None
             ports = [node(str(p)) for p in sp["ports"]]
             params = " ".join(f"{p}={parse_value(v):g}" for p, v in (sp.get("params") or {}).items())
             lines.append(f"X{c.ref} {' '.join(ports)} {sp['subckt']}" + (f" params: {params}" if params else ""))
+            blocks.append(Block(c.ref, lines, nodes))
             continue
         if k in ("D", "Q", "M") and (sp.get("model") or k == "D"):
             ports = [node(str(p)) for p in sp.get("ports", DEFAULT_PORTS[k])]
@@ -179,9 +194,17 @@ def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None
             if k == "M":
                 ports.append(ports[2])  # bulk tied to source
             lines.append(f"{k}{c.ref} {' '.join(ports)} {model}")
+            blocks.append(Block(c.ref, lines, nodes))
             continue
         unmodeled.append(c.ref)
-    return lines, unmodeled, libs
+    return blocks, unmodeled, libs
+
+
+def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None = None,
+                    ammeters: bool = False) -> tuple[list[str], list[str], set[str]]:
+    """Return (element lines, unmodeled refs, extra lib files)."""
+    blocks, unmodeled, libs = component_blocks(design, nm, values, ammeters)
+    return [ln for b in blocks for ln in b.lines], unmodeled, libs
 
 
 def _subst(text: str, nm: NodeMap, nets: set[str]) -> str:
@@ -196,35 +219,91 @@ def _subst(text: str, nm: NodeMap, nets: set[str]) -> str:
     return re.sub(r"\b(v|vdb|vp|vm|vr|vi)\(([^()]+)\)", vrep, text, flags=re.I)
 
 
-def testbench_lines(design: Design, nm: NodeMap) -> list[str]:
+def testbench_blocks(design: Design, nm: NodeMap) -> list[Block]:
     sim = design.raw.get("sim") or {}
     nets = set(design.nets())
     out = []
     for s in sim.get("sources") or []:
         if "line" in s:
-            out.append(_subst(s["line"], nm, nets))
+            ln = _subst(s["line"], nm, nets)
         else:
-            out.append(f"{s['name']} {nm.term(str(s['p']))} {nm.term(str(s['n']))} {s['value']}")
+            ln = f"{s['name']} {nm.term(str(s['p']))} {nm.term(str(s['n']))} {s['value']}"
+        name = ln.split()[0].lower() if ln.split() else "?"
+        out.append(Block(name, [ln]))
     return out
 
 
+def testbench_lines(design: Design, nm: NodeMap) -> list[str]:
+    return [b.lines[0] for b in testbench_blocks(design, nm)]
+
+
+class NetMod:
+    """A change to the netlist of one run, used by the convergence fallback and by scoped analyses:
+    `keep` (element ids to keep, None = all), `lines` (extra netlist lines: .nodeset, Thevenin sources),
+    `pre` (control lines inserted right before the first analysis command, after the analysis' own options),
+    `control` (replaces the analysis command, its measures and control lines; the analysis' preamble stays),
+    `drop_alters` (drop `alter` lines whose device is not in the netlist), `title` (header text)."""
+
+    def __init__(self, keep=None, lines=None, pre=None, control=None, drop_alters=False, title=None):
+        self.keep, self.lines, self.pre = keep, list(lines or []), list(pre or [])
+        self.control, self.drop_alters, self.title = control, drop_alters, title
+
+
+ANALYSIS_LINE = re.compile(r"^\s*(op|ac|dc|tran|noise|pz|tf|sens|disto)\b", re.I)
+
+
+def split_cmd(lines: list[str]) -> tuple[list[str], list[str]]:
+    """(preamble, rest): the control lines before the first analysis command, and the rest."""
+    for i, ln in enumerate(lines):
+        if ANALYSIS_LINE.match(ln):
+            return lines[:i], lines[i:]
+    return lines, []
+
+
+def netlist_blocks(design: Design, analysis: dict, nm: NodeMap, values=None, ammeters: bool = False):
+    """(blocks in netlist order, unmodeled refs, lib files): components, node-map extras, testbench."""
+    comp, unmodeled, libs = component_blocks(design, nm, values, ammeters)
+    extra = nm.extra(analysis)
+    blocks = comp + ([Block("~extra", list(extra))] if extra else []) + testbench_blocks(design, nm)
+    return blocks, unmodeled, libs
+
+
 def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, values=None,
-                  temp: float | None = None, ammeters: bool = False) -> tuple[str, list[str]]:
+                  temp: float | None = None, ammeters: bool = False, mod: NetMod | None = None) -> tuple[str, list[str]]:
     nm = nm or NodeMap(design)
     nets = set(design.nets())
-    comp, unmodeled, libs = component_lines(design, nm, values, ammeters)
+    blocks, unmodeled, libs = netlist_blocks(design, analysis, nm, values, ammeters)
+    if mod is not None and mod.keep is not None:
+        blocks = [b for b in blocks if b.eid in mod.keep or b.eid == "~extra"]
     sim = design.raw.get("sim") or {}
-    lines = [f"* {design.name} :: {analysis.get('name', 'op')}", f".include {MODELS}"]
+    title = mod.title if mod is not None and mod.title else analysis.get("name", "op")
+    lines = [f"* {design.name} :: {title}", f".include {MODELS}"]
     lines += [f".include {lib}" for lib in sorted(libs)]
-    for inc in sim.get("includes") or []:
-        lines.append(f".include {(design.dir / inc).resolve()}")
-    lines += comp + nm.extra(analysis) + testbench_lines(design, nm)
+    includes = [str((design.dir / inc).resolve()) for inc in sim.get("includes") or []]
+    lines += [f".include {inc}" for inc in includes]
+    body = [ln for b in blocks for ln in b.lines] + (mod.lines if mod is not None else [])
+    lines += body
+    if sim.get("leaks", True) is not False and not any("rshunt" in str(o).lower() for o in sim.get("options") or []):
+        from . import simrobust  # sim.options rshunt already ties every node to ground
+        lines += simrobust.leak_lines(body, [str(MODELS)] + sorted(libs) + includes, simrobust._leak_ohm(design))
     lines.append(f".options temp={temp if temp is not None else sim.get('temp', 25)}")
     for opt in sim.get("options") or []:
         lines.append(f".options {opt}")
     lines.append(".control")
     lines.append("set noaskquit")
-    lines.append(_subst(analysis.get("cmd", "op"), nm, nets))
+    cmd_text = _subst(analysis.get("cmd", "op"), nm, nets)
+    pre, rest = split_cmd(cmd_text.splitlines())
+    if mod is not None and mod.drop_alters:
+        present = {ln.split()[0].lower() for ln in body if ln.split() and ln[0] not in "*.+"}
+        pre = [ln for ln in pre if not _alter_target(ln) or _alter_target(ln) in present]
+        rest = [ln for ln in rest if not _alter_target(ln) or _alter_target(ln) in present]
+    if mod is not None and mod.control is not None:
+        lines += pre + mod.pre + mod.control
+        lines += ["quit", ".endc", ".end", ""]
+        return "\n".join(lines), unmodeled
+    if mod is not None and (mod.pre or mod.drop_alters):
+        cmd_text = "\n".join(pre + mod.pre + rest)
+    lines.append(cmd_text)
     if analysis.get("cmd", "op").split()[0].lower() == "tran":
         lines.append("let hwf_tend = time[length(time)-1]")
         lines.append("echo HWF __tend $&hwf_tend")
@@ -243,6 +322,12 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     lines.append("quit")  # without it `ngspice -b` runs an op after the control section, which may not converge
     lines += [".endc", ".end", ""]
     return "\n".join(lines), unmodeled
+
+
+def _alter_target(line: str) -> str | None:
+    """The device an `alter`/`altermod` control line changes (lower case), or None."""
+    m = re.match(r"^\s*alter(?:mod)?\s+@?([^\s\[=]+)", line, re.I)
+    return m.group(1).lower() if m else None
 
 
 _NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
@@ -359,40 +444,70 @@ def _cache_key(netlist: str) -> str:
     return h.hexdigest()
 
 
-def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
-                 temp=None, tag: str = "", cache: Path | None = None) -> dict:
-    """One ngspice run. `status` is ok, timeout, crash, aborted or error, and `reason` says why a row has no
-    value. `analysis.timeout_s` (default 600) bounds the run."""
-    import time
-    net, unmodeled = build_netlist(design, analysis, nm, values, temp)
-    timeout = float(analysis.get("timeout_s", DEFAULT_TIMEOUT_S))
-    t0 = time.time()
-    timed_out = False
-    # Result cache (L6): an analysis whose netlist did not change is not simulated again. The measure
-    # definitions are lines of the netlist; evaluation (min, max, scale) reruns on the stored ngspice output.
-    # `cache` is a directory; without it every call simulates.
-    cfile = cache / f"{_cache_key(net)}.json" if cache else None
+def run_cached(netlist: str, workdir: Path, name: str, cache: Path | None = None,
+               timeout: float = DEFAULT_TIMEOUT_S) -> tuple[str, int, bool, bool]:
+    """Run a netlist through the result cache: (ngspice output, return code, cache hit, timed out).
+    The .cir and .log files land in `workdir` either way."""
+    # Result cache (L6): a netlist that did not change is not simulated again. The measure definitions are
+    # lines of the netlist; evaluation (min, max, scale) reruns on the stored ngspice output.
+    cfile = cache / f"{_cache_key(netlist)}.json" if cache else None
     hit = None
     try:
         hit = cfile and json.loads(cfile.read_text())
     except (OSError, ValueError):
         pass
     if hit:
-        out, rc = hit["out"], hit["rc"]
         workdir.mkdir(parents=True, exist_ok=True)
-        (workdir / f"{analysis['name']}{tag}.cir").write_text(net)
-        (workdir / f"{analysis['name']}{tag}.log").write_text(out)
-    else:
+        (workdir / f"{name}.cir").write_text(netlist)
+        (workdir / f"{name}.log").write_text(hit["out"])
+        return hit["out"], hit["rc"], True, False
+    timed_out = False
+    try:
+        out, rc = run_ngspice(netlist, workdir, name, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+    if cfile and not timed_out and not out.startswith(FLAKY_MARK) and not crashed(rc, out):
         try:
-            out, rc = run_ngspice(net, workdir, f"{analysis['name']}{tag}", timeout=timeout)
-        except subprocess.TimeoutExpired:
-            out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
-        if cfile and not timed_out and not out.startswith(FLAKY_MARK) and not crashed(rc, out):
-            try:
-                cache.mkdir(parents=True, exist_ok=True)
-                cfile.write_text(json.dumps({"out": out, "rc": rc}))
-            except OSError:
-                pass
+            cache.mkdir(parents=True, exist_ok=True)
+            cfile.write_text(json.dumps({"out": out, "rc": rc}))
+        except OSError:
+            pass
+    return out, rc, False, timed_out
+
+
+def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
+                 temp=None, tag: str = "", cache: Path | None = None, robust: bool | None = None) -> dict:
+    """One analysis at one temperature. `status` is ok, timeout, crash, aborted or error, and `reason` says why a
+    row has no value. `analysis.timeout_s` (default 600) bounds the run.
+
+    With `robust` (default: on unless `values` is set, i.e. not in Monte Carlo), a run whose DC operating point did
+    not converge cleanly is retried through the convergence fallback (simrobust.recover). An analysis with `scope:`
+    on the schematic-level node map runs scoped and validated against the full board (simrobust.run_scoped)."""
+    from . import simrobust
+    if analysis.get("scope") and values is None and (nm is None or type(nm) is NodeMap):
+        return simrobust.run_scoped(design, analysis, workdir, [temp], tag, cache)[0]
+    res = run_once(design, analysis, workdir, nm, values, temp, tag, cache)
+    if robust is None:
+        robust = values is None
+    if robust and (design.raw.get("sim") or {}).get("fallback", True) is not False:
+        res = simrobust.recover(design, analysis, workdir, nm, temp, tag, cache, res)
+        res.pop("_mod", None)
+    return res
+
+
+CONV_RE = re.compile(r"singular matrix|gmin stepping failed|source stepping failed|dc solution failed|"
+                     r"transient op failed|no convergence|timestep too small|op(eration)? failed|"
+                     r"iteration limit reached", re.I)
+
+
+def run_once(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None = None, values=None,
+             temp=None, tag: str = "", cache: Path | None = None, mod: NetMod | None = None) -> dict:
+    """One ngspice run of an analysis, without fallback. `conv` lists the convergence messages of the log."""
+    import time
+    net, unmodeled = build_netlist(design, analysis, nm, values, temp, mod=mod)
+    timeout = float(analysis.get("timeout_s", DEFAULT_TIMEOUT_S))
+    t0 = time.time()
+    out, rc, hit, timed_out = run_cached(net, workdir, f"{analysis['name']}{tag}", cache, timeout)
     seconds = round(time.time() - t0, 1)
     vals = parse_measures(out)
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
@@ -440,6 +555,9 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
             r["na_reason"] = reason or "measure gave no value"
     res = {"name": analysis["name"], "rows": rows, "unmodeled": unmodeled, "errors": errors, "rc": rc,
            "aborted": bool(aborted) or timed_out, "warnings": warnings, "status": status, "seconds": seconds}
+    conv = list(dict.fromkeys(ln.strip() for ln in out.splitlines() if CONV_RE.search(ln) and "HWF" not in ln))
+    if conv:
+        res["conv"] = conv[:12]
     if hit:
         res["cached"] = True
     if reason:
@@ -451,23 +569,42 @@ def run_analysis(design: Design, analysis: dict, workdir: Path, nm: NodeMap | No
 
 def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str = "", workers: int | None = None,
             cache: Path | None = None) -> list[dict]:
-    """Every analysis at every temperature, in parallel; results keep the order of design.yaml."""
+    """Every analysis at every temperature, in parallel; results keep the order of design.yaml. A scoped analysis
+    (`scope:`, schematic-level node map only) is one job over all its temperatures: its validation gate compares the
+    scoped and the full-board run at every temperature where the full board converges."""
     import os
     from concurrent.futures import ThreadPoolExecutor
+    from . import simrobust
     sim = design.raw.get("sim") or {}
-    jobs = [(a, t) for a in sim.get("analyses") or [] for t in (a.get("temps") or [None])]
+    plain = nm is None or type(nm) is NodeMap
+    jobs = []
+    for a in sim.get("analyses") or []:
+        temps = a.get("temps") or [None]
+        if a.get("scope") and plain:
+            jobs.append((a, temps))
+        else:
+            jobs += [(a, t) for t in temps]
     workers = workers or max(1, (os.cpu_count() or 2) - 1)
 
     def one(job):
         a, t = job
-        r = run_analysis(design, a, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""),
+        if isinstance(t, list):
+            rs = simrobust.run_scoped(design, a, workdir, t, tag, cache, workers=max(1, min(len(t), workers)))
+            for r, tt in zip(rs, t):
+                if tt is not None:
+                    r["name"] += f" @ {tt}C"
+            return rs
+        a2 = dict(a, scope=None) if a.get("scope") else a  # post-layout node map: scope does not apply
+        r = run_analysis(design, a2, workdir, nm, temp=t, tag=tag + (f"_T{t}" if t is not None else ""),
                          cache=cache)
+        if a.get("scope"):
+            r["scope_note"] = "scope not applied with this node map: full-board run"
         if t is not None:
             r["name"] += f" @ {t}C"
-        return r
+        return [r]
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        return list(ex.map(one, jobs))
+        return [r for rs in ex.map(one, jobs) for r in rs]
 
 
 # --------------------------------------------------------------- Monte Carlo
