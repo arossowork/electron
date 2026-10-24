@@ -49,7 +49,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Bundle size
-        run: du -sk dist | awk '{print "dist: " $1 " KiB"}'
+        run: du -sk dist | awk '{print "dist KiB=" $1}'
 
   image:
     runs-on: ubuntu-latest
