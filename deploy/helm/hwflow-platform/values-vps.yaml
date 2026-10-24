@@ -11,7 +11,7 @@
 images:
   api: {tag: 1f2e7b9}
   web: {tag: 1f2e7b9-platform}   # web/Dockerfile --build-arg WEB_BASE=/platform/ (served under /platform/)
-  worker: {tag: 389638a}   # main after #59 (JRE 25)
+  worker: {tag: a0573d7}   # main after #59 (JRE 25) + the symbol index memory fix
   agent: {tag: 9161da5}   # agent worker without the engine workflows
 
 # The worker serves /livez and /readyz on 8081 (hwplatform.workers.main), so the probes can be on.
