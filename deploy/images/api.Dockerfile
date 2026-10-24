@@ -1,7 +1,7 @@
 # hwplatform API image (also used for hwplatform-migrate and hwplatform-purge): Python slim, only the hwplatform
 # package and its runtime dependencies from the locked workspace.
 #   docker build -f deploy/images/api.Dockerfile -t hwplatform-api:dev .
-# The worker image (KiCad, ngspice, KRT, Freerouting) builds on docker/Dockerfile (issue #10), not on this one.
+# The worker image (KiCad, ngspice, KRT, Freerouting) has its own file, deploy/images/worker.Dockerfile (issue #10).
 FROM python:3.12-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.10.10 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv UV_PYTHON_DOWNLOADS=never

@@ -40,16 +40,34 @@ spec:
         - name: worker
           image: {{ include "hwp.image" $img }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
-          command: {{ toJson (default $.Values.worker.command $cfg.command) }}
+          {{- /* args, not command: keeps the image ENTRYPOINT (tini, worker-entrypoint.sh creating the /scratch dirs) */}}
+          args: {{ toJson (default $.Values.worker.command $cfg.command) }}
           env:
             {{- include "hwp.appEnv" $c | nindent 12 }}
             - {name: HOME, value: /scratch/home}
+            - {name: HWPLATFORM_WORKER_HEALTH_PORT, value: {{ $.Values.worker.probes.port | quote }}}
             {{- if $q }}
             - {name: {{ $.Values.worker.queuesEnvVar }}, value: {{ $q | quote }}}
             {{- end }}
             {{- range $k, $v := $.Values.worker.extraEnv }}
             - {name: {{ $k }}, value: {{ $v | quote }}}
             {{- end }}
+          {{- if $.Values.worker.probes.enabled }}
+          ports:
+            - {name: health, containerPort: {{ $.Values.worker.probes.port }}}
+          startupProbe:
+            httpGet: {path: {{ $.Values.worker.probes.startupPath }}, port: health}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: {path: {{ $.Values.worker.probes.readyPath }}, port: health}
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: {path: {{ $.Values.worker.probes.livePath }}, port: health}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          {{- end }}
           securityContext: {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
           resources: {{- toYaml $res | nindent 12 }}
           volumeMounts:

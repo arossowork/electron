@@ -8,7 +8,7 @@ Chart: `deploy/helm/hwflow-platform` (issue #17). One chart, two profiles: `valu
 |---|---|---|
 | `api` | Deployment | `hwplatform-api`, the outbox relay runs inside it (leader-elected by a Postgres advisory lock). Image `deploy/images/api.Dockerfile` |
 | `web` | Deployment | static SPA image (`web/Dockerfile`), `web.enabled` |
-| `worker` | Deployment | one process polling all queues (reduced) or one Deployment per queue (`worker.perQueue`, full); `worker.command` and `worker.queuesEnvVar` are placeholders until #9; image from #10 |
+| `worker` | Deployment | one process polling all queues (reduced) or one Deployment per queue (`worker.perQueue`, full); `worker.command` and `worker.queuesEnvVar` are placeholders until #9; image `deploy/images/worker.Dockerfile` (#10), see Worker image |
 | `postgres` | StatefulSet | PG 17, init ConfigMap creates the same roles and databases as `deploy/compose/postgres-init.sh` (`hwflow`, `hwflow_app`, `hwflow_relay`, `temporal`; databases `hwflow`, `temporal`, `temporal_visibility`) |
 | `temporal` | Deployment | single process, PG persistence and visibility. The schema step is an init container (idempotent, runs before the server) |
 | `temporal-ui` | Deployment | `temporal.ui.enabled`, off in reduced |
@@ -29,7 +29,7 @@ Prerequisites: the `apps-high` and `apps-low` PriorityClasses (`kubectl apply -f
 # 1. images (k3s imports them from a tarball, like docker/k8s/deploy.sh does for hwflow)
 docker build -f deploy/images/api.Dockerfile -t hwplatform-api:0.1.0 .
 docker save hwplatform-api:0.1.0 | sudo k3s ctr images import -
-# (web: web/Dockerfile; worker: docker/Dockerfile via #10. Until they exist: --set web.enabled=false --set worker.enabled=false)
+# (web: web/Dockerfile; worker: deploy/images/worker.Dockerfile. Until they exist: --set web.enabled=false --set worker.enabled=false)
 
 # 2. secrets (below), then
 helm upgrade --install hwp deploy/helm/hwflow-platform -n hwflow-platform --create-namespace \
@@ -128,6 +128,42 @@ Reduced profile, k3d on k3s v1.31 (the same k3s family as the VPS), after the sm
 | **Total** | **362 MiB** | **896 MiB** | |
 
 Web adds a request of 16 MiB and the worker 384 MiB (limit 1.5 GiB while a build runs), so the requests at rest are about 1.3 GiB, under the 1.5 GiB target. Postgres grows with its page cache and the worker is the one that spikes; none of this includes the other apps on the node.
+
+## Worker image
+
+`deploy/images/worker.Dockerfile` (issue #10): multi-stage, Ubuntu 24.04 like the all-in-one image because KiCad 10 comes from its PPA. The builder stage runs `uv sync --frozen --no-dev --package hwplatform` (hwflow and hwplatform non-editable, bytecode compiled), clones KiCadRoutingTools at the pinned commit and builds its Rust router from source (the upstream release asset moved past the pinned commit and its ABI no longer matches, so the pinned commit is built with a rustup toolchain that stays in the builder). The runtime stage has `kicad-cli` with the symbol and footprint libraries (the GUI programs, demos, templates, help, translations and the Mesa LLVM driver are deleted in the same layer; no 3D models), ngspice, tini, the venv with its Python, KRT, `blocks/` and `library/` (under `HWFLOW_ROOT=/opt/hwflow`, until the engine packages them), and Java + Freerouting. No Claude CLI, no UI: the agent worker (#15) gets its own image.
+
+```
+docker build -f deploy/images/worker.Dockerfile -t hwplatform-worker:dev .
+docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g \
+  -v "$PWD/examples:/examples:ro" -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" hwplatform-worker:dev /smoke.sh layout
+```
+
+Build arguments: `WITH_FREEROUTING` (default 1; Freerouting runs only when a design sets `board.router: freerouting` or KRT is missing, so a cluster that never does can build with 0 and drop about 230 MB: JRE 21 and the jar; a design that asks for it then fails with `ToolMissing`), `WITH_RENDER` (default 0; adds xvfb and Mesa, about 250 MB, so `kicad-cli pcb render` in the fab stage can write `pcb_3d_top.png`; without it that step reports `FAILED` in the stage messages and the fab stage carries on. The product decision is whether the fab package must contain the bare-board PNG), `KRT_COMMIT`, `FREEROUTING_VERSION`.
+
+Runtime contract: user `10001:10001`, `tini` as PID 1, entrypoint `worker-entrypoint.sh` (creates the directories below, then runs the command), default `CMD ["hwplatform-worker"]` (override the command to run engine commands). The root file system is read-only: `HOME`, `XDG_*`, `KICAD_CONFIG_HOME`, `TMPDIR`, `HWFLOW_CAS_DIR` and the Java temp and home directories all point under `/scratch` (the pod's emptyDir, `worker.scratchSize`). Two things write outside it, so the chart mounts emptyDirs there: `/tmp` (ngspice calls glibc `tmpfile()`, which ignores `TMPDIR` and fails with `Read-only file system` otherwise) and `/dev/shm`. Tool paths are environment variables set in the image (`KICAD_CLI`, `KICAD_SHARE`, `JAVA`, `FREEROUTING`, `KRT_DIR`, `HWFLOW_ROOT`, `HWFLOW_TOOLS_DIR`); the engine runs `kicad-cli` with `LANG=en_US.UTF-8`, so the image generates that locale.
+
+Measured (x86_64, Docker 29, `examples/sensor_preamp`, container limited like the reduced worker: 2 CPUs, 1536 MiB, read-only root, 1 GiB scratch tmpfs):
+
+| | all-in-one `docker/Dockerfile` | worker image |
+|---|---|---|
+| image size (`docker images`) | 3.79 GB | 2.88 GB (filesystem about 2.1 GB) |
+| layers | | apt (KiCad libraries, ngspice, JRE, locale) 1.41 GB; venv 484 MB; KRT + Freerouting jar 146 MB; Python 97 MB; base 88 MB |
+| `hwflow lib show Device:R` | | 1 s |
+| `hwflow check` | | 5 s |
+| `hwflow build --until sim` (check, sch with ERC, sim) | | 5 s after check (all 7 requirements verified) |
+| `hwflow build --until layout` (area search, KRT, repair, DRC) | | 141 s, 0 unrouted, DRC 0 errors |
+| peak memory during the layout build (`docker stats`, sampled every 2 s) | | 310 MiB for the engine process tree |
+
+The 310 MiB is the engine alone. `hwplatform-worker` adds the Temporal client and the asyncpg/boto3 stack (about 100 to 150 MB, estimated, not yet measured: #9 has not landed), so about 450 to 500 MiB for one stage at a time (slots: 1 for layout, sim and verify), which fits the reduced limit of 1536 MiB with room for a bigger board; request 384 Mi, unchanged. Re-measure with `kubectl top` once `hwplatform-worker` runs. Scratch used by the example: a few MB; 1 GiB (reduced) leaves room for the stage copies, routecache and CAS.
+
+Where the size goes: KiCad 10's package pulls GTK, wx, WebKitGTK (eeschema's kiface links it, so it cannot be removed) and OpenCascade; that is the floor for `kicad-cli` from the PPA, about 1.1 GB of libraries.
+
+Probes. There is no `HEALTHCHECK` in the image: Kubernetes probes are the pod's job. `worker.probes.enabled` (default false) adds startup, readiness and liveness HTTP probes on a `health` port. Issue #9 must expose, in the `hwplatform-worker` process, an HTTP server on `HWPLATFORM_WORKER_HEALTH_PORT` (the chart sets it from `worker.probes.port`, default 8081) with `GET /readyz` (200 once the Temporal client is connected and all pollers run; 503 while starting or when a poller died) and `GET /livez` (200 while the asyncio loop answers; must not depend on Temporal or Postgres, or an outage restarts every worker). A stage in a child process must not make `/livez` fail (heartbeats cover stuck stages). When it lands, set `worker.probes.enabled: true` in the values files. Also needed from #9: `--queues` and `HWPLATFORM_WORKER_QUEUES` (the chart's `worker.queuesEnvVar`), SIGTERM handling inside `terminationGracePeriodSeconds: 120` (stop polling, finish or heartbeat-cancel the stage).
+
+Priority: workers use `worker.priorityClassName` (`apps-high` in reduced, as the platform core, so a long build is evicted last; `apps-low` lets the interactive apps win), see Coexisting with the other apps on the VPS.
+
+CI: `.github/workflows/worker-image.yml` builds the image with the buildx GitHub cache and runs `worker-smoke.sh sim` in it (read-only root, non-root) on changes to `docker/`, `deploy/images/`, `src/hwflow/`, `services/platform/`, `blocks/`, `library/`, `uv.lock`, `pyproject.toml`.
 
 ## Coexisting with the other apps on the VPS
 
