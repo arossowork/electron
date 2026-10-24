@@ -221,7 +221,15 @@ Measured on the VPS (k3s v1.34, 2 vCPU, 3.7 GiB, shared with the other apps), `k
 end-to-end build: api 117, worker 411 (after the build; 69 idle), agent 100, seaweedfs 135, temporal 98, postgres 64,
 nats 7, web 3 MiB, about 0.95 GiB for the release; node 1.9 GiB used, about 1.8 GiB available.
 `examples/sensor_preamp` through the API: 315 s to PASS (layout 250 s), 20 SSE events, 16 artifacts. The worker image
-is the one of #59 (JRE 25).
+is the one of #59 (JRE 25) plus the symbol index fix (`hwflow lib sym` built its index with every KiCad library
+in memory, 2.4 GB, and OOM-killed the 1.5 GiB worker; now 0.34 GB).
+
+Eval on the VPS (`POST /evals`, operator subscription credential): `led_driver`, sonnet, 1 trial: PASS, score 100,
+6 product-person questions, 88 min wall clock (about 25 of them lost to the worker OOM above, before the fix was
+rolled), stages requirements 1, partition 1, parts 43, circuit 23, review 15, layout 4, firmware 0.5 min. Tokens of
+the design run (all stages): 0.26 M input, 0.17 M output, 10.6 M cache read, 0.45 M cache write. One trial at a time:
+the agent pod has one session slot. While it ran, agent up to about 390 MiB, worker up to about 570 MiB, node about
+2.5 GiB used.
 
 ## Coexisting with the other apps on the VPS
 
