@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+import re
 import uuid
 
 import asyncpg
@@ -24,13 +25,23 @@ OWNER_URL = os.environ.get(
 APP_URL = os.environ.get(
     "HWPLATFORM_TEST_APP_URL", "postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow"
 )
-# The real Claude API smoke (#15) is collected only on request, with a key of its own: never in CI (which fails on
-# any skipped test) and never with the developer's subscription login. See test_agent_smoke.py.
-collect_ignore = (
-    []
-    if os.environ.get("HWPLATFORM_AGENT_SMOKE") == "1" and os.environ.get("ANTHROPIC_API_KEY")
-    else ["test_agent_smoke.py"]
-)
+# The real Claude API smoke (#15) is collected only on request (`-m anthropic_smoke`, or HWPLATFORM_AGENT_SMOKE=1)
+# and with a credential of its own in the environment (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN): never in CI
+# (which fails on any skipped test) and never with the developer's interactive login. See test_agent_smoke.py.
+SMOKE_CREDENTIAL_VARS = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
+
+
+def pytest_ignore_collect(collection_path, config):
+    if collection_path.name != "test_agent_smoke.py":
+        return None
+    expr = config.getoption("markexpr", "") or ""
+    asked = bool(re.search(r"(?<!not )\banthropic_smoke\b", expr)) or (
+        os.environ.get("HWPLATFORM_AGENT_SMOKE") == "1"
+    )
+    has_credential = any(os.environ.get(v) for v in SMOKE_CREDENTIAL_VARS)
+    return None if asked and has_credential else True
+
+
 JWT_SECRET = "test-secret-" + "x" * 40
 LOOSE_LIMITS = dict(
     rate_login_email_max=10_000,

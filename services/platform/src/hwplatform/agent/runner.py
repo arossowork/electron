@@ -50,6 +50,15 @@ def classify_status(status: int | None) -> str | None:
     return None
 
 
+def limit_message(text: str) -> str | None:
+    """A subscription usage-limit result ("Claude AI usage limit reached|<epoch>", "... resets 3pm") has
+    no HTTP status: the local harness's pattern (hwharness.limits) tells it apart. The credential adapter
+    turns the text into the wait."""
+    from hwharness.limits import LIMIT_RE
+
+    return RATE_LIMITED if text and LIMIT_RE.search(text) else None
+
+
 @dataclass
 class SessionSpec:
     ws: Path
@@ -60,12 +69,18 @@ class SessionSpec:
     system: str
     model: str
     prompt: str
-    api_key: str = field(repr=False)
+    # The credential (hwplatform.credentials): an API key or a subscription OAuth token, never both.
+    api_key: str = field(default="", repr=False)
     effort: str | None = None
     max_turns: int | None = None
     resume: str | None = None
     max_budget_usd: float | None = None
     fallback_model: str | None = None
+    oauth_token: str = field(default="", repr=False)
+
+    def __post_init__(self) -> None:
+        if bool(self.api_key) == bool(self.oauth_token):
+            raise ValueError("a session needs exactly one credential: an API key or a subscription token")
 
     def env(self) -> dict[str, str]:
         """The subprocess environment set on top of the allowlist (the launcher drops everything else)."""
@@ -74,7 +89,9 @@ class SessionSpec:
             "HOME": str(self.home),
             "CLAUDE_CONFIG_DIR": str(self.config_dir),
             "TMPDIR": str(self.tmp_dir),
+            # the unused one is blank, so the launcher drops it (a worker-level value never rides along)
             "ANTHROPIC_API_KEY": self.api_key,
+            "CLAUDE_CODE_OAUTH_TOKEN": self.oauth_token,
         }
 
 
@@ -216,7 +233,12 @@ class SdkRunner:
                             (msg.result or "")[:4000],
                         )
                         if msg.is_error and msg.subtype not in LIMIT_STOPS:
-                            res.error = res.error or classify_status(msg.api_error_status) or FAILED
+                            res.error = (
+                                res.error
+                                or classify_status(msg.api_error_status)
+                                or limit_message(res.text)
+                                or FAILED
+                            )
         except ProcessError as e:
             if getattr(e, "subtype", None) in LIMIT_STOPS:  # max turns / budget: the stage ends, not an error
                 res.stop = e.subtype

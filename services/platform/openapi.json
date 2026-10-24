@@ -620,7 +620,7 @@
           "llm-keys"
         ],
         "summary": "Put Key",
-        "description": "Validate the key with the provider, then store it encrypted (replaces the current one). Design runs\nwaiting for a valid key are signalled `retry`.",
+        "description": "Validate the credential with its adapter, then store it encrypted (replaces the current one; one active\ncredential per tenant and provider). A subscription token from a tenant that is not an operator tenant is\nrefused (403). Design runs waiting for a valid key are signalled `retry`.",
         "operationId": "put_key_api_v1_tenant_llm_keys__provider__put",
         "security": [
           {
@@ -2470,6 +2470,15 @@
           "api_key": {
             "type": "string",
             "title": "Api Key"
+          },
+          "credential_type": {
+            "type": "string",
+            "enum": [
+              "api_key",
+              "subscription_token"
+            ],
+            "title": "Credential Type",
+            "default": "api_key"
           }
         },
         "type": "object",
@@ -2520,6 +2529,10 @@
               }
             ],
             "title": "Last Validated At"
+          },
+          "credential_type": {
+            "type": "string",
+            "title": "Credential Type"
           }
         },
         "type": "object",
@@ -2529,7 +2542,8 @@
           "status",
           "created_at",
           "rotated_at",
-          "last_validated_at"
+          "last_validated_at",
+          "credential_type"
         ],
         "title": "LlmKeyOut"
       },

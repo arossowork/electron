@@ -15,6 +15,7 @@ export type Stage = S["StageOut"];
 export type Artifact = S["ArtifactOut"];
 export type Question = S["QuestionOut"];
 export type LlmKey = S["LlmKeyOut"];
+export type CredentialType = NonNullable<S["LlmKeyIn"]["credential_type"]>;
 export interface Page<T> {
   items: T[];
   next_cursor?: string | null;
@@ -58,7 +59,8 @@ export const tenant = {
   members: () => get<Member[]>("/tenant/members"),
   invite: (email: string, role: string) => post<S["AcceptedOut"]>("/tenant/members", { email, role }),
   keyStatus: () => get<LlmKey>("/tenant/llm-keys/anthropic"),
-  putKey: (api_key: string) => put<LlmKey>("/tenant/llm-keys/anthropic", { api_key }),
+  putKey: (api_key: string, credential_type: CredentialType = "api_key") =>
+    put<LlmKey>("/tenant/llm-keys/anthropic", { api_key, credential_type }),
   deleteKey: () => del<void>("/tenant/llm-keys/anthropic"),
 };
 

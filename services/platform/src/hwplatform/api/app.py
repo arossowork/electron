@@ -8,6 +8,7 @@ from fastapi import APIRouter, FastAPI
 from ..auth import AuthBackend
 from ..auth.local import LocalAuthBackend
 from ..auth.ratelimit import AuthGuard
+from ..credentials import format_only
 from ..crypto import Keyring, MasterKeyNotConfigured
 from ..db import Database
 from ..events.sse import NatsEventBus
@@ -50,12 +51,14 @@ def create_app(
     email_sender: EmailSender | None = None,
     gateway: WorkflowGateway | None = None,
     event_bus: NatsEventBus | None = None,
+    token_validator: KeyValidator | None = None,
 ) -> FastAPI:
     """Build the API. `auth` lets an OIDC backend replace the built-in one; `key_validator` replaces the
     call to the Anthropic API that checks a BYOK key (tests inject a fake); `email_sender`
     delivers verification and invitation e-mails (default: log them to stdout, dev only);
     `gateway` starts, cancels and signals workflows (default: Temporal; tests inject a fake); `event_bus` is the
-    live side of the SSE streams (default: NATS JetStream)."""
+    live side of the SSE streams (default: NATS JetStream); `token_validator` checks a subscription token
+    (default: the format only, hwplatform.credentials)."""
     settings = settings or get_settings()
     install_log_redaction()
 
@@ -68,6 +71,7 @@ def create_app(
         app.state.guard = AuthGuard(db, settings)
         app.state.auth = auth or LocalAuthBackend(db, settings, app.state.mailer)
         app.state.key_validator = key_validator or anthropic_validator(settings)
+        app.state.token_validator = token_validator or format_only
         app.state.gateway = gateway or TemporalGateway(settings)
         app.state.event_bus = event_bus or NatsEventBus(settings.nats_url)
         app.state.s3 = make_s3_client(settings)

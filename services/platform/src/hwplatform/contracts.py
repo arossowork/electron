@@ -131,6 +131,9 @@ ENGINE_TOOL_POLICY = {"optimize": Policy(3600, 60, 10, 2, 300, 3)}
 ENGINE_TOOL_DEFAULT_POLICY = Policy(600, 60, 5, 2, 120, 3)
 # The workflow's rate-limit timer: the first wait and the cap (it doubles in between).
 RATE_LIMIT_BACKOFF_S = (60.0, 1800.0)
+# A known reset time (the API's, or a subscription window's parsed by the credential adapter) is waited
+# for up to this long in one timer; a longer limit (a weekly cap) waits again after the next attempt.
+RATE_LIMIT_RESET_MAX_S = 86400.0
 KEY_RETRY_WAIT_S = 72 * 3600  # ADR 7.4: a run waits this long for `retry` after an invalid key
 # agent_stage saves the workspace and the transcript (its heartbeat details) this often.
 AGENT_SNAPSHOT_EVERY_S = 300.0

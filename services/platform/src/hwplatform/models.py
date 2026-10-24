@@ -106,6 +106,8 @@ class TenantLlmKey(Base):
     key_version: Mapped[int] = mapped_column(Integer)  # master key (KEK) version that wrapped the DEK
     last4: Mapped[str] = mapped_column(String(4))
     status: Mapped[str] = mapped_column(String(16), default="active")  # active | invalid
+    # api_key (sk-ant-api...) | subscription_token (sk-ant-oat..., operator tenants only, see credentials)
+    credential_type: Mapped[str] = mapped_column(String(32), default="api_key")
     created_at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
     rotated_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)
     last_validated_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)

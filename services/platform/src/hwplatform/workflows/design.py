@@ -49,6 +49,7 @@ with workflow.unsafe.imports_passed_through():
         Q_AGENT,
         Q_ENGINE,
         RATE_LIMIT_BACKOFF_S,
+        RATE_LIMIT_RESET_MAX_S,
         RECORD_POLICY,
         SIGNAL_ANSWER,
         SIGNAL_RETRY,
@@ -317,10 +318,20 @@ class DesignWorkflow:
                 if typ == errors.LlmKeyInvalid:
                     await self._wait_for_key(stage, det.get("reason") or "key_invalid")
                 elif typ == errors.LlmRateLimited:
-                    delay = float(det.get("retry_after_s") or backoff)
-                    backoff = min(backoff * 2, RATE_LIMIT_BACKOFF_S[1])
+                    reset = det.get("retry_after_s")
+                    if reset:  # a known reset time: wait for it (a durable timer, no polling)
+                        delay = min(float(reset), RATE_LIMIT_RESET_MAX_S)
+                    else:
+                        delay = backoff
+                        backoff = min(backoff * 2, RATE_LIMIT_BACKOFF_S[1])
                     self.waiting = {"reason": "rate_limited", "seconds": delay}
-                    await workflow.sleep(timedelta(seconds=min(delay, RATE_LIMIT_BACKOFF_S[1])))
+                    seen = self.retries  # a `retry` signal (say, a new key) ends the wait early
+                    try:
+                        await workflow.wait_condition(
+                            lambda seen=seen: self.retries > seen, timeout=timedelta(seconds=delay)
+                        )
+                    except TimeoutError:
+                        pass
                     self.waiting = None
                 else:
                     raise _Failed(_error(e)) from None

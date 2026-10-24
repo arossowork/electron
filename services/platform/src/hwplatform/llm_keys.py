@@ -83,11 +83,18 @@ class KeyStatus:
     created_at: datetime
     rotated_at: datetime | None
     last_validated_at: datetime | None
+    credential_type: str = "api_key"
 
 
 def _status(row: TenantLlmKey) -> KeyStatus:
     return KeyStatus(
-        row.provider, row.last4, row.status, row.created_at, row.rotated_at, row.last_validated_at
+        row.provider,
+        row.last4,
+        row.status,
+        row.created_at,
+        row.rotated_at,
+        row.last_validated_at,
+        row.credential_type or "api_key",
     )
 
 
@@ -104,9 +111,14 @@ async def set_key(
     user_id: uuid.UUID,
     provider: str,
     api_key: str,
+    *,
+    credential_type: str = "api_key",
+    fmt: Callable[[str], str] = check_format,
 ) -> KeyStatus:
-    """Validate with the provider, then store (replacing the active key of this tenant and provider)."""
-    key = check_format(api_key)
+    """Validate with the provider, then store (replacing the active credential of this tenant and provider;
+    one per tenant and provider, of either type). `fmt` and `validator` come from the credential type's
+    adapter (hwplatform.credentials)."""
+    key = fmt(api_key)
     await validator(key)  # outside the transaction: no connection is held during the network call
     sealed = keyring.encrypt(key, tenant_id, provider)
     now = datetime.now(UTC)
@@ -127,6 +139,7 @@ async def set_key(
             row.ciphertext, row.nonce = sealed.ciphertext, sealed.nonce
             row.wrapped_dek, row.key_version = sealed.wrapped_dek, sealed.key_version
             row.last4, row.status, row.last_validated_at = key[-4:], "active", now
+            row.credential_type = credential_type
             await s.flush()
             return _status(row)
     except IntegrityError as e:  # two first-time PUTs raced on the unique (tenant, provider)
@@ -153,6 +166,20 @@ async def mark_invalid(db: Database, tenant_id: uuid.UUID, provider: str = "anth
         row = await _row(s, tenant_id, provider)
         if row is not None:
             row.status = "invalid"
+
+
+async def get_tenant_credential(
+    db: Database, keyring: Keyring, tenant_id: uuid.UUID, provider: str = "anthropic"
+) -> tuple[str, str] | None:
+    """Internal: (credential_type, plaintext) of the tenant's active credential, or None. As
+    get_tenant_llm_key; hwplatform.credentials decides whether the tenant may use that type."""
+    async with db.tx(tenant_id=tenant_id) as s:
+        row = await _row(s, tenant_id, provider)
+        if row is None or row.status != "active":
+            return None
+        sealed = Sealed(row.ciphertext, row.nonce, row.wrapped_dek, row.key_version)
+        ctype = row.credential_type or "api_key"
+    return ctype, keyring.decrypt(sealed, tenant_id, provider)
 
 
 async def get_tenant_llm_key(

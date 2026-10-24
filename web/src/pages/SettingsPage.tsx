@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../api/client";
-import { tenant } from "../api/api";
+import { tenant, type CredentialType } from "../api/api";
 import { isAdmin, useMe } from "../auth";
 import { Badge, ErrorBox, fmtTime, useLoad } from "../components/ui";
 
@@ -32,6 +32,7 @@ function ApiKey() {
     }
   }, "key");
   const [key, setKey] = useState("");
+  const [kind, setKind] = useState<CredentialType>("api_key");
   const [err, setErr] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   async function save(e: FormEvent) {
@@ -39,7 +40,7 @@ function ApiKey() {
     setBusy(true);
     setErr(undefined);
     try {
-      await tenant.putKey(key);
+      await tenant.putKey(key, kind);
       await status.reload();
     } catch (x) {
       setErr(x);
@@ -61,19 +62,29 @@ function ApiKey() {
     <section className="card">
       <h2>Claude API key (BYOK)</h2>
       <p className="muted">
-        Agent runs use your own Anthropic key. It is validated, encrypted at rest and never shown again.
+        Agent runs use your own Anthropic API key. It is validated, encrypted at rest and never shown again.
       </p>
       <ErrorBox error={status.error} />
       {s ? (
         <p>
-          Stored key ending in <code>…{s.last4}</code> <Badge value={s.status} /> <span className="muted">updated {fmtTime(s.rotated_at ?? s.created_at)}</span>
+          Stored {s.credential_type === "subscription_token" ? "subscription token" : "API key"} ending in <code>…{s.last4}</code> <Badge value={s.status} /> <span className="muted">updated {fmtTime(s.rotated_at ?? s.created_at)}</span>
         </p>
       ) : (
         !status.loading && <div className="note">No key stored. Design runs cannot start the agent without one.</div>
       )}
       <form onSubmit={save}>
-        <label htmlFor="apikey">{s ? "Replace key" : "Anthropic API key"}</label>
-        <input id="apikey" type="password" autoComplete="off" spellCheck={false} placeholder="sk-ant-…" value={key} onChange={(e) => setKey(e.target.value)} />
+        <label htmlFor="credtype">Credential type</label>
+        <select id="credtype" value={kind} onChange={(e) => setKind(e.target.value as CredentialType)}>
+          <option value="api_key">Anthropic API key</option>
+          <option value="subscription_token">Claude subscription token (operator tenants only)</option>
+        </select>
+        {kind === "subscription_token" && (
+          <p className="muted">
+            A token from <code>claude setup-token</code>. Only the operator&apos;s own tenants may use one (Anthropic does not allow offering a Claude subscription to other users); any other tenant gets an error.
+          </p>
+        )}
+        <label htmlFor="apikey">{s ? "Replace with" : kind === "api_key" ? "Anthropic API key" : "Subscription token"}</label>
+        <input id="apikey" type="password" autoComplete="off" spellCheck={false} placeholder={kind === "api_key" ? "sk-ant-api…" : "sk-ant-oat…"} value={key} onChange={(e) => setKey(e.target.value)} />
         <ErrorBox error={err} />
         <div className="row" style={{ marginTop: 12 }}>
           <button className="primary" disabled={busy || !key}>

@@ -53,7 +53,10 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs the compose Postgres, SeaweedFS (S3) and NATS; skipped when they do not answer"]
+markers = [
+    "integration: needs the compose Postgres, SeaweedFS (S3) and NATS; skipped when they do not answer",
+    "anthropic_smoke: calls the real Anthropic API (tests/test_agent_smoke.py); collected only with `-m anthropic_smoke` and ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN set",
+]
 
 [tool.ruff]
 line-length = 110

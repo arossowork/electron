@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import time
 from pathlib import Path
@@ -47,25 +46,12 @@ def designer_args(model: str) -> list[str]:
     return args
 
 
-LIMIT_RE = re.compile(r"usage limit|hit your limit|rate limit|limit reached|resets? (at )?\d|overloaded|529", re.I)
+from .limits import LIMIT_RE, limit_wait_seconds  # noqa: E402 - shared with the platform's credential adapter
 
 
 def _limit_wait_seconds(text: str) -> int:
     """Seconds until the subscription window resets, from the CLI message; 15 min when unknown."""
-    m = re.search(r"\|(\d{10})", text)  # "Claude AI usage limit reached|1792170000"
-    if m:
-        return max(60, int(m.group(1)) - int(time.time()) + 60)
-    m = re.search(r"resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text, re.I)
-    if m:
-        h, mi = int(m.group(1)), int(m.group(2) or 0)
-        if m.group(3):
-            h = h % 12 + (12 if m.group(3).lower() == "pm" else 0)
-        now = time.localtime()
-        target = time.mktime((now.tm_year, now.tm_mon, now.tm_mday, h, mi, 0, 0, 0, -1))
-        if target <= time.time():
-            target += 86400
-        return int(target - time.time()) + 60
-    return 900
+    return limit_wait_seconds(text)
 
 
 def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,

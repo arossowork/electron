@@ -245,7 +245,9 @@ export interface paths {
         get: operations["get_key_status_api_v1_tenant_llm_keys__provider__get"];
         /**
          * Put Key
-         * @description Validate the key with the provider, then store it encrypted (replaces the current one).
+         * @description Validate the credential with its adapter, then store it encrypted (replaces the current one; one active
+         *     credential per tenant and provider). A subscription token from a tenant that is not an operator tenant is
+         *     refused (403). Design runs waiting for a valid key are signalled `retry`.
          */
         put: operations["put_key_api_v1_tenant_llm_keys__provider__put"];
         post?: never;
@@ -693,6 +695,12 @@ export interface components {
         LlmKeyIn: {
             /** Api Key */
             api_key: string;
+            /**
+             * Credential Type
+             * @default api_key
+             * @enum {string}
+             */
+            credential_type: "api_key" | "subscription_token";
         };
         /** LlmKeyOut */
         LlmKeyOut: {
@@ -711,6 +719,8 @@ export interface components {
             rotated_at: string | null;
             /** Last Validated At */
             last_validated_at: string | null;
+            /** Credential Type */
+            credential_type: string;
         };
         /** LoginIn */
         LoginIn: {

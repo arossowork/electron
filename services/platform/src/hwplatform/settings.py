@@ -110,6 +110,18 @@ class Settings(BaseSettings):
     # A question waits this long for an answer, then the run fails with QuestionExpired. None: no limit.
     agent_question_timeout_s: float | None = None
 
+    # Agent credentials (hwplatform.credentials). Subscription tokens (`claude setup-token`, sk-ant-oat...)
+    # are for the operator's own tenants only: Anthropic does not allow offering claude.ai login or
+    # subscription limits to third-party users without approval. Comma-separated tenant UUIDs; empty = no
+    # tenant may use one.
+    subscription_tenant_ids: str = ""
+    # The operator credential mounted from a Kubernetes Secret (a file, read at every resolve so a rotated
+    # Secret applies without a restart), for the tenants above only. Empty = none.
+    operator_credential_file: str = ""
+    operator_credential_type: str = "subscription_token"  # subscription_token | api_key
+    # Resolution order for an allowlisted tenant: "operator,db" (the mounted one first) or "db,operator".
+    credential_order: str = "operator,db"
+
     # Uploads of design versions (ADR 6)
     max_bundle_bytes: int = 50 * 1024 * 1024  # uncompressed size of all files of one version
     max_bundle_files: int = 5000
@@ -128,6 +140,9 @@ class Settings(BaseSettings):
         if not v.replace("_", "").isalnum() or not v[0].isalpha():
             raise ValueError("app_db_role must be a plain SQL identifier")
         return v
+
+    def subscription_tenants(self) -> frozenset[str]:
+        return frozenset(t.strip().lower() for t in self.subscription_tenant_ids.split(",") if t.strip())
 
     def agent_model_map(self) -> dict[str, str]:
         out = {}

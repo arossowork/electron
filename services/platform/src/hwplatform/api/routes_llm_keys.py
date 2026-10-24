@@ -1,15 +1,21 @@
-"""BYOK endpoints (#14), owner and admin only. The key goes in on PUT and never comes out."""
+"""BYOK endpoints (#14), owner and admin only. The credential goes in on PUT and never comes out.
+
+A credential is an Anthropic API key (`credential_type` api_key, the default) or, for the operator's own tenants
+only (HWPLATFORM_SUBSCRIPTION_TENANT_IDS), a Claude subscription token (subscription_token); see
+hwplatform.credentials."""
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from .. import llm_keys
+from ..credentials import SUBSCRIPTION_TOKEN, CredentialForbidden, CredentialService
 from ..crypto import Keyring
 from ..db import Database
 from ..gateway import GatewayError, WorkflowGateway
@@ -23,6 +29,7 @@ router = APIRouter(prefix="/tenant/llm-keys", tags=["llm-keys"])
 class LlmKeyIn(BaseModel):
     # No length/pattern constraints here: a 422 from pydantic would echo the submitted value.
     api_key: str
+    credential_type: Literal["api_key", "subscription_token"] = "api_key"
 
 
 class LlmKeyOut(BaseModel):
@@ -32,6 +39,7 @@ class LlmKeyOut(BaseModel):
     created_at: datetime
     rotated_at: datetime | None
     last_validated_at: datetime | None
+    credential_type: str
 
 
 def _provider(provider: str) -> str:
@@ -56,14 +64,22 @@ async def put_key(
     db: Database = Depends(get_db),
     gateway: WorkflowGateway = Depends(get_gateway),
 ):
-    """Validate the key with the provider, then store it encrypted (replaces the current one). Design runs
-    waiting for a valid key are signalled `retry`."""
+    """Validate the credential with its adapter, then store it encrypted (replaces the current one; one active
+    credential per tenant and provider). A subscription token from a tenant that is not an operator tenant is
+    refused (403). Design runs waiting for a valid key are signalled `retry`."""
     provider = _provider(provider)
     ring = _keyring(request)
+    st_ = request.app.state
+    creds = CredentialService(
+        st_.settings,
+        db,
+        ring,
+        validators={"api_key": st_.key_validator, SUBSCRIPTION_TOKEN: st_.token_validator},
+    )
     try:
-        st = await llm_keys.set_key(
-            db, ring, request.app.state.key_validator, ctx.tenant_id, ctx.user_id, provider, body.api_key
-        )
+        st = await creds.put(ctx.tenant_id, ctx.user_id, provider, body.credential_type, body.api_key)
+    except CredentialForbidden as e:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(e)) from None
     except (llm_keys.KeyFormatError, llm_keys.KeyRejected) as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from None
     except llm_keys.ValidatorUnavailable as e:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import time
 import uuid
 from collections import Counter
 from datetime import timedelta
@@ -529,3 +530,56 @@ def test_build_tool_starts_a_linked_build_and_cancel_reaches_it(tmp_path):
 
 def test_ids_and_refs_are_plain_data():
     assert ref_to_dict(ws(1))["sha256"] == "1" * 64
+
+
+def subscription_limited(waits: list):
+    """A subscription session hit its usage window: the activity's retry_after_s comes from the subscription
+    adapter (the CLI's "usage limit reached|<epoch>" message, 4 h ahead)."""
+
+    async def fn(inp, n):
+        from hwplatform.credentials import ADAPTERS, SUBSCRIPTION_TOKEN
+
+        msg = f"Claude AI usage limit reached|{int(time.time()) + 4 * 3600}"
+        wait = ADAPTERS[SUBSCRIPTION_TOKEN].limit_wait(msg, None)
+        waits.append(wait)
+        raise ApplicationError(
+            "rl",
+            {**snapshot_details(ws(71), None, "sess-s"), "retry_after_s": wait},
+            type=errors.LlmRateLimited,
+            non_retryable=True,
+        )
+
+    return fn
+
+
+def test_subscription_limit_waits_for_the_window_reset_on_a_timer():
+    waits: list = []
+    f = DesignFakes({"parts": [subscription_limited(waits), done]})
+    res = run(f, design_arg(["parts"]))  # the time-skipping server jumps the 4 h timer
+    assert res.status == "succeeded" and len(f.agent_calls) == 2
+    gap = (f.scheduled[1] - f.scheduled[0]).total_seconds()
+    assert 4 * 3600 <= waits[0] <= 4 * 3600 + 120 and gap >= waits[0] - 5, (gap, waits)
+    assert gap > 1800  # beyond the backoff cap: a known reset time is waited for in full
+    assert f.agent_calls[1].resume == "retry" and f.agent_calls[1].workspace == ws(71)
+
+
+def test_retry_signal_ends_a_rate_limit_wait():
+    waits: list = []
+    f = DesignFakes({"parts": [subscription_limited(waits), done]})
+
+    async def drive(env, h):
+        await wait_for(lambda: waits, "the rate limit")
+        t0 = await env.get_current_time()
+        st: dict = {}
+        for _ in range(100):
+            st = await h.query("state")
+            if (st.get("waiting") or {}).get("reason") == "rate_limited":
+                break
+            await asyncio.sleep(0.05)
+        assert st["waiting"]["seconds"] >= 4 * 3600
+        await h.signal(DesignWorkflow.retry)
+        await wait_for(lambda: len(f.agent_calls) >= 2, "the second session")
+        assert (await env.get_current_time()) - t0 < timedelta(hours=1)  # the signal, not the timer
+
+    res = run(f, design_arg(["parts"]), drive, local=True)
+    assert res.status == "succeeded"

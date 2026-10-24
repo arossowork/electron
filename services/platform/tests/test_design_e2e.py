@@ -350,3 +350,152 @@ def test_design_run_question_key_retry_and_no_key_leak(api_settings, validator, 
                 assert key not in api_text
                 for kpart in (key[:30], key[-30:]):
                     assert kpart not in hist and kpart not in caplog.text
+
+
+OAT = "sk-ant-oat01-" + "OPERATORTOKEN1" * 6 + "OTOK"
+
+
+class SubscriptionRunner:
+    """The operator tenant's session with a subscription token: the usage window is hit once, then done."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, str, dict]] = []  # (oauth_token, api_key, env)
+
+    async def run(self, spec, box, hooks):
+        from hwplatform.agent.runner import RATE_LIMITED, SessionResult
+
+        self.calls.append((spec.oauth_token, spec.api_key, spec.env()))
+        sid = spec.resume or str(uuid.uuid4())
+        hooks.on_session(sid)
+        t = spec.config_dir / "projects" / "-ws" / f"{sid}.jsonl"
+        t.parent.mkdir(parents=True, exist_ok=True)
+        with t.open("a") as f:
+            f.write(json.dumps({"prompt": spec.prompt[:80]}) + "\n")
+        await hooks.on_usage("claude-opus-5-5", {"input_tokens": 10, "output_tokens": 2})
+        if len(self.calls) == 1:
+            reset = int(time.time()) + 3 * 3600
+            return SessionResult(sid, error=RATE_LIMITED, text=f"Claude AI usage limit reached|{reset}")
+        (spec.ws / "requirements.yaml").write_text("requirements: []\n")
+        return SessionResult(sid, text="done")
+
+
+def test_operator_subscription_token_limit_wait_and_no_token_leak(
+    api_settings, validator, tmp_path, caplog, s3_client
+):
+    """An operator tenant (HWPLATFORM_SUBSCRIPTION_TENANT_IDS) stores a subscription token; the session gets it
+    as CLAUDE_CODE_OAUTH_TOKEN and no API key; the usage-limit message becomes a workflow timer of the window's
+    reset (3 h), ended here by a `retry` signal; the token is in no history, event, log line, S3 object or API
+    answer."""
+    from fastapi.testclient import TestClient
+    from temporalio.client import Client
+
+    from hwplatform.api.app import create_app
+    from hwplatform.gateway import TemporalGateway
+    from hwplatform.mail import InMemoryEmailSender
+    from hwplatform.settings import Settings
+
+    caplog.set_level(logging.DEBUG)
+    runner = SubscriptionRunner()
+    wset = api_settings(worker_dir=str(tmp_path / "worker"))
+    aset = api_settings()
+    with Stack(wset, runner, tmp_path) as stack:
+        addr = stack.box["address"]
+        app = create_app(
+            aset,
+            key_validator=validator,
+            email_sender=InMemoryEmailSender(),
+            gateway=TemporalGateway(Settings(temporal_address=addr)),
+        )
+        with TestClient(app, client=("10.9.8.6", 5000)) as c:
+            a = Account(c, "design-oat")
+            url = f"{V1}/tenant/llm-keys/anthropic"
+            body = {"api_key": OAT, "credential_type": "subscription_token"}
+            assert c.put(url, json=body, headers=a.h).status_code == 403  # not an operator tenant yet
+            wset.subscription_tenant_ids = aset.subscription_tenant_ids = a.tenant_id
+            r = c.put(url, json=body, headers=a.h)
+            assert r.status_code == 200 and r.json()["credential_type"] == "subscription_token", r.text
+            p = a.project("oat")
+            dv = c.post(
+                f"{V1}/projects/{p['id']}/design-versions",
+                files=[("bundle", ("p.tar.gz", _bundle(), "application/gzip"))],
+                headers=a.h,
+            )
+            assert dv.status_code == 201, dv.text
+            r = c.post(
+                f"{V1}/projects/{p['id']}/runs",
+                json={
+                    "kind": "design",
+                    "design_version_id": dv.json()["id"],
+                    "options": {"brief": "A probe.", "stages": ["requirements"]},
+                },
+                headers=a.h,
+            )
+            assert r.status_code == 202, r.text
+            rid, wf = r.json()["id"], r.json()["workflow_id"]
+
+            async def state_then_retry():
+                cl = await Client.connect(addr)
+                h = cl.get_workflow_handle(wf)
+                st: dict = {}
+                for _ in range(300):
+                    st = await h.query("state")
+                    if (st.get("waiting") or {}).get("reason") == "rate_limited":
+                        break
+                    await asyncio.sleep(0.2)
+                await asyncio.sleep(1.0)
+                assert len(runner.calls) == 1  # a timer, no busy loop
+                await h.signal("retry")
+                return st
+
+            st = asyncio.run(state_then_retry())
+            assert 3 * 3600 <= st["waiting"]["seconds"] <= 3 * 3600 + 120, st
+            final = _wait(
+                lambda: (
+                    (g := c.get(f"{V1}/runs/{rid}", headers=a.h).json())["status"]
+                    in ("succeeded", "failed", "cancelled")
+                    and g
+                ),
+                "the end",
+            )
+            assert final["status"] == "succeeded", final
+            assert len(runner.calls) == 2
+            for tok, key, env in runner.calls:
+                assert tok == OAT and key == "" and env["CLAUDE_CODE_OAUTH_TOKEN"] == OAT
+                assert env["ANTHROPIC_API_KEY"] == ""  # blank: the launcher drops it
+            api_text = json.dumps([final, c.get(url, headers=a.h).json()])
+
+            from sqlalchemy import text as sql
+
+            from hwplatform.db import Database
+
+            async def events():
+                db = Database.from_settings(aset)
+                try:
+                    async with db.tx(tenant_id=uuid.UUID(a.tenant_id)) as s:
+                        q = sql("SELECT envelope::text FROM outbox WHERE tenant_id = :t")
+                        return (await s.execute(q, {"t": uuid.UUID(a.tenant_id)})).scalars().all()
+                finally:
+                    await db.dispose()
+
+            async def history() -> str:
+                cl = await Client.connect(addr)
+                return (await cl.get_workflow_handle(wf).fetch_history()).to_json()
+
+            env_rows, hist = asyncio.run(events()), asyncio.run(history())
+            assert env_rows and "LlmRateLimited" in hist
+            blobs = []
+            for page in s3_client.get_paginator("list_objects_v2").paginate(
+                Bucket=wset.s3_bucket, Prefix=f"tenants/{a.tenant_id}/"
+            ):
+                for o in page.get("Contents", []):
+                    b = s3_client.get_object(Bucket=wset.s3_bucket, Key=o["Key"])["Body"].read()
+                    if b[:2] == b"\x1f\x8b":
+                        import gzip
+
+                        b = b + gzip.decompress(b)
+                    blobs.append(b)
+            assert blobs and any(r.name.startswith("temporalio.activity") for r in caplog.records)
+            for part in (OAT, OAT[:30], OAT[-30:]):
+                assert part not in hist and part not in caplog.text and part not in api_text
+                assert not any(part in e for e in env_rows)
+                assert not any(part.encode() in b for b in blobs)

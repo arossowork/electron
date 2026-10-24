@@ -4,16 +4,18 @@ stage.
 1. The start point: the input's workspace and session, or, on a retry after a worker crash or a heartbeat
    timeout, the last snapshot this activity heartbeated (the workspace tree and the transcript, saved every
    AGENT_SNAPSHOT_EVERY_S and at the end), so a restarted stage resumes the same session where it was saved.
-2. BYOK: the tenant's key from `get_tenant_llm_key`. It goes only into the subprocess environment of the
-   session (never into a payload, a heartbeat, an event, a log line or an artifact). No usable key:
-   LlmKeyInvalid.
+2. The credential from the credential port (hwplatform.credentials.CredentialService.resolve): the tenant's
+   API key, or, for an operator tenant only, the operator's mounted credential or its subscription token. It
+   goes only into the subprocess environment of the session (never into a payload, a heartbeat, an event, a
+   log line or an artifact). No usable credential: LlmKeyInvalid.
 3. The session (hwplatform.agent.runner) in `agent/<run_id>/<stage>/ws` with the MCP tools of
    hwplatform.agent.tools; usage is recorded with `record_usage` after every result.
 4. The end: the workspace and transcript snapshot; then the API outcome. Invalid or exhausted key:
-   `mark_invalid` and LlmKeyInvalid; rate limit: LlmRateLimited (with retry_after_s); both non-retryable here,
-   the workflow waits (a `retry` signal, a backoff timer) and runs the stage again from the snapshot in the
-   error details. Otherwise AgentStageOutput: "needs_answers" when the session asked the product person, else
-   "done".
+   `mark_invalid` and LlmKeyInvalid; rate limit: LlmRateLimited (with retry_after_s, from the credential's
+   adapter: the API's reset time, or the subscription window's reset parsed from the usage-limit message);
+   both non-retryable here, the workflow waits (a `retry` signal, a timer) and runs the stage again from the
+   snapshot in the error details. Otherwise AgentStageOutput: "needs_answers" when the session asked the
+   product person, else "done".
 """
 
 from __future__ import annotations
@@ -42,7 +44,7 @@ from ..contracts import (
     AgentStageOutput,
     errors,
 )
-from ..llm_keys import get_tenant_llm_key, mark_invalid, record_usage
+from ..credentials import Credential, CredentialService, CredentialUnavailable
 from .deps import Deps
 
 log = logging.getLogger("hwplatform.agent")
@@ -105,21 +107,24 @@ class AgentActivities:
         d = self.deps.settings.agent_prompts_dir
         return Path(d) if d else prompts_root()
 
-    async def _key(self, tenant_id: str, details: dict) -> str:
-        from ..crypto import CryptoError
+    def credentials(self) -> CredentialService:
+        return CredentialService(self.deps.settings, self.deps.db, self.deps.keyring)
 
+    async def _credential(self, creds: CredentialService, tenant_id: str, details: dict) -> Credential:
         try:
-            key = await get_tenant_llm_key(self.deps.db, self.deps.keyring, uuid.UUID(tenant_id))
-        except CryptoError:
-            key = None
-        if not key:
+            cred = await creds.resolve(tenant_id)
+        except CredentialUnavailable as e:
+            raise ApplicationError(
+                str(e), {**details, "reason": "no_key"}, type=errors.LlmKeyInvalid, non_retryable=True
+            ) from None
+        if cred is None:
             raise ApplicationError(
                 "the tenant has no usable Anthropic API key",
                 {**details, "reason": "no_key"},
                 type=errors.LlmKeyInvalid,
                 non_retryable=True,
             )
-        return key
+        return cred
 
     @activity.defn(name=A_AGENT_STAGE)
     async def agent_stage(self, inp: AgentStageInput) -> AgentStageOutput:
@@ -129,7 +134,8 @@ class AgentActivities:
         store = self.deps.store(ctx.tenant_id)
         start = start_point(inp, list(activity.info().heartbeat_details or []))
         details = snapshot_details(start.workspace, start.session, start.session_id)
-        key = await self._key(ctx.tenant_id, details)
+        creds = self.credentials()
+        cred = await self._credential(creds, ctx.tenant_id, details)
 
         dirs = wsmod.Dirs(self.deps.root, ctx.run_id, inp.stage)
         dirs.reset()
@@ -145,7 +151,7 @@ class AgentActivities:
         usage: dict[str, dict] = {}
 
         async def on_usage(model: str, u: dict) -> None:
-            await record_usage(self.deps.db, uuid.UUID(ctx.tenant_id), model, u, run_id=uuid.UUID(ctx.run_id))
+            await creds.record_usage(ctx.tenant_id, model, u, run_id=uuid.UUID(ctx.run_id))
             tot = usage.setdefault(model, {})
             for k, v in u.items():
                 tot[k] = tot.get(k, 0) + int(v or 0)
@@ -167,14 +173,14 @@ class AgentActivities:
             system=sp.system,
             model=sp.model,
             prompt=prompt_for(inp, start, can_resume),
-            api_key=key,
+            api_key=cred.secret if cred.type == "api_key" else "",
+            oauth_token=cred.secret if cred.type == "subscription_token" else "",
             effort=sp.effort,
             max_turns=sp.max_turns,
             resume=state["session_id"],
             max_budget_usd=settings.agent_max_budget_usd,
             fallback_model=settings.agent_fallback_model or None,
         )
-        del key
 
         async def snap() -> dict:
             w = await asyncio.to_thread(wsmod.snapshot, store, dirs.ws)
@@ -214,7 +220,7 @@ class AgentActivities:
                 "run %s stage %s: %d tool calls denied by the sandbox", ctx.run_id, inp.stage, len(res.denied)
             )
         if res.error in (KEY_INVALID, KEY_EXHAUSTED):
-            await mark_invalid(self.deps.db, uuid.UUID(ctx.tenant_id))
+            await creds.mark_invalid(ctx.tenant_id, cred)
             raise ApplicationError(
                 "the Anthropic API rejected the tenant's key"
                 if res.error == KEY_INVALID
@@ -226,7 +232,7 @@ class AgentActivities:
         if res.error == RATE_LIMITED:
             raise ApplicationError(
                 "the Anthropic API rate-limited the session",
-                {**final, "retry_after_s": res.retry_after_s},
+                {**final, "retry_after_s": creds.limit_wait(cred, res.text, res.retry_after_s) or None},
                 type=errors.LlmRateLimited,
                 non_retryable=True,
             )

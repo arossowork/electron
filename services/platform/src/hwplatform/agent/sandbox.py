@@ -77,6 +77,17 @@ ENV_KEEP = frozenset(
         "NODE_EXTRA_CA_CERTS",
     }
 )
+# The credential variables: kept only when set (SessionSpec blanks the one a session does not use). A token
+# passed by file descriptor is never inherited.
+CREDENTIAL_VARS = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
+ENV_DROP = frozenset(
+    {
+        "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+    }
+)
 ENV_PREFIXES = ("CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "DISABLE_", "MAX_THINKING_TOKENS", "MCP_")
 # Claude Code switches for a headless, offline-by-default session (no auto-update, telemetry or error
 # reports).
@@ -93,7 +104,13 @@ REAL_CLI_ENV = "HWPLATFORM_AGENT_REAL_CLI"
 
 def child_env(environ: dict[str, str]) -> dict[str, str]:
     """The allowlisted environment of the Claude Code subprocess."""
-    return {k: v for k, v in environ.items() if k in ENV_KEEP or k.startswith(ENV_PREFIXES)}
+    return {
+        k: v
+        for k, v in environ.items()
+        if (k in ENV_KEEP or k.startswith(ENV_PREFIXES))
+        and k not in ENV_DROP
+        and not (k in CREDENTIAL_VARS and not v)
+    }
 
 
 def make_non_dumpable() -> bool:

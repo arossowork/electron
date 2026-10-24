@@ -54,7 +54,10 @@ def test_put_get_delete_never_returns_the_key(client, account, validator, caplog
     assert validator.seen[-1] == k  # validated before it was stored
     g = client.get(URL, headers=a.h)
     assert g.status_code == 200 and g.json()["last4"] == k[-4:]
-    assert set(g.json()) == {"provider", "last4", "status", "created_at", "rotated_at", "last_validated_at"}
+    assert set(g.json()) == {
+        "provider", "last4", "status", "created_at", "rotated_at", "last_validated_at", "credential_type",
+    }  # fmt: skip
+    assert g.json()["credential_type"] == "api_key"
     for resp in (r, g):
         assert k not in resp.text
     assert k not in caplog.text
