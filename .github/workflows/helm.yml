@@ -103,7 +103,7 @@ jobs:
           bash deploy/helm/gen-secrets.sh hwp > /tmp/secrets.sh
           bash /tmp/secrets.sh
           helm upgrade --install hwp "$CHART" -n hwp -f "$CHART/values-reduced.yaml" \
-            --set web.enabled=false --set worker.enabled=false --set images.api.tag=ci \
+            --set web.enabled=false --set worker.enabled=false --set agent.enabled=false --set images.api.tag=ci \
             --set api.extraEnv.HWPLATFORM_DEV_AUTO_VERIFY=true --wait --timeout 10m
       - name: Smoke test
         run: |
