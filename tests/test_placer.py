@@ -10,9 +10,9 @@ import pytest
 
 import yaml
 
-from hwflow import placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.layout.place import placer
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 W, H, N = 36, 30, 10
 
@@ -152,7 +152,7 @@ def test_isolation_groups_keep_creepage_plus_margin(tmp_path):
         for i, a in enumerate(keys):
             for b in keys[i + 1:]:
                 if pl.pad_grp[a] != pl.pad_grp[b] and a[0] != b[0]:
-                    ba, bb = pl._pad_box(parts[a[0]], a[1]), pl._pad_box(parts[b[0]], b[1])
+                    ba, bb = pl.part_pad_box(parts[a[0]], a[1]), pl.part_pad_box(parts[b[0]], b[1])
                     gaps.append(math.hypot(max(0, ba[0] - bb[2], bb[0] - ba[2]), max(0, ba[1] - bb[3], bb[1] - ba[3])))
         assert gaps and min(gaps) >= 3.5 - 0.02, (seed, min(gaps))
 
@@ -190,7 +190,7 @@ def test_net_class_clearance_keeps_pads_of_other_nets_apart(tmp_path):
         for (ra, pa), (rb, pb) in itertools.combinations(pl.pad_grp, 2):
             na, nb = pl.pad_net[(ra, pa)], pl.pad_net[(rb, pb)]
             if ra != rb and na != nb and "HV" in (na[:2], nb[:2]):
-                ba, bb = pl._pad_box(parts[ra], pa), pl._pad_box(parts[rb], pb)
+                ba, bb = pl.part_pad_box(parts[ra], pa), pl.part_pad_box(parts[rb], pb)
                 gap = math.hypot(max(0, ba[0] - bb[2], bb[0] - ba[2]), max(0, ba[1] - bb[3], bb[1] - ba[3]))
                 assert gap >= 2.1 - 0.02, (seed, ra, rb, gap)
 
@@ -312,6 +312,31 @@ def test_finish_grid_snap_preserves_pad_clearance(tmp_path, anchor_fixed):
     else:
         assert anchor.y == pytest.approx(15.0)
         assert moving.y == pytest.approx(round(moving.y / 0.05) * 0.05)
+
+
+def test_finish_restores_placement_when_final_legalization_adds_rule_violation(tmp_path, monkeypatch):
+    _, parts, pl = _two(tmp_path, {}, {}, {"P0": {"class": "mains", "clearance_mm": 2.0}})
+    anchor, moving = parts["R0"], parts["R1"]
+    moving.x, moving.y = anchor.x, 20.021
+    pl.cost()
+    assert pl._rule_violations()[0] == []
+    original = pl._state()
+    calls = []
+
+    def legalize():
+        calls.append(1)
+        if len(calls) == 2:
+            moving.y = anchor.y + 1.0
+            pl.cost()
+            assert pl._rule_violations()[0]
+
+    monkeypatch.setattr(pl, "legalize", legalize)
+    result = pl._finish(pl._movable())
+
+    assert len(calls) == 2
+    assert pl._state() == original
+    assert pl._rule_violations()[0] == []
+    assert result == pytest.approx(pl.cost_full())
 
 
 def _box_gap(parts):
@@ -464,7 +489,7 @@ def test_parts_stay_out_of_the_area_between_fixed_isolation_pads(tmp_path):
 
 
 def test_fixed_parts_overlap_only_by_their_own_courtyards():
-    from hwflow.placer import COURTYARD_MARGIN, Part, _side_overlap
+    from hwflow.layout.place.placer import COURTYARD_MARGIN, Part, _side_overlap
     m = COURTYARD_MARGIN
 
     def part(x, fixed=True):

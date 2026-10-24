@@ -1,9 +1,11 @@
 """routing.py: isolation keep-outs for a router pass and neck-down widening, on small synthetic boards."""
-from pathlib import Path
 
 from shapely.geometry import Point, box
 
-from hwflow import pcb, routing, sexpr
+from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
+from hwflow.layout.board import routing
+from hwflow.core import sexpr
 
 CU = ["F.Cu", "B.Cu"]
 
@@ -102,13 +104,13 @@ def test_widen_stays_inside_the_outline_and_keepouts(tmp_path):
 
 def test_pair_clearance_uses_the_isolation_distance():
     classes = {"AC": {"clearance": 0.2}, "S": {"clearance": 0.3}}
-    c = pcb._pair_clearance(type("D", (), {"board": {"clearance_mm": 0.2}})(), classes, [{"members": ["AC", "AC2"], "mm": 6.0}])
+    c = krt._pair_clearance(type("D", (), {"board": {"clearance_mm": 0.2}})(), classes, [{"members": ["AC", "AC2"], "mm": 6.0}])
     assert c("AC", "S") == 6.0 and c("AC", "AC2") == 0.2 and c("S", "X") == 0.3
 
 
 def test_open_nets_of_a_router_summary():
     s = {"failed_single": ["A"], "failed_multipoint": [{"net_name": "B"}], "pad_pairs_open": {"nets": ["A", "C"]}}
-    assert pcb.krt_open_nets(s) == ["A", "B", "C"]
+    assert krt.krt_open_nets(s) == ["A", "B", "C"]
 
 
 def test_fit_narrows_a_wide_track_at_a_foreign_pad(tmp_path):

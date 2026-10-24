@@ -3,8 +3,9 @@
 import pytest
 import yaml
 
-from hwflow.cli import _evidence_hash, _save_status, trace
-from hwflow.design import Design
+from hwflow.pipeline.trace import _evidence_hash, trace
+from hwflow.pipeline.status import _save_status
+from hwflow.core.design import Design
 
 
 def project(tmp_path, method="test", evidence=None):

@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hwflow import simrobust, spice
-from hwflow.design import Design, check
+from hwflow.sim import simrobust, spice
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
 
 EX = Path(__file__).resolve().parents[1] / "examples" / "sensor_preamp"
 

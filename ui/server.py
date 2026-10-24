@@ -22,10 +22,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from hwharness.agent import LIMIT_RE, _limit_wait_seconds, _usage, designer_args, headless_env, model_usage_delta
+
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "evals"))
-from harness import (LIMIT_RE, _limit_wait_seconds, _usage, designer_args, headless_env,  # noqa: E402
-                     model_usage_delta)
 PROJECTS = ROOT / "projects"
 STATIC = Path(__file__).parent / "static"
 HISTORY_TAIL = 400

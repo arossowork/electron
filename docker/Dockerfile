@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
  && add-apt-repository -y ppa:kicad/kicad-10.0-releases \
  && apt-get update && apt-get install -y --no-install-recommends \
       kicad kicad-symbols kicad-footprints \
-      ngspice openjdk-21-jre-headless \
+      ngspice openjdk-25-jre-headless \
       git curl ca-certificates locales tini xvfb xauth libgl1-mesa-dri \
  && sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen \
  && apt-get purge -y software-properties-common && apt-get autoremove -y \
@@ -45,9 +45,12 @@ RUN curl -fsSL -o /opt/tools/freerouting.jar \
 
 # Python deps first (cached unless pyproject/uv.lock change), then the router binary built against that venv.
 WORKDIR /app
+# The workspace members harness/ and services/platform need their pyproject.toml here for the lock file to resolve.
 COPY --chown=hw:hw pyproject.toml uv.lock .python-version ./
+COPY --chown=hw:hw harness/pyproject.toml harness/pyproject.toml
+COPY --chown=hw:hw services/platform/pyproject.toml services/platform/pyproject.toml
 ARG KRT_RELEASE_TAG=v0.23.1
-RUN uv sync --frozen --no-install-project --group dev \
+RUN uv sync --frozen --no-install-workspace --group dev \
  && cd "$KRT_DIR" \
  && crate_version="$(awk -F '"' '/^\[package\]/{in_package=1; next} /^\[/{in_package=0} in_package && /^version[[:space:]]*=/ {print $2; exit}' rust_router/Cargo.toml)" \
  && test "$KRT_RELEASE_TAG" = "v$crate_version" \

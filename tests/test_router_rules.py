@@ -4,12 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from hwflow import pcb, placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
+from hwflow.layout.place import placer
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def _project(tmp_path, clearance=2.5):
@@ -36,9 +38,9 @@ def test_router_pass_sees_the_drc_rules(tmp_path, monkeypatch):
         seen.append({s: Path(p).read_text() for s, p in sib.items() if Path(p).exists()})
         return subprocess.CompletedProcess(args, 1, "", "")
 
-    monkeypatch.setattr(pcb.subprocess, "run", fake_run)
+    monkeypatch.setattr(krt.subprocess, "run", fake_run)
     with pytest.raises(RuntimeError):
-        pcb.run_krt(d, libs, parts, tmp_path / "out")
+        krt.run_krt(d, libs, parts, tmp_path / "out")
     assert seen, "router was not called"
     for files in seen:
         assert '"clearance": 2.5' in files[".kicad_pro"]
@@ -48,7 +50,7 @@ def test_router_pass_sees_the_drc_rules(tmp_path, monkeypatch):
 @needs_router
 @pytest.mark.slow
 def test_large_class_clearance_has_no_drc_clearance_errors(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _project(tmp_path, 1.2)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)
@@ -117,7 +119,7 @@ def _min_gap(segs, a, b):
 @needs_router
 @pytest.mark.slow
 def test_router_keeps_the_creepage_between_isolation_sides(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _iso_project(tmp_path, 1.0)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)
@@ -132,8 +134,8 @@ def test_router_keeps_the_creepage_between_isolation_sides(tmp_path):
 def test_router_keeps_tracks_out_of_a_tracks_not_allowed_area(tmp_path, monkeypatch):
     """Rule areas are read by the router from the board itself, so no `disallow` rule is needed for them."""
     from shapely.geometry import LineString, Polygon
-    from hwflow import sexpr
-    from hwflow.cli import stage_layout
+    from hwflow.core import sexpr
+    from hwflow.pipeline import stage_layout
     zone = '''(zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (uuid "5b6c1a0e-3d0a-4c7e-9a11-0a1b2c3d4e0a") (name "KO_T") (hatch edge 0.5)
       (connect_pads (clearance 0)) (min_thickness 0.25)
       (keepout (tracks not_allowed) (vias not_allowed) (pads allowed) (copperpour allowed) (footprints allowed))
@@ -177,9 +179,9 @@ def test_router_input_path_is_absolute(tmp_path, monkeypatch):
         seen.append(base[2])
         raise RuntimeError("stop")
 
-    monkeypatch.setattr(pcb, "route_class", stop)
+    monkeypatch.setattr(krt, "route_class", stop)
     with pytest.raises(RuntimeError, match="stop"):
-        pcb.krt_route(d, Path("out/x.kicad_pcb"), Path("out"), "x_")
+        krt.krt_route(d, Path("out/x.kicad_pcb"), Path("out"), "x_")
     assert seen and seen[0].startswith("/")
 
 
@@ -203,8 +205,10 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     import sys
     from types import SimpleNamespace
 
-    from hwflow import diagnose, postlayout, routing
-    from hwflow.design import check
+    from hwflow.layout import diagnose
+    from hwflow.verify import postlayout
+    from hwflow.layout.board import routing
+    from hwflow.verify.checks import check
     d = _between_project(tmp_path)
     (g,) = pcb.isolation_groups(d)
     assert g["between_mm"] == 0.6 and g["members"] == ["AMP_OUT", "SENS_IN"]
@@ -220,8 +224,8 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     pro = json.loads((tmp_path / f"{d.name}.kicad_pro").read_text())["net_settings"]
     assert {"netclass": "isb_sig_between_SENS_IN", "pattern": "SENS_IN"} in pro["netclass_patterns"]
     # KiCadRoutingTools' own readers: member to member 0.6 mm, member to another net the larger group rule
-    if (pcb.KRT_DIR / "py_router" / "kicad_dru.py").exists():
-        sys.path.insert(0, str(pcb.KRT_DIR / "py_router"))
+    if (krt.krt_dir() / "py_router" / "kicad_dru.py").exists():
+        sys.path.insert(0, str(krt.krt_dir() / "py_router"))
         try:
             from kicad_dru import parse_dru_track_clearances, track_pair_clearance
             from list_nets import net_class_memberships
@@ -259,9 +263,9 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     kb = next(k for k in pl.pad_grp if pl.pad_net[k] == "AMP_OUT" and k[0] not in ("J1", ka[0]))
     for k, (x, y) in ((ka, (10, 10)), (kb, (10, 10))):
         parts[k[0]].x, parts[k[0]].y, parts[k[0]].r = x, y, 0
-    bx = pl._pad_box(parts[ka[0]], ka[1])
-    parts[kb[0]].x += (bx[2] + 0.3) - pl._pad_box(parts[kb[0]], kb[1])[0]       # pads 0.3 mm apart in x
-    parts[kb[0]].y += (bx[1] + bx[3]) / 2 - sum(pl._pad_box(parts[kb[0]], kb[1])[1::2]) / 2
+    bx = pl.part_pad_box(parts[ka[0]], ka[1])
+    parts[kb[0]].x += (bx[2] + 0.3) - pl.part_pad_box(parts[kb[0]], kb[1])[0]       # pads 0.3 mm apart in x
+    parts[kb[0]].y += (bx[1] + bx[3]) / 2 - sum(pl.part_pad_box(parts[kb[0]], kb[1])[1::2]) / 2
     assert pl._iso_short(ka, kb) == pytest.approx(0.6 + placer.CLEAR_MARGIN - 0.3, abs=1e-6)
     assert "between_mm 0.6 mm" in pl._iso_rule(ka, kb)
     # post-layout: the closest pair of two different members, apart from the group row
@@ -295,7 +299,7 @@ class _PadLibs:
                          for n, k, x, y, w, h, L in self.fps[fid]], "bbox": (-1, -1, 1, 1), "sides": {}}
 
     def footprint_tree(self, fid):
-        from hwflow import sexpr
+        from hwflow.core import sexpr
         pads = " ".join(f'(pad "{n}" {k} rect (at {x} {y}) (size {w} {h}) (layers {" ".join(chr(34) + v + chr(34) for v in L)}))'
                         for n, k, x, y, w, h, L in self.fps[fid])
         return sexpr.loads(f'(footprint "{fid}" (layer "F.Cu") (property "Reference" "REF" (at 0 0 0) (layer "F.SilkS")) '
@@ -313,7 +317,8 @@ def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, m
     import yaml
     from shapely.geometry import LineString, box
 
-    from hwflow import corridor, routing
+    from hwflow.layout.place import corridor
+    from hwflow.layout.board import routing
     F = ("F.Cu",)
     lo, hi = 10 - 2.55 / 2, 10 + 2.55 / 2
     libs = _PadLibs({"A": [("1", "smd", 5, 10, 1, 1, F)], "B": [("1", "smd", 25, 10, 1, 1, F)],
@@ -339,11 +344,11 @@ def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, m
     # without the neck-down (as before for a net at the track width): open
     monkeypatch.setenv("HWFLOW_NECKDOWN", "0")
     d.raw["board"]["router_retries"] = 0
-    _, last, _, _ = pcb.krt_route(d, src, out, "y_", nets={"AC_ROOM"}, libs=libs)
-    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 1
+    _, last, _, _ = krt.krt_route(d, src, out, "y_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(krt.krt_unrouted(v) for v in last.values()) == 1
     monkeypatch.delenv("HWFLOW_NECKDOWN")
-    cur, last, notes, _ = pcb.krt_route(d, src, out, "x_", nets={"AC_ROOM"}, libs=libs)
-    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 0, notes
+    cur, last, notes, _ = krt.krt_route(d, src, out, "x_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(krt.krt_unrouted(v) for v in last.values()) == 0, notes
     b = pcb.read_board(cur)
     segs = [s for s in b["segments"] if s["net"] == "AC_ROOM"]
     assert segs and {s["layer"] for s in segs} == {"F.Cu"} and not [v for v in b["vias"] if v["net"] == "AC_ROOM"]
@@ -363,7 +368,7 @@ def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, m
 def test_router_keeps_between_mm_between_members(tmp_path):
     """A real KiCadRoutingTools run: two member nets of one group keep between_mm track to track (the isb_ class
     rules) while the group keeps its own distance to the other nets."""
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = _between_project(tmp_path, 0.3, 0.6)
     d.raw["board"].update(width_mm=60, height_mm=45)
     res = stage_layout(d, Libs(), seeds=1, iters=3000)

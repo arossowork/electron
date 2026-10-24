@@ -37,9 +37,10 @@ def sample(a):
         del os.environ[k]
     env = VARIANTS[a.variant]
     os.environ.update(env)
-    from hwflow import asicflow, corridor, pinaccess, placer
-    from hwflow.design import Design
-    from hwflow.libs import Libs
+    from hwflow.layout.place import asicflow, placer
+    from hwflow.layout.place import corridor, pinaccess
+    from hwflow.core.design import Design
+    from hwflow.core.libs import Libs
     d = Design.load(Path(a.design))
     libs = Libs(design=d)
     n0, f0 = len(placer.STAGES), len(asicflow.FEEDBACK)

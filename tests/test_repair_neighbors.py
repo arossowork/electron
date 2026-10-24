@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hwflow import repair
+from hwflow.layout.route import repair
 
 
 def design():
@@ -60,7 +60,7 @@ def test_failed_round_frees_endpoint_neighbor_then_keeps_only_improvement(tmp_pa
     report = board.with_suffix(".drc.json")
     report.write_text("accepted initial DRC")
     calls = []
-    monkeypatch.setattr(repair, "MAX_STALL", 2)
+    monkeypatch.setenv("HWFLOW_REPAIR_MAX_STALL", "2")
 
     def reroute(d, libs, parts, workdir, kept_tracks, kept_vias, nets, attempt, island, deadline=None):
         # Both rejected candidates must restore the last accepted board before another round.

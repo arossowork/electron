@@ -43,7 +43,7 @@ Not tiered further: Haiku 4.5 for a subagent. It has a 200k window and no tool s
 
 ## 3. Changes in this branch
 
-All of them apply to every headless call, because the three callers share `harness.designer_args()` and `harness.headless_env()`; `hw-run.sh` mirrors them.
+All of them apply to every headless call, because the three callers share `hwharness.agent.designer_args()` and `hwharness.agent.headless_env()`; `hw-run.sh` mirrors them.
 
 | change | where | effect |
 |---|---|---|

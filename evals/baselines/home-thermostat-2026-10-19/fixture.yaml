@@ -1,0 +1,40 @@
+# The fixture of this baseline (a reference design, not part of `evals/fixtures/`, so `run --fixtures all` skips it).
+# The hidden specification is the product person's answers of rounds 1 to 6 (project/inbox/answers.md), as facts.
+id: home-thermostat
+mode: full
+brief: |
+  A thermostat that fits inside standard italian wall socket (search for dimension and depth, they are standard
+  wall mounted sockets), with two heat probes, no screen, wifi to control it remotely (MQTT?), battery powered
+  that could last 1y+ on AAA 1 or 2 batteries (or 1 AA battery), 2x220vac relay so that it can control two
+  actuators (two rooms indipendently). Beware of isolation from 220vac relays and wifi hf. It should work
+  offline, with RTC or similar for scheduling
+hidden_spec: |
+  - The wall box has no live and neutral for the electronics: battery only. It switches 230 V thermal valve heads
+    or zone valve motors, up to 1.5 A per output, as dry contacts.
+  - A setting changed from the phone may take up to 60 minutes to apply (the device sleeps between wakes);
+    measure every 10 minutes. Both rooms are next to the box, probe cables shorter than 2 m.
+  - On a low battery, switch both outputs OFF and send a low-battery alarm to the app.
+  - Prototype: 10 units, cost first (about 25 USD each, 27-28 USD accepted), then battery life, then size.
+  - Plastic plates only, internal antenna. Safety first: low relays, screw-fixed battery cover, insulated probe tips.
+  - Power: two AAA cells in series are accepted if one cell cannot carry the Wi-Fi peak current.
+  - Battery life: about 13 months on alkaline; a worst-case unit of 11 to 13 months is accepted.
+  - Reinforced insulation between the two boards: a 0.4 mm insulating sheet is accepted (stack 28.6 mm of 30 mm).
+planted_conflicts:
+  - id: battery_vs_wifi
+    desc: always-on Wi-Fi drains one AA in about 3 weeks, so the device must sleep
+    keywords: [[battery], [wake, interval, latency, sleep]]
+  - id: wifi_peak_vs_cell
+    desc: the Wi-Fi transmit peak collapses one alkaline cell near its end of life
+    keywords: [[peak, transmit], [cell, aaa, boost]]
+  - id: relay_isolation
+    desc: 230 V relay contacts against the low-voltage side and the Wi-Fi antenna
+    keywords: [[insulation, creepage, clearance, isolation], [relay]]
+expected_requirements:
+  - ["503", wall box, flush]
+  - [battery, aaa]
+  - [relay]
+  - [wifi, mqtt]
+  - [rtc, schedul]
+  - [probe, temperature]
+limits: {max_area_mm2: 5200, max_cost_usd: 30.0}
+max_designer_turns: 30

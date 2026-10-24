@@ -1,0 +1,108 @@
+name: worker-image
+
+# The platform worker image (deploy/images/worker.Dockerfile, issue #10): build it with the buildx GitHub cache and run
+# the engine smoke test inside it as the image's non-root user on a read-only root file system (check + build --until sim).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docker/**
+      - deploy/images/**
+      - src/hwflow/**
+      - services/platform/**
+      - blocks/**
+      - library/**
+      - uv.lock
+      - pyproject.toml
+      - harness/**
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
+      - CLAUDE.md
+      - fw/framework/**
+      - .github/workflows/worker-image.yml
+  pull_request:
+    paths:
+      - docker/**
+      - deploy/images/**
+      - src/hwflow/**
+      - services/platform/**
+      - blocks/**
+      - library/**
+      - uv.lock
+      - pyproject.toml
+      - harness/**
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
+      - CLAUDE.md
+      - fw/framework/**
+      - .github/workflows/worker-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/images/worker.Dockerfile
+          tags: hwplatform-worker:ci
+          load: true
+          cache-from: type=gha,scope=worker-image
+          cache-to: type=gha,scope=worker-image,mode=max
+      - name: Image size
+        run: |
+          docker image inspect hwplatform-worker:ci --format 'uncompressed image: {{.Size}} bytes'
+          docker history hwplatform-worker:ci --format '{{.Size}}	{{.CreatedBy}}' | cut -c1-100 | head -12
+      - name: Smoke - hwflow check and build --until sim (read-only root, non-root user)
+        run: |
+          docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g,exec \
+            -v "$PWD/examples:/examples:ro" -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" \
+            hwplatform-worker:ci /smoke.sh sim
+      - name: Smoke - Java 25 runs the Freerouting jar (class version 69, issue #58)
+        run: |
+          docker run --rm --entrypoint java hwplatform-worker:ci -version 2>&1 | tee /dev/stderr | grep -q 'version "25\.'
+          docker run --rm --entrypoint java hwplatform-worker:ci -jar /opt/tools/freerouting.jar --help > /dev/null
+      - name: Entry points on PATH
+        run: |
+          docker run --rm --entrypoint hwflow hwplatform-worker:ci --help > /dev/null
+          # hwplatform-worker comes with issue #9; the check starts passing when it lands.
+          docker run --rm --entrypoint which hwplatform-worker:ci hwplatform-worker || echo "::notice::hwplatform-worker not installed yet (issue #9)"
+
+  # The agent worker image (deploy/images/agent.Dockerfile, issue #15): no engine, the Claude Agent SDK with its
+  # bundled CLI and the prompt files. Smoke without any API call, as uid 10001 on a read-only root, no network.
+  agent-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/images/agent.Dockerfile
+          tags: hwplatform-agent:ci
+          load: true
+          cache-from: type=gha,scope=agent-image
+          cache-to: type=gha,scope=agent-image,mode=max
+      - name: Image size
+        run: |
+          docker image inspect hwplatform-agent:ci --format 'uncompressed image: {{.Size}} bytes'
+      - name: Smoke - imports, prompts, the bundled CLI, no engine (read-only root, non-root, no network)
+        run: |
+          docker run --rm --read-only --network none --cap-drop ALL --tmpfs /tmp \
+            --tmpfs /scratch:uid=10001,gid=10001,size=256m -v "$PWD/deploy/images/agent-smoke.py:/smoke.py:ro" \
+            hwplatform-agent:ci python /smoke.py

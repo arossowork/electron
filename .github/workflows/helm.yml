@@ -1,0 +1,131 @@
+name: helm
+
+# Helm chart of the hosted platform (deploy/helm/hwflow-platform, issue #17): lint, render both profiles, validate the
+# manifests against the Kubernetes schemas, and install the reduced profile into a throwaway k3d cluster.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - deploy/helm/**
+      - deploy/images/**
+      - services/platform/**
+      - src/hwflow/artifacts.py
+      - src/hwflow/runs.py
+      - src/hwflow/ids.py
+      - uv.lock
+      - .github/workflows/helm.yml
+  pull_request:
+    paths:
+      - deploy/helm/**
+      - deploy/images/**
+      - services/platform/**
+      - src/hwflow/artifacts.py
+      - src/hwflow/runs.py
+      - src/hwflow/ids.py
+      - uv.lock
+      - .github/workflows/helm.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helm-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHART: deploy/helm/hwflow-platform
+  KUBECONFORM_VERSION: v0.6.7
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Install kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /usr/local/bin kubeconform
+      - name: helm lint
+        run: |
+          helm lint "$CHART" -f "$CHART/values-reduced.yaml"
+          helm lint "$CHART" -f "$CHART/values-full.yaml"
+      - name: helm template + kubeconform
+        run: |
+          for profile in reduced full; do
+            helm template hwp "$CHART" -n hwflow-platform -f "$CHART/values-$profile.yaml" > "/tmp/$profile.yaml"
+            kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0 "/tmp/$profile.yaml"
+          done
+          # Optional parts: KEDA objects (CRD, no schema here), Ingress, per-queue workers, Temporal UI.
+          helm template hwp "$CHART" -f "$CHART/values-full.yaml" --set worker.keda.enabled=true \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          # Optional metrics store + Grafana (issue #18), with and without the worker and the SDK metrics port.
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set observability.enabled=true \
+            --set observability.temporalSdkMetrics=true \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set observability.enabled=true \
+            --set worker.enabled=false --set observability.grafana.enabled=false \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set ingress.enabled=true --set temporal.ui.enabled=true \
+            --set networkPolicy.enabled=false --set backup.enabled=false --set purge.enabled=false \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          # The agent's operator credential (#15): a read-only Secret file only when a secretName is set.
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" \
+            --set agent.operatorCredential.secretName=hwflow-claude \
+            --set agent.subscriptionTenantIds=00000000-0000-4000-8000-000000000001 > /tmp/opcred.yaml
+          kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0 /tmp/opcred.yaml
+          grep -q "secretName: hwflow-claude" /tmp/opcred.yaml
+          grep -q "HWPLATFORM_OPERATOR_CREDENTIAL_FILE" /tmp/opcred.yaml
+          ! grep -qE "operator-credential|HWPLATFORM_OPERATOR_CREDENTIAL_FILE|HWPLATFORM_SUBSCRIPTION_TENANT_IDS" /tmp/reduced.yaml /tmp/full.yaml
+      - name: No secret values in the chart
+        run: |
+          ! grep -rniE "(password|secret|key): *['\"]?[A-Za-z0-9+/=]{16,}" "$CHART" --include='*.yaml' \
+            || { echo "a values/template file seems to hold a secret"; exit 1; }
+
+  install-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Build the API image
+        run: docker build -f deploy/images/api.Dockerfile -t hwplatform-api:ci .
+      - name: Create a k3d cluster
+        run: |
+          curl -sSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=v5.8.3 bash
+          k3d cluster create ci --servers 1 --agents 0 --wait
+          k3d image import -c ci hwplatform-api:ci
+          kubectl apply -f docker/k8s/cluster.yaml
+      - name: Create the secrets and install
+        run: |
+          kubectl create namespace hwp
+          bash deploy/helm/gen-secrets.sh hwp > /tmp/secrets.sh
+          bash /tmp/secrets.sh
+          helm upgrade --install hwp "$CHART" -n hwp -f "$CHART/values-reduced.yaml" \
+            --set web.enabled=false --set worker.enabled=false --set agent.enabled=false --set images.api.tag=ci \
+            --set api.extraEnv.HWPLATFORM_DEV_AUTO_VERIFY=true --wait --timeout 10m
+      - name: Smoke test
+        run: |
+          kubectl -n hwp get pods
+          kubectl -n hwp port-forward svc/hwp-api 18080:8080 &
+          sleep 5
+          curl -fsS http://127.0.0.1:18080/healthz
+          # migrations ran: the signup/login/project path needs the tables
+          B=http://127.0.0.1:18080/api/v1
+          curl -fsS -H 'content-type: application/json' -d '{"email":"ci@example.com","password":"correct horse battery 42","tenant_name":"CI"}' $B/auth/signup
+          TOK=$(curl -fsS -H 'content-type: application/json' -d '{"email":"ci@example.com","password":"correct horse battery 42"}' $B/auth/login | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          curl -fsS -H "authorization: Bearer $TOK" -H 'content-type: application/json' -d '{"name":"ci project"}' $B/projects
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl -n hwp get pods,jobs -o wide || true
+          kubectl -n hwp describe pods | tail -150 || true
+          kubectl -n hwp logs --all-containers --tail=60 -l app.kubernetes.io/name=hwflow-platform || true

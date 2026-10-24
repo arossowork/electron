@@ -8,6 +8,7 @@ it does not mark the CLI layout stage passed or publish a route-cache entry.
 from __future__ import annotations
 import argparse
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,8 @@ from hwflow import budgets, floorplan, kicad, pcb, postlayout, prune, repair, sc
 from hwflow.design import Design
 from hwflow.libs import Libs
 from hwflow.placer import Placer, build_parts
+from hwflow.core import floorplan as floorplan_model
+from hwflow.layout.route import krt
 
 PROJECT = Path(__file__).resolve().parents[1]
 EVIDENCE = PROJECT / 'verification'
@@ -200,7 +203,12 @@ def main():
         report['checkpoint_sha256'] = sha(CHECKPOINT)
     assert report['source_sha256_before'] == EXPECTED_SOURCE
     report['engine_head'] = os.environ.get('HWFLOW_ENGINE_HEAD', 'unavailable_inside_isolated_worktree_mount')
-    report['engine_source_sha256'] = {name: sha(Path('/workspace/src/hwflow') / name) for name in ('pcb.py','cli.py','repair.py','placer.py','postlayout.py','floorplan.py','regionroute.py')}
+    # Compatibility imports return the real modules; hash their implementations, not the old alias files.
+    engine_modules = (budgets, floorplan, floorplan_model, kicad, pcb, postlayout, prune, repair, sch, sexpr, krt,
+                      *(inspect.getmodule(cls) for cls in (Design, Libs, Placer)))
+    source_paths = {Path(module.__file__).resolve() for module in engine_modules}
+    report['engine_source_sha256'] = {path.relative_to(PROJECT.parents[1]).as_posix(): sha(path)
+                                      for path in sorted(source_paths)}
     candidate = require_candidate()
     report['input_board'] = str(candidate)
     report['input_sha256'] = sha(candidate)

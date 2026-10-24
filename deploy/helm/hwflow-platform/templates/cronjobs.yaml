@@ -1,0 +1,145 @@
+{{- $pg := include "hwp.name" (dict "root" . "c" "postgres") }}
+{{- $s3 := include "hwp.name" (dict "root" . "c" "seaweedfs") }}
+{{- if .Values.purge.enabled }}
+{{- $c := dict "root" . "c" "purge" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "hwp.name" $c }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  schedule: {{ .Values.purge.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels: {{- include "hwp.labels" $c | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          {{- include "hwp.priority" (dict "root" . "v" .Values.api) | nindent 10 }}
+          {{- include "hwp.pullSecrets" . | nindent 10 }}
+          securityContext: {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: purge
+              image: {{ include "hwp.image" .Values.images.api }}
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: [hwplatform-purge]
+              env:
+                {{- include "hwp.appEnv" $c | nindent 16 }}
+              securityContext: {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              resources: {{- toYaml .Values.purge.resources | nindent 16 }}
+              volumeMounts:
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - {name: tmp, emptyDir: {sizeLimit: 16Mi}}
+{{- end }}
+{{- if .Values.backup.enabled }}
+{{- $b := dict "root" . "c" "backup" }}
+{{- $ext := .Values.backup.target.endpoint }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "hwp.name" $b }}
+  labels: {{- include "hwp.labels" $b | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels: {{- include "hwp.labels" $b | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          {{- include "hwp.pullSecrets" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+          initContainers:
+            # 1. Dump: custom-format dumps of the three databases plus the roles. Connects as the superuser: the tables use
+            #    FORCE ROW LEVEL SECURITY, so even the owner role would get an error.
+            - name: dump
+              image: {{ include "hwp.image" .Values.images.postgres }}
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: [/bin/sh, -ec]
+              args:
+                - |
+                  # The NetworkPolicy controller needs a few seconds to admit a new pod: retry, do not fail.
+                  until pg_isready -q -h {{ $pg }} -U postgres; do echo "waiting for postgres"; sleep 2; done
+                  ts=$(date -u +%Y%m%dT%H%M%SZ); d=/backup/$ts; mkdir -p "$d"
+                  export PGPASSWORD=$POSTGRES_PASSWORD
+                  pg_dump -h {{ $pg }} -U postgres -Fc -f "$d/hwflow.dump" hwflow
+                  pg_dump -h {{ $pg }} -U postgres -Fc -f "$d/temporal.dump" temporal
+                  pg_dump -h {{ $pg }} -U postgres -Fc -f "$d/temporal_visibility.dump" temporal_visibility
+                  pg_dumpall -h {{ $pg }} -U postgres --globals-only -f "$d/globals.sql"
+                  echo "$ts" > /backup/latest
+                  ls -l "$d"
+              env:
+                {{- include "hwp.secretEnv" (dict "root" . "name" "POSTGRES_PASSWORD" "key" "postgres-password") | nindent 16 }}
+              securityContext: {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              resources: {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - {name: backup, mountPath: /backup}
+          containers:
+            # 2. Upload to the object store and delete backups older than retentionDays.
+            - name: upload
+              image: {{ include "hwp.image" .Values.images.awsCli }}
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: [/bin/sh, -ec]
+              args:
+                - |
+                  ts=$(cat /backup/latest)
+                  aws --endpoint-url "$EP" s3api head-bucket --bucket "$BUCKET" 2>/dev/null \
+                    || aws --endpoint-url "$EP" s3api create-bucket --bucket "$BUCKET"
+                  aws --endpoint-url "$EP" s3 cp --recursive --only-show-errors "/backup/$ts" "s3://$BUCKET/postgres/$ts/"
+                  cutoff=$(date -u -d "-$RETENTION_DAYS days" +%Y%m%d)
+                  aws --endpoint-url "$EP" s3 ls "s3://$BUCKET/postgres/" | awk '$1=="PRE"{print $2}' | while read -r p; do
+                    day=${p%%T*}
+                    if [ "$day" -lt "$cutoff" ] 2>/dev/null; then
+                      echo "delete $p"; aws --endpoint-url "$EP" s3 rm --recursive --only-show-errors "s3://$BUCKET/postgres/$p"
+                    fi
+                  done
+                  {{- if not $ext }}
+                  # In-cluster target: mirror the artifact bucket too (server-side copy, no --delete, so an artifact
+                  # removed by mistake is still in the copy). An external target needs a second credential: not done.
+                  aws --endpoint-url "$EP" s3 sync --only-show-errors "s3://$ARTIFACT_BUCKET" "s3://$BUCKET/artifacts/"
+                  echo "artifacts mirrored to s3://$BUCKET/artifacts/"
+                  {{- end }}
+                  echo "backup $ts uploaded"
+              env:
+                - {name: HOME, value: /tmp}
+                - {name: EP, value: {{ if $ext }}{{ $ext | quote }}{{ else }}"http://{{ $s3 }}:8333"{{ end }}}
+                - {name: BUCKET, value: {{ .Values.backup.bucket | quote }}}
+                - {name: ARTIFACT_BUCKET, value: {{ .Values.seaweedfs.bucket | quote }}}
+                - {name: AWS_DEFAULT_REGION, value: {{ .Values.backup.target.region | quote }}}
+                - {name: RETENTION_DAYS, value: {{ .Values.backup.retentionDays | quote }}}
+                {{- if .Values.backup.target.secretName }}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: {{ .Values.backup.target.secretName }}, key: access-key}}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: {{ .Values.backup.target.secretName }}, key: secret-key}}
+                {{- else }}
+                {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_ACCESS_KEY_ID" "key" "s3-access-key") | nindent 16 }}
+                {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_SECRET_ACCESS_KEY" "key" "s3-secret-key") | nindent 16 }}
+                {{- end }}
+              securityContext: {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              resources: {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - {name: backup, mountPath: /backup}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - {name: backup, emptyDir: {sizeLimit: 4Gi}}
+            - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+{{- end }}

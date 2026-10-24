@@ -1,0 +1,114 @@
+{{- if .Values.agent.enabled }}
+{{- /* The agent worker (#15): `hwplatform-worker --queues hwflow-agent` in its own pod, in every mode. It runs the
+       Claude Code subprocess of the design sessions, so it gets the tightest sandbox of the chart (services/platform
+       README "Agent sandbox"): uid 10001, read-only root fs, no service-account token, the workspace on an emptyDir,
+       egress only to the platform services it uses and to HTTPS on public addresses (networkpolicy.yaml). It is not a
+       "worker" role pod, so the wider worker egress rule does not apply to it. */ -}}
+{{- $c := dict "root" . "c" "agent" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hwp.name" $c }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.agent.replicas }}
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "hwp.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hwp.labels" $c | nindent 8 }}
+        hwflow.io/role: agent
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.agent) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: agent
+          image: {{ include "hwp.image" .Values.images.agent }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: {{ toJson .Values.agent.command }}
+          env:
+            {{- /* Only what agent_stage needs (not hwp.appEnv): no JWT secret, owner/relay DB passwords or NATS */}}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "DB_APP_PASSWORD" "key" "hwflow-app-db-password") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "HWPLATFORM_S3_ACCESS_KEY" "key" "s3-access-key") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "HWPLATFORM_S3_SECRET_KEY" "key" "s3-secret-key") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "HWPLATFORM_MASTER_KEY" "key" "master-key") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "HWPLATFORM_MASTER_KEYS" "key" "master-keys" "optional" true) | nindent 12 }}
+            - {name: HWPLATFORM_DATABASE_URL, value: "postgresql+asyncpg://hwflow_app:$(DB_APP_PASSWORD)@{{ include "hwp.name" (dict "root" . "c" "postgres") }}:5432/hwflow"}
+            - {name: HWPLATFORM_S3_ENDPOINT_URL, value: "http://{{ include "hwp.name" (dict "root" . "c" "seaweedfs") }}:8333"}
+            - {name: HWPLATFORM_S3_BUCKET, value: {{ .Values.seaweedfs.bucket | quote }}}
+            - {name: HWPLATFORM_TEMPORAL_ADDRESS, value: "{{ include "hwp.name" (dict "root" . "c" "temporal") }}:7233"}
+            - {name: HWPLATFORM_TEMPORAL_NAMESPACE, value: {{ .Values.temporal.namespace | quote }}}
+            - {name: HOME, value: /scratch/home}
+            - {name: HWPLATFORM_WORKER_QUEUES, value: hwflow-agent}
+            - {name: HWPLATFORM_WORKER_HEALTH_PORT, value: {{ .Values.worker.probes.port | quote }}}
+            {{- with .Values.agent.models }}
+            - {name: HWPLATFORM_AGENT_MODELS, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.agent.maxBudgetUsd }}
+            - {name: HWPLATFORM_AGENT_MAX_BUDGET_USD, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.agent.subscriptionTenantIds }}
+            - {name: HWPLATFORM_SUBSCRIPTION_TENANT_IDS, value: {{ . | quote }}}
+            {{- end }}
+            - {name: HWPLATFORM_CREDENTIAL_ORDER, value: {{ .Values.agent.credentialOrder | quote }}}
+            {{- with .Values.agent.operatorCredential }}
+            {{- if .secretName }}
+            - {name: HWPLATFORM_OPERATOR_CREDENTIAL_FILE, value: "/var/run/secrets/hwflow/agent/{{ .key }}"}
+            - {name: HWPLATFORM_OPERATOR_CREDENTIAL_TYPE, value: {{ .type | quote }}}
+            {{- end }}
+            {{- end }}
+            {{- range $k, $v := .Values.agent.extraEnv }}
+            - {name: {{ $k }}, value: {{ $v | quote }}}
+            {{- end }}
+          {{- if .Values.worker.probes.enabled }}
+          ports:
+            - {name: health, containerPort: {{ .Values.worker.probes.port }}}
+          startupProbe:
+            httpGet: {path: {{ .Values.worker.probes.startupPath }}, port: health}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: {path: {{ .Values.worker.probes.readyPath }}, port: health}
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: {path: {{ .Values.worker.probes.livePath }}, port: health}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          {{- end }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.agent.resources | nindent 12 }}
+          volumeMounts:
+            - {name: scratch, mountPath: /scratch}
+            - {name: tmp, mountPath: /tmp}
+            {{- if .Values.agent.operatorCredential.secretName }}
+            - {name: operator-credential, mountPath: /var/run/secrets/hwflow/agent, readOnly: true}
+            {{- end }}
+      # a design session can run for an hour; the activity resumes elsewhere from its last snapshot
+      terminationGracePeriodSeconds: 60
+      volumes:
+        - {name: scratch, emptyDir: {sizeLimit: {{ .Values.agent.scratchSize }}}}
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        {{- with .Values.agent.operatorCredential }}
+        {{- if .secretName }}
+        {{- if not (has .type (list "subscription_token" "api_key")) }}
+        {{- fail "agent.operatorCredential.type must be subscription_token or api_key" }}
+        {{- end }}
+        # the operator credential (hwplatform.credentials, k8s_secret): one key of an existing Secret, as a file
+        - name: operator-credential
+          secret:
+            secretName: {{ .secretName }}
+            defaultMode: 0400
+            items: [{key: {{ .key }}, path: {{ .key }}}]
+        {{- end }}
+        {{- end }}
+{{- end }}

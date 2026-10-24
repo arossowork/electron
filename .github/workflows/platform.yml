@@ -1,0 +1,124 @@
+name: platform
+
+# The hosted platform package (services/platform, issue #13): ruff, unit tests (BuildWorkflow in the Temporal
+# time-skipping server, #9), and integration tests against a real Postgres 17 prepared like
+# deploy/compose/postgres-init.sh (owner role, non-owner app role, relay role), SeaweedFS (S3) and NATS JetStream
+# started like deploy/compose/platform.yaml (#6, #7, #11), plus the Temporal dev server and a real worker building
+# examples/sensor_preamp up to sim (#9: needs KiCad and ngspice, as the engine CI). The `agent` extra (#15: the
+# Claude Agent SDK, hwharness) is installed: the DesignWorkflow tests use a scripted runner, never the API.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/platform/**
+      - src/hwflow/**
+      - harness/src/hwharness/prompts.py
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
+      - examples/sensor_preamp/**
+      - deploy/compose/postgres-init.sh
+      - deploy/compose/platform.yaml
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/platform.yml
+  pull_request:
+    paths:
+      - services/platform/**
+      - src/hwflow/**
+      - harness/src/hwharness/prompts.py
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
+      - examples/sensor_preamp/**
+      - deploy/compose/postgres-init.sh
+      - deploy/compose/platform.yaml
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/platform.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGPASSWORD: postgres
+      POSTGRES_USER: postgres
+      HWFLOW_DB_PASSWORD: ci-owner
+      HWFLOW_APP_DB_PASSWORD: ci-app
+      HWFLOW_RELAY_DB_PASSWORD: ci-relay
+      TEMPORAL_DB_PASSWORD: ci-temporal
+      HWPLATFORM_TEST_OWNER_URL: postgresql://hwflow:ci-owner@127.0.0.1:5432/hwflow
+      HWPLATFORM_TEST_APP_URL: postgresql://hwflow_app:ci-app@127.0.0.1:5432/hwflow
+      HWPLATFORM_TEST_RELAY_URL: postgresql://hwflow_relay:ci-relay@127.0.0.1:5432/hwflow
+      HWPLATFORM_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+      HWPLATFORM_TEST_S3_ACCESS_KEY: ci-access
+      HWPLATFORM_TEST_S3_SECRET_KEY: ci-secret-key-0123456789
+      HWPLATFORM_TEST_NATS_URL: nats://127.0.0.1:4222
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.10"
+          enable-cache: true
+      # Same KiCad major as the engine CI (ci.yml): the end-to-end build runs check, sch and sim for real.
+      - name: System tools (KiCad, ngspice)
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
+      - name: Install
+        run: uv sync --package hwplatform --extra agent --frozen
+      - name: Ruff
+        working-directory: services/platform
+        run: |
+          uv run --package hwplatform --extra agent --frozen ruff check .
+          uv run --package hwplatform --extra agent --frozen ruff format --check .
+      - name: Database roles (same script as the compose stack)
+        run: sh deploy/compose/postgres-init.sh
+      # Service containers cannot take a command, so these two run as plain docker containers with the same
+      # images and flags as deploy/compose/platform.yaml.
+      - name: NATS JetStream
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.14.8-alpine -js -sd /data -m 8222
+          for i in $(seq 1 40); do
+            curl -sf 'http://127.0.0.1:8222/healthz?js-enabled-only=true' >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs nats; exit 1
+      - name: SeaweedFS (S3)
+        run: |
+          printf '{"identities":[{"name":"hwflow","credentials":[{"accessKey":"ci-access","secretKey":"ci-secret-key-0123456789"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' > "$RUNNER_TEMP/s3.json"
+          docker run -d --name seaweedfs -p 8333:8333 -v "$RUNNER_TEMP/s3.json:/etc/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 server -dir=/data -master.volumeSizeLimitMB=256 -volume.max=20 \
+            -s3 -s3.port=8333 -s3.config=/etc/s3.json -ip.bind=0.0.0.0
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ || true)
+            [ "$code" = 403 ] || [ "$code" = 200 ] && exit 0
+            sleep 1
+          done
+          docker logs seaweedfs; exit 1
+      - name: Tests (fails if the integration tests were skipped)
+        working-directory: services/platform
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --package hwplatform --extra agent --frozen pytest -v -rs 2>&1 | tee pytest.out
+          ! grep -q "^SKIPPED" pytest.out

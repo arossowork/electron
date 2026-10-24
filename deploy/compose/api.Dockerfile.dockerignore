@@ -1,0 +1,11 @@
+*
+!pyproject.toml
+!uv.lock
+!harness/pyproject.toml
+!src/hwflow/artifacts.py
+!src/hwflow/runs.py
+!src/hwflow/ids.py
+!services/platform
+services/platform/tests
+**/__pycache__
+**/.pytest_cache

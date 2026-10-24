@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from test_barrier import ALL, Libs, _design, _pad, _wall
 
-from hwflow import barrier, corridor
+from hwflow.layout.place import barrier, corridor
 
 BETWEEN = {"isolation": [{"name": "mains", "nets": ["AC_*"], "between_mm": 1.5}]}
 

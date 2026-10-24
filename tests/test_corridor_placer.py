@@ -6,9 +6,9 @@ import time
 
 import yaml
 
-from hwflow import placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.layout.place import placer
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 W, H = 30, 20
 PIN1 = "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
@@ -119,7 +119,7 @@ def _header(cols):
 
 def _verdicts(d, libs):
     """(placer, its corridor violations, the corridor proof's widest SIG track with necks, as `hwflow check`)."""
-    from hwflow import corridor
+    from hwflow.layout.place import corridor
     parts = placer.build_parts(d, libs)
     pl = placer.Placer(d, parts, W, H)
     v = [x for x in pl.violations() if x.startswith("corridor ")]

@@ -2,7 +2,7 @@
 feedback, legalization, detailed local moves, the short anneal, and pin access with the narrow-first `necked` path."""
 import numpy as np
 
-from hwflow import asicflow, gplace, placer
+from hwflow.layout.place import asicflow, gplace, placer
 
 from test_placer import H, W, channel
 
@@ -89,7 +89,7 @@ def test_flow_stages_feedback_and_switches(tmp_path, monkeypatch):
 
 def test_macro_stage_places_the_block_first(tmp_path, monkeypatch):
     from test_blocks import BOOST, _design, _rigid
-    from hwflow import blocks
+    from hwflow.core import blocks
     monkeypatch.delenv("HWFLOW_FLOW", raising=False)
     d, libs = _design(tmp_path)
     parts = placer.build_parts(d, libs)
@@ -128,7 +128,7 @@ def test_inflation_follows_the_map(tmp_path):
 
 def test_pin_access_counts_directions_and_finds_a_walled_in_pad(tmp_path):
     from test_barrier import Libs, _design, _pad
-    from hwflow import corridor, pinaccess
+    from hwflow.layout.place import corridor, pinaccess
     # P1 alone: every direction is open. P2 in a ring of foreign pads 0.3 mm away: no track of any width leaves.
     ring = [_pad(str(k + 2), 20 + dx, 10 + dy, 0.8, 0.8) for k, (dx, dy) in
             enumerate([(-1.1, -1.1), (0, -1.1), (1.1, -1.1), (-1.1, 0), (1.1, 0), (-1.1, 1.1), (0, 1.1), (1.1, 1.1)])]
@@ -143,7 +143,7 @@ def test_pin_access_counts_directions_and_finds_a_walled_in_pad(tmp_path):
 
 def test_a_pad_without_an_exit_at_its_width_routes_narrow_first(tmp_path, monkeypatch):
     from test_barrier import Libs, _design, _pad
-    from hwflow import pcb
+    from hwflow.layout.board import pcb
     # U2.1 (0.8 mm square at 20, 10) is boxed in on the left, top and bottom; to the right a 0.7 mm slit between two
     # foreign pads. A 0.6 mm track needs 2 x 0.2 clearance + 0.6 = 1.0 mm: no exit. The 0.15 mm floor needs 0.55 mm.
     box = [_pad("2", 18.9, 10, 1.0, 3.2), _pad("3", 19.5, 11.1, 2.2, 1.0), _pad("4", 19.5, 8.9, 2.2, 1.0),

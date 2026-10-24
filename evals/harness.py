@@ -4,6 +4,7 @@
   uv run python evals/harness.py score <run_dir>                 # re-score saved runs, no agent calls
   uv run python evals/harness.py compare <run_dir> [--baseline evals/baseline.json]
   uv run python evals/harness.py baseline <run_dir>              # save run aggregate as the new baseline
+  uv run python evals/harness.py platform run|get|wait|report|promote   # the same on the platform (evals/remote.py)
 
 The agent runs through `claude -p` (the logged-in subscription). The product person is a second
 `claude -p` session that answers only from the fixture's hidden spec. Scoring is deterministic:
@@ -17,7 +18,6 @@ import json
 import os
 import re
 import shutil
-import statistics
 import subprocess
 import sys
 import time
@@ -25,172 +25,19 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
+from hwharness.agent import (  # noqa: F401  (re-exported for the callers of the old module)
+    CALL_TIMEOUT, LIMIT_RE, MODEL_KEYS, USAGE_KEYS, _add_usage, _limit_wait_seconds, _usage, claude, designer_args,
+    headless_env, model_usage_delta)
+from hwharness.evals.cards import evidence_from_project, score_card  # the card is shared with the platform
+from hwharness.evals.report import aggregate, baseline_aggregate, compare_lines  # noqa: F401
+from hwharness.evals.report import compare as compare_rows
+from hwharness.evals.simulator import PM_PROMPT  # noqa: F401  (the persona is shared with the platform)
 
 ROOT = Path(__file__).resolve().parents[1]
 DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?(done|blocked)\b", re.I | re.M)  # explicit final status line only
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
 PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "sonnet")
-CALL_TIMEOUT = int(os.environ.get("HWFLOW_CALL_TIMEOUT", str(6 * 3600)))  # one designer turn can run hours
-
-# Every headless call (this harness, ui/server.py, scripts/hw-run.sh) uses the same lean context. Project
-# settings only: no user plugins, skills, agents or hooks (about 9k tokens instead of 18.5k on every request).
-# No MCP servers, a fixed tool set, and auto-compact at 400k tokens instead of the default window of about 1M.
-# Keep these flags identical for every --resume of a session, or the prompt cache misses.
-AUTOCOMPACT_WINDOW = os.environ.get("HWFLOW_AUTOCOMPACT_WINDOW", "400000")
-DESIGNER_TOOLS = "Bash,Read,Write,Edit,Agent,Skill,WebSearch,WebFetch"
-LEAN_ARGS = ["--setting-sources", "project,local", "--strict-mcp-config"]
-USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
-
-
-def headless_env(headless: bool = True) -> dict:
-    env = dict(os.environ)
-    env.pop("ANTHROPIC_API_KEY", None)  # always use the subscription login
-    for k in ("CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT", "CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_CHILD_SESSION",
-              "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_MESSAGING_SOCKET",
-              "CLAUDE_CODE_MESSAGING_TOKEN"):
-        env.pop(k, None)  # launched from a Claude Code session: its effort would override the agents' `effort:`
-    env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = AUTOCOMPACT_WINDOW  # takes precedence over every settings file
-    # Subagents default to a 5 min prompt cache. A hwflow build (routing, Monte Carlo) often idles longer, so the
-    # next turn would write the whole subagent context again. 1h keeps it cached across a build.
-    env.setdefault("CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL", "1h")
-    if headless:
-        env["HWFLOW_HEADLESS"] = "1"
-    return env
-
-
-def designer_args(model: str) -> list[str]:
-    """Flags of a designer call after `claude -p <prompt>`; HWFLOW_EFFORT (low..max) sets the session effort."""
-    args = ["--model", model, *LEAN_ARGS, "--tools", DESIGNER_TOOLS, "--permission-mode", "acceptEdits"]
-    if os.environ.get("HWFLOW_EFFORT"):
-        args += ["--effort", os.environ["HWFLOW_EFFORT"]]
-    return args
-
-
-PM_PROMPT = """You are the product manager in a hardware project. You are not an engineer.
-Answer the engineer's questions using ONLY the facts below. Keep each answer to one or two sentences.
-Rules, in this order:
-1. A number in the facts (size, cost, battery life, current, accuracy) is a hard limit. Keep it, unless a
-   preference rule in the facts says you may relax it, and the engineer showed numbers that prove the conflict.
-2. If the engineer proves a conflict and the facts give a preference rule, follow that rule exactly.
-3. If the engineer proves a conflict and no rule covers it, answer: "That limit is firm. Find a solution
-   inside it, or tell me the smallest change you need and its cost." Do not accept a relaxed limit yourself.
-4. If a question is not covered by the facts, answer "No preference, use your judgment."
-Never invent new requirements. Answer every question by its id, as "q1: ...".
-
-FACTS:
-{spec}
-"""
-
-
-LIMIT_RE = re.compile(r"usage limit|hit your limit|rate limit|limit reached|resets? (at )?\d|overloaded|529", re.I)
-
-
-def _limit_wait_seconds(text: str) -> int:
-    """Seconds until the subscription window resets, from the CLI message; 15 min when unknown."""
-    m = re.search(r"\|(\d{10})", text)  # "Claude AI usage limit reached|1792170000"
-    if m:
-        return max(60, int(m.group(1)) - int(time.time()) + 60)
-    m = re.search(r"resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text, re.I)
-    if m:
-        h, mi = int(m.group(1)), int(m.group(2) or 0)
-        if m.group(3):
-            h = h % 12 + (12 if m.group(3).lower() == "pm" else 0)
-        now = time.localtime()
-        target = time.mktime((now.tm_year, now.tm_mon, now.tm_mday, h, mi, 0, 0, 0, -1))
-        if target <= time.time():
-            target += 86400
-        return int(target - time.time()) + 60
-    return 900
-
-
-def claude(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,
-           headless: bool = True, timeout: int | None = None, log: Path | None = None) -> dict:
-    """claude -p with automatic waiting when the subscription usage window is exhausted."""
-    for _ in range(48):
-        out = _claude_once(prompt, model, cwd, resume, system, headless, timeout or CALL_TIMEOUT, log)
-        text = str(out.get("result", ""))
-        if out.get("is_error") and LIMIT_RE.search(text) and "TIMEOUT" not in text:
-            wait = _limit_wait_seconds(text)
-            print(f"{time.strftime('%H:%M')} usage limit: waiting {wait // 60} min for the window to refresh",
-                  flush=True)
-            if log:
-                with open(log, "a") as fh:
-                    fh.write(json.dumps({"event": "limit_wait", "seconds": wait, "msg": text[:300]}) + "\n")
-            time.sleep(wait)
-            resume = out.get("session_id") or resume
-            continue
-        return out
-    return out
-
-
-def _claude_once(prompt: str, model: str, cwd: Path, resume: str | None = None, system: str | None = None,
-           headless: bool = True, timeout: int = CALL_TIMEOUT, log: Path | None = None) -> dict:
-    if system:  # the product person: no tools, no project context
-        cmd = ["claude", "-p", prompt, "--model", model, *LEAN_ARGS, "--system-prompt", system, "--tools", "",
-               "--effort", os.environ.get("HWFLOW_PM_EFFORT", "low")]
-    else:
-        cmd = ["claude", "-p", prompt, *designer_args(model)]
-    cmd += ["--output-format", "json"]
-    if resume:
-        cmd += ["--resume", resume]
-    env = headless_env(headless)
-    t0 = time.time()
-    try:
-        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
-        try:
-            out = json.loads(p.stdout)
-        except json.JSONDecodeError:
-            out = {"is_error": True, "result": p.stdout[-2000:] + p.stderr[-2000:]}
-    except subprocess.TimeoutExpired:
-        out = {"is_error": True, "result": f"TIMEOUT after {timeout}s", "session_id": resume}
-    out["_seconds"] = round(time.time() - t0, 1)
-    if log:
-        with open(log, "a") as fh:
-            fh.write(json.dumps({"prompt": prompt[:500], "model": model, "result": str(out.get("result"))[:4000],
-                                 "cost": out.get("total_cost_usd"), "turns": out.get("num_turns"),
-                                 "usage": _usage(out), "seconds": out["_seconds"]}) + "\n")
-    return out
-
-
-def _usage(out: dict) -> dict:
-    u = out.get("usage") or {}
-    return {k: u.get(k) or 0 for k in USAGE_KEYS}
-
-
-MODEL_KEYS = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
-
-
-def model_usage_delta(prev: dict | None, cur: dict) -> dict:
-    """`modelUsage` of a resumed session is cumulative (checked against the session transcripts: the second turn
-    reported the running total of both turns, subagents included). Return this turn's share."""
-    cur = {(u.get("canonicalModel") or m): {k: u.get(k) or 0 for k in MODEL_KEYS} for m, u in (cur or {}).items()}
-    if not prev:
-        return cur
-    out = {m: {k: v[k] - (prev.get(m) or {}).get(k, 0) for k in MODEL_KEYS} for m, v in cur.items()}
-    if any(x < 0 for v in out.values() for x in v.values()):  # not cumulative after all (new session): use as is
-        return cur
-    return out
-
-
-def _add_usage(meta: dict, out: dict, chain: str | None = None):
-    """Token totals of a trial; on a subscription these, not cost_usd, are what the usage window counts.
-    `chain` names a resumed session (its modelUsage is cumulative); None for one-shot calls."""
-    tok = meta.setdefault("tokens", dict.fromkeys(USAGE_KEYS, 0))
-    for k, v in _usage(out).items():
-        tok[k] = tok.get(k, 0) + v
-    by_model = meta.setdefault("tokens_by_model", {})  # main session and subagents, per model
-    prev = meta.setdefault("_model_usage_seen", {}).get(chain) if chain else None
-    cur = model_usage_delta(prev, out.get("modelUsage") or {})
-    if chain:
-        meta["_model_usage_seen"][chain] = {m: {k: (prev or {}).get(m, {}).get(k, 0) + v[k] for k in MODEL_KEYS}
-                                            for m, v in cur.items()} | {m: v for m, v in (prev or {}).items()
-                                                                        if m not in cur}
-    for m, v in cur.items():
-        t = by_model.setdefault(m, {})
-        for k in MODEL_KEYS:
-            t[k] = t.get(k, 0) + v[k]
-
 
 # ------------------------------------------------------------------ one trial
 
@@ -302,29 +149,12 @@ def find_session(tdir: Path) -> str | None:
 
 # ------------------------------------------------------------------ deterministic scoring
 
-def _text(proj: Path, names) -> str:
-    out = []
-    for n in names:
-        p = proj / n
-        if p.exists():
-            out.append(p.read_text(errors="replace"))
-    return "\n".join(out).lower()
-
-
-def _hit(text: str, group: list) -> bool:
-    return any(str(k).lower() in text for k in group)
-
-
 def score_trial(tdir: Path, fx: dict) -> dict:
     proj = tdir / "proj"
     meta = json.loads((tdir / "meta.json").read_text()) if (tdir / "meta.json").exists() else {}
     _fid, _model, _tr = tdir.name.split("__")  # the folder name is the source of truth
-    card: dict = {"fixture": fx["id"], "model": meta.get("model") or _model,
-                  "trial": meta.get("trial") or int(_tr.lstrip("t"))}
-    has_design = (proj / "design.yaml").exists()
-    card["has_design"] = has_design
-    sc = {}
-    if has_design:
+    timeout = False
+    if (proj / "design.yaml").exists():
         shutil.rmtree(proj / "build", ignore_errors=True)  # never trust the agent's own build
         import signal
         proc = subprocess.Popen([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
@@ -334,88 +164,23 @@ def score_trial(tdir: Path, fx: dict) -> dict:
         except subprocess.TimeoutExpired:
             os.killpg(proc.pid, signal.SIGKILL)  # the build and every ngspice it started
             proc.wait()
-            card["build_timeout"] = True  # stages not finished in time score as missing (0 points)
+            timeout = True  # stages not finished in time score as missing (0 points)
             subprocess.run([sys.executable, "-m", "hwflow.cli", "report", str(proj)], cwd=ROOT,
                            capture_output=True, text=True, timeout=300)
-        sp = proj / "build" / "status.json"
-        sc = json.loads(sp.read_text()).get("score", {}) if sp.exists() else {}
-    card.update({f"m_{k}": v for k, v in sc.items()})
-    text = _text(proj, ["requirements.yaml", "conflicts.md", "architecture.md", "SUMMARY.md", "state.md"])
-    conf_text = _text(proj, ["conflicts.md", "requirements.yaml", "architecture.md"])
-    for q in sorted((proj / "inbox").glob("questions_round*.json")):  # conflicts raised with the PM count too
-        conf_text += "\n" + q.read_text(errors="replace").lower()
-    pc = fx.get("planted_conflicts") or []
-    found = [c["id"] for c in pc if all(_hit(conf_text, g) for g in c["keywords"])]
-    er = fx.get("expected_requirements") or []
-    req_hits = sum(_hit(text, g) for g in er)
-    lim = fx.get("limits") or {}
-
-    def ok(v, f):
-        return v is not None and f(v)
-
-    pts = {
-        "design_exists": 5 * has_design,
-        "erc_clean": 10 * ok(sc.get("erc_errors"), lambda v: v == 0),
-        "drc_clean": 10 * ok(sc.get("drc_errors"), lambda v: v == 0),
-        "routed": 10 * ok(sc.get("unrouted"), lambda v: v == 0),
-        "sim_pass": 15 * (sc.get("sim_pass_ratio") or 0),
-        "post_pass": 10 * (sc.get("post_pass_ratio") or 0),
-        "req_coverage": 10 * (req_hits / len(er) if er else 1.0),
-        "req_verified": 10 * (1 - (sc.get("req_unverified") or 0) / sc["req_total"] if sc.get("req_total") else 0),
-        "conflicts": 15 * (len(found) / len(pc) if pc else 1.0),
-        "area_ok": 2.5 * ok(sc.get("area_mm2"), lambda v: v <= lim.get("max_area_mm2", 1e9)),
-        "cost_ok": 2.5 * ok(sc.get("cost_usd"), lambda v: 0 < v <= lim.get("max_cost_usd", 1e9)),
-    }
-    card.update({"points": {k: round(v, 2) for k, v in pts.items()}, "score": round(sum(pts.values()), 2),
-                 "conflicts_found": found, "req_hits": req_hits, **{k: meta.get(k) for k in
-                                                                     ("questions", "rounds", "designer_calls",
-                                                                      "cost_usd", "seconds", "tokens",
-                                                                      "tokens_by_model")}})
+    ev = evidence_from_project(proj, meta, build_timeout=timeout)
+    card = score_card(ev, fx, model=meta.get("model") or _model, trial=meta.get("trial") or int(_tr.lstrip("t")))
     (tdir / "score.json").write_text(json.dumps(card, indent=1))
     return card
 
 
-# ------------------------------------------------------------------ aggregation
-
-def aggregate(cards: list[dict]) -> dict:
-    groups: dict[str, list] = {}
-    for c in cards:
-        groups.setdefault(f"{c['fixture']}::{c['model']}", []).append(c)
-    out = {}
-    for k, cs in sorted(groups.items()):
-        s = [c["score"] for c in cs]
-        out[k] = {"n": len(s), "mean": round(statistics.mean(s), 2),
-                  "std": round(statistics.stdev(s), 2) if len(s) > 1 else 0.0, "min": min(s), "max": max(s),
-                  "points": {p: round(statistics.mean(c["points"][p] for c in cs), 2) for p in cs[0]["points"]},
-                  "questions": round(statistics.mean(c.get("questions") or 0 for c in cs), 1),
-                  "seconds": round(statistics.mean(c.get("seconds") or 0 for c in cs), 0),
-                  "cost_usd_equiv": round(statistics.mean(c.get("cost_usd") or 0 for c in cs), 3),
-                  "tokens_k": {k: round(statistics.mean((c.get("tokens") or {}).get(k, 0) for c in cs) / 1e3)
-                               for k in USAGE_KEYS}}
-    models = sorted({c["model"] for c in cards})
-    out["_overall"] = {m: round(statistics.mean(c["score"] for c in cards if c["model"] == m), 2) for m in models}
-    return out
-
+# ------------------------------------------------------------------ aggregation (hwharness.evals.report)
 
 def load_cards(run_dir: Path) -> list[dict]:
     return [json.loads(p.read_text()) for p in sorted(run_dir.glob("*/score.json"))]
 
 
 def compare(agg: dict, base: dict) -> list[str]:
-    lines = []
-    for k, v in agg.items():
-        if k.startswith("_") or k not in base:
-            continue
-        b = base[k]
-        delta = v["mean"] - b["mean"]
-        tol = max(5.0, 2 * max(v["std"], b["std"]))
-        tag = "REGRESSION" if delta < -tol else "IMPROVED" if delta > tol else "same"
-        lines.append(f"{k:<34} {b['mean']:6.1f} -> {v['mean']:6.1f}  ({delta:+.1f}, tol {tol:.1f})  {tag}")
-        for p, pv in v["points"].items():
-            bp = b["points"].get(p, 0)
-            if abs(pv - bp) >= 2:
-                lines.append(f"    {p:<16} {bp:6.1f} -> {pv:6.1f}")
-    return lines
+    return compare_lines(compare_rows(agg, baseline_aggregate(base)))
 
 
 def main():
@@ -435,7 +200,12 @@ def main():
         p.add_argument("run_dir")
         p.add_argument("--only", default="")
         p.add_argument("--baseline", default=str(ROOT / "evals" / "baseline.json"))
+    import remote  # evals/remote.py: the same evaluations on the hosted platform (issue #19)
+
+    remote.add_parser(sub)
     a = ap.parse_args()
+    if a.cmd == "platform":
+        sys.exit(remote.command(a))
     fixtures = {p.stem: yaml.safe_load(p.read_text()) for p in sorted(FIX.glob("*.yaml"))}
     if a.cmd == "run":
         sel = list(fixtures) if a.fixtures == "all" else a.fixtures.split(",")

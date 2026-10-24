@@ -1,5 +1,5 @@
 """Removal of dangling router leftovers (prune.py)."""
-from hwflow import prune
+from hwflow.layout.route import prune
 
 
 def _t(x1, y1, x2, y2, net="SW", layer="F.Cu"):
