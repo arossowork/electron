@@ -1,0 +1,2113 @@
+{
+  "source_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "model_sha256": "a3cc1610165d57ebb306608e2c7dcb53753948e9e80e075cf4075e91632acff1",
+  "candidate_override": false,
+  "limits": {
+    "dc_fault_v": 1.0,
+    "dc_trip_deadline_s": 1.5,
+    "corner_dc_trip_deadline_s": 2.0,
+    "rail_fault_v": 9.0,
+    "rail_trip_deadline_s": 0.2,
+    "minimum_clear_dc_v": 0.15,
+    "audio_vrms": 4.0,
+    "audio_hz": 20.0,
+    "relay_release_assumption_s": 0.02,
+    "relay_operate_s": 0.003,
+    "opa_disable_max_v": 0.65,
+    "logic_ioff_a": 1e-05,
+    "logic_input_leakage_a": 5e-06,
+    "comparator_bias_a": 5e-08,
+    "comparator_offset_v": 0.0055,
+    "clamp_leakage_max_a": 8e-08,
+    "filter_cap_leakage_envelope_a": 5e-07,
+    "arm_cap_leakage_envelope_a": 1e-06
+  },
+  "static": {
+    "amp_enable_ioff_bound_v": 0.1,
+    "amp_disabled_at_vcc_zero": true,
+    "relay_base_ioff_bound_v": 0.1,
+    "relay_base_below_0p2v": true,
+    "coil_nominal_ohm": 237,
+    "coil_max_current_5p25v_a": 0.02461322081575246,
+    "opa_enable_and_contacts_pinmap_checked": true,
+    "logic_source_urls_match_mpn": true
+  },
+  "dc_corners": {
+    "lower_output_trip_v": [
+      -0.9114478106004529,
+      -0.24326199020898548
+    ],
+    "upper_output_trip_v": [
+      0.2571333442855416,
+      0.8354451246749977
+    ],
+    "minimum_differential_dc_gain": 0.043898417222944075,
+    "resistor_rail_corner_count": 32768,
+    "lower_comparator_clearance_v": 0.011453493431771397,
+    "upper_comparator_clearance_v": 0.011297835786597469,
+    "filter_leakage_a": 5.8e-07,
+    "reference_cap_leakage_a": 1e-07,
+    "scope": "all14 independent1%R endpoints;3.0/3.6V;independent0..50nA on8 comparator inputs;\u00b15.5mV offset;independent\u00b1580nA/filter plus0..100nA reference-cap leakage"
+  },
+  "checks": [
+    {
+      "name": "power_off_amp_enable_pulldown",
+      "passed": true,
+      "details": 0.1
+    },
+    {
+      "name": "power_off_relay_base_pulldown",
+      "passed": true,
+      "details": 0.1
+    },
+    {
+      "name": "startup",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "audio",
+      "passed": true,
+      "details": 0.020564195484673364
+    },
+    {
+      "name": "ready_drop_command_off",
+      "passed": true,
+      "details": 26.0
+    },
+    {
+      "name": "latched_fault_and_rearm",
+      "passed": true,
+      "details": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.7995,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.525,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_ARM",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 29.0,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 44.4255,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 44.4255,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 44.8655,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 44.869,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ]
+    },
+    {
+      "name": "power_off_command_off",
+      "passed": true,
+      "details": 26.0
+    },
+    {
+      "name": "brownout_command_off",
+      "passed": true,
+      "details": 26.0
+    },
+    {
+      "name": "L_-9V_fault",
+      "passed": true,
+      "details": 0.05999999999999872
+    },
+    {
+      "name": "L_-1V_fault",
+      "passed": true,
+      "details": 0.7970000000000006
+    },
+    {
+      "name": "L_+1V_fault",
+      "passed": true,
+      "details": 0.7789999999999999
+    },
+    {
+      "name": "L_+9V_fault",
+      "passed": true,
+      "details": 0.058499999999998664
+    },
+    {
+      "name": "R_-9V_fault",
+      "passed": true,
+      "details": 0.05999999999999872
+    },
+    {
+      "name": "R_-1V_fault",
+      "passed": true,
+      "details": 0.7970000000000006
+    },
+    {
+      "name": "R_+1V_fault",
+      "passed": true,
+      "details": 0.7789999999999999
+    },
+    {
+      "name": "R_+9V_fault",
+      "passed": true,
+      "details": 0.058499999999998664
+    },
+    {
+      "name": "early_startup",
+      "passed": true,
+      "details": 6.307
+    },
+    {
+      "name": "late_startup",
+      "passed": true,
+      "details": 36.9995
+    },
+    {
+      "name": "dc_threshold_corner_clearance",
+      "passed": true,
+      "details": {
+        "lower_output_trip_v": [
+          -0.9114478106004529,
+          -0.24326199020898548
+        ],
+        "upper_output_trip_v": [
+          0.2571333442855416,
+          0.8354451246749977
+        ],
+        "minimum_differential_dc_gain": 0.043898417222944075,
+        "resistor_rail_corner_count": 32768,
+        "lower_comparator_clearance_v": 0.011453493431771397,
+        "upper_comparator_clearance_v": 0.011297835786597469,
+        "filter_leakage_a": 5.8e-07,
+        "reference_cap_leakage_a": 1e-07,
+        "scope": "all14 independent1%R endpoints;3.0/3.6V;independent0..50nA on8 comparator inputs;\u00b15.5mV offset;independent\u00b1580nA/filter plus0..100nA reference-cap leakage"
+      }
+    },
+    {
+      "name": "dc_threshold_corner_detects_1V",
+      "passed": true,
+      "details": {
+        "lower_output_trip_v": [
+          -0.9114478106004529,
+          -0.24326199020898548
+        ],
+        "upper_output_trip_v": [
+          0.2571333442855416,
+          0.8354451246749977
+        ],
+        "minimum_differential_dc_gain": 0.043898417222944075,
+        "resistor_rail_corner_count": 32768,
+        "lower_comparator_clearance_v": 0.011453493431771397,
+        "upper_comparator_clearance_v": 0.011297835786597469,
+        "filter_leakage_a": 5.8e-07,
+        "reference_cap_leakage_a": 1e-07,
+        "scope": "all14 independent1%R endpoints;3.0/3.6V;independent0..50nA on8 comparator inputs;\u00b15.5mV offset;independent\u00b1580nA/filter plus0..100nA reference-cap leakage"
+      }
+    },
+    {
+      "name": "20Hz_minC_leakage_corner",
+      "passed": true,
+      "details": 0.018624357352820198
+    },
+    {
+      "name": "20Hz_all_start_phases_and_cap_corners",
+      "passed": true,
+      "details": {
+        "method": "independent fourteen resistor endpoint corners; exact complex modal response, any stereo starting phase, interpolation and infinite-tail bounds",
+        "earliest_arm_s": 4.618884916668936,
+        "corners": [
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 0.5,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009148307192145749,
+            "infinite_tail_bound_v": 0.0047896195798963846,
+            "startup_residual_bound_at_earliest_arm_v": 2.9791193413283077e-05,
+            "startup_plus_audio_bound_v": 0.009163246078399929,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.00214952859445172,
+            "minimum_startup_audio_margin_v": 0.0021488736517241425,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 0.5,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.008972042443519844,
+            "infinite_tail_bound_v": 0.004698806964088073,
+            "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336443,
+            "startup_plus_audio_bound_v": 0.009238529394026564,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0023718902868791383,
+            "minimum_startup_audio_margin_v": 0.002214964037744834,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 1.2,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.008972042443519845,
+            "infinite_tail_bound_v": 0.004698806964088073,
+            "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336425,
+            "startup_plus_audio_bound_v": 0.00923852939402656,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.00237189028687914,
+            "minimum_startup_audio_margin_v": 0.0022149640377448375,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 1.2,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.003873493315776927,
+            "infinite_tail_bound_v": 0.0022572870917783724,
+            "startup_residual_bound_at_earliest_arm_v": 0.004733170212654638,
+            "startup_plus_audio_bound_v": 0.008465961445668484,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.007424342470820541,
+            "minimum_startup_audio_margin_v": 0.0029875319861029136,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 0.5,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009132917817206371,
+            "infinite_tail_bound_v": 0.004752450921962083,
+            "startup_residual_bound_at_earliest_arm_v": 3.355297255670189e-05,
+            "startup_plus_audio_bound_v": 0.00915559803112918,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0021649179693910975,
+            "minimum_startup_audio_margin_v": 0.0021642295711698047,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 0.5,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+            "infinite_tail_bound_v": 0.004709012515651194,
+            "startup_residual_bound_at_earliest_arm_v": 0.004015960745755569,
+            "startup_plus_audio_bound_v": 0.009322331623232184,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0022828332483517642,
+            "minimum_startup_audio_margin_v": 0.0021311618085392134,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 1.2,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+            "infinite_tail_bound_v": 0.004709012515651194,
+            "startup_residual_bound_at_earliest_arm_v": 0.004015960745755557,
+            "startup_plus_audio_bound_v": 0.009322331623232183,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0022828332483517642,
+            "minimum_startup_audio_margin_v": 0.002131161808539215,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 1.2,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.0038669459749830844,
+            "infinite_tail_bound_v": 0.0022440572946003296,
+            "startup_residual_bound_at_earliest_arm_v": 0.004871943876247031,
+            "startup_plus_audio_bound_v": 0.008598698218261522,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.007430889811614385,
+            "minimum_startup_audio_margin_v": 0.002854795213509875,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          }
+        ],
+        "passed": true,
+        "startup_passed": true
+      }
+    },
+    {
+      "name": "fast_arm_slow_filter_all_audio_phases",
+      "passed": true,
+      "details": {
+        "method": "independent fourteen resistor endpoint corners; exact complex modal response, any stereo starting phase, interpolation and infinite-tail bounds",
+        "earliest_arm_s": 4.618884916668936,
+        "corners": [
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 0.5,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009148307192145749,
+            "infinite_tail_bound_v": 0.0047896195798963846,
+            "startup_residual_bound_at_earliest_arm_v": 2.9791193413283077e-05,
+            "startup_plus_audio_bound_v": 0.009163246078399929,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.00214952859445172,
+            "minimum_startup_audio_margin_v": 0.0021488736517241425,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 0.5,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.008972042443519844,
+            "infinite_tail_bound_v": 0.004698806964088073,
+            "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336443,
+            "startup_plus_audio_bound_v": 0.009238529394026564,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0023718902868791383,
+            "minimum_startup_audio_margin_v": 0.002214964037744834,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 1.2,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.008972042443519845,
+            "infinite_tail_bound_v": 0.004698806964088073,
+            "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336425,
+            "startup_plus_audio_bound_v": 0.00923852939402656,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.00237189028687914,
+            "minimum_startup_audio_margin_v": 0.0022149640377448375,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 0.5,
+              "C241": 1.2,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.003873493315776927,
+            "infinite_tail_bound_v": 0.0022572870917783724,
+            "startup_residual_bound_at_earliest_arm_v": 0.004733170212654638,
+            "startup_plus_audio_bound_v": 0.008465961445668484,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.007424342470820541,
+            "minimum_startup_audio_margin_v": 0.0029875319861029136,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 0.5,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009132917817206371,
+            "infinite_tail_bound_v": 0.004752450921962083,
+            "startup_residual_bound_at_earliest_arm_v": 3.355297255670189e-05,
+            "startup_plus_audio_bound_v": 0.00915559803112918,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0021649179693910975,
+            "minimum_startup_audio_margin_v": 0.0021642295711698047,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 0.5,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+            "infinite_tail_bound_v": 0.004709012515651194,
+            "startup_residual_bound_at_earliest_arm_v": 0.004015960745755569,
+            "startup_plus_audio_bound_v": 0.009322331623232184,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0022828332483517642,
+            "minimum_startup_audio_margin_v": 0.0021311618085392134,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 1.2,
+              "C242": 0.5
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+            "infinite_tail_bound_v": 0.004709012515651194,
+            "startup_residual_bound_at_earliest_arm_v": 0.004015960745755557,
+            "startup_plus_audio_bound_v": 0.009322331623232183,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.0022828332483517642,
+            "minimum_startup_audio_margin_v": 0.002131161808539215,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          },
+          {
+            "cap_factors": {
+              "C240": 1.2,
+              "C241": 1.2,
+              "C242": 1.2
+            },
+            "independent_resistor_corners": 16384,
+            "max_audio_excursion_including_interpolation_v": 0.0038669459749830844,
+            "infinite_tail_bound_v": 0.0022440572946003296,
+            "startup_residual_bound_at_earliest_arm_v": 0.004871943876247031,
+            "startup_plus_audio_bound_v": 0.008598698218261522,
+            "earliest_arm_s": 4.618884916668936,
+            "conservative_dc_clearance_v": 0.011297835786597469,
+            "minimum_audio_margin_v": 0.007430889811614385,
+            "minimum_startup_audio_margin_v": 0.002854795213509875,
+            "passed": true,
+            "startup_all_audio_start_times_passed": true
+          }
+        ],
+        "passed": true,
+        "startup_passed": true
+      }
+    },
+    {
+      "name": "corner_fault_latency",
+      "passed": true,
+      "details": {
+        "case_count": 64,
+        "max_1v_trip_s": 1.6146533185173042,
+        "max_9v_trip_s": 0.09909908253361736,
+        "scope": "selected R endpoints,1.2C,\u00b15.5mV and\u00b1580nA; nonlinear clamp begins after cutoff"
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "kind": "startup",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "audio",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": 0.020564195484673364,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "ready_drop",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 26.0,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 26.0205,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_ARM",
+          "high": false
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "rearm",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.7995,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.525,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_ARM",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 29.0,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 44.4255,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 44.4255,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 44.8655,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 44.869,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "power_off",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 26.0,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 26.0205,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 26.05,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 26.05,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_ARM",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_OK",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "brownout",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 26.0,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 26.0,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 26.0205,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 26.089,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 26.089,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_ARM",
+          "high": false
+        },
+        {
+          "t_s": 26.124,
+          "net": "DC_OK",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": false,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "L",
+      "fault_v": -9.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.06,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.08,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 25.6695,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "L",
+      "fault_v": -1.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.797,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.8175,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.5145,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "L",
+      "fault_v": 1.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.7995,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.525,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "L",
+      "fault_v": 9.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.0585,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.0785,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 25.676,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "R",
+      "fault_v": -9.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.06,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.06,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.08,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 25.6695,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "R",
+      "fault_v": -1.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.797,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.797,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.8175,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.5145,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "R",
+      "fault_v": 1.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.779,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.7995,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 23.525,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "fault",
+      "channel": "R",
+      "fault_v": 9.0,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.8945,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        },
+        {
+          "t_s": 20.0585,
+          "net": "DC_OK_RAW",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "DC_OK",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "AMP_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "RELAY_ENABLE",
+          "high": false
+        },
+        {
+          "t_s": 20.0585,
+          "net": "RELAY_COIL_CMD",
+          "high": false
+        },
+        {
+          "t_s": 20.0785,
+          "net": "CONTACTS_CLOSED",
+          "high": false
+        },
+        {
+          "t_s": 25.676,
+          "net": "DC_OK_RAW",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": true,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": false,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "startup",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 2.7165,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 6.261,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 6.261,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 6.3035,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 6.307,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "startup",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.132,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 35.7145,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 35.7145,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 36.9965,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 36.9995,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": null,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    },
+    {
+      "kind": "audio",
+      "channel": "L",
+      "fault_v": 1,
+      "rail_v": 3.3,
+      "events": [
+        {
+          "t_s": 0.0,
+          "net": "DC_OK",
+          "high": true
+        },
+        {
+          "t_s": 0.1,
+          "net": "AMP_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 1.14,
+          "net": "DC_OK_RAW",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "DC_ARM",
+          "high": true
+        },
+        {
+          "t_s": 17.4905,
+          "net": "RELAY_ENABLE",
+          "high": true
+        },
+        {
+          "t_s": 17.9305,
+          "net": "RELAY_COIL_CMD",
+          "high": true
+        },
+        {
+          "t_s": 17.934,
+          "net": "CONTACTS_CLOSED",
+          "high": true
+        }
+      ],
+      "audio_margin_v": 0.018624357352820198,
+      "latch_held_after_fault_clear": false,
+      "clamp_region_entered_s": null,
+      "all_rail_states_qualified": true,
+      "final_contacts_closed": true,
+      "relay_release_assumption_s": 0.02
+    }
+  ],
+  "phase_envelope": {
+    "method": "independent fourteen resistor endpoint corners; exact complex modal response, any stereo starting phase, interpolation and infinite-tail bounds",
+    "earliest_arm_s": 4.618884916668936,
+    "corners": [
+      {
+        "cap_factors": {
+          "C240": 0.5,
+          "C241": 0.5,
+          "C242": 0.5
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.009148307192145749,
+        "infinite_tail_bound_v": 0.0047896195798963846,
+        "startup_residual_bound_at_earliest_arm_v": 2.9791193413283077e-05,
+        "startup_plus_audio_bound_v": 0.009163246078399929,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.00214952859445172,
+        "minimum_startup_audio_margin_v": 0.0021488736517241425,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 0.5,
+          "C241": 0.5,
+          "C242": 1.2
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.008972042443519844,
+        "infinite_tail_bound_v": 0.004698806964088073,
+        "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336443,
+        "startup_plus_audio_bound_v": 0.009238529394026564,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.0023718902868791383,
+        "minimum_startup_audio_margin_v": 0.002214964037744834,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 0.5,
+          "C241": 1.2,
+          "C242": 0.5
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.008972042443519845,
+        "infinite_tail_bound_v": 0.004698806964088073,
+        "startup_residual_bound_at_earliest_arm_v": 0.0038934281135336425,
+        "startup_plus_audio_bound_v": 0.00923852939402656,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.00237189028687914,
+        "minimum_startup_audio_margin_v": 0.0022149640377448375,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 0.5,
+          "C241": 1.2,
+          "C242": 1.2
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.003873493315776927,
+        "infinite_tail_bound_v": 0.0022572870917783724,
+        "startup_residual_bound_at_earliest_arm_v": 0.004733170212654638,
+        "startup_plus_audio_bound_v": 0.008465961445668484,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.007424342470820541,
+        "minimum_startup_audio_margin_v": 0.0029875319861029136,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 1.2,
+          "C241": 0.5,
+          "C242": 0.5
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.009132917817206371,
+        "infinite_tail_bound_v": 0.004752450921962083,
+        "startup_residual_bound_at_earliest_arm_v": 3.355297255670189e-05,
+        "startup_plus_audio_bound_v": 0.00915559803112918,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.0021649179693910975,
+        "minimum_startup_audio_margin_v": 0.0021642295711698047,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 1.2,
+          "C241": 0.5,
+          "C242": 1.2
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+        "infinite_tail_bound_v": 0.004709012515651194,
+        "startup_residual_bound_at_earliest_arm_v": 0.004015960745755569,
+        "startup_plus_audio_bound_v": 0.009322331623232184,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.0022828332483517642,
+        "minimum_startup_audio_margin_v": 0.0021311618085392134,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 1.2,
+          "C241": 1.2,
+          "C242": 0.5
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.009037968268717412,
+        "infinite_tail_bound_v": 0.004709012515651194,
+        "startup_residual_bound_at_earliest_arm_v": 0.004015960745755557,
+        "startup_plus_audio_bound_v": 0.009322331623232183,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.0022828332483517642,
+        "minimum_startup_audio_margin_v": 0.002131161808539215,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      },
+      {
+        "cap_factors": {
+          "C240": 1.2,
+          "C241": 1.2,
+          "C242": 1.2
+        },
+        "independent_resistor_corners": 16384,
+        "max_audio_excursion_including_interpolation_v": 0.0038669459749830844,
+        "infinite_tail_bound_v": 0.0022440572946003296,
+        "startup_residual_bound_at_earliest_arm_v": 0.004871943876247031,
+        "startup_plus_audio_bound_v": 0.008598698218261522,
+        "earliest_arm_s": 4.618884916668936,
+        "conservative_dc_clearance_v": 0.011297835786597469,
+        "minimum_audio_margin_v": 0.007430889811614385,
+        "minimum_startup_audio_margin_v": 0.002854795213509875,
+        "passed": true,
+        "startup_all_audio_start_times_passed": true
+      }
+    ],
+    "passed": true,
+    "startup_passed": true
+  },
+  "fault_corners": {
+    "case_count": 64,
+    "max_1v_trip_s": 1.6146533185173042,
+    "max_9v_trip_s": 0.09909908253361736,
+    "scope": "selected R endpoints,1.2C,\u00b15.5mV and\u00b1580nA; nonlinear clamp begins after cutoff"
+  },
+  "limitations": [
+    "not a vendor comparator, logic, relay or OPA1622 model",
+    "0<Vcc<1.65V logic behavior unqualified",
+    "20ms relay release is bench acceptance assumption, not guaranteed with SS14 flyback",
+    "BAS116forwardclamp1.5V envelope requires selected diode/temperature check;80nAmax covers150C",
+    "MLCC effective C>=50% nominal and arm capacitor leakage<=1uA must be demonstrated for selected order codes",
+    "U206 earliest VT+>=1.88V across3.0..3.6V;latest<=2.29*Vcc/3;characterization envelope, guaranteed data only at3V",
+    "U209 input leakage5uA and BAS316reverse30uA treated independently;forward discharge0.6V remains approximate",
+    "fault waveforms imposed before relay and persist regardless of amplifier shutdown; silicon shutdown transient not modeled"
+  ],
+  "passive_spice": {
+    "ngspice_exit": 0,
+    "max_exact_zoh_vs_spice_error_v": 0.0004359417773333041,
+    "agreement_within_0p003v": true,
+    "nodes": [
+      "DC_FILTER_L",
+      "DC_FILTER_R",
+      "SENSE_L",
+      "SENSE_R",
+      "VREF_1V65",
+      "VTH_HI",
+      "VTH_LO"
+    ],
+    "dt_s": 0.0005,
+    "spice_max_step_s": 0.0001,
+    "scope": "passive startup and20Hz; clamp diodes inactive",
+    "dc_v": [
+      1.0275441676078392,
+      1.0275441676078392,
+      1.3482099209763896,
+      1.3482099209763896,
+      1.412471594998143,
+      1.3730646398348818,
+      1.3224151249865586
+    ],
+    "audio_steady_peak_v": [
+      0.013637067266853936,
+      0.013637067266853936,
+      0.0024208871849232963,
+      0.0024208871849232963,
+      0.0005662217573483281,
+      0.0005504245721282474,
+      0.0005301205480276458
+    ]
+  },
+  "passed": true
+}

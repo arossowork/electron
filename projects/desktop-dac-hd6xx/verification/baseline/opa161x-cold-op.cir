@@ -1,0 +1,19 @@
+* OPA1622 validation: opa161x_op_-2.82843
+.include "../../lib/spice/opa161x_ti.lib"
+VPOS VPOS 0 9
+VNEG VNEG 0 -9
+VIN IN 0 -2.82842712474619
+RFB OUT FB 10k
+RG FB 0 10k
+RL OUT 0 2k
+XU IN FB VPOS VNEG OUT OPA161x
+.control
+set noaskquit
+set numdgt=15
+set wr_singlescale
+set wr_vecnames
+op
+wrdata result.dat v(out)
+quit
+.endc
+.end

@@ -13,7 +13,7 @@ Current circuit capture and validation status are in `notes/analog-circuit.md` a
 
 USB interface → ES9039Q2M plus its required analog output stage → dual-gang volume control → OPA1622 stereo headphone stage → 6.35 mm TRS jack. Use an external regulated 5 V DC adapter as the provisional supply source. A TPS65131 split-rail converter can generate approximately +9 V and −9 V for the OPA1622 from 5 V; its specified input range is 2.7–5.5 V. Keep the switching converter and return-current loop away from the DAC inputs and headphone output, then verify whether rail filtering is needed. Final power sharing with the USB interface and DAC must avoid tying the host’s USB VBUS to the adapter output.
 
-OPA1622 is a candidate, not a locked part. TI specifies a dual audio amplifier, ±2 V to ±18 V operation, 10 V/µs typical slew rate, and low noise. Its VSON exposed thermal pad must connect to VEE (the negative rail), so package mapping and layout need explicit verification.
+OPA1622 is the selected revision-A headphone driver. TI specifies a dual audio amplifier, ±2 V to ±18 V operation, 10 V/µs typical slew rate, and low noise. Its VSON exposed thermal pad must connect to VEE (the negative rail), so package mapping and layout need explicit verification.
 
 ## Electrical target and gain
 
@@ -27,7 +27,7 @@ Hold the OPA1622 disabled by default. Enable only after the rails and DAC output
 
 ## Open validation before schematic freeze
 
-Confirm the chosen DAC’s full-scale voltage, output impedance, power and interface compatibility; confirm the USB/adapter power and ground arrangement; verify OPA1622 symbol, footprint, pin mapping and VEE thermal-pad connection from TI and KiCad libraries; verify TPS65131 reference topology, output capability and switching-noise filtering; choose and verify the jack, pot and relay footprints; and price the assembled enclosure/PSU/BOM against the prototype budget. Simulate the amplifier at 300 Ω and build/measure both channels at 20 Hz, 1 kHz and 20 kHz, including clipping, distortion, startup transient, DC fault response and temperature. The component-level circuit has now been captured, pin/footprint mappings checked, and its generated schematic passed ERC with zero errors. The attempted amplifier simulation did not converge; no physical circuit or measured output result exists.
+Confirm the chosen DAC’s full-scale voltage, output impedance, power and interface compatibility; confirm the USB/adapter power and ground arrangement; verify OPA1622 symbol, footprint, pin mapping and VEE thermal-pad connection from TI and KiCad libraries; verify TPS65131 reference topology, output capability and switching-noise filtering; choose and verify the jack, pot and relay footprints; and price the assembled enclosure/PSU/BOM against the prototype budget. Simulate the amplifier at 300 Ω and build/measure both channels at 20 Hz, 1 kHz and 20 kHz, including clipping, distortion, startup transient, DC fault response and temperature. The component-level circuit has now been captured, pin/footprint mappings checked, and its generated schematic passed ERC with zero errors. The amplifier models now converge with explicit PSpice parsing, and the focused and source-derived analog-chain checks pass; see `notes/model-repair.md`. No physical circuit or measured hardware output result exists.
 
 ## Primary references
 

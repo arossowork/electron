@@ -1,0 +1,11 @@
+# Reproducible raw output; compact source-bound results are versioned.
+/audio-chain-run/
+/integrated-probe/
+/protection-passive.dat
+/power-waveforms.csv
+/protection-candidate-results.json
+# Integration scratch and pre-run snapshot; design.yaml is authoritative.
+/power-patch.json
+/protection-patch.json
+/protection-final-delta.json
+/layout-source-before.yaml

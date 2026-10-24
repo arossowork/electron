@@ -1,3 +1,4 @@
+* Run: ngspice -n -D ngbehavior=ps -b opa1622-op.cir
 * Standalone single-channel TI OPA1622 macromodel DC operating-point isolation
 .include ../lib/spice/opa1622_ti.lib
 VPOS VPOS 0 DC 9

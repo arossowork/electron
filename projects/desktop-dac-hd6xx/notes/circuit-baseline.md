@@ -1,5 +1,7 @@
 # Circuit checkpoint and measured gates
 
+> Historical checkpoint before the simulation/protection repairs. Current results are in [../SUMMARY.md](../SUMMARY.md), [model-repair.md](model-repair.md), [power-validation.md](power-validation.md), and [layout-validation.md](layout-validation.md).
+
 2026-10-24. This is a circuit/feasibility checkpoint, not the frozen cold/warm/local-edit routing comparison. Source is `design.yaml`; temporary parallel-authoring fragments have been merged and removed.
 
 ## Input and environment

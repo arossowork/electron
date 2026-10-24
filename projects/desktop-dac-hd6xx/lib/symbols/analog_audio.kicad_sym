@@ -22,4 +22,19 @@
 			(pin passive line (at -12.7 -5.08 0) (length 5.08) (name "COIL-" (effects (font (size 1.016 1.016)))) (number "8" (effects (font (size 1.016 1.016)))))
 		)
 	)
+
+  (symbol "BAS116"
+    (exclude_from_sim no) (in_bom yes) (on_board yes)
+    (property "Reference" "D" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "BAS116" (at 0 -3.81 0) (effects (font (size 1.27 1.27))))
+    (property "Footprint" "Package_TO_SOT_SMD:SOT-23" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/BAS116.pdf" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Description" "Nexperia BAS116 low-leakage diode; physical SOT23 pins A=1 NC=2 K=3" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+    (symbol "BAS116_0_1"
+      (polyline (pts (xy -1.27 1.27) (xy 1.27 0) (xy -1.27 -1.27) (xy -1.27 1.27)) (stroke (width 0.254) (type default)) (fill (type none)))
+      (polyline (pts (xy 1.27 1.27) (xy 1.27 -1.27)) (stroke (width 0.254) (type default)) (fill (type none))))
+    (symbol "BAS116_1_1"
+      (pin passive line (at -5.08 0 0) (length 3.81) (name "A" (effects (font (size 1.016 1.016)))) (number "1" (effects (font (size 1.016 1.016)))))
+      (pin no_connect line (at 0 -2.54 90) (length 1.27) (name "NC" (effects (font (size 1.016 1.016)))) (number "2" (effects (font (size 1.016 1.016)))))
+      (pin passive line (at 5.08 0 180) (length 3.81) (name "K" (effects (font (size 1.016 1.016)))) (number "3" (effects (font (size 1.016 1.016)))))))
 )

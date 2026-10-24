@@ -1,0 +1,379 @@
+{
+  "design_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "selected_components": {
+    "U200": {
+      "value": "OPA1612 left channel",
+      "mpn": "OPA1612AIDR",
+      "datasheet": "https://www.ti.com/lit/ds/symlink/opa1612.pdf",
+      "symbol": "Amplifier_Operational:OPA1612AxD",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "spice": {
+        "lib": "lib/spice/analog_wrappers.lib",
+        "subckt": "OPA1612_DUAL",
+        "ports": [
+          "3",
+          "2",
+          "1",
+          "5",
+          "6",
+          "7",
+          "8",
+          "4"
+        ],
+        "source": "vendor"
+      },
+      "group": "analog",
+      "pins": {
+        "3": "GND",
+        "2": "AINV_L",
+        "1": "AOUT_L",
+        "5": "DAC_L_P",
+        "6": "DAC_L_N",
+        "7": "BOUT_L",
+        "8": "VPOS",
+        "4": "VNEG"
+      }
+    },
+    "U202": {
+      "value": "OPA1622",
+      "mpn": "OPA1622IDRCR",
+      "datasheet": "https://www.ti.com/lit/ds/symlink/opa1622.pdf",
+      "symbol": "Amplifier_Audio:OPA1622",
+      "footprint": "Package_SON:Texas_S-PVSON-N10",
+      "spice": {
+        "lib": "lib/spice/analog_wrappers.lib",
+        "subckt": "OPA1622_DUAL",
+        "ports": [
+          "1",
+          "10",
+          "9",
+          "5",
+          "6",
+          "7",
+          "2",
+          "4",
+          "8",
+          "3",
+          "11"
+        ],
+        "source": "vendor"
+      },
+      "group": "analog",
+      "pins": {
+        "1": "VOL_L",
+        "10": "FB_L",
+        "9": "AMP_L",
+        "5": "VOL_R",
+        "6": "FB_R",
+        "7": "AMP_R",
+        "2": "VPOS",
+        "4": "VNEG",
+        "8": "AMP_ENABLE",
+        "3": "GND",
+        "11": "VNEG"
+      }
+    },
+    "R200": {
+      "value": "3.6k",
+      "mpn": "thin-film 0603 0.1% 3.6k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "DAC_L_P",
+        "2": "AOUT_L"
+      }
+    },
+    "R201": {
+      "value": "3.6k",
+      "mpn": "thin-film 0603 0.1% 3.6k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "DAC_L_P",
+        "2": "AOUT_L"
+      }
+    },
+    "R202": {
+      "value": "3.6k",
+      "mpn": "thin-film 0603 0.1% 3.6k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "DAC_L_N",
+        "2": "BOUT_L"
+      }
+    },
+    "R203": {
+      "value": "3.6k",
+      "mpn": "thin-film 0603 0.1% 3.6k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "DAC_L_N",
+        "2": "BOUT_L"
+      }
+    },
+    "R204": {
+      "value": "4.7k",
+      "mpn": "thin-film 0603 0.1% 4.7k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "AOUT_L",
+        "2": "AINV_L"
+      }
+    },
+    "R205": {
+      "value": "4.7k",
+      "mpn": "thin-film 0603 0.1% 4.7k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "AINV_L",
+        "2": "BOUT_L"
+      }
+    },
+    "R206": {
+      "value": 140,
+      "mpn": "thin-film 0603 0.1% 140R",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "AOUT_L",
+        "2": "DAC_L_BAL"
+      }
+    },
+    "R207": {
+      "value": 140,
+      "mpn": "thin-film 0603 0.1% 140R",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "BOUT_L",
+        "2": "DAC_SE_L"
+      }
+    },
+    "C200": {
+      "value": "510pF",
+      "mpn": "C0G 0603 510pF 50V",
+      "symbol": "Device:C",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "analog",
+      "voltage_rating_v": 50,
+      "pins": {
+        "1": "DAC_L_P",
+        "2": "AOUT_L"
+      }
+    },
+    "C201": {
+      "value": "510pF",
+      "mpn": "C0G 0603 510pF 50V",
+      "symbol": "Device:C",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "analog",
+      "voltage_rating_v": 50,
+      "pins": {
+        "1": "DAC_L_N",
+        "2": "BOUT_L"
+      }
+    },
+    "C202": {
+      "value": "10pF",
+      "mpn": "C0G 0603 10pF 50V",
+      "symbol": "Device:C",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "analog",
+      "voltage_rating_v": 50,
+      "pins": {
+        "1": "AOUT_L",
+        "2": "AINV_L"
+      }
+    },
+    "C203": {
+      "value": "2.2nF",
+      "mpn": "C0G 0603 2.2nF 50V",
+      "symbol": "Device:C",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "analog",
+      "voltage_rating_v": 50,
+      "pins": {
+        "1": "DAC_L_BAL",
+        "2": "GND"
+      }
+    },
+    "C204": {
+      "value": "2.2nF",
+      "mpn": "C0G 0603 2.2nF 50V",
+      "symbol": "Device:C",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "analog",
+      "voltage_rating_v": 50,
+      "pins": {
+        "1": "DAC_SE_L",
+        "2": "GND"
+      }
+    },
+    "R240": {
+      "value": "10k",
+      "mpn": "0603 1% 10k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "AMP_L",
+        "2": "FB_L"
+      }
+    },
+    "R241": {
+      "value": "10k",
+      "mpn": "0603 1% 10k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "FB_L",
+        "2": "GND"
+      }
+    },
+    "R242": {
+      "value": "10k",
+      "mpn": "0603 1% 10k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "AMP_R",
+        "2": "FB_R"
+      }
+    },
+    "R243": {
+      "value": "10k",
+      "mpn": "0603 1% 10k",
+      "symbol": "Device:R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "analog",
+      "pins": {
+        "1": "FB_R",
+        "2": "GND"
+      }
+    },
+    "J200": {
+      "value": "Stereo volume potentiometer panel header (CW, wiper, CCW per gang)",
+      "symbol": "Connector_Generic:Conn_01x06",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "spice": false,
+      "pins": {
+        "1": "DAC_SE_L",
+        "2": "VOL_L",
+        "3": "GND",
+        "4": "DAC_SE_R",
+        "5": "VOL_R",
+        "6": "GND"
+      },
+      "placement": {
+        "x": 58,
+        "y": 76,
+        "rot": 90,
+        "fixed": true
+      },
+      "group": "controls"
+    }
+  },
+  "wrapper_sha256": {
+    "analog_wrappers.lib": "f84be53c52387ef16732457ffa2b8c21eaf9809b62b25d9054f7f71141ae2be8"
+  },
+  "model_sha256": {
+    "opa161x_ti.lib": "c86df5d4b2d26ec196c0a6158a61004a6747aec5440fcc2031674ad62a448ef7",
+    "opa1622_ti.lib": "9dfaf17ed53e37d8930376f042379e828d96bc7d10349fed0dc058daf695223e"
+  },
+  "cases": {
+    "opa161x_dc_+0": {
+      "input_v": 0,
+      "output_v": 0.0005478662892133861
+    },
+    "opa161x_dc_-2.82843": {
+      "input_v": -2.82842712474619,
+      "output_v": -5.656287516415173
+    },
+    "opa161x_dc_+2.82843": {
+      "input_v": 2.82842712474619,
+      "output_v": 5.657383248993647
+    },
+    "opa161x_sine_20": {
+      "gain": 1.9999933357296151,
+      "output_rms_v": 3.999986671459231,
+      "offset_v": 0.000547866289612453
+    },
+    "opa161x_sine_1000": {
+      "gain": 1.9999936760969301,
+      "output_rms_v": 3.999987352193859,
+      "offset_v": 0.0005478490571078125
+    },
+    "opa161x_sine_20000": {
+      "gain": 2.0000013940334758,
+      "output_rms_v": 4.000002788066948,
+      "offset_v": 0.0005478609688091881
+    },
+    "opa161x_iq": {
+      "offset_v": 0.0001005690492841573,
+      "iq_a": 0.003600035109006626
+    },
+    "chain_20_rail_9": {
+      "rail_v": 9,
+      "volume_rms_v": 1.9723888306766837,
+      "output_rms_v": 3.9447753596736153,
+      "output_offset_v": 0.012178604071473293,
+      "dac_input_commonmode_min_v": 1.800031754166855,
+      "dac_input_commonmode_max_v": 1.800155909430623
+    },
+    "chain_1000_rail_9": {
+      "rail_v": 9,
+      "volume_rms_v": 1.972352423724216,
+      "output_rms_v": 3.944702910699476,
+      "output_offset_v": 0.012178598592390115,
+      "dac_input_commonmode_min_v": 1.799581578312252,
+      "dac_input_commonmode_max_v": 1.800579583253974
+    },
+    "chain_20000_rail_9": {
+      "rail_v": 9,
+      "volume_rms_v": 1.9579949321587886,
+      "output_rms_v": 3.9161329970563568,
+      "output_offset_v": 0.012178451273395674,
+      "dac_input_commonmode_min_v": 1.790833095392228,
+      "dac_input_commonmode_max_v": 1.809257471025123
+    },
+    "chain_20_rail_8.1": {
+      "rail_v": 8.1,
+      "volume_rms_v": 1.9723888306766861,
+      "output_rms_v": 3.944775359673616,
+      "output_offset_v": 0.012177769116172658,
+      "dac_input_commonmode_min_v": 1.800031672182336,
+      "dac_input_commonmode_max_v": 1.800155663435485
+    },
+    "chain_1000_rail_8.1": {
+      "rail_v": 8.1,
+      "volume_rms_v": 1.972352423724214,
+      "output_rms_v": 3.944702910699473,
+      "output_offset_v": 0.012177763637421839,
+      "dac_input_commonmode_min_v": 1.799581496296359,
+      "dac_input_commonmode_max_v": 1.800579337299351
+    },
+    "chain_20000_rail_8.1": {
+      "rail_v": 8.1,
+      "volume_rms_v": 1.9579949321378536,
+      "output_rms_v": 3.916132997014179,
+      "output_offset_v": 0.012177616516949485,
+      "dac_input_commonmode_min_v": 1.790833026295716,
+      "dac_input_commonmode_max_v": 1.80925737611965
+    }
+  },
+  "passed": true
+}
