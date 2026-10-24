@@ -1,0 +1,24 @@
+# The VPS deploy (issue #17), on top of values-reduced.yaml. Nothing secret and no host name in here: the public
+# URL and the operator tenant id go in a values file kept on the VPS (docs/platform-k8s.md "Deploy on the VPS").
+#   helm upgrade --install hwp deploy/helm/hwflow-platform -n hwflow \
+#     -f values-reduced.yaml -f values-vps.yaml -f /root/hwflow-platform/values-local.yaml --wait --timeout 15m
+#
+# Namespace `hwflow`, not `hwflow-platform`: the operator's Claude subscription token already lives there (Secret
+# hwflow-claude, key token), and a pod can only mount a Secret of its own namespace. Installing next to it means the
+# token is never read or copied. The chart's NetworkPolicies select only the release's pods, so the old `hwflow` UI
+# Deployment in the same namespace is not affected.
+
+images:
+  api: {tag: 1f2e7b9}
+  web: {tag: 1f2e7b9-platform}   # web/Dockerfile --build-arg WEB_BASE=/platform/ (served under /platform/)
+  worker: {tag: 389638a}   # main after #59 (JRE 25)
+  agent: {tag: 1f2e7b9}
+
+# The worker serves /livez and /readyz on 8081 (hwplatform.workers.main), so the probes can be on.
+worker:
+  probes: {enabled: true}
+
+agent:
+  # k8s_secret adapter (ADR 0001 7.6): mounted read-only at /var/run/secrets/hwflow/agent/token, only for the
+  # tenants of subscriptionTenantIds (set in values-local.yaml to the operator tenant, nothing else).
+  operatorCredential: {secretName: hwflow-claude, key: token, type: subscription_token}

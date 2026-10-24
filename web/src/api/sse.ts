@@ -150,7 +150,7 @@ export async function follow(o: FollowOptions): Promise<void> {
       const tok = o.getToken();
       if (tok) headers.authorization = `Bearer ${tok}`;
       if (parser.lastEventId) headers["last-event-id"] = parser.lastEventId;
-      const r = await f(`/api/v1${o.path}`, { headers, signal: o.signal });
+      const r = await f(`${import.meta.env.BASE_URL}api/v1${o.path}`, { headers, signal: o.signal });
       if (r.status === 401 && o.refresh && !refreshed) {
         refreshed = true;
         if (await o.refresh()) continue;

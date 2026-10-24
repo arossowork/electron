@@ -8,7 +8,9 @@ WORKDIR /repo/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
-RUN npm run build
+# Path prefix of the app (docs/platform-k8s.md): --build-arg WEB_BASE=/platform/ behind the VPS host nginx.
+ARG WEB_BASE=/
+RUN npm run build -- --base "$WEB_BASE"
 
 FROM nginxinc/nginx-unprivileged:1.29.3-alpine-slim
 ENV API_UPSTREAM=http://api:8080 \
