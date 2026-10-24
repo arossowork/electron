@@ -8,7 +8,7 @@ Two images exist. This page is about the first one.
 | platform worker `hwplatform-worker` | `deploy/images/worker.Dockerfile` | the hosted platform's tool workers (ADR 0001 section 4.2): engine, kicad-cli, ngspice, KRT, optional Freerouting; no Claude CLI, no UI. See `docs/platform-k8s.md`, section Worker image |
 
 `docker/Dockerfile` builds one x86_64 image with everything `scripts/setup.sh` installs on a Mac: KiCad 10.0.7
-(`kicad-cli` with matching symbol and footprint libraries, no 3D models), ngspice 42, OpenJDK 21 with Freerouting
+(`kicad-cli` with matching symbol and footprint libraries, no 3D models), ngspice 42, OpenJDK 25 with Freerouting
 2.5.0, KiCadRoutingTools at a pinned commit with its prebuilt Rust router, uv, the Claude Code CLI, and this
 repository with its venv in `/opt/venv`. Every tool path is set by environment variable (`KICAD_CLI`, `KICAD_SHARE`,
 `FREEROUTING`, `JAVA`, `KRT_DIR`), so no code change is needed. Commands run under `xvfb-run`, so
