@@ -10,6 +10,7 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 - `.claude/skills/hw-design/`: the orchestrator skill (`/hw-design`).
 - `.claude/agents/`: specialist subagents (requirements, HW/SW partition, architect, parts, circuit, reviewer, layout, firmware).
 - `projects/<name>/`: one folder per product. `examples/` holds reference designs.
+- `harness/` (package `hwharness`, uv workspace member): `claude -p` sessions (`hwharness.agent`), the product-person protocol (`hwharness.protocol`: approval, conflicts, inbox) and the eval scorer. It registers hooks in the engine through `hwflow.pipeline.hooks`; the engine never imports it.
 - `evals/`: the evaluation harness (fixtures, product-person simulator, scorer, baseline).
 - `ui/`: the local web UI that drives `claude -p` sessions.
 - `tools/`: KiCadRoutingTools (the router) and the Freerouting jar (fallback). KiCad is in `~/Applications/KiCad`.

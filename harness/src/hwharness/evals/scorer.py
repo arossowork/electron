@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 
-from ..design import Design
-from .status import _fresh_status
+from hwflow.design import Design
+from hwflow.pipeline.status import _fresh_status
 
 
-# Temporary home: issue #4 moves this to the harness package.
 def score(d: Design) -> dict:
     """Deterministic scorecard used by evals."""
     s = _fresh_status(d)

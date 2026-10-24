@@ -6,7 +6,7 @@ import json
 import time
 
 from ..design import Design
-from .score import score
+from .hooks import registry
 from .status import _design_hash, _out, _save_status, _stale_stages, _status
 from .trace import trace
 
@@ -32,7 +32,7 @@ def _sim_verdict(c: dict) -> str:
 
 def write_report(d: Design, history: bool = False) -> str:
     """Rewrite build/REPORT.md. Results of an older design stay in the report, marked (stale), and make the
-    verdict FAIL; trace and score use fresh results only. With `history`, the report is also kept in
+    verdict FAIL; trace and the report extras use fresh results only. With `history`, the report is also kept in
     build/history/ and summarized in build/history.jsonl."""
     t = trace(d)
     if t["total"]:
@@ -220,17 +220,20 @@ def write_report(d: Design, history: bool = False) -> str:
     L.insert(3, "")
     text = "\n".join(L) + "\n"
     (_out(d) / "REPORT.md").write_text(text)
-    sc = score(d)
-    _save_status(d, "score", sc)
+    extras = []
+    for h in registry().report_extras:
+        data = h.fn(d)
+        _save_status(d, h.name, data)
+        extras.append((h, data))
     if history:
-        _append_history(d, text, verdict, stale, sc)
+        _append_history(d, text, verdict, stale, extras)
     return text
 
 
 HISTORY_KEEP = 50
 
 
-def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], sc: dict):
+def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], extras: list):
     """One line per build in build/history.jsonl and the full report in build/history/<timestamp>.md (backlog 18)."""
     out = _out(d)
     hd = out / "history"
@@ -241,11 +244,9 @@ def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], 
         n += 1
         name = f"{ts}-{n}.md"
     (hd / name).write_text(text)
-    keys = ("check_errors", "erc_errors", "sim_pass_ratio", "sim_measures", "mc_min_yield", "drc_errors", "unrouted",
-            "post_pass_ratio", "area_mm2", "vias", "cost_usd", "req_total", "req_unverified", "req_failing")
     line = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "design_hash": _design_hash(d),
             "verdict": "PASS" if not verdict else "FAIL: " + "; ".join(verdict), "stale": stale,
-            **{k: sc.get(k) for k in keys}, "report": f"history/{name}"}
+            **{k: data.get(k) for h, data in extras for k in h.history_keys}, "report": f"history/{name}"}
     with open(out / "history.jsonl", "a") as fh:
         fh.write(json.dumps(line, default=str) + "\n")
     for old in sorted(hd.glob("*.md"), key=lambda p: (p.stat().st_mtime, p.name))[:-HISTORY_KEEP]:

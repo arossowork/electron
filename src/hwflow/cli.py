@@ -14,10 +14,10 @@ from .commands.block import cmd_block
 from .commands.em import cmd_em
 from .design import Design
 from .libs import Libs
-from .pipeline.approval import approve
+from .pipeline.hooks import registry
 from .pipeline.report import _fmt, write_report
 from .pipeline.runner import BuildOptions, run_build
-from .pipeline.status import _design_hash, _fresh_status, _out, _save_status, _status
+from .pipeline.status import _design_hash, _fresh_status, _out, _save_status
 from .pipeline.trace import trace
 
 
@@ -143,11 +143,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="hwflow", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     brief = "print only the report lines that changed since the last report, and the verdict"
-    p = sub.add_parser("approve", help="record layers, board size and BOM cost as accepted by the product person")
-    p.add_argument("project"); p.add_argument("--note", default="", help="who accepted it and where (e.g. round 3 q1)")
-    for name in ("check", "sch", "post", "fab", "report", "status"):
+    for name in ("check", "sch", "post", "fab", "report"):
         p = sub.add_parser(name); p.add_argument("project")
-        if name not in ("report", "status"):
+        if name != "report":
             p.add_argument("--brief", action="store_true", help=brief)
     p = sub.add_parser("sim"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--brief", action="store_true", help=brief)
@@ -200,6 +198,8 @@ def main(argv=None):
     p = sub.add_parser("em", help="optional openEMS field-solver run on nets with `em:` set (prototype)")
     p.add_argument("project"); p.add_argument("--net", action="append")
     p.add_argument("--fmax-ghz", type=float); p.add_argument("--cell-mm", type=float)
+    for c in registry().commands.values():  # subcommands registered by extension packages (hwflow.pipeline.hooks)
+        c.add_arguments(sub.add_parser(c.name, help=c.help))
     a = ap.parse_args(argv)
 
     if a.cmd == "em":
@@ -221,14 +221,8 @@ def main(argv=None):
         return cmd_nets(d, a)
     if a.cmd == "trace":
         return cmd_trace(d)
-    if a.cmd == "approve":
-        x = approve(d, a.note)
-        print(f"approved: {x['layers']} layers, {x['width_mm']} x {x['height_mm']} mm, BOM ${x['cost_usd']:.2f} "
-              f"(build/approved.json)")
-        return 0
-    if a.cmd == "status":
-        print(json.dumps(_status(d).get("score", {}), indent=2))
-        return 0
+    if a.cmd in (hooks := registry().commands):  # subcommands registered by extension packages
+        return hooks[a.cmd].run(d, a)
     if a.cmd == "report":
         print(write_report(d))
         return 0

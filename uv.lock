@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "hwflow",
+    "hwharness",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.8.0"
@@ -156,6 +162,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "hwharness" },
     { name = "import-linter" },
     { name = "pytest" },
     { name = "ruff" },
@@ -174,9 +181,25 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "hwharness", editable = "harness" },
     { name = "import-linter", specifier = ">=2.15" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.17.2" },
+]
+
+[[package]]
+name = "hwharness"
+version = "0.1.0"
+source = { editable = "harness" }
+dependencies = [
+    { name = "hwflow" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "hwflow", editable = "." },
+    { name = "pyyaml", specifier = ">=6" },
 ]
 
 [[package]]

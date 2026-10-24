@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from ..design import Design
 from ..libs import Libs
 from ..settings import get_settings
-from .approval import approval_findings
+from .hooks import registry
 from .report import _brief, write_report
 from .stages import (
     _auto_summary,
@@ -49,6 +49,18 @@ class BuildOptions:
     brief: bool = False
 
 
+def _check_hooks_changed(d: Design, prev: dict) -> bool:
+    """The extra check findings of the registered hooks no longer match the last result (their inputs live outside
+    design.yaml)."""
+    reg = registry()
+    if not reg.check_state:
+        return False
+    f: list[dict] = []
+    for h in reg.check_findings:
+        f += h(d)
+    return any(prev.get(k) != v for s in reg.check_state for k, v in s(d, f).items())
+
+
 def _can_skip(d: Design, st: str, prev, inputs: str, mc: int = 0) -> bool:
     """A stage is skipped when it passed last time with the same inputs and its outputs are still there."""
     if not isinstance(prev, dict) or not prev.get("ok") or "exception" in prev or prev.get("inputs_hash") != inputs:
@@ -61,7 +73,7 @@ def _can_skip(d: Design, st: str, prev, inputs: str, mc: int = 0) -> bool:
         return False
     if st == "sim" and mc and prev.get("mc_runs") != mc:
         return False
-    if st == "check" and prev.get("approval") != approval_findings(d):  # approved.json, conflicts.md, inbox
+    if st == "check" and _check_hooks_changed(d, prev):
         return False
     return True
 

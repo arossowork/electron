@@ -1,15 +1,14 @@
-"""Approval records and findings."""
+"""The product-person protocol: approved baseline, conflicts.md and the inbox (questions and answers)."""
 
 from __future__ import annotations
 
 import json
 import time
 
-from ..design import Design
-from .status import _design_hash, _out
+from hwflow.design import Design
+from hwflow.pipeline.status import _design_hash, _out
 
 
-# Temporary home: issue #4 moves this to the harness package.
 APPROVAL_DEFAULTS = {"cost_pct": 5.0, "size_mm": 0.5}
 
 

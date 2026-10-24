@@ -16,8 +16,15 @@ dependencies = [
 [project.scripts]
 hwflow = "hwflow.cli:main"
 
+[tool.uv.workspace]
+members = ["harness"]
+
+[tool.uv.sources]
+hwharness = { workspace = true }
+
 [dependency-groups]
 dev = [
+    "hwharness",
     "import-linter>=2.15",
     "pytest>=8",
     "ruff>=0.17.2",
@@ -28,7 +35,7 @@ requires = ["uv_build>=0.11.15,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "harness/tests"]
 markers = ["slow: end-to-end builds and router or DRC runs over 15 s (`pytest -m \"not slow\"` skips them)"]
 
 [tool.ruff]
@@ -41,15 +48,15 @@ select = ["E", "F", "W"]
 ignore = ["E501", "E701", "E702", "E731", "E741", "F841"]  # F841/E731: existing code, cleaned up later
 
 [tool.importlinter]
-root_package = "hwflow"
+root_packages = ["hwflow", "hwharness"]
 include_external_packages = true
 
 # Report-only start: contracts that are true today. Import cycles are all lazy (function-level), see docs/import-graph.md.
 [[tool.importlinter.contracts]]
-name = "hwflow does not depend on the harness, the UI or the evals"
+name = "hwflow does not depend on hwharness, the UI or the evals"
 type = "forbidden"
 source_modules = ["hwflow"]
-forbidden_modules = ["harness", "ui", "evals"]
+forbidden_modules = ["hwharness", "harness", "ui", "evals"]
 
 [[tool.importlinter.contracts]]
 name = "hwflow.cli is not imported by the engine modules"

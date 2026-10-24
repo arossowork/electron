@@ -23,7 +23,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run ruff check src tests evals ui scripts
+      - run: uv run ruff check src harness tests evals ui scripts
       - run: uv run lint-imports
 
   test:

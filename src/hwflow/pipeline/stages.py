@@ -14,16 +14,21 @@ from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute, spice
 from ..design import Design, check
 from ..libs import Libs
 from ..settings import get_settings
-from .approval import approval_findings
+from .hooks import registry
 from .status import _block_files, _design_hash, _inputs_hash, _out, _status
 
 
 def stage_check(d: Design, libs: Libs) -> dict:
-    f = check(d, libs) + approval_findings(d)
+    reg = registry()
+    f = check(d, libs)
+    for h in reg.check_findings:
+        f += h(d)
     errs = [x for x in f if x["sev"] == "error"]
     warns = [x for x in f if x["sev"] == "warn"]
-    return {"ok": not errs, "errors": len(errs), "warnings": len(warns), "findings": f,
-            "approval": [x for x in f if x["code"] == "approval"]}
+    res = {"ok": not errs, "errors": len(errs), "warnings": len(warns), "findings": f}
+    for s in reg.check_state:
+        res.update(s(d, f))
+    return res
 
 
 def stage_sch(d: Design, libs: Libs) -> dict:
