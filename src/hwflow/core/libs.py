@@ -162,7 +162,10 @@ class Libs:
                 continue
             lib = f.name.split(".")[0]
             try:
-                names = self._sym_lib(lib)
+                # Uncached parse: one library tree in memory at a time. Through the lru_cache every parsed library
+                # stayed alive and building the index of the stock KiCad libraries peaked at about 2.4 GB, which
+                # OOM-killed the 1.5 GiB worker pod on the VPS (#17).
+                names = Libs._sym_lib.__wrapped__(self, lib)
             except Exception:  # noqa: BLE001
                 continue
             for n, s in names.items():
