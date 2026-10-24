@@ -71,17 +71,22 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - name: System tools (KiCad, ngspice, Java for Freerouting)
+      - if: steps.need.outputs.run == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"  # the 2.5.0 jar is class version 69 (Java 25); JRE 21 cannot load it
+      - name: System tools (KiCad, ngspice, Freerouting)
         if: steps.need.outputs.run == 'true'
         run: |
           sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice openjdk-21-jre-headless
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
           mkdir -p "$HOME/tools"
           curl -fsSL -o "$HOME/tools/freerouting.jar" \
             "https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar"
           echo "FREEROUTING=$HOME/tools/freerouting.jar" >> "$GITHUB_ENV"
-          echo "JAVA=/usr/lib/jvm/java-21-openjdk-amd64/bin/java" >> "$GITHUB_ENV"
+          echo "JAVA=$JAVA_HOME/bin/java" >> "$GITHUB_ENV"
       - if: steps.need.outputs.run == 'true'
         run: uv sync --frozen
       # exit code 5 means no slow test could run (all skipped or deselected): not a failure here
