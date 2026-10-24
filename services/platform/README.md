@@ -15,7 +15,11 @@ src/hwplatform/
   logredact.py     log record factory that redacts sk-ant-... patterns
   tenancy.py       TenantContext + repositories; every query filters by ctx.tenant_id
   security.py      argon2id passwords, JWT access tokens, opaque refresh tokens
-  storage.py       object keys tenants/<tenant_id>/... (S3 use comes with #10/#12)
+  storage.py       object keys tenants/<tenant_id>/...; S3ArtifactStore (boto3), one instance per tenant (#6)
+  contracts.py     ArtifactRef/ArtifactStore and Run/RunStore types from ADR 0001 (until hwflow.artifacts/runs land)
+  runs.py          PgRunStore: runs, stages, artifact refs, project state, manifest export (#7)
+  ids.py           uuid7()
+  events/          Event (CloudEvents envelope), outbox.emit(), relay.Relay (outbox -> NATS JetStream) (#11)
   auth/backend.py  AuthBackend interface (authenticate a bearer token -> Principal)
   auth/local.py    LocalAuthBackend: signup + e-mail verification, login, refresh (rotating), logout
   auth/ratelimit.py  AuthGuard: sliding-window limits and lockout in Postgres (#26)
@@ -23,10 +27,10 @@ src/hwplatform/
   mail.py          EmailSender interface; dev sender logs to stdout; no SMTP in M1
   purge.py         hwplatform-purge: expired/revoked tokens, old rate-limit rows
   api/             FastAPI app, routes under /api/v1
-  migrations/      Alembic; 0001_tenancy creates tables, RLS policies and grants
+  migrations/      Alembic; 0001_tenancy creates tables, RLS policies and grants; 0004_runs, 0005_outbox (#7, #11)
 ```
 
-Stack: FastAPI, SQLAlchemy 2 (async, asyncpg), Alembic, pydantic v2, argon2-cffi, PyJWT. Postgres 17 from `deploy/compose/platform.yaml`.
+Stack: FastAPI, SQLAlchemy 2 (async, asyncpg), Alembic, pydantic v2, argon2-cffi, PyJWT, boto3 (S3), nats-py (JetStream). Postgres 17, SeaweedFS and NATS from `deploy/compose/platform.yaml`.
 
 Endpoints (`/api/v1`, OpenAPI at `/docs`):
 
@@ -56,11 +60,15 @@ export HWPLATFORM_MIGRATION_DATABASE_URL=postgresql+asyncpg://hwflow:<HWFLOW_DB_
 export HWPLATFORM_DATABASE_URL=postgresql+asyncpg://hwflow_app:<HWFLOW_APP_DB_PASSWORD>@127.0.0.1:15432/hwflow
 export HWPLATFORM_JWT_SECRET=$(openssl rand -hex 32)
 export HWPLATFORM_MASTER_KEY=$(openssl rand -base64 32)   # BYOK key encryption; keep it, losing it loses all stored keys
-uv run --package hwplatform hwplatform-migrate           # alembic upgrade head, as the owner role
-uv run --package hwplatform hwplatform-api               # uvicorn on 127.0.0.1:8080 (HWPLATFORM_HOST/PORT)
+export HWPLATFORM_RELAY_DATABASE_URL=postgresql+asyncpg://hwflow_relay:<HWFLOW_RELAY_DB_PASSWORD>@127.0.0.1:15432/hwflow
+export HWPLATFORM_S3_ENDPOINT_URL=http://127.0.0.1:8333 HWPLATFORM_S3_ACCESS_KEY=<S3_ACCESS_KEY> HWPLATFORM_S3_SECRET_KEY=<S3_SECRET_KEY>
+export HWPLATFORM_NATS_URL=nats://127.0.0.1:4222
+uv run --package hwplatform hwplatform-migrate           # alembic upgrade head (owner role) + creates the JetStream stream
+uv run --package hwplatform hwplatform-api               # uvicorn on 127.0.0.1:8080 (HWPLATFORM_HOST/PORT); runs the outbox relay
+uv run --package hwplatform hwplatform-relay             # the relay alone (then HWPLATFORM_RELAY_ENABLED=false on the API)
 ```
 
-The `hwflow_app` role is created by `deploy/compose/postgres-init.sh`, which only runs on an empty volume. A volume created before this change lacks it: `scripts/platform.sh down -v && scripts/platform.sh up`, or create it by hand (`CREATE ROLE hwflow_app LOGIN PASSWORD '...'`) and run the migration again.
+The `hwflow_app` and `hwflow_relay` roles are created by `deploy/compose/postgres-init.sh`, which only runs on an empty volume (set `HWFLOW_RELAY_DB_PASSWORD` in `.env`, see `.env.example`). A volume created before this change lacks them: `scripts/platform.sh down -v && scripts/platform.sh up`, or create them by hand (`CREATE ROLE hwflow_app LOGIN PASSWORD '...'`, same for `hwflow_relay`) and run the migration again.
 
 ## Tests
 
@@ -70,7 +78,7 @@ uv run --package hwplatform pytest -q          # unit + integration
 uv run --package hwplatform ruff check . && uv run --package hwplatform ruff format --check .
 ```
 
-Integration tests (marker `integration`) use the compose Postgres, not testcontainers: one Postgres is already part of the dev stack and CI runs the same image as a service container. They read `HWPLATFORM_TEST_OWNER_URL` and `HWPLATFORM_TEST_APP_URL` (plain `postgresql://` URLs; defaults match `.env.example` on port 15432) and skip cleanly when the database does not answer. They reset the schema (`downgrade base`, `upgrade head`) at session start, so never point them at a database you care about. The root `uv run pytest` does not collect them (root `testpaths = ["tests"]`). CI: `.github/workflows/platform.yml`, which fails if the integration tests were skipped.
+Integration tests (marker `integration`) use the compose stack, not testcontainers: Postgres, SeaweedFS (S3) and NATS are already part of the dev stack and CI starts the same images. They read `HWPLATFORM_TEST_OWNER_URL`, `HWPLATFORM_TEST_APP_URL`, `HWPLATFORM_TEST_RELAY_URL` (plain `postgresql://` URLs; defaults match `.env.example` on port 15432), `HWPLATFORM_TEST_S3_ENDPOINT` / `_S3_ACCESS_KEY` / `_S3_SECRET_KEY` / `_S3_BUCKET` and `HWPLATFORM_TEST_NATS_URL` (defaults: the `.env.example` values, ports 8333 and 4222), and skip cleanly when the service does not answer (the bucket is created if missing). They reset the schema (`downgrade base`, `upgrade head`) at session start, so never point them at a database you care about. The root `uv run pytest` does not collect them (root `testpaths = ["tests"]`). CI: `.github/workflows/platform.yml`, which fails if the integration tests were skipped.
 
 ## Tenancy and row-level security
 
@@ -95,6 +103,49 @@ Policies (`migrations/versions/0001_tenancy.py`), unset context means no rows:
 A new tenant-scoped table needs, in its migration: a `tenant_id` column, `ENABLE` + `FORCE ROW LEVEL SECURITY`, a `tenant_isolation` policy on `app_tenant_id()`, explicit `GRANT`s to the app role, and a repository that filters by `ctx.tenant_id`.
 
 Object storage: `storage.tenant_key(tenant_id, *segments)` builds `tenants/<tenant_id>/...` keys and rejects `/` and `..` in segments; `key_in_tenant()` checks a key a client sends back.
+
+## Object storage: S3ArtifactStore (#6)
+
+`storage.S3ArtifactStore(client, bucket, tenant_id)` implements the `ArtifactStore` protocol of ADR 0001, section 2 on S3 (SeaweedFS in dev, any S3 in production). One instance is bound to one tenant and has no tenant argument, so no call can name another tenant's prefix. Objects live at `tenants/<tenant_id>/artifacts/<sha256>` (built with `tenant_key`); identical bytes of two tenants are two objects. boto3 is used because the protocol is synchronous (activities call it in threads); `make_s3_client(settings)` builds the client (path-style addressing, `HWPLATFORM_S3_*`).
+
+- `put_bytes` / `put_file`: hash, `HeadObject`, upload only if absent, `ContentType` set on the first put (`stat` returns size and media type as first stored). `put_file` reads 8 MiB chunks and uses multipart above 64 MiB (parts of 8 MiB); the upload stream is hashed again on the wire and the object is deleted if the file changed meanwhile. Nothing loads a large file in memory.
+- `expected_sha256=` on both puts: a mismatch raises `ArtifactHashMismatch` and stores nothing.
+- `open(sha)` streams the body (`ArtifactNotFound` if absent); `get_file(sha, dest)` downloads to a temp file in the target directory, verifies the hash, then renames (a corrupt object raises `ArtifactHashMismatch` and leaves nothing behind).
+- `presigned_get_url(sha, expires_s=900, filename=)`: a time-limited GET URL so downloads bypass the API.
+- Network errors and 5xx raise `StoreUnavailable` (retryable); 404 is "absent".
+
+The activity that collects stage outputs registers them in the `artifacts` table (`PgRunStore.register_artifacts`; `upsert_stage` and `set_artifacts` do it too). Not done here (engine side, #6): `hwflow.artifacts` (protocol, `LocalCAS`, trees), the stage declaration and the cache key, `execute_stage`, and the "build passes against S3" test that runs `execute_stage` with this store.
+
+## Runs: PgRunStore (#7)
+
+Migration `0004_runs` creates `design_versions`, `artifacts`, `runs`, `run_stages`, `run_artifacts`, `stage_cache` and `project_state` as in ADR section 3.4 (enums `run_kind`, `run_status`; partial unique index `ux_runs_active_workflow`), each with `tenant_id`, `ENABLE` + `FORCE` RLS, policy `tenant_isolation` and grants to the app role (the app never deletes: rows go with their project or tenant). `contracts.py` holds the ADR types (`Run`, `RunStatus`, `TRANSITIONS`, `StageRecord`, ...) until `hwflow.runs` exists; then it re-exports them.
+
+`runs.PgRunStore(db, tenant_id)` is async and bound to one tenant; every transaction goes through `Database.tx(tenant_id=)`.
+
+| Method | Notes |
+|---|---|
+| `create(run, idempotency_key=, requested_by=)` | UUIDv7 id (`ids.uuid7`), state `queued`, emits `run.queued`; a repeated key returns the first run |
+| `transition(id, to, error=, verdict=, event_data=)` | one `UPDATE ... WHERE status = ANY(allowed_from)`; 0 rows = `InvalidTransition` (or `RunNotFound`); emits `run.started/waiting/resumed/completed/failed/cancelled` |
+| `upsert_stage(id, rec)` | idempotent on `(run_id, key)`; emits `stage.started/completed/failed/skipped` on a status change; a late replay of an earlier state cannot undo a finished stage |
+| `set_artifacts(id, {name: ref})` | `run_artifacts` rows and `runs.artifacts`; `artifact.created` for REPORT.md, board, fab, manifest.json |
+| `append_event(id, type, data)` | catalogue event in its own transaction, returns `seq` |
+| `get`, `list(project, limit, before)` | newest first (UUIDv7 order) |
+| `project_state`, `set_project_state(project, state, run_id)` | an older run never overwrites a newer one |
+| `create_design_version(...)` | per-project `seq`, idempotent on the content hash, emits `design_version.created` |
+| `manifest(id)`, `store_manifest(id, artifact_store)` | `hwflow.run/1` JSON rendered from the rows (`dataclasses.asdict` plus `"schema"`, RFC 3339 UTC, stages in `seq` order), stored as run artifact `manifest.json` |
+
+`status` is about execution; `verdict` (PASS/FAIL) is separate, as in the ADR. Not done here: the JSON Schema `docs/schemas/run-1.json`, `FileRunStore`, `render_status` and `checkout` (engine side, #7), `stage_cache` access (comes with the cache key, #6), the concurrency quota (#19).
+
+## Events and the outbox (#11)
+
+Migration `0005_outbox`: `outbox` (bigserial id, unique `event_id`, tenant, run, `seq`, type, NATS subject, envelope jsonb, `published_at`), `consumed_events` (consumer idempotence) and a statement trigger that does `pg_notify('outbox')`. RLS: `tenant_isolation` for the app role, which may insert and read but never update or delete. The relay connects as the extra role `hwflow_relay` (LOGIN, no BYPASSRLS, created by `postgres-init.sh`): policies `relay_read` and `relay_mark` let it read every tenant's rows and set `published_at`, with grants `SELECT` and `UPDATE (published_at)` only, so it cannot read runs or change an event. The owner role may delete published rows only (`hwplatform-purge` removes them after `HWPLATFORM_OUTBOX_PURGE_AFTER_S`, 30 days).
+
+- **Writing.** `events.outbox.emit(session, tenant_id, run_id, type, subject, data)` runs in the caller's session: it bumps `runs.event_seq` under the row lock (a gapless `seq` per run) and inserts the row. `PgRunStore` calls it in the same transaction as every state change, so a rolled-back change leaves no event and a committed one always has it. `events.Event` builds the CloudEvents 1.0 envelope (`specversion`, `id` UUIDv7, `type`, `source`, `subject`, `time`, `dataschema` `hwflow.events/<type>/1`, extensions `tenantid`, `runid`, `seq`, `data`); types outside the ADR 5.2 catalogue are refused.
+- **Relay** (`events.relay.Relay`). Leader election with `pg_try_advisory_lock(hashtext('hwflow.outbox.relay'))` on its own connection (one relay publishes; the lock frees when the leader dies). It wakes on `LISTEN outbox` or every `HWPLATFORM_RELAY_POLL_S` (1 s), reads up to `HWPLATFORM_RELAY_BATCH` (100) unpublished rows `FOR UPDATE SKIP LOCKED` in id order, publishes each to `hwflow.<tenant_id>.<type>` with header `Nats-Msg-Id: <event_id>`, waits for the JetStream ack and sets `published_at`. A crash between the ack and the UPDATE republishes after restart, and the stream drops the duplicate (duplicate window 2 h): at-least-once delivery, one copy in the stream. Errors reconnect with backoff. It runs inside `hwplatform-api` as a background task started and stopped by the lifespan hook (`HWPLATFORM_RELAY_ENABLED=false` disables it), and standalone as `hwplatform-relay`.
+- **Stream** `HWFLOW_EVENTS`: subjects `hwflow.>`, file storage, limits retention, 7 days, 512 MiB, discard old, duplicate window 2 h, 1 replica. Created or updated idempotently by `hwplatform-migrate` (it exits 1 if NATS is unreachable after migrating; an empty `HWPLATFORM_NATS_URL` skips it) and by the relay at start.
+- **Ordering caveat.** Rows are published in `id` order, but `id` is assigned at INSERT; a transaction with a lower id can commit after a higher one, so a consumer can see two events of a run swapped. The per-run `seq` is gapless and authoritative: the SSE replay (#12) reads the outbox ordered by `seq`.
+
+Not done here: the durable consumers (`notifier`, `eval-scorer`, #19), the SSE bridge (#12), emitting `question.*` events (the API, #15).
 
 ## Auth flow
 

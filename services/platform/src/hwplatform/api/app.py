@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
@@ -41,9 +42,20 @@ def create_app(
             app.state.keyring = Keyring.from_settings(settings)
         except MasterKeyNotConfigured:
             app.state.keyring = None  # BYOK endpoints answer 503 until a master key is configured
+        relay_task = relay_stop = None
+        if settings.relay_enabled:  # ADR 5.4: the relay runs inside the API process, leader-elected
+            from ..events.relay import start_in_background
+
+            relay_task, relay_stop = start_in_background(settings)
         try:
             yield
         finally:
+            if relay_task is not None and relay_stop is not None:
+                relay_stop.set()
+                try:
+                    await asyncio.wait_for(relay_task, timeout=10)
+                except (TimeoutError, asyncio.CancelledError):
+                    relay_task.cancel()
             await db.dispose()
 
     app = FastAPI(title="hwflow platform", version="0.1.0", lifespan=lifespan)

@@ -1,4 +1,4 @@
-"""Entry points: hwplatform-api, hwplatform-migrate, hwplatform-rotate-master, hwplatform-purge."""
+"""Entry points: hwplatform-api, -migrate, -relay, -rotate-master, -purge."""
 
 from __future__ import annotations
 
@@ -31,6 +31,40 @@ def migrate(argv: list[str] | None = None) -> None:
         command.downgrade(cfg, target)
     else:
         command.upgrade(cfg, target)
+        ensure_event_stream()
+
+
+def ensure_event_stream() -> None:
+    """Create/update the JetStream stream HWFLOW_EVENTS (idempotent); skipped when the NATS URL is empty."""
+    import asyncio
+
+    from .events.relay import ensure_stream_at
+    from .settings import get_settings
+
+    url = get_settings().nats_url
+    if not url:
+        return
+    try:
+        asyncio.run(ensure_stream_at(url))
+    except Exception as e:
+        sys.exit(f"hwplatform-migrate: database migrated, but JetStream setup at {url} failed: {e!r}")
+
+
+def relay() -> None:
+    """hwplatform-relay: publish the outbox to NATS JetStream (also runs inside hwplatform-api)."""
+    import asyncio
+    import logging
+
+    from .events.relay import Relay
+    from .logredact import install_log_redaction
+    from .settings import get_settings
+
+    install_log_redaction()
+    logging.basicConfig(level=logging.INFO)
+    try:
+        asyncio.run(Relay(get_settings()).run())
+    except KeyboardInterrupt:
+        pass
 
 
 def rotate_master() -> None:

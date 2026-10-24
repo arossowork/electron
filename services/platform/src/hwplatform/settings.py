@@ -58,7 +58,22 @@ class Settings(BaseSettings):
     purge_events_after_s: int = 24 * 3600  # auth_events older than this (must exceed every window)
 
     default_max_concurrent_runs: int = 2
+    # Object storage (#6): S3 API, SeaweedFS in the dev stack. Path-style addressing.
     s3_bucket: str = "hwflow-artifacts"
+    s3_endpoint_url: str = "http://127.0.0.1:8333"
+    s3_access_key: str = "hwflowaccess"
+    s3_secret_key: SecretStr = Field(default=SecretStr("change-me-s3-secret-key"))
+    s3_region: str = "us-east-1"
+    s3_presign_ttl_s: int = 900
+
+    # Event bus (#11): outbox relay -> NATS JetStream. The relay connects as the role `hwflow_relay`,
+    # which sees every tenant's outbox rows (policy relay_all) and nothing else.
+    nats_url: str = "nats://127.0.0.1:4222"
+    relay_database_url: str = "postgresql+asyncpg://hwflow_relay:change-me-relay@127.0.0.1:15432/hwflow"
+    relay_enabled: bool = True  # run the relay inside hwplatform-api (leader-elected by an advisory lock)
+    relay_poll_s: float = 1.0
+    relay_batch: int = 100
+    outbox_purge_after_s: int = 30 * 24 * 3600  # hwplatform-purge deletes published outbox rows after this
 
     host: str = "127.0.0.1"
     port: int = 8080

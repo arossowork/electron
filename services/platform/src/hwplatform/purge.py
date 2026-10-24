@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, delete, or_
+from sqlalchemy import and_, delete, or_, text
 
 from .db import Database, make_engine
 from .models import AuthEvent, Invitation, PendingSignup, RefreshToken
@@ -58,6 +58,13 @@ async def purge_all(
                     delete(AuthEvent).where(
                         AuthEvent.at < now - timedelta(seconds=settings.purge_events_after_s)
                     )
+                )
+            ).rowcount
+            # Published outbox rows only (policy purge_delete, 0005); unpublished ones are never touched.
+            out["outbox"] = (
+                await s.execute(
+                    text("DELETE FROM outbox WHERE published_at < :cutoff"),
+                    {"cutoff": now - timedelta(seconds=settings.outbox_purge_after_s)},
                 )
             ).rowcount
         return out
