@@ -44,21 +44,46 @@ jobs:
       - run: uv run pytest -q -m "not slow"
 
   slow:
-    # Nightly slow tier. Needs the router and Freerouting, which the runner does not have: those tests skip, so this
-    # job may run few or no tests. It still catches the slow tests that need only KiCad and ngspice.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Slow tier: nightly, on demand, and on pull requests that touch the engine (src/hwflow, tests, examples,
+    # library, blocks, uv.lock). The runner has no KiCadRoutingTools (a Rust build), so the layout stage routes
+    # with Freerouting (same jar version as the images), which is enough for tests/test_cold_equals_cached.py
+    # (cold == cached full build of examples/sensor_preamp, a few minutes). Tests that need KRT still skip.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 15
+    env:
+      FREEROUTING_VERSION: "2.5.0"
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+        with:
+          fetch-depth: 0
+      - name: Does this run need the slow tier?
+        id: need
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(src/hwflow/|tests/|examples/|library/|blocks/|uv.lock|pyproject.toml|.github/workflows/ci.yml)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No engine change: slow tier skipped."
+          fi
+      - if: steps.need.outputs.run == 'true'
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - name: System tools (KiCad, ngspice)
+      - name: System tools (KiCad, ngspice, Java for Freerouting)
+        if: steps.need.outputs.run == 'true'
         run: |
           sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
-      - run: uv sync --frozen
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice openjdk-21-jre-headless
+          mkdir -p "$HOME/tools"
+          curl -fsSL -o "$HOME/tools/freerouting.jar" \
+            "https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar"
+          echo "FREEROUTING=$HOME/tools/freerouting.jar" >> "$GITHUB_ENV"
+          echo "JAVA=/usr/lib/jvm/java-21-openjdk-amd64/bin/java" >> "$GITHUB_ENV"
+      - if: steps.need.outputs.run == 'true'
+        run: uv sync --frozen
       # exit code 5 means no slow test could run (all skipped or deselected): not a failure here
-      - run: uv run pytest -q -m slow || [ $? -eq 5 ]
+      - if: steps.need.outputs.run == 'true'
+        run: uv run pytest -q -m slow || [ $? -eq 5 ]
