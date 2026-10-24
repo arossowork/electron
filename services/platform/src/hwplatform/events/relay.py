@@ -30,6 +30,19 @@ from . import STREAM
 log = logging.getLogger("hwplatform.relay")
 
 LOCK_NAME = "hwflow.outbox.relay"
+MAX_BACKOFF_S = 60.0
+
+# Not ready yet, not a bug: before the migrations ran the database, the outbox table or the hwflow_relay role
+# does not exist; Postgres or NATS may be starting. These get one short warning, no traceback.
+NOT_READY = (
+    asyncpg.UndefinedTableError,
+    asyncpg.InvalidCatalogNameError,
+    asyncpg.InvalidAuthorizationSpecificationError,
+    asyncpg.InvalidPasswordError,
+    asyncpg.CannotConnectNowError,
+    OSError,
+    asyncio.TimeoutError,
+)
 
 
 def stream_config() -> StreamConfig:
@@ -200,6 +213,7 @@ class Relay:
     async def run(self, stop: asyncio.Event | None = None) -> None:
         stop = stop or asyncio.Event()
         backoff = 0.5
+        waiting = False  # a "not ready" warning was logged and nothing worked since
         try:
             while not stop.is_set():
                 try:
@@ -214,16 +228,31 @@ class Relay:
                         n = await self.publish_batch()
                         await self.observe_backlog()
                         backoff = 0.5
+                        if waiting:
+                            waiting = False
+                            log.info("outbox relay is running")
                         if n >= self.batch:
                             continue
                         await self._sleep(stop, self.poll_s, wake=True)
                 except asyncio.CancelledError:
                     raise
+                except NOT_READY as e:
+                    if not waiting:  # one line, once; the backoff keeps the retries quiet
+                        log.warning(
+                            "outbox relay waiting for the database or NATS (%s: %s); retrying with backoff up to %.0fs",
+                            type(e).__name__,
+                            str(e).splitlines()[0] if str(e) else "",
+                            MAX_BACKOFF_S,
+                        )
+                        waiting = True
+                    await self.close()
+                    await self._sleep(stop, backoff)
+                    backoff = min(backoff * 2, MAX_BACKOFF_S)
                 except Exception:
                     log.warning("outbox relay error; reconnecting in %.1fs", backoff, exc_info=True)
                     await self.close()
                     await self._sleep(stop, backoff)
-                    backoff = min(backoff * 2, 10.0)
+                    backoff = min(backoff * 2, MAX_BACKOFF_S)
         finally:
             await self.close()
 
