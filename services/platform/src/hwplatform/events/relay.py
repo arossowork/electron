@@ -239,7 +239,7 @@ class Relay:
                 except NOT_READY as e:
                     if not waiting:  # one line, once; the backoff keeps the retries quiet
                         log.warning(
-                            "outbox relay waiting for the database or NATS (%s: %s); retrying with backoff up to %.0fs",
+                            "outbox relay waiting for database or NATS (%s: %s); backoff up to %.0fs",
                             type(e).__name__,
                             str(e).splitlines()[0] if str(e) else "",
                             MAX_BACKOFF_S,
