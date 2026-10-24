@@ -24,6 +24,13 @@ OWNER_URL = os.environ.get(
 APP_URL = os.environ.get(
     "HWPLATFORM_TEST_APP_URL", "postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow"
 )
+# The real Claude API smoke (#15) is collected only on request, with a key of its own: never in CI (which fails on
+# any skipped test) and never with the developer's subscription login. See test_agent_smoke.py.
+collect_ignore = (
+    []
+    if os.environ.get("HWPLATFORM_AGENT_SMOKE") == "1" and os.environ.get("ANTHROPIC_API_KEY")
+    else ["test_agent_smoke.py"]
+)
 JWT_SECRET = "test-secret-" + "x" * 40
 LOOSE_LIMITS = dict(
     rate_login_email_max=10_000,
@@ -410,6 +417,10 @@ class FakeGateway:
     async def signal_answer(self, workflow_id, answer):
         self._check()
         self.signals.append((workflow_id, answer))
+
+    async def signal_retry(self, workflow_id):
+        self._check()
+        self.signals.append((workflow_id, "retry"))
 
     async def close(self):
         return None

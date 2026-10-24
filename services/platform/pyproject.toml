@@ -24,6 +24,11 @@ dependencies = [
     "pyyaml>=6",
 ]
 
+[project.optional-dependencies]
+# The agent worker (#15, queue hwflow-agent): the Claude Agent SDK with its bundled Claude Code CLI (about 125 MB).
+# Only deploy/images/agent.Dockerfile and CI install it; the API and engine worker images do not.
+agent = ["claude-agent-sdk>=0.2.174", "hwharness"]
+
 [project.scripts]
 hwplatform-api = "hwplatform.main:run"
 hwplatform-migrate = "hwplatform.main:migrate"
@@ -37,6 +42,7 @@ remote = "hwplatform.client:RemoteExecutor"
 
 [tool.uv.sources]
 hwflow = { workspace = true }
+hwharness = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]

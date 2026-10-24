@@ -22,6 +22,9 @@ BUILD_WORKFLOW = "BuildWorkflow"
 DESIGN_WORKFLOW = "DesignWorkflow"  # issue #15
 EVAL_WORKFLOW = "EvalWorkflow"  # issue #19
 SIGNAL_ANSWER = "answer_question"
+# PUT /tenant/llm-keys/anthropic signals `retry`: a run waiting with llm_key_invalid tries again (ADR 7.4).
+SIGNAL_RETRY = "retry"
+ENGINE_TOOL_WORKFLOW = "EngineToolWorkflow"  # one engine lookup or command of an agent tool (ADR 7.6)
 
 Q_ENGINE = "hwflow-engine"
 Q_SIM = "hwflow-sim"
@@ -53,6 +56,30 @@ A_RECORD_STAGE = "record_stage"
 A_RESOLVE_RUN = "resolve_run"
 A_RENDER_RUN = "render_run"
 A_STAGE = "run_stage_activity"
+# DesignWorkflow (#15, ADR 7)
+A_AGENT_STAGE = "agent_stage"
+A_RECORD_QUESTION = "record_question"
+A_GET_DESIGN_VERSION = "get_design_version"
+A_CREATE_DESIGN_VERSION = "create_design_version"
+A_ENGINE_TOOL = "engine_tool"
+A_SIMULATE_ANSWER = "simulate_answer"  # registered by #19 (the evals product-person simulator)
+
+DESIGN_STAGES = ("requirements", "partition", "parts", "circuit", "review", "layout", "firmware")
+# Engine tools of the agent's MCP server (ADR 7.6). The agent image has no KiCad, no ngspice and no internet
+# egress, so lookups, datasheet fetches and engine commands run as an activity on these queues.
+ENGINE_TOOLS = (
+    "lib_sym",
+    "lib_show",
+    "lib_fp",
+    "lib_pads",
+    "parts_search",
+    "fetch_url",
+    "trace",
+    "fw",
+    "floorplan",
+    "optimize",
+)
+ENGINE_TOOL_QUEUE = {t: Q_ENGINE for t in ENGINE_TOOLS} | {"optimize": Q_SIM}
 
 # --- errors (ADR 4.5): ApplicationError.type ---
 
@@ -95,6 +122,18 @@ STAGE_POLICY = {
     "layout_select": Policy(900, 60, 10, 2, 120, 3),
     "em": Policy(7200, 60, 30, 2, 300, 2),
 }
+# agent_stage (ADR 4.5): 120 min, heartbeat 120 s, retry 30 s x2 up to 10 min, 5 attempts. LlmRateLimited is
+# non-retryable here, like LlmKeyInvalid: the DesignWorkflow handles both (a backoff timer, a wait for
+# `retry`), so a long rate limit or a key fix never uses up the retry budget of a worker crash (ADR 7.6).
+AGENT_POLICY = Policy(7200, 120, 30, 2, 600, 5)
+AGENT_NON_RETRYABLE = (*errors.NON_RETRYABLE, errors.LlmRateLimited)
+ENGINE_TOOL_POLICY = {"optimize": Policy(3600, 60, 10, 2, 300, 3)}
+ENGINE_TOOL_DEFAULT_POLICY = Policy(600, 60, 5, 2, 120, 3)
+# The workflow's rate-limit timer: the first wait and the cap (it doubles in between).
+RATE_LIMIT_BACKOFF_S = (60.0, 1800.0)
+KEY_RETRY_WAIT_S = 72 * 3600  # ADR 7.4: a run waits this long for `retry` after an invalid key
+# agent_stage saves the workspace and the transcript (its heartbeat details) this often.
+AGENT_SNAPSHOT_EVERY_S = 300.0
 HEARTBEAT_EVERY_S = 15.0  # the stage activity heartbeats this often with the child's last progress line
 KILL_GRACE_S = 10.0  # SIGTERM to the stage's process group, SIGKILL after this
 
@@ -132,6 +171,110 @@ class DesignInput:
     brief: str
     answerer: str = "human"  # "human" | "simulator"
     stages: list[str] = field(default_factory=list)  # empty = DESIGN_STAGES
+    # None: wait for an answer without a limit (ADR 7.6); a number of seconds: then QuestionExpired.
+    question_timeout_s: float | None = None
+    parent_run_id: str | None = None  # an EvalWorkflow's run (#19)
+
+
+@dataclass(frozen=True)
+class AgentStageInput:
+    """agent_stage (ADR 7.1). `workspace`: the project tree the session starts from; `session`: the saved
+    transcript of an earlier session of this stage (resumed when set). `answers`: the product person's answers
+    to `questions`; `resume`: why the session goes on ("answers", "retry", "restart")."""
+
+    ctx: RunCtx
+    stage: str
+    workspace: ArtifactRef
+    brief: str
+    session: ArtifactRef | None = None
+    session_id: str | None = None
+    answers: dict | None = None
+    questions: list[dict] = field(default_factory=list)
+    resume: str | None = None
+    round: int = 0  # question rounds so far in this run (the agent cites "PM round N, qX")
+
+
+@dataclass(frozen=True)
+class AgentStageOutput:
+    """outcome "done" | "needs_answers". `builds`: the linked BuildWorkflow IDs the session started (cancelled
+    with the run, ADR 4.6); `verdict`: the last linked build's verdict; `usage`: tokens per model."""
+
+    outcome: str
+    workspace: ArtifactRef
+    session: ArtifactRef | None
+    session_id: str | None
+    questions: list[dict] = field(default_factory=list)
+    decisions: list[dict] = field(default_factory=list)
+    usage: dict = field(default_factory=dict)
+    builds: list[str] = field(default_factory=list)
+    verdict: str | None = None
+    summary: str = ""
+
+
+@dataclass(frozen=True)
+class RecordQuestion:
+    """record_question (ADR 7.3), a local activity. op "ask": the questions row (id = question_id, so a
+    retried call inserts nothing new) with question.asked, then running -> waiting (reason question).
+    "resumed": waiting -> running (run.resumed). "expired" / "cancelled": the row's status (question.expired).
+    "key_wait": running -> waiting (reason llm_key_invalid); "key_resumed": back to running."""
+
+    ctx: RunCtx
+    op: str
+    question_id: str | None = None
+    stage: str = ""
+    questions: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class DesignVersionInput:
+    """get_design_version (design_version_id) or create_design_version (a workspace tree, source "agent")."""
+
+    ctx: RunCtx
+    design_version_id: str | None = None
+    workspace: ArtifactRef | None = None
+    parent_id: str | None = None
+    message: str = ""
+
+
+@dataclass(frozen=True)
+class DesignVersionOut:
+    id: str
+    content_sha256: str
+    design: ArtifactRef
+    project: ArtifactRef
+    created: bool = False
+
+
+@dataclass(frozen=True)
+class DesignOutput:
+    run_id: str
+    status: str
+    verdict: str | None
+    design_version_id: str
+    stages: dict[str, dict] = field(default_factory=dict)  # stage -> {"rounds", "summary", "verdict"}
+
+
+@dataclass(frozen=True)
+class EngineToolInput:
+    """One engine tool call of an agent session (ADR 7.6). `workspace`: the project tree, for the commands
+    that read the project (trace, fw, floorplan, optimize); `status_json`: the last linked build's
+    status.json."""
+
+    ctx: RunCtx
+    tool: str
+    args: dict = field(default_factory=dict)
+    workspace: ArtifactRef | None = None
+    status_json: ArtifactRef | None = None
+
+
+@dataclass(frozen=True)
+class EngineToolOutput:
+    text: str
+    ok: bool = True
+    workspace: ArtifactRef | None = (
+        None  # the project tree after a command that writes (fw --scaffold, optimize)
+    )
+    files: dict[str, ArtifactRef] = field(default_factory=dict)  # fetch_url: name -> stored file
 
 
 @dataclass(frozen=True)
@@ -230,8 +373,7 @@ class RecordStage:
 @dataclass(frozen=True)
 class RecordedRun:
     """record_run's answer: the run's status after the call (another writer, e.g. a cancel of a queued run,
-    can
-    have finished it first)."""
+    can have finished it first)."""
 
     status: str
     applied: bool

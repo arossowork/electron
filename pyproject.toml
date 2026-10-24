@@ -130,6 +130,8 @@ forbidden_modules = [
 ignore_imports = ["hwplatform.activities.** -> hwflow.**"]
 
 [[tool.importlinter.contracts]]
+# Issue #15: the agent runtime (hwplatform.agent, the Claude Agent SDK) is worker side too; the API image does not
+# install the `agent` extra.
 name = "only the worker side of hwplatform imports the activities, the worker and the client"
 type = "forbidden"
 source_modules = [
@@ -140,7 +142,8 @@ source_modules = [
     "hwplatform.runs", "hwplatform.security", "hwplatform.settings", "hwplatform.storage", "hwplatform.tenancy",
     "hwplatform.workflows",
 ]
-forbidden_modules = ["hwplatform.activities", "hwplatform.workers", "hwplatform.client"]
+forbidden_modules = ["hwplatform.activities", "hwplatform.workers", "hwplatform.client", "hwplatform.agent",
+                     "claude_agent_sdk"]
 
 # ADR 0001 4.7: workflow code is deterministic. It imports temporalio, hwplatform.contracts and the stdlib-only engine
 # modules (hwflow.buildplan, and hwflow.artifacts through the contracts), nothing that does I/O.
@@ -155,5 +158,5 @@ forbidden_modules = [
     "hwplatform.rotation", "hwplatform.run_options", "hwplatform.runs", "hwplatform.security", "hwplatform.settings",
     "hwplatform.storage", "hwplatform.tenancy", "hwplatform.activities", "hwplatform.workers", "hwplatform.client",
     "hwflow.core", "hwflow.pipeline", "hwflow.commands", "sqlalchemy", "asyncpg", "boto3", "botocore", "httpx",
-    "nats", "fastapi", "pydantic", "pydantic_settings", "yaml",
+    "nats", "fastapi", "pydantic", "pydantic_settings", "yaml", "hwplatform.agent", "hwharness", "claude_agent_sdk",
 ]

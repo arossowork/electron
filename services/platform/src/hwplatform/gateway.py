@@ -11,7 +11,15 @@ from __future__ import annotations
 import asyncio
 from typing import Protocol
 
-from .contracts import BUILD_WORKFLOW, DESIGN_WORKFLOW, SIGNAL_ANSWER, BuildInput, DesignInput, QuestionAnswer
+from .contracts import (
+    BUILD_WORKFLOW,
+    DESIGN_WORKFLOW,
+    SIGNAL_ANSWER,
+    SIGNAL_RETRY,
+    BuildInput,
+    DesignInput,
+    QuestionAnswer,
+)
 from .settings import Settings
 
 
@@ -33,6 +41,19 @@ def design_workflow_id(tenant_id: str, project_id: str, run_id: str) -> str:
     return f"design-{tenant_id}-{project_id}-{run_id}"
 
 
+def search_attributes(attrs: dict[str, str]):
+    """TypedSearchAttributes of the Keyword attributes registered by hwplatform-migrate (ADR 4.4)."""
+    from temporalio.common import SearchAttributeKey, SearchAttributePair, TypedSearchAttributes
+
+    return TypedSearchAttributes(
+        [SearchAttributePair(SearchAttributeKey.for_keyword(k), v) for k, v in attrs.items()]
+    )
+
+
+def run_attributes(tenant_id: str, project_id: str, run_id: str, kind: str) -> dict[str, str]:
+    return {"HwTenantId": tenant_id, "HwProjectId": project_id, "HwRunId": run_id, "HwRunKind": kind}
+
+
 class WorkflowGateway(Protocol):
     async def start_build(self, workflow_id: str, arg: BuildInput) -> None:
         """Start BuildWorkflow on the engine queue. A workflow already running under this ID is kept
@@ -46,6 +67,10 @@ class WorkflowGateway(Protocol):
         ...
 
     async def signal_answer(self, workflow_id: str, answer: QuestionAnswer) -> None: ...
+
+    async def signal_retry(self, workflow_id: str) -> None:
+        """Signal `retry` (ADR 7.4): a run waiting with llm_key_invalid tries again with the new key."""
+        ...
 
     async def close(self) -> None: ...
 
@@ -146,6 +171,17 @@ class TemporalGateway:
         handle = await self._handle(workflow_id)
         try:
             await handle.signal(SIGNAL_ANSWER, answer)
+        except RPCError as e:
+            if e.status == RPCStatusCode.NOT_FOUND:
+                raise WorkflowNotFound(workflow_id) from e
+            raise GatewayError(f"cannot signal {workflow_id}: {e.status.name}") from e
+
+    async def signal_retry(self, workflow_id: str) -> None:
+        from temporalio.service import RPCError, RPCStatusCode
+
+        handle = await self._handle(workflow_id)
+        try:
+            await handle.signal(SIGNAL_RETRY)
         except RPCError as e:
             if e.status == RPCStatusCode.NOT_FOUND:
                 raise WorkflowNotFound(workflow_id) from e

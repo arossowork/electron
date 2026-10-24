@@ -100,6 +100,16 @@ class Settings(BaseSettings):
     worker_health_port: int = 8081
     worker_shutdown_grace_s: float = 100.0
 
+    # The design agent (#15, ADR 7). Models per stage: "stage=model-id,stage=model-id" over the defaults from
+    # the stage agents' frontmatter (opus -> claude-opus-5-5, sonnet -> claude-sonnet-5-5, haiku ->
+    # claude-haiku-4-5-20251001). Empty prompts dir: the repository checkout (hwharness.prompts).
+    agent_models: str = ""
+    agent_fallback_model: str = ""
+    agent_max_budget_usd: float | None = None  # per stage session (the SDK stops the session above it)
+    agent_prompts_dir: str = ""
+    # A question waits this long for an answer, then the run fails with QuestionExpired. None: no limit.
+    agent_question_timeout_s: float | None = None
+
     # Uploads of design versions (ADR 6)
     max_bundle_bytes: int = 50 * 1024 * 1024  # uncompressed size of all files of one version
     max_bundle_files: int = 5000
@@ -118,6 +128,14 @@ class Settings(BaseSettings):
         if not v.replace("_", "").isalnum() or not v[0].isalpha():
             raise ValueError("app_db_role must be a plain SQL identifier")
         return v
+
+    def agent_model_map(self) -> dict[str, str]:
+        out = {}
+        for part in filter(None, (p.strip() for p in self.agent_models.split(","))):
+            stage, _, model = part.partition("=")
+            if stage.strip() and model.strip():
+                out[stage.strip()] = model.strip()
+        return out
 
     def web_origin_list(self) -> list[str]:
         return [o.strip().rstrip("/") for o in self.web_origins.split(",") if o.strip()]

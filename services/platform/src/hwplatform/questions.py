@@ -64,18 +64,31 @@ class QuestionStore:
         self.db = db
         self.tenant_id = uuid.UUID(str(tenant_id))
 
-    async def ask(self, run_id: str | uuid.UUID, stage: str, questions: list[dict]) -> Question:
+    async def ask(
+        self,
+        run_id: str | uuid.UUID,
+        stage: str,
+        questions: list[dict],
+        *,
+        question_id: str | uuid.UUID | None = None,
+    ) -> Question:
         """Insert an `open` question row and emit `question.asked`. (The run's `waiting` transition is the
-        workflow's, through PgRunStore.transition.)"""
-        rid, qid = uuid.UUID(str(run_id)), uuid7()
+        workflow's, through PgRunStore.transition.) With `question_id` (the workflow's), a repeated call returns
+        the existing row and emits nothing."""
+        rid = uuid.UUID(str(run_id))
+        qid = uuid.UUID(str(question_id)) if question_id else uuid7()
         async with self.db.tx(tenant_id=self.tenant_id) as s:
-            await s.execute(
-                text(
-                    "INSERT INTO questions (id, tenant_id, run_id, stage, questions) "
-                    "VALUES (:id, :t, :r, :stage, CAST(:q AS jsonb))"
-                ),
-                {"id": qid, "t": self.tenant_id, "r": rid, "stage": stage, "q": json.dumps(questions)},
-            )
+            inserted = (
+                await s.execute(
+                    text(
+                        "INSERT INTO questions (id, tenant_id, run_id, stage, questions) "
+                        "VALUES (:id, :t, :r, :stage, CAST(:q AS jsonb)) ON CONFLICT (id) DO NOTHING RETURNING id"
+                    ),
+                    {"id": qid, "t": self.tenant_id, "r": rid, "stage": stage, "q": json.dumps(questions)},
+                )
+            ).first()
+            if inserted is None:
+                return await self._get(s, qid)
             await emit(
                 s,
                 self.tenant_id,

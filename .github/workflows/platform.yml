@@ -4,7 +4,8 @@ name: platform
 # time-skipping server, #9), and integration tests against a real Postgres 17 prepared like
 # deploy/compose/postgres-init.sh (owner role, non-owner app role, relay role), SeaweedFS (S3) and NATS JetStream
 # started like deploy/compose/platform.yaml (#6, #7, #11), plus the Temporal dev server and a real worker building
-# examples/sensor_preamp up to sim (#9: needs KiCad and ngspice, as the engine CI).
+# examples/sensor_preamp up to sim (#9: needs KiCad and ngspice, as the engine CI). The `agent` extra (#15: the
+# Claude Agent SDK, hwharness) is installed: the DesignWorkflow tests use a scripted runner, never the API.
 
 on:
   push:
@@ -12,6 +13,9 @@ on:
     paths:
       - services/platform/**
       - src/hwflow/**
+      - harness/src/hwharness/prompts.py
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
       - examples/sensor_preamp/**
       - deploy/compose/postgres-init.sh
       - deploy/compose/platform.yaml
@@ -22,6 +26,9 @@ on:
     paths:
       - services/platform/**
       - src/hwflow/**
+      - harness/src/hwharness/prompts.py
+      - .claude/agents/**
+      - .claude/skills/hw-design/**
       - examples/sensor_preamp/**
       - deploy/compose/postgres-init.sh
       - deploy/compose/platform.yaml
@@ -78,12 +85,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
       - name: Install
-        run: uv sync --package hwplatform --frozen
+        run: uv sync --package hwplatform --extra agent --frozen
       - name: Ruff
         working-directory: services/platform
         run: |
-          uv run --package hwplatform --frozen ruff check .
-          uv run --package hwplatform --frozen ruff format --check .
+          uv run --package hwplatform --extra agent --frozen ruff check .
+          uv run --package hwplatform --extra agent --frozen ruff format --check .
       - name: Database roles (same script as the compose stack)
         run: sh deploy/compose/postgres-init.sh
       # Service containers cannot take a command, so these two run as plain docker containers with the same
@@ -113,5 +120,5 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          uv run --package hwplatform --frozen pytest -v -rs 2>&1 | tee pytest.out
+          uv run --package hwplatform --extra agent --frozen pytest -v -rs 2>&1 | tee pytest.out
           ! grep -q "^SKIPPED" pytest.out

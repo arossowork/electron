@@ -174,6 +174,61 @@ async def store_design_version(
     return dv, existed is None
 
 
+async def version_from_tree(
+    db: Database,
+    store: S3ArtifactStore,
+    tenant_id: uuid.UUID | str,
+    project_id: uuid.UUID | str,
+    tree: ArtifactRef,
+    *,
+    source: str = "agent",
+    created_by_run: str | None = None,
+    parent_id: str | None = None,
+    message: str = "",
+) -> tuple[DesignVersionRef, bool]:
+    """Record a design version from a project tree already in S3 (the agent's workspace, ADR 7.2). Returns
+    (version, created); the same content gives the existing version. design.yaml must be in the tree
+    (UploadError otherwise); the YAML of design.yaml and requirements.yaml is checked as on upload."""
+    files = await read_tree(store, tree.sha256)
+    if "design.yaml" not in files:
+        raise UploadError("design.yaml is required")
+    refs = {
+        p: ArtifactRef(e["sha256"], int(e["size"]), media_type_for(p), p)
+        for p, e in files.items()
+        if p in ("design.yaml", "requirements.yaml")
+    }
+
+    def load(sha: str) -> bytes:
+        with store.open(sha) as f:
+            return f.read()
+
+    for p, r in refs.items():
+        check_yaml(p, await asyncio.to_thread(load, r.sha256))
+    tid, pid = uuid.UUID(str(tenant_id)), uuid.UUID(str(project_id))
+    pg = PgRunStore(db, tid)
+    all_refs = [ArtifactRef(e["sha256"], int(e["size"]), media_type_for(p), p) for p, e in files.items()]
+    await pg.register_artifacts([*all_refs, dataclasses.replace(tree, name="project")])
+    async with db.tx(tenant_id=tid) as s:
+        existed = (
+            await s.execute(
+                text("SELECT 1 FROM design_versions WHERE project_id = :p AND content_sha256 = :c"),
+                {"p": pid, "c": tree.sha256},
+            )
+        ).first()
+    dv = await pg.create_design_version(
+        pid,
+        content_sha256=tree.sha256,
+        design=refs["design.yaml"],
+        requirements=refs.get("requirements.yaml"),
+        project=dataclasses.replace(tree, name="project"),
+        source=source,
+        parent_id=parent_id,
+        message=message,
+        created_by_run=created_by_run,
+    )
+    return dv, existed is None
+
+
 async def read_tree(store: S3ArtifactStore, tree_sha256: str) -> dict[str, dict]:
     """path -> {sha256, size, mode} of a stored tree."""
 
