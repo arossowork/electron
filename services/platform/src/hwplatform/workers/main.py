@@ -80,8 +80,8 @@ def build_workers(
     from ..observability.temporal import interceptors
 
     if workflows is None and Q_ENGINE in queues:
-        # Only the engine queue hosts workflows. The agent image (`--queues hwflow-agent`) has no engine, and the
-        # workflow modules import hwflow.buildplan, so they are imported only when this process needs them.
+        # Only the engine queue hosts workflows. The agent image (`--queues hwflow-agent`) has no engine, and
+        # the workflow modules import hwflow.buildplan, so only a process that hosts them imports them.
         from ..workflows import WORKFLOWS
 
         workflows = WORKFLOWS
