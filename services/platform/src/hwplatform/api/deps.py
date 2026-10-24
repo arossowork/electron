@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..auth import AuthBackend, AuthError
+from ..auth.ratelimit import AuthGuard, RateLimited
 from ..db import Database
 from ..tenancy import TenantContext, membership_of
 
@@ -18,6 +19,24 @@ def unauthorized(detail: str = "not authenticated") -> HTTPException:
 
 def get_db(request: Request) -> Database:
     return request.app.state.db
+
+
+def get_guard(request: Request) -> AuthGuard:
+    return request.app.state.guard
+
+
+def client_ip(request: Request) -> str:
+    """The peer address. Behind a proxy, uvicorn's proxy_headers (forwarded-allow-ips) makes this the
+    real client; without it every request would share the proxy's address."""
+    return request.client.host if request.client else "unknown"
+
+
+def rate_limited(e: RateLimited) -> HTTPException:
+    return HTTPException(
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        "too many attempts, try again later",
+        headers={"Retry-After": str(e.retry_after_s)},
+    )
 
 
 def get_backend(request: Request) -> AuthBackend:

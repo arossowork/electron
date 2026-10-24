@@ -33,6 +33,30 @@ class Settings(BaseSettings):
     anthropic_api_base: str = "https://api.anthropic.com"
     anthropic_version: str = "2023-06-01"
 
+    # Rate limiting and lockout (#26), stored in Postgres. Sliding windows over auth_events.
+    rate_window_s: int = 60  # login and refresh
+    rate_login_email_max: int = 10  # login attempts per e-mail per window
+    rate_login_ip_max: int = 30  # login attempts per client IP per window
+    rate_refresh_ip_max: int = 60  # refresh and verify attempts per client IP per window
+    rate_signup_window_s: int = 3600
+    rate_signup_email_max: int = 3
+    rate_signup_ip_max: int = 10
+    lockout_threshold: int = 5  # failed logins for one e-mail within lockout_window_s lock that e-mail
+    lockout_ip_threshold: int = 50  # same, per client IP
+    lockout_window_s: int = 15 * 60  # also the lockout duration: it ends when the failures age out
+
+    # Sign-up e-mail verification and invitations (#26). No SMTP in M1: see mail.py.
+    public_url: str = "http://127.0.0.1:8080"
+    # Dev only: create the account at signup without waiting for the e-mailed token. The response is
+    # identical either way, so this does not open an enumeration channel.
+    dev_auto_verify: bool = False
+    verify_token_ttl_s: int = 24 * 3600
+    invite_ttl_s: int = 7 * 24 * 3600
+
+    # hwplatform-purge
+    purge_revoked_after_s: int = 7 * 24 * 3600  # revoked refresh tokens are kept this long (reuse detection)
+    purge_events_after_s: int = 24 * 3600  # auth_events older than this (must exceed every window)
+
     default_max_concurrent_runs: int = 2
     s3_bucket: str = "hwflow-artifacts"
 

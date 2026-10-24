@@ -124,3 +124,53 @@ class LlmUsage(Base):
     cache_creation_input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cache_read_input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
+
+
+class AuthEvent(Base):
+    """Rate-limit and lockout bookkeeping (#26). Global, NOT tenant-scoped, so no RLS on it: the app role
+    may only insert, read and delete rows, and only auth/ratelimit.py touches the table.
+
+    kind 'attempt' = a request was made; 'fail' = a login failed. `subject` is the SHA-256 of the
+    normalised e-mail or of the client IP (scope 'email' | 'ip').
+    """
+
+    __tablename__ = "auth_events"
+    __table_args__ = (
+        Index("ix_auth_events_lookup", "action", "scope", "subject", "kind", "at"),
+        Index("ix_auth_events_at", "at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    action: Mapped[str] = mapped_column(String(16))
+    scope: Mapped[str] = mapped_column(String(8))
+    subject: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(8))
+    at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
+
+
+class PendingSignup(Base):
+    """A sign-up waiting for its e-mail token. Global (the user and tenant do not exist yet)."""
+
+    __tablename__ = "pending_signups"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    tenant_name: Mapped[str] = mapped_column(String(200))
+    display_name: Mapped[str] = mapped_column(String(200), default="")
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(Tz)
+
+
+class Invitation(Base):
+    """An invitation to join a tenant, accepted by the invited user once logged in. Tenant-scoped, RLS."""
+
+    __tablename__ = "invitations"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[Role] = mapped_column(Enum(Role, name="membership_role", create_type=False))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(Tz, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(Tz)
+    accepted_at: Mapped[datetime | None] = mapped_column(Tz, nullable=True)

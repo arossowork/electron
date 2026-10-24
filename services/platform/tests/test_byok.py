@@ -102,13 +102,7 @@ def test_invalid_and_unreachable_keys_are_not_stored(client, account):
 def test_members_get_403_and_anonymous_401(client, account):
     owner = account("byok-owner")
     member = account("byok-member")
-    r = client.post("/api/v1/tenant/members", json={"email": member.email, "role": "member"}, headers=owner.h)
-    assert r.status_code == 201, r.text
-    tok = client.post(
-        "/api/v1/auth/login",
-        json={"email": member.email, "password": member.password, "tenant_id": owner.tenant_id},
-    ).json()
-    mh = {"Authorization": f"Bearer {tok['access_token']}"}
+    mh = member.join(owner)
     assert client.get("/api/v1/auth/me", headers=mh).json()["role"] == "member"
     assert client.put(URL, json={"api_key": key()}, headers=owner.h).status_code == 200
     assert client.get(URL, headers=mh).status_code == 403
@@ -254,9 +248,8 @@ def test_unconfigured_master_key_gives_503(settings, validator):
 
     s = with_(settings, master_key="")
     with TestClient(create_app(s, key_validator=validator)) as c:
-        r = c.post(
-            "/api/v1/auth/signup",
-            json={"email": unique_email("nomk"), "password": "a-long-password-123", "tenant_name": "T"},
-        )
+        em, pw = unique_email("nomk"), "a-long-password-123"
+        c.post("/api/v1/auth/signup", json={"email": em, "password": pw, "tenant_name": "T"})
+        r = c.post("/api/v1/auth/login", json={"email": em, "password": pw})
         h = {"Authorization": f"Bearer {r.json()['access_token']}"}
         assert c.put(URL, json={"api_key": key()}, headers=h).status_code == 503

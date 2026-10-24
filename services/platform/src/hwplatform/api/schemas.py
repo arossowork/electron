@@ -24,6 +24,23 @@ class RefreshIn(BaseModel):
     refresh_token: str = Field(max_length=512)
 
 
+class AcceptedOut(BaseModel):
+    detail: str
+
+
+class VerifyIn(BaseModel):
+    token: str = Field(max_length=512)
+
+
+class AcceptInviteIn(BaseModel):
+    token: str = Field(max_length=512)
+
+
+class AcceptInviteOut(BaseModel):
+    tenant_id: uuid.UUID
+    role: str
+
+
 class TokenOut(BaseModel):
     access_token: str
     refresh_token: str

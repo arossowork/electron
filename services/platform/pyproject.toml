@@ -22,6 +22,7 @@ dependencies = [
 hwplatform-api = "hwplatform.main:run"
 hwplatform-migrate = "hwplatform.main:migrate"
 hwplatform-rotate-master = "hwplatform.main:rotate_master"
+hwplatform-purge = "hwplatform.main:purge"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]

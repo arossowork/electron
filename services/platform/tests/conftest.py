@@ -25,6 +25,15 @@ APP_URL = os.environ.get(
     "HWPLATFORM_TEST_APP_URL", "postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow"
 )
 JWT_SECRET = "test-secret-" + "x" * 40
+LOOSE_LIMITS = dict(
+    rate_login_email_max=10_000,
+    rate_login_ip_max=10_000,
+    rate_refresh_ip_max=10_000,
+    rate_signup_email_max=10_000,
+    rate_signup_ip_max=10_000,
+    lockout_threshold=10_000,
+    lockout_ip_threshold=10_000,
+)
 MASTER_KEY = base64.b64encode(b"m" * 32).decode()
 
 
@@ -66,6 +75,8 @@ def settings(db_ready):
         jwt_secret=JWT_SECRET,
         master_key=MASTER_KEY,
         db_pool_size=2,
+        dev_auto_verify=True,  # most tests only need an account; the verification flow has its own tests
+        **LOOSE_LIMITS,  # all test clients share one IP, so the general suite must not trip the limiter
     )
 
 
@@ -91,13 +102,52 @@ def validator():
 
 
 @pytest.fixture(scope="session")
-def client(settings, validator):
+def mailbox():
+    from hwplatform.mail import InMemoryEmailSender
+
+    return InMemoryEmailSender()
+
+
+@pytest.fixture(scope="session")
+def client(settings, validator, mailbox):
     from fastapi.testclient import TestClient
 
     from hwplatform.api.app import create_app
 
-    with TestClient(create_app(settings, key_validator=validator)) as c:
+    with TestClient(create_app(settings, key_validator=validator, email_sender=mailbox)) as c:
         yield c
+
+
+def random_ip() -> str:
+    n = uuid.uuid4().int
+    return f"10.{n % 250}.{(n >> 8) % 250}.{(n >> 16) % 250}"
+
+
+@pytest.fixture
+def make_client(settings, validator):
+    """A separate app with changed settings (tight limits, no auto-verify) and its own client IP."""
+    from fastapi.testclient import TestClient
+
+    from hwplatform.api.app import create_app
+    from hwplatform.mail import InMemoryEmailSender
+    from hwplatform.settings import Settings
+
+    opened = []
+
+    def make(ip: str | None = None, **overrides):
+        s = Settings(**{**dict(settings), **overrides})
+        box = InMemoryEmailSender()
+        c = TestClient(
+            create_app(s, key_validator=validator, email_sender=box), client=(ip or random_ip(), 5000)
+        )
+        c.__enter__()
+        opened.append(c)
+        c.mailbox = box
+        return c
+
+    yield make
+    for c in opened:
+        c.__exit__(None, None, None)
 
 
 def unique_email(tag: str) -> str:
@@ -115,7 +165,9 @@ class Account:
             "/api/v1/auth/signup",
             json={"email": self.email, "password": password, "tenant_name": f"Tenant {tag}"},
         )
-        assert r.status_code == 201, r.text
+        assert r.status_code == 202, r.text  # dev_auto_verify: the account exists now
+        r = client.post("/api/v1/auth/login", json={"email": self.email, "password": password})
+        assert r.status_code == 200, r.text
         self.tokens = r.json()
         self.tenant_id = self.tokens["tenant_id"]
         self.user_id = self.tokens["user_id"]
@@ -123,6 +175,21 @@ class Account:
     @property
     def h(self) -> dict:
         return {"Authorization": f"Bearer {self.tokens['access_token']}"}
+
+    def join(self, owner: Account, role: str = "member") -> dict:
+        """`owner` invites this account by e-mail, this account accepts; returns a login in owner's tenant."""
+        c = self.client
+        r = c.post("/api/v1/tenant/members", json={"email": self.email, "role": role}, headers=owner.h)
+        assert r.status_code == 202, r.text
+        token = c.app.state.mailer.last(self.email, "invite").token
+        r = c.post("/api/v1/auth/accept-invite", json={"token": token}, headers=self.h)
+        assert r.status_code == 200, r.text
+        r = c.post(
+            "/api/v1/auth/login",
+            json={"email": self.email, "password": self.password, "tenant_id": owner.tenant_id},
+        )
+        assert r.status_code == 200, r.text
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
     def project(self, name: str) -> dict:
         r = self.client.post("/api/v1/projects", json={"name": name}, headers=self.h)

@@ -112,3 +112,23 @@ def parse_refresh_token(token: str) -> uuid.UUID:
 def hash_token(token: str) -> str:
     # The token has 256 bits of entropy, so an unsalted fast hash is enough to make a DB leak useless.
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+# E-mailed one-time tokens (#26). Verification: "ev.<secret>". Invitation: "inv.<tenant uuid hex>.<secret>"
+# (the tenant id selects the RLS context for the lookup, like the refresh token). Stored as SHA-256.
+def new_verify_token() -> str:
+    return f"ev.{secrets.token_urlsafe(32)}"
+
+
+def new_invite_token(tenant_id: uuid.UUID) -> str:
+    return f"inv.{tenant_id.hex}.{secrets.token_urlsafe(32)}"
+
+
+def parse_invite_token(token: str) -> uuid.UUID:
+    try:
+        prefix, tid, secret = token.split(".", 2)
+        if prefix != "inv" or len(secret) < 32:
+            raise ValueError
+        return uuid.UUID(hex=tid)
+    except ValueError as e:
+        raise TokenError("malformed invitation token") from e

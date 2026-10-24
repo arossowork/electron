@@ -7,19 +7,17 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
 from .. import security
 from ..db import Database
-from ..models import Membership, RefreshToken, Role, Tenant, User
+from ..mail import Email, EmailSender, LoggingEmailSender
+from ..models import Membership, PendingSignup, RefreshToken, Role, Tenant, User
 from ..settings import Settings
 from ..tenancy import slugify
 from .backend import AuthBackend, AuthError, Principal
-
-
-class SignupConflict(Exception):
-    pass
 
 
 @dataclass(frozen=True)
@@ -39,9 +37,10 @@ class LocalAuthBackend(AuthBackend):
     name = "local"
     issues_tokens = True
 
-    def __init__(self, db: Database, settings: Settings):
+    def __init__(self, db: Database, settings: Settings, mailer: EmailSender | None = None):
         self.db = db
         self.s = settings
+        self.mailer = mailer or LoggingEmailSender()
         self._key = settings.require_jwt_secret()
 
     # --- AuthBackend -------------------------------------------------------------------------
@@ -55,31 +54,102 @@ class LocalAuthBackend(AuthBackend):
         return Principal(user_id=c.user_id, tenant_id=c.tenant_id)
 
     # --- token issuing -----------------------------------------------------------------------
-    async def signup(self, email: str, password: str, tenant_name: str, display_name: str = "") -> TokenPair:
+    async def signup(self, email: str, password: str, tenant_name: str, display_name: str = "") -> None:
+        """Start a sign-up. Returns nothing, and does the same work whether or not the e-mail is registered
+        (argon2 hash, one lookup, one e-mail), so neither the response nor the timing tells them apart.
+
+        New e-mail: a pending sign-up is stored and a verification token is mailed; the user, the tenant
+        and the owner membership are created when the token is presented (`verify_signup`). Registered
+        e-mail: a notice is mailed to the existing owner of the address and nothing is created.
+        """
         email = normalize_email(email)
-        user = User(
-            id=uuid.uuid4(),
-            email=email,
-            display_name=display_name,
-            password_hash=security.hash_password(password),
+        pw_hash = security.hash_password(password)
+        async with self.db.tx(lookup_email=email) as s:
+            exists = (await s.execute(select(User.id).where(User.email == email))).first() is not None
+        if exists:
+            await self.mailer.send(
+                Email(
+                    to=email,
+                    subject="Sign-up attempt for your hwflow account",
+                    body="Someone tried to sign up with this address, which already has an account. "
+                    "If it was you, log in instead. If not, ignore this message.",
+                    kind="verify_notice",
+                )
+            )
+            return
+        if self.s.dev_auto_verify:
+            try:
+                await self._create_account(email, pw_hash, tenant_name, display_name)
+            except IntegrityError:
+                pass  # lost a race with a parallel sign-up of the same e-mail: nothing to do
+            return
+        token = security.new_verify_token()
+        now = datetime.now(UTC)
+        values = {
+            "id": uuid.uuid4(),
+            "email": email,
+            "password_hash": pw_hash,
+            "tenant_name": tenant_name,
+            "display_name": display_name,
+            "token_hash": security.hash_token(token),
+            "created_at": now,
+            "expires_at": now + timedelta(seconds=self.s.verify_token_ttl_s),
+        }
+        async with self.db.tx() as s:
+            stmt = pg_insert(PendingSignup).values(**values)
+            await s.execute(
+                stmt.on_conflict_do_update(
+                    index_elements=[PendingSignup.email],
+                    set_={k: stmt.excluded[k] for k in values if k not in ("id", "email")},
+                )
+            )
+        hours = self.s.verify_token_ttl_s // 3600
+        await self.mailer.send(
+            Email(
+                to=email,
+                subject="Confirm your hwflow sign-up",
+                body=f"Confirm your e-mail address with this token (valid {hours} h):\n"
+                f'{token}\n{self.s.public_url}/api/v1/auth/verify (POST {{"token": ...}})',
+                kind="verify",
+                token=token,
+            )
         )
+
+    async def verify_signup(self, token: str) -> TokenPair:
+        """Complete a sign-up with the e-mailed token: creates user, tenant, owner membership; logs in."""
+        h = security.hash_token(token)
+        async with self.db.tx() as s:
+            # Consumed by the DELETE, so a token works once even under concurrent requests.
+            row = (
+                await s.execute(
+                    delete(PendingSignup).where(PendingSignup.token_hash == h).returning(PendingSignup)
+                )
+            ).first()
+        if row is None or row[0].expires_at <= datetime.now(UTC):
+            raise AuthError("invalid or expired token")
+        p = row[0]
+        try:
+            return await self._create_account(p.email, p.password_hash, p.tenant_name, p.display_name)
+        except IntegrityError as e:  # the address got registered in the meantime
+            raise AuthError("invalid or expired token") from e
+
+    async def _create_account(
+        self, email: str, password_hash: str, tenant_name: str, display_name: str
+    ) -> TokenPair:
+        user = User(id=uuid.uuid4(), email=email, display_name=display_name, password_hash=password_hash)
         tenant = Tenant(
             id=uuid.uuid4(),
             name=tenant_name,
             slug=f"{slugify(tenant_name, 50)}-{secrets.token_hex(3)}",
             max_concurrent_runs=self.s.default_max_concurrent_runs,
         )
-        try:
-            async with self.db.tx(tenant_id=tenant.id, user_id=user.id) as s:
-                s.add(user)
-                s.add(tenant)
-                await s.flush()
-                s.add(Membership(tenant_id=tenant.id, user_id=user.id, role=Role.owner))
-                await s.flush()
-                pair = await self._new_session(s, user.id, tenant.id, Role.owner)
-        except IntegrityError as e:
-            raise SignupConflict("e-mail already registered") from e
-        return pair
+        async with self.db.tx(tenant_id=tenant.id, user_id=user.id) as s:
+            s.add(user)
+            s.add(tenant)
+            await s.flush()
+            s.add(Membership(tenant_id=tenant.id, user_id=user.id, role=Role.owner))
+            await s.flush()
+            return await self._new_session(s, user.id, tenant.id, Role.owner)
 
     async def login(self, email: str, password: str, tenant_id: uuid.UUID | None = None) -> TokenPair:
         email = normalize_email(email)

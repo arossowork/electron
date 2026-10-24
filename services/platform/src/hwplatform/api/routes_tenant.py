@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth.local import normalize_email
+from .. import invites
 from ..db import Database
-from ..models import Role, User
+from ..models import Role
 from ..tenancy import MembershipRepo, TenantContext, TenantRepo
 from .deps import get_db, require_admin, tenant_context
-from .schemas import MemberIn, MemberOut, TenantOut
+from .schemas import AcceptedOut, MemberIn, MemberOut, TenantOut
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -38,29 +37,28 @@ async def list_members(ctx: TenantContext = Depends(tenant_context), db: Databas
     ]
 
 
-@router.post("/members", status_code=status.HTTP_201_CREATED, response_model=MemberOut)
+@router.post("/members", status_code=status.HTTP_202_ACCEPTED, response_model=AcceptedOut)
 async def add_member(
-    body: MemberIn, ctx: TenantContext = Depends(require_admin), db: Database = Depends(get_db)
-):
-    """Add an existing user (by e-mail) to the current tenant. No invitation e-mail is sent yet."""
+    body: MemberIn,
+    request: Request,
+    ctx: TenantContext = Depends(require_admin),
+    db: Database = Depends(get_db),
+) -> AcceptedOut:
+    """Invite an e-mail address to the current tenant. Always 202 with the same body, whether or not the
+    address has an account or is a member already; the invitation token is sent by e-mail and accepted
+    with POST /auth/accept-invite by the person who owns the address."""
     role = Role(body.role)
     if role is Role.admin and ctx.role is not Role.owner:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "only the owner can add an admin")
-    email = normalize_email(body.email)
-    async with db.tx(tenant_id=ctx.tenant_id, user_id=ctx.user_id, lookup_email=email) as s:
-        user = (await s.execute(select(User).where(User.email == email))).scalar_one_or_none()
-        if user is None:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, "no user with this e-mail; they must sign up first"
-            )
-        repo = MembershipRepo(s, ctx)
-        if await repo.get_for_user(user.id) is not None:
-            raise HTTPException(status.HTTP_409_CONFLICT, "already a member")
-        m = await repo.add(user.id, role)
-        return MemberOut(
-            user_id=user.id,
-            email=user.email,
-            display_name=user.display_name,
-            role=m.role.value,
-            created_at=m.created_at,
-        )
+    async with db.tx(tenant_id=ctx.tenant_id, user_id=ctx.user_id) as s:
+        tenant = await TenantRepo(s, ctx).current()
+    await invites.create_invitation(
+        db,
+        request.app.state.mailer,
+        request.app.state.settings,
+        ctx,
+        body.email,
+        role,
+        tenant.name if tenant else "hwflow",
+    )
+    return AcceptedOut(detail="if the address can be invited, an invitation e-mail was sent")

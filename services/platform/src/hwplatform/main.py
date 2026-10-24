@@ -1,4 +1,4 @@
-"""Entry points: hwplatform-api (uvicorn), hwplatform-migrate (alembic), hwplatform-rotate-master."""
+"""Entry points: hwplatform-api, hwplatform-migrate, hwplatform-rotate-master, hwplatform-purge."""
 
 from __future__ import annotations
 
@@ -46,8 +46,28 @@ def rotate_master() -> None:
     from .settings import get_settings
 
     install_log_redaction()
-    n, newest = asyncio.run(rotate_all(get_settings()))
+    from .crypto import CryptoError
+
+    try:
+        n, newest = asyncio.run(rotate_all(get_settings()))
+    except (
+        CryptoError
+    ) as e:  # a stored key uses a master key version that is not configured: stop, change nothing
+        sys.exit(f"hwplatform-rotate-master: {e}")
     print(f"re-wrapped {n} data key(s) under master key version {newest}")
+
+
+def purge() -> None:
+    """hwplatform-purge: delete expired/revoked refresh tokens and old rate-limit rows (cron it)."""
+    import asyncio
+
+    from .logredact import install_log_redaction
+    from .purge import purge_all
+    from .settings import get_settings
+
+    install_log_redaction()
+    r = asyncio.run(purge_all(get_settings()))
+    print(" ".join(f"{k}={v}" for k, v in r.items()))
 
 
 def run() -> None:

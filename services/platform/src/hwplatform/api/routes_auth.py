@@ -1,15 +1,38 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 
+from .. import invites
 from ..auth import AuthError
-from ..auth.local import LocalAuthBackend, SignupConflict, TokenPair
+from ..auth.local import LocalAuthBackend, TokenPair, normalize_email
+from ..auth.ratelimit import AuthGuard, RateLimited
 from ..db import Database
 from ..models import Membership, Tenant, User
 from ..tenancy import TenantContext
-from .deps import get_backend, get_db, tenant_context, unauthorized
-from .schemas import LoginIn, MeOut, RefreshIn, SignupIn, TenantRef, TokenOut
+from .deps import (
+    _bearer,
+    client_ip,
+    get_backend,
+    get_db,
+    get_guard,
+    rate_limited,
+    tenant_context,
+    unauthorized,
+)
+from .schemas import (
+    AcceptedOut,
+    AcceptInviteIn,
+    AcceptInviteOut,
+    LoginIn,
+    MeOut,
+    RefreshIn,
+    SignupIn,
+    TenantRef,
+    TokenOut,
+    VerifyIn,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -30,26 +53,79 @@ def _out(p: TokenPair) -> TokenOut:
     )
 
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=TokenOut)
-async def signup(body: SignupIn, auth: LocalAuthBackend = Depends(_local)) -> TokenOut:
-    """Create a user, a new tenant and an owner membership; returns a logged-in session."""
+SIGNUP_ACCEPTED = AcceptedOut(detail="check your e-mail to confirm the sign-up")
+
+
+@router.post("/signup", status_code=status.HTTP_202_ACCEPTED, response_model=AcceptedOut)
+async def signup(
+    body: SignupIn,
+    request: Request,
+    auth: LocalAuthBackend = Depends(_local),
+    guard: AuthGuard = Depends(get_guard),
+) -> AcceptedOut:
+    """Start a sign-up. Always 202 with the same body, whether or not the e-mail is registered: a new
+    address gets a verification token by e-mail (POST /auth/verify creates the account), a registered
+    one gets a notice. Dev: HWPLATFORM_DEV_AUTO_VERIFY=true creates the account at once."""
     try:
-        return _out(await auth.signup(body.email, body.password, body.tenant_name, body.display_name))
-    except SignupConflict as e:
-        raise HTTPException(status.HTTP_409_CONFLICT, "e-mail already registered") from e
+        await guard.hit("signup", ip=client_ip(request), email=normalize_email(body.email))
+    except RateLimited as e:
+        raise rate_limited(e) from e
+    await auth.signup(body.email, body.password, body.tenant_name, body.display_name)
+    return SIGNUP_ACCEPTED
+
+
+@router.post("/verify", response_model=TokenOut)
+async def verify(
+    body: VerifyIn,
+    request: Request,
+    auth: LocalAuthBackend = Depends(_local),
+    guard: AuthGuard = Depends(get_guard),
+) -> TokenOut:
+    """Complete a sign-up with the e-mailed token; creates user, tenant and owner membership."""
+    try:
+        await guard.hit("verify", ip=client_ip(request))
+    except RateLimited as e:
+        raise rate_limited(e) from e
+    try:
+        return _out(await auth.verify_signup(body.token))
+    except AuthError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired token") from e
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(body: LoginIn, auth: LocalAuthBackend = Depends(_local)) -> TokenOut:
+async def login(
+    body: LoginIn,
+    request: Request,
+    auth: LocalAuthBackend = Depends(_local),
+    guard: AuthGuard = Depends(get_guard),
+) -> TokenOut:
+    ip, email = client_ip(request), normalize_email(body.email)
     try:
-        return _out(await auth.login(body.email, body.password, body.tenant_id))
+        await guard.hit("login", ip=ip, email=email)
+        await guard.check_lockout(ip=ip, email=email)
+    except RateLimited as e:
+        raise rate_limited(e) from e
+    try:
+        out = _out(await auth.login(body.email, body.password, body.tenant_id))
     except AuthError as e:
+        await guard.record_failure(ip=ip, email=email)
         raise unauthorized("invalid credentials") from e
+    await guard.clear_failures(email=email)
+    return out
 
 
 @router.post("/refresh", response_model=TokenOut)
-async def refresh(body: RefreshIn, auth: LocalAuthBackend = Depends(_local)) -> TokenOut:
+async def refresh(
+    body: RefreshIn,
+    request: Request,
+    auth: LocalAuthBackend = Depends(_local),
+    guard: AuthGuard = Depends(get_guard),
+) -> TokenOut:
     """Rotate: the presented refresh token is spent; reusing it later revokes the whole session."""
+    try:
+        await guard.hit("refresh", ip=client_ip(request))
+    except RateLimited as e:
+        raise rate_limited(e) from e
     try:
         return _out(await auth.refresh(body.refresh_token))
     except AuthError as e:
@@ -81,3 +157,24 @@ async def me(ctx: TenantContext = Depends(tenant_context), db: Database = Depend
         role=ctx.role.value,
         tenants=[TenantRef(id=t.id, name=t.name, role=m.role.value) for m, t in rows],
     )
+
+
+@router.post("/accept-invite", response_model=AcceptInviteOut)
+async def accept_invite(
+    body: AcceptInviteIn,
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Database = Depends(get_db),
+    backend=Depends(get_backend),
+) -> AcceptInviteOut:
+    """Join the tenant of an invitation. The caller must be logged in as the invited e-mail address."""
+    if creds is None:
+        raise unauthorized()
+    try:
+        p = await backend.authenticate(creds.credentials)
+    except AuthError as e:
+        raise unauthorized(str(e)) from e
+    try:
+        tenant_id, role = await invites.accept_invitation(db, p.user_id, body.token)
+    except invites.InviteError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired invitation") from e
+    return AcceptInviteOut(tenant_id=tenant_id, role=role.value)

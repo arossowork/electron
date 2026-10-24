@@ -6,10 +6,12 @@ from fastapi import APIRouter, FastAPI
 
 from ..auth import AuthBackend
 from ..auth.local import LocalAuthBackend
+from ..auth.ratelimit import AuthGuard
 from ..crypto import Keyring, MasterKeyNotConfigured
 from ..db import Database
 from ..llm_keys import KeyValidator, anthropic_validator
 from ..logredact import install_log_redaction
+from ..mail import EmailSender, LoggingEmailSender
 from ..settings import Settings, get_settings
 from . import routes_auth, routes_llm_keys, routes_projects, routes_tenant
 
@@ -18,9 +20,11 @@ def create_app(
     settings: Settings | None = None,
     auth: AuthBackend | None = None,
     key_validator: KeyValidator | None = None,
+    email_sender: EmailSender | None = None,
 ) -> FastAPI:
     """Build the API. `auth` lets an OIDC backend replace the built-in one; `key_validator` replaces the
-    call to the Anthropic API that checks a BYOK key (tests inject a fake)."""
+    call to the Anthropic API that checks a BYOK key (tests inject a fake); `email_sender`
+    delivers verification and invitation e-mails (default: log them to stdout, dev only)."""
     settings = settings or get_settings()
     install_log_redaction()
 
@@ -28,7 +32,10 @@ def create_app(
     async def lifespan(app: FastAPI):
         db = Database.from_settings(settings)
         app.state.db = db
-        app.state.auth = auth or LocalAuthBackend(db, settings)
+        app.state.settings = settings
+        app.state.mailer = email_sender or LoggingEmailSender()
+        app.state.guard = AuthGuard(db, settings)
+        app.state.auth = auth or LocalAuthBackend(db, settings, app.state.mailer)
         app.state.key_validator = key_validator or anthropic_validator(settings)
         try:
             app.state.keyring = Keyring.from_settings(settings)

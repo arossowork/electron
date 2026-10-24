@@ -17,7 +17,11 @@ src/hwplatform/
   security.py      argon2id passwords, JWT access tokens, opaque refresh tokens
   storage.py       object keys tenants/<tenant_id>/... (S3 use comes with #10/#12)
   auth/backend.py  AuthBackend interface (authenticate a bearer token -> Principal)
-  auth/local.py    LocalAuthBackend: signup, login, refresh (rotating), logout
+  auth/local.py    LocalAuthBackend: signup + e-mail verification, login, refresh (rotating), logout
+  auth/ratelimit.py  AuthGuard: sliding-window limits and lockout in Postgres (#26)
+  invites.py       invitations to a tenant: create (always the same answer), accept
+  mail.py          EmailSender interface; dev sender logs to stdout; no SMTP in M1
+  purge.py         hwplatform-purge: expired/revoked tokens, old rate-limit rows
   api/             FastAPI app, routes under /api/v1
   migrations/      Alembic; 0001_tenancy creates tables, RLS policies and grants
 ```
@@ -28,13 +32,15 @@ Endpoints (`/api/v1`, OpenAPI at `/docs`):
 
 | Method | Path | Who |
 |---|---|---|
-| POST | `/auth/signup` | anyone: creates a user, a tenant and an owner membership; returns tokens |
-| POST | `/auth/login` | `{email, password, tenant_id?}`; `tenant_id` picks one of the user's tenants |
+| POST | `/auth/signup` | anyone: always `202`, same body for new and registered e-mails; the verification token is e-mailed |
+| POST | `/auth/verify` | `{token}` from the e-mail: creates user, tenant and owner membership; returns tokens |
+| POST | `/auth/login` | `{email, password, tenant_id?}`; `tenant_id` picks one of the user's tenants; `429` when limited or locked |
 | POST | `/auth/refresh` | rotates the refresh token |
 | POST | `/auth/logout` | revokes the login session (the refresh-token family) |
 | GET | `/auth/me` | user, current tenant and role, all tenants of the user |
 | GET | `/tenant` | current tenant, incl. the `max_concurrent_runs` quota |
-| GET/POST | `/tenant/members` | list; add an existing user by e-mail (owner/admin; only the owner adds admins). No e-mail is sent. |
+| GET/POST | `/tenant/members` | list; invite an e-mail address (owner/admin; only the owner invites admins): always `202`, same body whatever the address |
+| POST | `/auth/accept-invite` | `{token}` from the invitation e-mail, logged in as the invited address: joins the tenant |
 | PUT/GET/DELETE | `/tenant/llm-keys/anthropic` | owner/admin: store (validated first), status (never the key), delete the tenant's Claude API key (#14) |
 | POST/GET | `/projects` | create, list |
 | GET/DELETE | `/projects/{id}` | get, delete; another tenant's project is a 404 |
@@ -97,6 +103,38 @@ Object storage: `storage.tenant_key(tenant_id, *segments)` builds `tenants/<tena
 - **Refresh token:** opaque `rt.<tenant hex>.<256-bit secret>`, 30 days, stored as SHA-256 in `refresh_tokens`. Each refresh spends the token and issues a new one in the same family. Presenting a spent token revokes the whole family (reuse detection). Logout revokes the family. The tenant id in the token tells the API which RLS context to open for the lookup.
 - **Switching tenant:** log in again with `tenant_id`.
 
+## Hardening (#26)
+
+**Rate limits and lockout** (`auth/ratelimit.py`, table `auth_events`, no Redis). Each request on login, signup, refresh and verify appends an event for its e-mail and its client IP; the window count decides. Over the limit gives `429` with `Retry-After`, and the rejected attempt is not recorded. After `lockout_threshold` failed logins for an e-mail (or `lockout_ip_threshold` for an IP) within `lockout_window_s`, the e-mail (IP) is locked even for the right password; the lock ends when the failures leave the window. A successful login clears the e-mail's failures. Limits apply identically to unknown e-mails, so they reveal nothing. Defaults (all `HWPLATFORM_RATE_*`, `HWPLATFORM_LOCKOUT_*`):
+
+| Action | Window | Per e-mail | Per IP |
+|---|---|---|---|
+| login | 60 s | 10 | 30 |
+| refresh, verify | 60 s | | 60 |
+| signup | 1 h | 3 | 10 |
+| lockout (failed logins) | 15 min | 5 | 50 |
+
+`auth_events` and `pending_signups` are global, not tenant-scoped (their subject is an e-mail or an IP, and the user does not exist yet), so they sit outside the tenant RLS. The app role may insert, read and delete `auth_events` rows but not update them, and only `AuthGuard` writes them. The client IP is the peer address; behind an ingress set uvicorn's `--forwarded-allow-ips` (env `FORWARDED_ALLOW_IPS`) to the proxy, otherwise all clients share one IP. Trade-off: an attacker can lock out a victim's e-mail for 15 minutes by failing on purpose; the per-IP limits bound how many e-mails one source can lock. Counting is check-after-insert in one transaction, so concurrent requests can overshoot a limit by the number in flight.
+
+**No account enumeration.** `POST /auth/signup` is always `202` with the same body. It always runs the argon2 hash and one lookup and sends one e-mail, so status, body and (roughly) timing are equal: a new address gets a verification token, a registered one gets a notice. The account (user, tenant, owner membership) is created only when the token is presented to `POST /auth/verify`, so unverified sign-ups leave no users behind (only a `pending_signups` row, purged after `verify_token_ttl_s`). Login fails with the same `401` for unknown e-mail, wrong password and no membership. `POST /tenant/members` always answers `202` with the same body, whether the address has an account, is a member, or neither; the invitation e-mail carries the token and the invited person presents it (`POST /auth/accept-invite`, logged in as that address). A leaked token alone does not join anyone: the logged-in e-mail must equal the invited one.
+
+**E-mail** (`mail.py`). `EmailSender.send(Email)` is the only interface; verification and invitations use it. M1 has no SMTP: the default `LoggingEmailSender` writes the message, token included, to stdout through the logger (API-key patterns are redacted). Pass a real sender with `create_app(email_sender=...)`.
+
+**Dev flow.** Set `HWPLATFORM_DEV_AUTO_VERIFY=true` and `signup` creates the account at once (the response stays the same `202`), then `login` works:
+
+```
+curl -s -XPOST localhost:8080/api/v1/auth/signup -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","password":"a-long-password-123","tenant_name":"Acme"}'      # 202
+curl -s -XPOST localhost:8080/api/v1/auth/login  -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","password":"a-long-password-123"}'                          # tokens
+```
+
+Without the flag, read the token from the API's stdout (`E-MAIL to=... ev.<token>`) and `POST /auth/verify {"token": ...}`. Never set the flag in production: it skips proof of ownership of the address.
+
+**Purge.** `hwplatform-purge` (run as the owner role via `HWPLATFORM_MIGRATION_DATABASE_URL`, e.g. as a k8s CronJob once a day) deletes expired refresh tokens, revoked ones older than `purge_revoked_after_s` (7 days: a recently revoked, rotated token is kept so its reuse is still detected), expired or accepted invitations, expired pending sign-ups and `auth_events` older than a day. On the tenant tables the owner role has delete policies for dead rows only, so the job cannot remove a live token or invitation.
+
+**Access-token lifetime and revocation.** Access tokens are stateless JWTs of 15 minutes (`HWPLATFORM_ACCESS_TOKEN_TTL_S`). Logout and refresh-family revocation stop new tokens at once but cannot recall one already issued, which stays valid until `exp` (at most 15 minutes). What does take effect immediately: removing a member (the membership and role are re-read from the DB on every request) and deleting a tenant. A shorter lifetime narrows the window and costs more refreshes; a per-request revocation check (a deny-list or a token-version column read on every request) would close it at the cost of a DB read per request that the membership check already pays, so it can be added later without an API change. 15 minutes is the accepted trade-off for M1.
+
 ## BYOK: the tenant's own Claude API key (#14)
 
 Each tenant brings and pays for its own key. The agent worker (#15) calls `get_tenant_llm_key(db, keyring, tenant_id)` and uses only that key; there is no platform-wide key to fall back to.
@@ -116,7 +154,8 @@ The API depends only on `AuthBackend.authenticate(bearer) -> Principal(user_id, 
 
 ## Open points
 
-- No rate limiting or lockout on login and signup yet; signup and add-member reveal whether an e-mail is registered.
-- No e-mail verification or invitation e-mails; add-member needs an existing account.
-- After logout an access token stays valid until it expires (15 min). A member removed from a tenant is refused at once by the per-request membership check.
-- Expired and revoked refresh tokens are not purged yet.
+- No e-mail delivery: the dev sender logs to stdout. A real `EmailSender` (SMTP or provider API) is needed before sign-up is exposed.
+- Password reset and e-mail change are not implemented.
+- Invitation creation is not rate limited beyond the admin role requirement.
+- After logout an access token stays valid until it expires (15 min, see Hardening). A removed member is refused at once.
+- The OIDC mode does not mount the sign-up, verify and accept-invite routes; mapping invitations to IdP users is an M2 task.
