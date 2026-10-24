@@ -1,0 +1,61 @@
+# Reduced profile (M1): the 2 vCPU / 4 GB VPS shared with other apps (docker/k8s/cluster.yaml).
+#   helm upgrade --install hwp deploy/helm/hwflow-platform -n hwflow-platform --create-namespace \
+#     -f deploy/helm/hwflow-platform/values-reduced.yaml
+# Requests of the components running at rest (worker not counted) add up to about 0.9 GiB; with the worker 1.3 GiB.
+# Limits are caps, not reservations: they may add up to more than the node, the kernel and kubelet arbitrate
+# (priority classes: platform core = apps-high, evicted after the apps-low apps).
+
+global:
+  priorityClassName: apps-high
+
+api:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+    limits: {cpu: "1", memory: 320Mi}
+
+web:
+  enabled: true     # set false until the web image exists
+  resources:
+    requests: {cpu: 5m, memory: 16Mi}
+    limits: {cpu: 100m, memory: 48Mi}
+
+worker:
+  enabled: true     # set false until the worker image (#10) and entrypoint (#9) exist
+  # Workers run long builds: apps-high by default so they are evicted last; set apps-low to let singing win.
+  priorityClassName: apps-high
+  replicas: 1
+  scratchSize: 2Gi
+  resources:
+    requests: {cpu: 250m, memory: 384Mi}
+    limits: {cpu: "2", memory: 1536Mi}
+  perQueue: {enabled: false}
+  keda: {enabled: false}
+
+postgres:
+  persistence: {size: 8Gi}
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: "1", memory: 384Mi}
+
+temporal:
+  numHistoryShards: 4
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  ui: {enabled: false}   # enable and port-forward when you need it: +32 MiB
+
+seaweedfs:
+  persistence: {size: 10Gi}
+  resources:
+    requests: {cpu: 30m, memory: 192Mi}
+    limits: {cpu: "1", memory: 384Mi}
+
+nats:
+  persistence: {size: 1Gi}
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+
+backup:
+  retentionDays: 7

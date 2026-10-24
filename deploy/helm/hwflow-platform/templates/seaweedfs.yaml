@@ -1,0 +1,73 @@
+{{- $c := dict "root" . "c" "seaweedfs" }}
+{{- $name := include "hwp.name" $c }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  selector: {{- include "hwp.selector" $c | nindent 4 }}
+  ports: [{name: s3, port: 8333, targetPort: s3}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels: {{- include "hwp.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $c | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.seaweedfs) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: seaweedfs
+          image: {{ include "hwp.image" .Values.images.seaweedfs }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cat > /tmp/s3.json <<EOF
+              {"identities":[{"name":"hwflow","credentials":[{"accessKey":"$S3_ACCESS_KEY","secretKey":"$S3_SECRET_KEY"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+              EOF
+              exec weed server -dir=/data -master.volumeSizeLimitMB=256 -volume.max=20 \
+                -s3 -s3.port=8333 -s3.config=/tmp/s3.json -ip.bind=0.0.0.0
+          env:
+            - {name: GOMEMLIMIT, value: {{ .Values.seaweedfs.goMemLimit | quote }}}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "S3_ACCESS_KEY" "key" "s3-access-key") | nindent 12 }}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "S3_SECRET_KEY" "key" "s3-secret-key") | nindent 12 }}
+          ports: [{name: s3, containerPort: 8333}]
+          readinessProbe:
+            exec: {command: [wget, -qO-, "http://127.0.0.1:9333/cluster/status"]}
+            periodSeconds: 10
+            initialDelaySeconds: 5
+            failureThreshold: 20
+          livenessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 20
+            initialDelaySeconds: 30
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.seaweedfs.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 64Mi}}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.seaweedfs.persistence.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.seaweedfs.persistence.size }}}}

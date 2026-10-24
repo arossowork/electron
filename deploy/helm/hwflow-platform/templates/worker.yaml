@@ -1,0 +1,86 @@
+{{- if .Values.worker.enabled }}
+{{- /* Reduced: one Deployment "worker" polling every task queue. Full: one Deployment per entry of
+       worker.perQueue.queues, selected with the env var worker.queuesEnvVar (name fixed by issue #9). */ -}}
+{{- $items := dict }}
+{{- if .Values.worker.perQueue.enabled }}
+{{- range $q, $cfg := .Values.worker.perQueue.queues }}{{ $_ := set $items $q (default dict $cfg) }}{{ end }}
+{{- else }}
+{{- $_ := set $items "" dict }}
+{{- end }}
+{{- range $q, $cfg := $items }}
+{{- $comp := ternary (printf "worker-%s" $q) "worker" (ne $q "") }}
+{{- $c := dict "root" $ "c" $comp }}
+{{- $name := include "hwp.name" $c }}
+{{- $img := default $.Values.images.worker $cfg.image }}
+{{- $res := default $.Values.worker.resources $cfg.resources }}
+{{- $replicas := default $.Values.worker.replicas $cfg.replicas }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  {{- if not $.Values.worker.keda.enabled }}
+  replicas: {{ $replicas }}
+  {{- end }}
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "hwp.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hwp.labels" $c | nindent 8 }}
+        hwflow.io/role: worker
+    spec:
+      {{- include "hwp.priority" (dict "root" $ "v" $.Values.worker) | nindent 6 }}
+      {{- include "hwp.pullSecrets" $ | nindent 6 }}
+      securityContext: {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "hwp.image" $img }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          command: {{ toJson (default $.Values.worker.command $cfg.command) }}
+          env:
+            {{- include "hwp.appEnv" $c | nindent 12 }}
+            - {name: HOME, value: /scratch/home}
+            {{- if $q }}
+            - {name: {{ $.Values.worker.queuesEnvVar }}, value: {{ $q | quote }}}
+            {{- end }}
+            {{- range $k, $v := $.Values.worker.extraEnv }}
+            - {name: {{ $k }}, value: {{ $v | quote }}}
+            {{- end }}
+          securityContext: {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml $res | nindent 12 }}
+          volumeMounts:
+            - {name: scratch, mountPath: /scratch}
+            - {name: tmp, mountPath: /tmp}
+            - {name: shm, mountPath: /dev/shm}
+      terminationGracePeriodSeconds: 120
+      volumes:
+        - {name: scratch, emptyDir: {sizeLimit: {{ $.Values.worker.scratchSize }}}}
+        - {name: tmp, emptyDir: {sizeLimit: 512Mi}}
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+{{- if and $.Values.worker.keda.enabled $q }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  scaleTargetRef: {name: {{ $name }}}
+  minReplicaCount: {{ $cfg.minReplicas | default 0 }}
+  maxReplicaCount: {{ $cfg.maxReplicas | default $.Values.worker.keda.maxReplicaCount }}
+  pollingInterval: {{ $.Values.worker.keda.pollingInterval }}
+  cooldownPeriod: {{ $.Values.worker.keda.cooldownPeriod }}
+  triggers:
+    - type: temporal
+      metadata:
+        endpoint: {{ include "hwp.name" (dict "root" $ "c" "temporal") }}:7233
+        namespace: {{ $.Values.temporal.namespace }}
+        taskQueue: {{ $q | quote }}
+        targetQueueSize: {{ $.Values.worker.keda.targetQueueSize | quote }}
+{{- end }}
+{{- end }}
+{{- end }}

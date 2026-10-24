@@ -1,0 +1,182 @@
+# Defaults for the hwflow platform chart. Use values-reduced.yaml (one small node) or values-full.yaml (M2) on top.
+# Secrets never go in a values file: they are read from the existing Secret named in `secrets.name`
+# (docs/platform-k8s.md, deploy/helm/gen-secrets.sh).
+
+global:
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  # Existing PriorityClass for the platform core (docker/k8s/cluster.yaml defines apps-high and apps-low).
+  # Empty = none. Each component can override it with its own `priorityClassName`.
+  priorityClassName: apps-high
+  # Public URL of the platform as users reach it (used in e-mailed links).
+  publicUrl: http://127.0.0.1:8080
+
+secrets:
+  # Name of the Secret you create before the install. Keys:
+  #   postgres-password hwflow-db-password hwflow-app-db-password hwflow-relay-db-password temporal-db-password
+  #   jwt-secret master-key s3-access-key s3-secret-key
+  # and optionally master-keys ("<version>:<base64>,..." keyring for rotation).
+  name: hwflow-platform-secrets
+
+# The security context applied to every pod; components override only what their image needs.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: {type: RuntimeDefault}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+
+networkPolicy:
+  enabled: true
+  # CIDRs the worker must not reach (cluster and private ranges); everything else on the internet is allowed
+  # (Anthropic API, package mirrors). ADR 0001 section 7.
+  workerEgressExceptCidrs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10]
+
+images:
+  api: {repository: hwplatform-api, tag: dev}
+  web: {repository: hwplatform-web, tag: dev}
+  worker: {repository: hwflow-worker, tag: dev}
+  postgres: {repository: postgres, tag: 17.11-alpine}
+  temporal: {repository: temporalio/server, tag: 1.31.4}
+  temporalAdminTools: {repository: temporalio/admin-tools, tag: 1.31.4}
+  temporalUi: {repository: temporalio/ui, tag: 2.57.0}
+  seaweedfs: {repository: chrislusf/seaweedfs, tag: "4.48"}
+  awsCli: {repository: amazon/aws-cli, tag: 2.34.0}
+  nats: {repository: nats, tag: 2.14.8-alpine}
+
+api:
+  replicas: 1
+  priorityClassName: ""
+  # Each API replica opens a pool; the relay inside the API is leader-elected by a Postgres advisory lock.
+  relayEnabled: true
+  logLevel: info
+  extraEnv: {}
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+    limits: {cpu: "1", memory: 384Mi}
+
+web:
+  enabled: false   # the SPA image comes from web/Dockerfile (another issue)
+  replicas: 1
+  priorityClassName: ""
+  containerPort: 8080
+  # The SPA container is expected to run as non-root and serve on containerPort; the chart gives it /tmp.
+  readOnlyRootFilesystem: true
+  resources:
+    requests: {cpu: 10m, memory: 16Mi}
+    limits: {cpu: 200m, memory: 64Mi}
+
+worker:
+  enabled: false   # the entrypoint and image come with issues #9 and #10
+  priorityClassName: apps-high
+  # Command the worker image starts. Reduced: one process polling all queues.
+  command: [hwplatform-worker]
+  # Env var that selects the queues; empty value = all queues (reduced). Placeholder until #9 fixes the name.
+  queuesEnvVar: HWPLATFORM_WORKER_QUEUES
+  extraEnv: {}
+  # Writable scratch for build trees (stage child processes) and tool caches.
+  scratchSize: 2Gi
+  replicas: 1
+  resources:
+    requests: {cpu: 250m, memory: 384Mi}
+    limits: {cpu: "2", memory: 1536Mi}
+  # Full mode: one Deployment per queue instead of the single one.
+  perQueue:
+    enabled: false
+    queues: {}   # name -> {replicas, image(optional {repository, tag}), resources, command(optional)}
+  keda:
+    enabled: false
+    pollingInterval: 15
+    cooldownPeriod: 300
+    maxReplicaCount: 4
+    targetQueueSize: 1
+
+postgres:
+  priorityClassName: ""
+  persistence: {size: 10Gi, storageClassName: ""}
+  # Flags as in deploy/compose/platform.yaml
+  config:
+    shared_buffers: 96MB
+    effective_cache_size: 256MB
+    work_mem: 4MB
+    maintenance_work_mem: 32MB
+    max_connections: "60"
+    max_wal_size: 512MB
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 384Mi}
+
+temporal:
+  priorityClassName: ""
+  numHistoryShards: 4
+  goMemLimit: 400MiB
+  namespace: default
+  namespaceRetention: 72h
+  # Keyword search attributes registered once (ADR 0001 section 4.4).
+  searchAttributes: [HwTenantId, HwProjectId, HwRunId, HwRunKind]
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  ui:
+    enabled: false
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 128Mi}
+
+seaweedfs:
+  priorityClassName: ""
+  bucket: hwflow-artifacts
+  goMemLimit: 300MiB
+  persistence: {size: 20Gi, storageClassName: ""}
+  resources:
+    requests: {cpu: 50m, memory: 192Mi}
+    limits: {cpu: "1", memory: 384Mi}
+
+nats:
+  priorityClassName: ""
+  goMemLimit: 96MiB
+  persistence: {size: 2Gi, storageClassName: ""}
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+
+# Hook Jobs (migrations, namespace, bucket) are short-lived; they request little.
+hookResources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 256Mi}
+
+purge:
+  enabled: true
+  schedule: "17 3 * * *"
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 192Mi}
+
+backup:
+  enabled: true
+  schedule: "37 2 * * *"
+  retentionDays: 14
+  bucket: hwflow-backups
+  # Target object store. Empty endpoint = the in-cluster SeaweedFS (same disk: protects from mistakes, not from
+  # losing the node). For disaster recovery point it at an external S3 and give its keys in `target.secretName`
+  # (keys access-key, secret-key).
+  target:
+    endpoint: ""
+    region: us-east-1
+    secretName: ""
+  resources:
+    requests: {cpu: 20m, memory: 64Mi}
+    limits: {cpu: "1", memory: 256Mi}
+
+# Services: `web` (SPA, port 80) and `api` (port 8080), both ClusterIP; the host nginx or the Ingress picks them.
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+  className: traefik
+  annotations: {}
+  host: ""            # empty = any host
+  tls: {enabled: false, secretName: ""}
+  apiPath: /api       # routed to the api Service, everything else to web
