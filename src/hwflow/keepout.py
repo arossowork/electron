@@ -13,11 +13,11 @@ turns it off.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from shapely.geometry import MultiPoint, Polygon
 
+from .settings import get_settings
 from . import sexpr
 from .placer import rot
 
@@ -26,7 +26,7 @@ def enabled(flag: bool | None = None) -> bool:
     """The explicit flag wins; None reads HWFLOW_KEEPOUT_STRICT (0, false, no, off turn it off; default on)."""
     if flag is not None:
         return bool(flag)
-    return os.environ.get("HWFLOW_KEEPOUT_STRICT", "").strip().lower() not in ("0", "false", "no", "off")
+    return get_settings().layout.keepout_strict
 
 
 def _pts(node) -> list[tuple[float, float]]:

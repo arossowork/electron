@@ -23,8 +23,8 @@ def test_full_build(tmp_path):
 @pytest.mark.slow
 def test_full_build_krt(tmp_path):
     """Same reference design routed with KiCadRoutingTools: clean DRC, full routing, no vias in pads."""
-    from hwflow.pcb import KRT_DIR
-    if not (KRT_DIR / "py_router" / "route.py").exists():
+    from hwflow.pcb import krt_dir
+    if not (krt_dir() / "py_router" / "route.py").exists():
         pytest.skip("KiCadRoutingTools not installed")
     proj = tmp_path / "sensor_preamp"
     shutil.copytree("examples/sensor_preamp", proj, ignore=shutil.ignore_patterns("build"))

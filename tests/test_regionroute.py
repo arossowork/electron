@@ -8,7 +8,7 @@ from hwflow import pcb, placer, regionroute
 from hwflow.design import Design
 from hwflow.libs import Libs
 
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def two_regions(tmp_path, r1x=4.0):

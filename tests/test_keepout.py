@@ -1,5 +1,5 @@
-from pathlib import Path
 
+from hwflow.settings import get_settings
 import pytest
 
 from hwflow import kicad, keepout
@@ -78,7 +78,7 @@ def test_flag(monkeypatch):
     assert not keepout.enabled() and keepout.enabled(True)
 
 
-@pytest.mark.skipif(not any(Path(c).exists() for c in kicad._CLI if c), reason="kicad-cli not installed")
+@pytest.mark.skipif(not bool(get_settings().tools.kicad_cli), reason="kicad-cli not installed")
 @pytest.mark.slow
 def test_strict_drc_reports_it_with_fp_lib_table(tmp_path, monkeypatch):
     """The case of the baseline: KiCad is silent when fp-lib-table resolves the keep-out footprint."""

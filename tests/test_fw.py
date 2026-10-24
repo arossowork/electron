@@ -291,7 +291,7 @@ def test_scaffold_builds_and_runs_on_the_framework(tmp_path):
         (gen_dir / name).write_text(text)
     fw_dir = d.dir / "fw"
     fw.scaffold(d, fw_dir)
-    fwk = fw.REPO / "fw" / "framework"
+    fwk = fw.repo_root() / "fw" / "framework"
     exe = tmp_path / "app_tests"
     src = [fwk / "src" / "fwk.c", fwk / "test" / "fwk_sim.c", *sorted((fw_dir / "modules").glob("*.c")),
            fw_dir / "app.c", fw_dir / "test" / "test_app.c"]

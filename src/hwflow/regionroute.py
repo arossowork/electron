@@ -28,6 +28,7 @@ from shapely.geometry import Point
 from shapely.ops import unary_union
 
 from . import pcb
+from .settings import get_settings
 
 GROUP_DIR = "groups"  # per-group route cache, under build/routecache/
 
@@ -83,9 +84,7 @@ def partition(nets, pads: dict[str, list], seed_rows: list[dict]) -> list[dict]:
 
 def _knobs() -> list:
     """Router environment knobs (as cli._route_key)."""
-    return sorted((k, v) for k, v in os.environ.items()
-                  if k.startswith(("KICAD_", "KRT_", "HWFLOW_ASIC_")) and k != "KICAD_CLI"
-                   or k in ("HWFLOW_NECKDOWN", "HWFLOW_FLOW"))
+    return get_settings().key_dump()
 
 
 def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) -> str:

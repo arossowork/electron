@@ -3,38 +3,31 @@
 from __future__ import annotations
 
 import copy
-import os
 import re
 from functools import lru_cache
 from pathlib import Path
 
+from .settings import get_settings
 from . import sexpr
 from .sexpr import Q
 
-CANDIDATES = [
-    os.environ.get("KICAD_SHARE", ""),
-    os.path.expanduser("~/Applications/KiCad/KiCad.app/Contents/SharedSupport"),
-    "/Applications/KiCad/KiCad.app/Contents/SharedSupport",
-    "/usr/share/kicad",
-    "/usr/local/share/kicad",
-]
-
-
 def share_dir() -> Path:
-    for c in CANDIDATES:
-        if c and (Path(c) / "symbols").exists():
-            return Path(c)
+    c = get_settings().paths.kicad_share  # KICAD_SHARE, /usr/share/kicad, /usr/local/share/kicad, then the macOS app
+    if c:
+        return Path(c)
     raise FileNotFoundError("KiCad libraries not found. Set KICAD_SHARE to the folder holding symbols/ and footprints/")
 
 
 PROJECT_LIB_DIRS = ("lib", "libs", "kicad_share")
 # The repository's shared library: parts drawn for one project and kept for every other (symbols/<lib>.kicad_sym,
 # footprints/<lib>.pretty). Searched after the project libraries and before KiCad's own.
-SHARED_LIB = Path(__file__).resolve().parents[2] / "library"
+def shared_lib() -> Path:
+    return Path(get_settings().paths.library_dir)
 
 
 def shared_lib_dirs() -> list[Path]:
-    return [d for d in (SHARED_LIB / "symbols", SHARED_LIB / "footprints") if d.is_dir()]
+    lib = shared_lib()
+    return [d for d in (lib / "symbols", lib / "footprints") if d.is_dir()]
 
 
 def shared_lib_files(design) -> list[Path]:
@@ -47,7 +40,7 @@ def shared_lib_files(design) -> list[Path]:
                 nicks.add(v.split(":", 1)[0])
     out = []
     for n in sorted(nicks):
-        for f in (SHARED_LIB / "symbols" / f"{n}.kicad_sym", SHARED_LIB / "footprints" / f"{n}.pretty"):
+        for f in (shared_lib() / "symbols" / f"{n}.kicad_sym", shared_lib() / "footprints" / f"{n}.pretty"):
             if f.is_file():
                 out.append(f)
             elif f.is_dir():

@@ -10,7 +10,7 @@ from shapely.geometry import LineString, Point, box
 from hwflow import corridor, pcb, routing, seedroute, sexpr
 from hwflow.design import Design
 
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 F = ("F.Cu",)
 BETWEEN = 1.0
 GAP = 2 * BETWEEN + routing.NECK_FLOOR + 0.06  # the proof's corridor fits a 0.21 mm track; with ISO_SLACK the router's 0.01 mm

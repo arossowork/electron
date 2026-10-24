@@ -11,10 +11,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .settings import get_settings
 from .design import Design, parse_value
 
 MODELS = Path(__file__).parent / "models" / "generic.lib"
-NGSPICE = shutil.which("ngspice") or "/opt/homebrew/bin/ngspice"
 
 
 def sanitize(net: str, grounds: set[str]) -> str:
@@ -270,7 +270,7 @@ def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
     cir.write_text(netlist)
 
     def once(path):
-        p = subprocess.run([NGSPICE, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        p = subprocess.run([get_settings().tools.ngspice, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
         return p.stdout + "\n" + p.stderr, p.returncode
 
     out, rc = once(cir)
@@ -347,7 +347,7 @@ def _cache_key(netlist: str) -> str:
     content of every file the netlist includes (model files are named by path, so the path alone proves nothing)."""
     if not _NGSPICE_VERSION:
         try:
-            p = subprocess.run([NGSPICE, "-v"], capture_output=True, text=True, timeout=20)
+            p = subprocess.run([get_settings().tools.ngspice, "-v"], capture_output=True, text=True, timeout=20)
             _NGSPICE_VERSION.append(p.stdout + p.stderr)
         except (OSError, subprocess.SubprocessError):
             _NGSPICE_VERSION.append("?")

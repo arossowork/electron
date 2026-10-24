@@ -3,7 +3,6 @@ and connect GND zone islands with stitching vias (or drop them). No LLM, no re-p
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import time
@@ -12,16 +11,17 @@ from pathlib import Path
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
+from .settings import get_settings
 from . import kicad, pcb, sexpr
 
 _NET = re.compile(r"\[([^\]]+)\]")
 _ON = re.compile(r" on (\S+?)(?:,| -|$)")
 MAX_RIPUP = 12  # nets ripped in one round, the ones named by errors first
-MAX_ERRORS = int(os.environ.get("HWFLOW_REPAIR_MAX_ERRORS", 40))  # above this many errors local repair cannot converge: skip it
-BUDGET_S = float(os.environ.get("HWFLOW_REPAIR_BUDGET_S", 120))  # wall time for the whole repair, router calls included
+# HWFLOW_REPAIR_MAX_ERRORS (settings.repair.max_errors, default 40): above this many errors local repair cannot converge: skip it
+# HWFLOW_REPAIR_BUDGET_S (settings.repair.budget_s, default 120): wall time for the whole repair, router calls included
 # rounds in a row without improvement before the repair stops; 1 when some errors are on fixed parts (a floor no
 # re-route lowers: home-thermostat-3 spent 598 s going 5 -> 5 on courtyard errors of fixed parts and one open net)
-MAX_STALL = int(os.environ.get("HWFLOW_REPAIR_MAX_STALL", 2))
+# (settings.repair.max_stall, HWFLOW_REPAIR_MAX_STALL, default 2)
 
 
 def errors(drc: list[dict]) -> list[dict]:
@@ -266,7 +266,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     """Repair loop. `check(tracks, vias, island_removal) -> drc` writes the board and runs DRC (refilling the zones).
     `check` should be the fast DRC; the caller runs the full one on the kept board. A round is kept only if it has fewer errors (or equal errors and fewer unrouted) and no more unrouted than the
     best board so far; the best board is left in `board`. Skipped when every error is on fixed parts (fixed_error).
-    Stops after `rounds` rounds, when nothing can be repaired, or after MAX_STALL rounds in a row without improvement
+    Stops after `rounds` rounds, when nothing can be repaired, or after max_stall rounds in a row without improvement
     (one round when some errors are on fixed parts), or at `deadline` (time.time(), the layout wall-time budget).
     Returns the best copper, DRC and a report."""
     t0 = time.time()
@@ -275,9 +275,10 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     drc_json = board.with_suffix(".drc.json")
     snap = (board.read_bytes(), drc_json.read_bytes() if drc_json.exists() else None)
     first, log, fails, island, done = best["score"], [], 0, 0, 0
-    max_err, budget = MAX_ERRORS, BUDGET_S
+    rs = get_settings().repair
+    max_err, budget = rs.max_errors, rs.budget_s
     fixed = [x for x in errors(drc) if fixed_error(x, parts) is not None]  # errors no re-route can change
-    stall = 1 if fixed else MAX_STALL
+    stall = 1 if fixed else rs.max_stall
     skipped = first[0] > max_err or bool(fixed and len(fixed) == len(errors(drc)))
     if first[0] > max_err:
         log.append(f"repair skipped: {first[0]} errors > limit {max_err}")

@@ -1,5 +1,5 @@
-from pathlib import Path
 
+from hwflow.settings import get_settings
 import pytest
 
 from hwflow import kicad, pcb, placer
@@ -22,7 +22,7 @@ def test_without_creepage_drops_only_creepage_rules():
     assert kicad._without_creepage("(version 1)\n") == "(version 1)\n"
 
 
-@pytest.mark.skipif(not any(Path(c).exists() for c in kicad._CLI if c), reason="kicad-cli not installed")
+@pytest.mark.skipif(not bool(get_settings().tools.kicad_cli), reason="kicad-cli not installed")
 def test_drc_fast_leaves_the_board_and_rules_alone(tmp_path):
     d = Design.load("examples/sensor_preamp")
     libs = Libs()

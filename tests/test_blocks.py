@@ -10,7 +10,7 @@ from hwflow import blocks, pcb, placer
 from hwflow.design import Design, check
 from hwflow.libs import Libs
 
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 BOOST = {"U": "U2", "L": "L1", "CIN": "C3", "COUT": "C4"}
 

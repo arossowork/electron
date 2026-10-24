@@ -15,6 +15,7 @@ from pathlib import Path
 from . import budgets, kicad, pcb, placer, postlayout, repair, seedroute, spice
 from .design import Design, check
 from .libs import Libs
+from .settings import get_settings
 
 
 def _load(proj: str) -> Design:
@@ -260,7 +261,7 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
     name = d.name
     groups = getattr(d, "route_groups", None)
     if d.board.get("router", "krt") == "krt":
-        if (pcb.KRT_DIR / "py_router" / "route.py").exists():
+        if (pcb.krt_dir() / "py_router" / "route.py").exists():
             if groups is not None:
                 from . import regionroute
                 res = regionroute.route(d, libs, parts, out, _out(d) / "routecache")
@@ -339,10 +340,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())
         for f in _block_files(d):
             h.update(f.read_bytes())
-    knobs = sorted((k, v) for k, v in os.environ.items()
-                   if k.startswith(("KICAD_", "KRT_", "HWFLOW_ASIC_")) and k != "KICAD_CLI"
-                   or k in ("HWFLOW_NECKDOWN", "HWFLOW_FLOW"))
-    h.update(json.dumps(knobs).encode())  # router environment knobs (KICAD_RIP_PREEXISTING and the like)
+    # resolved settings of the layout, repair and router groups (the router environment knobs among them)
+    h.update(json.dumps(get_settings().key_dump(), sort_keys=True).encode())
     return h.hexdigest()[:24]
 
 
@@ -463,7 +462,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                                                      groups, route_check)
         rounds = int(d.board.get("repair_rounds", 3))
         if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
-                and (pcb.KRT_DIR / "py_router" / "route.py").exists()):
+                and (pcb.krt_dir() / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
             t = time.time()
             r = repair.repair(d, libs, parts, tracks, vias, drc, board,
@@ -582,7 +581,7 @@ def _auto_attempt(k: int) -> dict:
         if (out / f).exists():
             shutil.copy(out / f, w / f)
     seeds = c["seeds"]
-    seed0 = int(os.environ.get("HWFLOW_SEED0", 1)) + k * seeds  # HWFLOW_SEED0: first placer seed (A/B spread runs)
+    seed0 = get_settings().layout.seed0 + k * seeds  # HWFLOW_SEED0: first placer seed (A/B spread runs)
     use_saved = c["reuse"] and k == 0 and (out / "placement.json").exists()
     if use_saved:
         shutil.copy(out / "placement.json", w / "placement.json")
@@ -805,14 +804,13 @@ def _record_layout(d: Design, r: dict, override: bool):
 def _layout_budget() -> float:
     """Wall time in seconds `layout --auto` may use for its attempts (HWFLOW_LAYOUT_BUDGET_S, default 3000: inside the
     3600 s an agent's `timeout` gives the call, with time left for the diagnosis, status.json and REPORT.md)."""
-    return float(os.environ.get("HWFLOW_LAYOUT_BUDGET_S", 3000))
+    return get_settings().layout.budget_s
 
 
 def _hopeless_limit() -> int:
     """Errors + unrouted of attempt 1 above which `--auto` starts no other attempt (HWFLOW_AUTO_MAX_ERRORS, default the
     repair limit: a board that repair skips is not one that a new seed fixes)."""
-    from . import repair
-    return int(os.environ.get("HWFLOW_AUTO_MAX_ERRORS", repair.MAX_ERRORS))
+    return get_settings().layout.auto_max_errors
 
 
 def _auto_summary(r: dict) -> str:
@@ -1318,18 +1316,17 @@ def missing_evidence(root: Path, evidence) -> list[str]:
 
 # ------------------------------------------------------------------ em (optional, prototype)
 
-OPENEMS_PYTHON = Path.home() / "opt" / "openEMS" / "venv" / "bin" / "python"
-
-
 def cmd_em(a, argv) -> int:
     """openEMS lives in its own venv (built from source). Re-execute there when it is not importable here."""
     import os
     from . import em
     if not em.available():
-        py = Path(os.environ.get("HWFLOW_OPENEMS_PYTHON", OPENEMS_PYTHON))
-        if not py.exists() or os.environ.get("HWFLOW_EM_REEXEC"):
+        ts = get_settings().tools
+        py = Path(ts.openems_python)
+        if not py.exists() or ts.em_reexec:
             print("em: openEMS Python bindings not found (see docs/em-openems-spike.md); skipped")
             return 0
+        # subprocess environment: the child inherits the parent environment, with the re-exec guard set
         env = dict(os.environ, HWFLOW_EM_REEXEC="1",
                    PYTHONPATH=os.pathsep.join([str(Path(__file__).resolve().parents[1]), os.environ.get("PYTHONPATH", "")]))
         import subprocess
@@ -1616,6 +1613,7 @@ def main(argv=None):
     rc = 0
     prev_report = (_out(d) / "REPORT.md").read_text() if (_out(d) / "REPORT.md").exists() else ""
     inputs = _inputs_hash(d)
+    _save_status(d, "settings", get_settings().snapshot())  # the resolved settings of this run
     ran = False
     for st in stages:
         t0 = time.time()

@@ -28,8 +28,9 @@ Nothing here is tied to a design: every input is the board's rules and placement
 from __future__ import annotations
 
 import math
-import os
 import time
+
+from .settings import get_settings
 
 import numpy as np
 
@@ -45,7 +46,7 @@ DEFAULT_FLOW = "asic"
 
 
 def flow(design=None) -> str:
-    v = os.environ.get("HWFLOW_FLOW")
+    v = get_settings().layout.flow
     if v is None:
         v = ((getattr(design, "raw", None) or {}).get("placement") or {}).get("flow", "")
     return str(v or DEFAULT_FLOW).strip().lower()
@@ -57,8 +58,7 @@ def on(design=None) -> bool:
 
 def opt(name: str) -> bool:
     """Stage switch of the layout flow: HWFLOW_ASIC_<NAME>=0 turns that stage off (all on by default; debugging)."""
-    v = os.environ.get(f"HWFLOW_ASIC_{name.upper()}")
-    return v is None or v.strip().lower() not in ("0", "false", "no", "off")
+    return get_settings().layout.asic_on(name)
 
 
 # ------------------------------------------------------------------ placement

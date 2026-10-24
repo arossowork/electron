@@ -10,6 +10,7 @@ dependencies = [
     "shapely>=2.2.0",
     "pillow>=13.0.0",
     "ruamel-yaml>=0.19.1",
+    "pydantic-settings>=2.16.1",
 ]
 
 [project.scripts]

@@ -1,4 +1,5 @@
 
+from hwflow.settings import get_settings
 import pytest
 
 from hwflow import kicad, pcb, placer, repair
@@ -27,7 +28,7 @@ components:
   R3: {value: 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {"1": C, "2": GND}, placement: {x: 20, y: 22, rot: 0, fixed: true}}
   R4: {value: 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {"1": A, "2": GND}, placement: {x: 30, y: 15, rot: 0, fixed: true}}
 """
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def _routed(tmp_path):
@@ -178,7 +179,7 @@ def test_repair_skipped_above_error_limit(tmp_path, monkeypatch):
     board.write_text("x")
     monkeypatch.setattr(repair, "plan", lambda *a, **k: pytest.fail("plan must not run"))
     class D: name = "d"
-    r = repair.repair(D(), None, {}, [], [], _stub_drc(repair.MAX_ERRORS + 1), board, lambda *a: [], 3)["report"]
+    r = repair.repair(D(), None, {}, [], [], _stub_drc(get_settings().repair.max_errors + 1), board, lambda *a: [], 3)["report"]
     assert r["skipped"] and r["rounds"] == 0 and "repair skipped" in repair.summary(r)
 
 
@@ -187,7 +188,7 @@ def test_repair_stops_on_wall_budget(tmp_path, monkeypatch):
     board.write_text("x")
     clock = iter(range(0, 10000, 100))
     monkeypatch.setattr(repair.time, "time", lambda: next(clock))
-    monkeypatch.setattr(repair, "BUDGET_S", 150)
+    monkeypatch.setenv("HWFLOW_REPAIR_BUDGET_S", "150")
     monkeypatch.setattr(repair, "plan", lambda *a, **k: {"rip": [], "islands": [], "drop_vias": ["v"]})
     n = {"c": 0}
     def check(t, v, i):

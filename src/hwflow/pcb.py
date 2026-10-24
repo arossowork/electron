@@ -15,14 +15,12 @@ from pathlib import Path
 
 from shapely.geometry import box
 
+from .settings import get_settings
 from . import sexpr
 from .design import Design
 from .placer import Part, rot
 from .sexpr import Q
 
-FREEROUTING = os.environ.get("FREEROUTING") or str(Path(__file__).resolve().parents[2] / "tools" / "freerouting-2.5.0.jar")
-JAVA = os.environ.get("JAVA") or next((j for j in ("/opt/homebrew/opt/openjdk/bin/java", shutil.which("java") or "")
-                                      if j and Path(j).exists()), "java")
 PCB_VERSION = "20241229"
 
 
@@ -713,9 +711,10 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
 
 
 def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) -> str:
-    if not Path(FREEROUTING).exists():
-        raise FileNotFoundError(f"freerouting jar not found at {FREEROUTING}; set FREEROUTING")
-    cmd = [JAVA, "-Djava.awt.headless=true", "-jar", FREEROUTING, "--gui.enabled=false",
+    jar = freerouting_jar()
+    if not Path(jar).exists():
+        raise FileNotFoundError(f"freerouting jar not found at {jar}; set FREEROUTING")
+    cmd = [get_settings().tools.java, "-Djava.awt.headless=true", "-jar", jar, "--gui.enabled=false",
            "-de", str(dsn.resolve()), "-do", str(ses.resolve()), "--router.autorouter.max_passes", str(passes)]
     ses.unlink(missing_ok=True)
     try:
@@ -729,7 +728,13 @@ def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) 
     return log
 
 
-KRT_DIR = Path(os.environ.get("KRT_DIR") or Path(__file__).resolve().parents[2] / "tools" / "KiCadRoutingTools")
+def krt_dir() -> Path:
+    """KiCadRoutingTools checkout (settings.paths.krt_dir, KRT_DIR)."""
+    return Path(get_settings().paths.krt_dir)
+
+
+def freerouting_jar() -> str:
+    return get_settings().paths.freerouting
 
 
 def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout: int = 1800) -> tuple[list, list, str, int]:
@@ -798,7 +803,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(copper)}
     neck = float(b["track_mm"])
     floor = routing.neck_floor(b)
-    neckdown = os.environ.get("HWFLOW_NECKDOWN", "1") != "0"
+    neckdown = get_settings().layout.neckdown
     # nets the corridor proof connects only with a neck: a full-width pass cannot route them, so they route narrow
     # first (then widened), in a pass of their own ahead of the other nets of their isolation side
     minw = net_min_widths(design)  # nets.<name>.min_width_mm: no neck under it
@@ -813,7 +818,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     necked = {n: v for n, v in necked.items() if minw.get(n, 0.0) <= floor + 1e-9}
     # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)
     seedable = set()
-    if neckdown and os.environ.get("HWFLOW_SEEDROUTE", "1") != "0":
+    if neckdown and get_settings().layout.seedroute:
         from . import corridor
         seedable = set(neckable(corridor.constrained(design), floor))
     groups: dict[tuple, list[str]] = {}
@@ -822,6 +827,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             groups.setdefault((net not in members, net not in necked, -cl["width"], net not in only,
                                only.get(net, ())), []).append(net)
     passes = [(-k[2], groups[k], k[4]) for k in sorted(groups)]  # isolation members first, then necked, then widest
+    # subprocess environment: the router inherits the parent environment (KICAD_*/KRT_* knobs) on purpose
     env = dict(os.environ, KICAD_CLI=_kicad_cli())
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
     # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
@@ -831,9 +837,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
               "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
     cur, log, last, retried = src, [], {}, []
     retries = int(b.get("router_retries", 3))
-    route_py = KRT_DIR / "py_router" / "route.py"
+    route_py = krt_dir() / "py_router" / "route.py"
     if not route_py.exists():
-        raise FileNotFoundError(f"KiCadRoutingTools not found at {KRT_DIR}; run scripts/setup.sh or set KRT_DIR")
+        raise FileNotFoundError(f"KiCadRoutingTools not found at {krt_dir()}; run scripts/setup.sh or set KRT_DIR")
 
     def run(args):
         t = timeout
@@ -841,7 +847,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             t = min(t, deadline - time.time())
             if t <= 0:
                 raise subprocess.TimeoutExpired(args, 0)
-        p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=KRT_DIR, env=env)
+        p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=krt_dir(), env=env)
         return p.stdout + p.stderr, p.returncode
 
     cond = floorplan.conductive_needs(design)
@@ -1056,12 +1062,12 @@ def router_version(design: Design) -> str:
     """What the routing result depends on besides the input: a hash of the KiCadRoutingTools sources and its compiled
     extension (or the Freerouting jar), so a cached route is dropped when the router changes."""
     import hashlib
-    krt = design.board.get("router", "krt") == "krt" and (KRT_DIR / "py_router" / "route.py").exists()
-    key = f"krt:{KRT_DIR}" if krt else f"freerouting:{FREEROUTING}"
+    krt = design.board.get("router", "krt") == "krt" and (krt_dir() / "py_router" / "route.py").exists()
+    key = f"krt:{krt_dir()}" if krt else f"freerouting:{freerouting_jar()}"
     if key not in _ROUTER_VERSION:
         h = hashlib.sha256()
-        files = sorted(list((KRT_DIR / "py_router").rglob("*.py")) + list((KRT_DIR / "rust_router").glob("*.so"))) if krt \
-            else [Path(FREEROUTING)]
+        files = sorted(list((krt_dir() / "py_router").rglob("*.py")) + list((krt_dir() / "rust_router").glob("*.so"))) if krt \
+            else [Path(freerouting_jar())]
         for f in files:
             if f.exists():
                 h.update(str(f.name).encode() + f.read_bytes())

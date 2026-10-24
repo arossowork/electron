@@ -8,19 +8,17 @@ import shutil
 import subprocess
 from pathlib import Path
 
-_CLI = [os.environ.get("KICAD_CLI", ""), shutil.which("kicad-cli") or "",
-        os.path.expanduser("~/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"),
-        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"]
-
+from .settings import get_settings
 
 def cli() -> str:
-    for c in _CLI:
-        if c and Path(c).exists():
-            return c
+    c = get_settings().tools.kicad_cli  # KICAD_CLI, PATH, then the macOS app
+    if c:
+        return c
     raise FileNotFoundError("kicad-cli not found; set KICAD_CLI")
 
 
 def _run(args: list[str], timeout=600) -> subprocess.CompletedProcess:
+    # subprocess environment: the parent environment passes through to kicad-cli on purpose
     env = dict(os.environ, LANG="en_US.UTF-8", LC_ALL="en_US.UTF-8", LANGUAGE="en")
     return subprocess.run([cli()] + args, capture_output=True, text=True, timeout=timeout, env=env)
 
@@ -94,7 +92,6 @@ def drc_fast(pcb: Path, refill=True) -> list[dict]:
     """DRC without the creepage rules of the sibling .kicad_dru: 2-3 s against 15 s on a board with a creepage rule,
     because KiCad evaluates creepage over every item pair. A pre-check for a repair loop; creepage is left to the
     full `drc` of the candidate that is kept. It runs on a copy, so the board and its siblings stay as they are."""
-    import shutil
     import tempfile
     pcb = Path(pcb)
     with tempfile.TemporaryDirectory(prefix="drcfast_", dir=pcb.parent) as td:

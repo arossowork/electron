@@ -63,7 +63,8 @@ def test_layout_requirement_with_evidence_only_is_flagged(tmp_path):
 
 
 def test_shared_library_is_searched_after_project_libraries():
-    from hwflow.libs import Libs, SHARED_LIB, shared_lib_dirs
+    from hwflow.libs import Libs, shared_lib, shared_lib_dirs
+    SHARED_LIB = shared_lib()
     if not (SHARED_LIB / "footprints" / "hw.pretty").is_dir():
         return
     libs = Libs()

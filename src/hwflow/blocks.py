@@ -10,9 +10,16 @@ from pathlib import Path
 
 import yaml
 
+from .settings import get_settings
 from .placer import Part, Rigid, rot
 
-ROOT = Path(__file__).resolve().parents[2] / "blocks"  # the repository library
+
+
+def library_root() -> Path:
+    """The repository's block library (settings.paths.blocks_dir)."""
+    return Path(get_settings().paths.blocks_dir)
+
+
 YARD = "block:"  # ref prefix of a block courtyard in the placer
 
 
@@ -21,7 +28,7 @@ YARD = "block:"  # ref prefix of a block courtyard in the placer
 def lib_dirs(design=None) -> list[Path]:
     """Where blocks are looked up: the project's own `blocks/` first, then the repository library."""
     out = [design.dir / "blocks"] if design is not None and (design.dir / "blocks").is_dir() else []
-    return out + [ROOT]
+    return out + [library_root()]
 
 
 def names(design=None) -> list[str]:
@@ -571,7 +578,7 @@ def extract(board: Path, refs: list[str], name: str, source: str, roles: dict | 
 
 def write(block: dict, root: Path | None = None) -> Path:
     """blocks/<name>/block.yaml, leaf lists and maps in flow style."""
-    d = Path(root or ROOT) / block["name"]
+    d = Path(root or library_root()) / block["name"]
     d.mkdir(parents=True, exist_ok=True)
     f = d / "block.yaml"
     f.write_text(yaml.safe_dump(block, sort_keys=False, default_flow_style=None, width=120))
@@ -602,7 +609,7 @@ def verify(name: str, workdir: Path, design=None) -> dict:
            "blocks": {"t": {"use": name, "nets": {n: n for n in sorted(P)},
                             "at": {"x": round(m - x0, 4), "y": round(m - y0, 4), "rot": 0, "fixed": True}}}}
     (workdir / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False))
-    if b.get("dir") and (Path(b["dir"]).parent != ROOT):  # a project block: look it up from the project
+    if b.get("dir") and (Path(b["dir"]).parent != library_root()):  # a project block: look it up from the project
         (workdir / "blocks").mkdir(exist_ok=True)
         link = workdir / "blocks" / name
         if not link.exists():

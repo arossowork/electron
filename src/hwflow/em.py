@@ -30,6 +30,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .settings import get_settings
 from .pcb import read_board
 from .postlayout import _edge_dist, _ellipk, _zone_fills, cpwg_z0, microstrip  # noqa: F401
 
@@ -66,7 +67,7 @@ def _run(fdtd, sim_path: Path, threads: int = 0) -> float:
     cwd = os.getcwd()
     t0 = time.perf_counter()
     try:
-        fdtd.Run(str(sim_path), cleanup=True, verbose=int(os.environ.get("HWFLOW_EM_VERBOSE", "0")),
+        fdtd.Run(str(sim_path), cleanup=True, verbose=get_settings().tools.em_verbose,
                  numThreads=threads)
     finally:
         os.chdir(cwd)

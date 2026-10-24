@@ -9,7 +9,7 @@ from hwflow.design import Design
 from hwflow.libs import Libs
 
 EX = "examples/sensor_preamp"
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def _project(tmp_path, clearance=2.5):
@@ -220,8 +220,8 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     pro = json.loads((tmp_path / f"{d.name}.kicad_pro").read_text())["net_settings"]
     assert {"netclass": "isb_sig_between_SENS_IN", "pattern": "SENS_IN"} in pro["netclass_patterns"]
     # KiCadRoutingTools' own readers: member to member 0.6 mm, member to another net the larger group rule
-    if (pcb.KRT_DIR / "py_router" / "kicad_dru.py").exists():
-        sys.path.insert(0, str(pcb.KRT_DIR / "py_router"))
+    if (pcb.krt_dir() / "py_router" / "kicad_dru.py").exists():
+        sys.path.insert(0, str(pcb.krt_dir() / "py_router"))
         try:
             from kicad_dru import parse_dru_track_clearances, track_pair_clearance
             from list_nets import net_class_memberships
