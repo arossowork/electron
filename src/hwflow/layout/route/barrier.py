@@ -53,11 +53,11 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
-from ... import keepout
+from ..place import keepout
 from ..board import pcb
 from . import routing
 from ...core import sexpr
-from ...placer import rot
+from ..place.placer import rot
 
 EDGE_MM = 0.3      # min_copper_edge_clearance written by pcb.write_project
 HOLE_MM = 0.25     # min_hole_clearance written by pcb.write_project
@@ -278,7 +278,7 @@ class Model:
             for z in _zones(["root"] + list(blocks.keepout_zones(design, parts))):  # board coordinates already
                 self.areas.append({"name": z["name"], "owner": None, "forbids": z["forbids"],
                                    "layers": routing.pad_layers(z["layers"], self.copper), "poly": Polygon(z["poly"]).buffer(0)})
-        from ... import floorplan
+        from ..place import floorplan
         cuts += [c["poly"] for c in floorplan.cuts(design)]  # floorplan cut regions: holes and notches of the board
         W, H = float(b["width_mm"]), float(b["height_mm"])
         self.outline = box(EDGE_MM, EDGE_MM, W - EDGE_MM, H - EDGE_MM)
@@ -508,7 +508,7 @@ def _nodes(model: Model, design, net: str, regions: dict) -> list[dict]:
 def _forced(design, libs) -> dict:
     """(ref, pin) -> region polygon for the pads a floorplan region forces before placement (members of a region and
     pads of a region's nets)."""
-    from ... import floorplan, placer
+    from ..place import floorplan, placer
     try:
         parts = placer.build_parts(design, libs)
         rules, _ = floorplan.placer_regions(design, parts)

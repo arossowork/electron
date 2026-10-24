@@ -161,7 +161,7 @@ def test_run_all_parallel_matches_serial(tmp_path):
 def test_thermal_vias_land_inside_their_pad():
     from hwflow.core.libs import Libs
     from hwflow.layout.board.pcb import thermal_vias
-    from hwflow.placer import build_parts
+    from hwflow.layout.place.placer import build_parts
     d = Design.load(EX)
     d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
     d.components["U1"].data["pins"] = {"1": "GND", "2": "VBUS", "3": "+3V3"}

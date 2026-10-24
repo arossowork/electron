@@ -591,7 +591,8 @@ def verify(name: str, workdir: Path, design=None) -> dict:
     """Place the block alone on a small board (instantiate mode, ports as single nets) and run KiCad DRC on the
     unrouted board, which holds only the block copper. Returns {ok, errors, warnings, drc, board, joined}."""
     from ..layout.board import kicad, pcb
-    from .. import placer, postlayout
+    from ..layout.place import placer
+    from .. import postlayout
     from .design import Design
     from .libs import Libs
     b = load(name, design)

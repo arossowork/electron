@@ -586,7 +586,7 @@ def conductive_clearances(design: Design, board: dict) -> list[dict]:
     with the smallest distance, {net, keepout, region, mm, need, at, item}. Empty when every distance holds."""
     from shapely.geometry import LineString, Point
 
-    from . import floorplan
+    from .layout.place import floorplan
     needs = floorplan.conductive_needs(design)
     if not needs:
         return []
@@ -624,7 +624,7 @@ def region_excursions(design: Design, board: dict) -> list[dict]:
     keeps the pads of those nets inside; the router does not see the region, so a track can leave it."""
     from shapely.geometry import LineString, Point
 
-    from . import floorplan
+    from .layout.place import floorplan
     regs = floorplan.net_regions(design)
     if not regs:
         return []

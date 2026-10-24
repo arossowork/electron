@@ -8,7 +8,7 @@ import yaml
 
 from hwflow.core import blocks
 from hwflow.layout.board import pcb
-from hwflow import placer
+from hwflow.layout.place import placer
 from hwflow.core.design import Design, check
 from hwflow.core.libs import Libs
 

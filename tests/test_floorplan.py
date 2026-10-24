@@ -5,7 +5,7 @@ import random
 import pytest
 import yaml
 
-from hwflow import floorplan, placer
+from hwflow.layout.place import floorplan, placer
 from hwflow.core.design import Design, check
 from hwflow.core.libs import Libs
 
@@ -194,7 +194,7 @@ def test_fixed_mains_pad_keeps_isolation_from_a_conductive_keepout():
 
     from shapely.geometry import box
 
-    from hwflow import floorplan
+    from hwflow.layout.place import floorplan
     notch = box(0, 10, 3, 16)
     mains = box(0, 0, 20, 46).difference(notch.buffer(6))
     fp = {"boards": [{"name": "main", "x": 0, "y": 0}],

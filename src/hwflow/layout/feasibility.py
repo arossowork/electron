@@ -12,7 +12,7 @@ import importlib
 FEASIBILITY_CHECKS: list[tuple[str, str]] = [
     ("escape", "hwflow.layout.route.partescape"),   # pad escape of wide nets, walled-in pads, perimeter of a part
     ("barrier", "hwflow.layout.route.barrier"),     # nets cut off by keep-outs or isolation, channels narrower than the net
-    ("cut", "hwflow.cutcap"),          # nets crossing a line or ring against the free copper along it
+    ("cut", "hwflow.layout.place.cutcap"),          # nets crossing a line or ring against the free copper along it
     ("corridor", "hwflow.layout.route.corridor"),   # between_mm, conductive isolation and net layers close a net's corridor
     ("padiso", "hwflow.layout.route.padiso"),       # pads of a region's nets closer than isolation_mm to a conductive keep-out
 ]

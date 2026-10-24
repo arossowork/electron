@@ -2,7 +2,7 @@
 import yaml
 from shapely.geometry import LineString
 
-from hwflow import cutcap, placer
+from hwflow.layout.place import cutcap, placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 

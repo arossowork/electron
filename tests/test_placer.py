@@ -10,7 +10,7 @@ import pytest
 
 import yaml
 
-from hwflow import placer
+from hwflow.layout.place import placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 
@@ -440,7 +440,7 @@ def test_parts_stay_out_of_the_area_between_fixed_isolation_pads(tmp_path):
 
 
 def test_fixed_parts_overlap_only_by_their_own_courtyards():
-    from hwflow.placer import COURTYARD_MARGIN, Part, _side_overlap
+    from hwflow.layout.place.placer import COURTYARD_MARGIN, Part, _side_overlap
     m = COURTYARD_MARGIN
 
     def part(x, fixed=True):

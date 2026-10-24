@@ -12,7 +12,8 @@ from pathlib import Path
 
 from ..layout import budgets
 from ..layout.board import kicad, pcb
-from .. import placer, postlayout
+from ..layout.place import placer
+from .. import postlayout
 from ..layout.route import barrier, corridor, pinaccess, regionroute, repair, routing, seedroute
 from ..sim import simrobust, spice
 from ..core import blocks as core_blocks
@@ -160,7 +161,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
     h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
-    from .. import asicflow
+    from ..layout.place import asicflow
     for m in (corridor, barrier, pinaccess, asicflow):  # which nets route narrow first
         h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not

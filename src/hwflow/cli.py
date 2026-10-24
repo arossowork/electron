@@ -121,7 +121,7 @@ def cmd_fw(d: Design, a) -> int:
 
 
 def cmd_floorplan(d: Design, a) -> int:
-    from . import floorplan
+    from .layout.place import floorplan
     text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds)
     _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
     print(text)

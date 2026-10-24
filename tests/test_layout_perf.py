@@ -31,7 +31,7 @@ def _design(tmp_path):
 
 
 def test_board_text_is_reproducible(tmp_path):
-    from hwflow import placer
+    from hwflow.layout.place import placer
     d, libs = _design(tmp_path)
     parts = placer.build_parts(d, libs)
     a, b = (pcb.board_text(pcb.build_board(d, libs, parts)) for _ in range(2))

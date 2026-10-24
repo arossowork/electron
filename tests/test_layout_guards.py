@@ -11,7 +11,8 @@ import yaml
 from shapely.geometry import Point, box
 
 from hwflow.layout import diagnose
-from hwflow import floorplan, placer, postlayout
+from hwflow.layout.place import floorplan, placer
+from hwflow import postlayout
 from hwflow.layout.board import pcb
 from hwflow.layout.route import repair, routing
 from hwflow.pipeline import stages as pl_stages

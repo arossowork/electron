@@ -18,7 +18,7 @@ from shapely.geometry import box
 from ...core.settings import get_settings
 from ...core import sexpr
 from ...core.design import Design
-from ...placer import Part, rot
+from ..place.placer import Part, rot
 from ...core.sexpr import Q
 
 PCB_VERSION = "20241229"
@@ -297,7 +297,7 @@ def edge_cuts(design: Design) -> list:
     where the edge follows a circle cut, and gr_circle for a hole that is a whole circle."""
     from shapely.ops import unary_union
 
-    from ... import floorplan
+    from ..place import floorplan
     b = design.board
     W, H = b["width_mm"], b["height_mm"]
     stroke = ["stroke", ["width", 0.1], ["type", "default"]]
@@ -644,7 +644,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     structure = ["structure"]
     for i, L in enumerate(layers):
         structure.append(["layer", L, ["type", "power" if False else "signal"], ["property", ["index", i]]])
-    from ... import floorplan
+    from ..place import floorplan
     shape = floorplan.outline(design, 16)
     if shape.geom_type == "Polygon" and floorplan.cuts(design):  # cut regions: the outline ring, holes as keep-outs
         ring = [c for x, y in shape.exterior.coords for c in (_um(x), -_um(y))]
@@ -788,7 +788,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     A net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the neck-down off. Nets
     with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
     Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
-    from ... import floorplan, keepout
+    from ..place import floorplan, keepout
     from ..route import routing
     b = design.board
     name = design.name
@@ -814,7 +814,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         return [n for n in pnets if minw.get(n, 0.0) <= nw + 1e-9]
     necked = _neck_needed(design, src, libs) if neckdown else {}
     # pin access (layout flow, asicflow.necked): nets with a pad without an exit at their width route narrow first too
-    from ... import asicflow
+    from ..place import asicflow
     necked = {**asicflow.necked(design, libs, src, nets), **necked}
     necked = {n: v for n, v in necked.items() if minw.get(n, 0.0) <= floor + 1e-9}
     # the corridor proof's nets: one the router leaves open gets a seed route (HWFLOW_SEEDROUTE=0: off)

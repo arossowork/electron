@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-from hwflow import asicflow, keepout
+from hwflow.layout.place import asicflow, keepout
 from hwflow.core.settings import get_settings
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "hwflow"

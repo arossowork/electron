@@ -117,7 +117,7 @@ def drc(pcb: Path, refill=True, parity=False, keepout_strict: bool | None = None
     if not out.exists():
         raise RuntimeError(p.stdout + p.stderr)
     res = _violations(json.loads(out.read_text()))
-    from ... import keepout
+    from ..place import keepout
     if keepout.enabled(keepout_strict):
         res = keepout.merge(res, keepout.violations(pcb))
     return res

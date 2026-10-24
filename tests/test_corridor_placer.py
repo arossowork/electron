@@ -6,7 +6,7 @@ import time
 
 import yaml
 
-from hwflow import placer
+from hwflow.layout.place import placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 

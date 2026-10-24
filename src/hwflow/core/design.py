@@ -313,12 +313,12 @@ def check(design: Design, libs=None) -> list[dict]:
                     and not design.net_info(net).get("external_supply"):
                 add("warn", "no-power-source", f"net {net} feeds power_in pins but no power_out pin drives it "
                                                f"(set nets.{net}.external_supply: true if it comes from a connector)")
-    from ..floorplan import cut_pad_findings, cuts, validate
+    from ..layout.place.floorplan import cut_pad_findings, cuts, validate
     for msg in validate(design):
         add("error", "floorplan", msg)
     from ..layout.board import pcb
     if libs is not None and cuts(design):  # pads of fixed parts within the copper-to-edge clearance of a cut
-        from .. import placer
+        from ..layout.place import placer
         try:
             parts = placer.build_parts(design, libs)
         except Exception:  # noqa: BLE001 - a missing footprint is reported above
@@ -337,7 +337,7 @@ def check(design: Design, libs=None) -> list[dict]:
         else:
             between = True
     if libs is not None and between:
-        from .. import placer
+        from ..layout.place import placer
         try:
             parts = placer.build_parts(design, libs)
             pl = placer.Placer(design, parts, float(design.board["width_mm"]), float(design.board["height_mm"]))

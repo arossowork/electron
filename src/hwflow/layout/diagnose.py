@@ -97,7 +97,7 @@ def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
         if r in design.components:
             x0, y0, x1, y1 = p.box()
             out[_side(design, r) if _side(design, r) in out else "front"] += (x1 - x0) * (y1 - y0)
-    from .. import floorplan
+    from .place import floorplan
     area = floorplan.outline(design).area if floorplan.cuts(design) else W * H  # cut regions take board area away
     return {k: v / area if area > 0 else 0.0 for k, v in out.items()}
 
@@ -114,7 +114,7 @@ def structure_key(design) -> str:
                   for n, i in (design.raw.get("nets") or {}).items())
     b = design.board
     board = [b.get("width_mm"), b.get("height_mm"), b.get("layers"), b.get("track_mm"), b.get("clearance_mm")]
-    from .. import floorplan
+    from .place import floorplan
     cs = floorplan.cuts(design)  # cut regions change the board shape (keys without them stay as they were)
     if cs:
         import shapely
@@ -157,7 +157,7 @@ def blocked(design, out: Path) -> dict | None:
 def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, libs=None) -> dict:
     """`attempts`: [{"failing": failing_parts(...)}] of the build's attempts; `board`: pcb.read_board of the kept
     board; `parts`: placer parts at the kept placement. Returns the diagnosis and records it in the history."""
-    from .. import floorplan
+    from .place import floorplan
     from .board import pcb
     from .route import routing
     key = structure_key(design)

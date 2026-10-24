@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from hwflow.layout.board import pcb
-from hwflow import placer
+from hwflow.layout.place import placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 

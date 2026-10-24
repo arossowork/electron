@@ -47,7 +47,7 @@ import math
 from shapely.geometry import Point, Polygon
 
 from . import barrier, routing
-from ... import floorplan
+from ..place import floorplan
 from ..board import pcb
 
 NAME = "corridor"

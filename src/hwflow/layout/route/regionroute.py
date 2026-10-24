@@ -37,7 +37,7 @@ GROUP_DIR = "groups"  # per-group route cache, under build/routecache/
 def seeds(design) -> list[dict]:
     """The net groups the floorplan and the isolation rules declare: [{name, members, poly}], poly the region shape in
     board coordinates (None for an isolation group with no region). Seeds that share a net are merged."""
-    from ... import floorplan
+    from ..place import floorplan
     rows = [{"name": r["region"], "members": set(r["nets"]), "poly": r["poly"]} for r in floorplan.net_regions(design)]
     rows += [{"name": g["name"], "members": set(g["members"]), "poly": None}
              for g in pcb.isolation_groups(design) if g["members"]]
@@ -115,7 +115,7 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from . import pinaccess, routing
     for m in (board_pcb, routing, sys.modules[__name__], pinaccess):
         h.update(Path(m.__file__).read_bytes())
-    from ... import asicflow
+    from ..place import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
     if design.raw.get("blocks") and parts is not None:
         from ...core import blocks

@@ -7,7 +7,8 @@ import yaml
 from shapely.geometry import LineString, box
 
 from hwflow.layout import diagnose
-from hwflow import floorplan, placer, postlayout
+from hwflow.layout.place import floorplan, placer
+from hwflow import postlayout
 from hwflow.layout.board import pcb
 from hwflow.core import sexpr
 from hwflow.core.design import Design, check
@@ -141,7 +142,7 @@ def test_cut_pad_warning_and_structure_key(tmp_path):
     d.components["R1"].data["placement"] = {"x": 6.5, "y": 3, "fixed": True}
     f = [x for x in check(d, Libs(design=d)) if x["code"] == "cut-pad"]
     assert f and all(x["sev"] == "warn" and "slot" in x["msg"] for x in f)
-    from hwflow import floorplan, placer
+    from hwflow.layout.place import floorplan, placer
     parts = placer.build_parts(d, Libs(design=d))
     parts["R1"].nocu = frozenset(parts["R1"].pads)            # a keep-out marker's dummy pads have no copper
     assert floorplan.cut_pad_findings(d, parts, 0.3) == []

@@ -2,7 +2,7 @@
 feedback, legalization, detailed local moves, the short anneal, and pin access with the narrow-first `necked` path."""
 import numpy as np
 
-from hwflow import asicflow, gplace, placer
+from hwflow.layout.place import asicflow, gplace, placer
 
 from test_placer import H, W, channel
 
