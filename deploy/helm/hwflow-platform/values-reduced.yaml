@@ -82,5 +82,9 @@ nats:
     requests: {cpu: 10m, memory: 32Mi}
     limits: {cpu: 200m, memory: 128Mi}
 
+# Metrics store + dashboard: off, enable with --set observability.enabled=true (docs/runbook.md has the memory).
+observability:
+  enabled: false
+
 backup:
   retentionDays: 7

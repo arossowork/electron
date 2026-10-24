@@ -16,6 +16,7 @@ from ..gateway import TemporalGateway, WorkflowGateway
 from ..llm_keys import KeyValidator, anthropic_validator
 from ..logredact import install_log_redaction
 from ..mail import EmailSender, LoggingEmailSender
+from ..observability import http as obs_http
 from ..settings import Settings, get_settings
 from ..storage import make_s3_client
 from . import (
@@ -129,6 +130,7 @@ def create_app(
     v1.include_router(routes_chat.router)
     v1.include_router(routes_events.router)
     app.include_router(v1)
+    obs_http.install(app, metrics_enabled=settings.metrics_enabled)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict:

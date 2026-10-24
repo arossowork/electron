@@ -22,6 +22,7 @@ dependencies = [
     "temporalio>=1.8",
     "python-multipart>=0.0.9",
     "pyyaml>=6",
+    "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -82,5 +83,6 @@ known-local-folder = ["conftest"]
 # module constants (column lists, filter fragments), never request data.
 "src/hwplatform/api/*.py" = ["E501", "S608"]
 "src/hwplatform/events/sse.py" = ["E501", "S608"]
+"src/hwplatform/observability/*.py" = ["E501"]
 "src/hwplatform/questions.py" = ["E501"]
 "src/hwplatform/run_options.py" = ["E501"]

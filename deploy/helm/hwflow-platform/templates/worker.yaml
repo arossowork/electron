@@ -46,6 +46,9 @@ spec:
             {{- include "hwp.appEnv" $c | nindent 12 }}
             - {name: HOME, value: /scratch/home}
             - {name: HWPLATFORM_WORKER_HEALTH_PORT, value: {{ $.Values.worker.probes.port | quote }}}
+            {{- if and $.Values.observability.enabled $.Values.observability.temporalSdkMetrics }}
+            - {name: HWPLATFORM_TEMPORAL_METRICS_BIND, value: "0.0.0.0:{{ $.Values.observability.temporalSdkMetricsPort }}"}
+            {{- end }}
             {{- if $q }}
             - {name: {{ $.Values.worker.queuesEnvVar }}, value: {{ $q | quote }}}
             {{- end }}

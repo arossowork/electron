@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ..auth import AuthBackend, AuthError
 from ..auth.ratelimit import AuthGuard, RateLimited
 from ..db import Database
+from ..observability.context import bind
 from ..tenancy import TenantContext, membership_of
 
 _bearer = HTTPBearer(auto_error=False)
@@ -59,6 +60,7 @@ async def tenant_context(
         m = await membership_of(s, p.tenant_id, p.user_id)
     if m is None:
         raise unauthorized("no membership in this tenant")
+    bind(tenant_id=p.tenant_id, user_id=p.user_id)  # every later log line of this request carries them
     return TenantContext(tenant_id=p.tenant_id, user_id=p.user_id, role=m.role)
 
 

@@ -64,6 +64,13 @@ jobs:
           # Optional parts: KEDA objects (CRD, no schema here), Ingress, per-queue workers, Temporal UI.
           helm template hwp "$CHART" -f "$CHART/values-full.yaml" --set worker.keda.enabled=true \
             | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          # Optional metrics store + Grafana (issue #18), with and without the worker and the SDK metrics port.
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set observability.enabled=true \
+            --set observability.temporalSdkMetrics=true \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set observability.enabled=true \
+            --set worker.enabled=false --set observability.grafana.enabled=false \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
           helm template hwp "$CHART" -f "$CHART/values-reduced.yaml" --set ingress.enabled=true --set temporal.ui.enabled=true \
             --set networkPolicy.enabled=false --set backup.enabled=false --set purge.enabled=false \
             | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
