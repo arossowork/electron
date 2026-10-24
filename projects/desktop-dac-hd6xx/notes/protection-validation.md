@@ -1,5 +1,7 @@
 # Output-protection validation
 
+> Layout-only revision: `verification/circuit-revision-equivalence.json` compares the validated electrical checkpoint with the later connector-region padding and two pad-specific clearance rules. All other source fields, including every component value, pin assignment, model, net and analysis, are identical; the original electrical results remain evidence for those unchanged inputs. This is an equivalence check, not a new electrical simulation run.
+
 Status: **qualified model PASS: 24/24 checks plus independent passive ngspice comparison. Hardware qualification NOT CHECKED.** The evidence is conditional on the component and hardware qualification limits below; it is not proof of physical headphone safety. Placement/routing may use this validated candidate within the stated assumption envelope. Do not connect headphones before the dummy-load acceptance tests.
 
 ## Reproduction and source fidelity

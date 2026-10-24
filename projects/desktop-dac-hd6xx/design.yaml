@@ -11,6 +11,12 @@ board:
   thickness_mm: 1.6
   # Low-current rails fit 0.5 mm QFN pin escape; current_a still widens high-current nets.
   power_track_mm: 0.3
+  # Internal VSSOP pad gaps only; all other copper keeps the general 0.20 mm clearance.
+  drc_rules:
+  - >-
+    (rule "U204 internal pad clearance" (condition "A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U204') && B.memberOfFootprint('U204')") (constraint clearance (min 0.15mm)))
+  - >-
+    (rule "U336 internal pad clearance" (condition "A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U336') && B.memberOfFootprint('U336')") (constraint clearance (min 0.15mm)))
 floorplan:
   construction: single
   depth:
@@ -38,7 +44,7 @@ floorplan:
     kind: other
     rect:
     - 38
-    - 2
+    - 0.7
     - 137
     - 35
     items:
@@ -53,7 +59,7 @@ floorplan:
   - name: dac
     kind: other
     rect:
-    - 38
+    - 37.6
     - 43
     - 76
     - 78

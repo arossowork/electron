@@ -1,0 +1,72 @@
+{
+  "captured_at_utc": "2026-10-24T15:33:07.317814+00:00",
+  "method": "Read the actual generated repair input before router cleanup; compare its track/via counts by net with the hash-verified checkpoint. This is executed pass-input evidence, not a post-hoc planner prediction.",
+  "input_path": "projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+  "input_sha256": "e239c6305ed7ecf70aaff688f537c0464414d3008db12aa4be8f3d7155584edb",
+  "checkpoint_sha256": "b88addf35024448a6d3737c9ca71d15fe2e02e1d31011dbe29f6f61bef720462",
+  "changed_net_copper_counts": {
+    "3V3_A": {
+      "checkpoint_items": 30,
+      "repair_input_items": 0
+    },
+    "3V3_D": {
+      "checkpoint_items": 307,
+      "repair_input_items": 0
+    },
+    "AUDIO_READY": {
+      "checkpoint_items": 40,
+      "repair_input_items": 0
+    },
+    "BOUT_L": {
+      "checkpoint_items": 19,
+      "repair_input_items": 0
+    },
+    "DAC_L_N": {
+      "checkpoint_items": 20,
+      "repair_input_items": 0
+    },
+    "DAC_L_P": {
+      "checkpoint_items": 29,
+      "repair_input_items": 0
+    },
+    "DAC_R_N": {
+      "checkpoint_items": 20,
+      "repair_input_items": 0
+    },
+    "I2S_BCLK": {
+      "checkpoint_items": 1,
+      "repair_input_items": 0
+    },
+    "I2S_DATA": {
+      "checkpoint_items": 6,
+      "repair_input_items": 0
+    },
+    "I2S_DATA_BUF": {
+      "checkpoint_items": 7,
+      "repair_input_items": 0
+    },
+    "I2S_LRCLK": {
+      "checkpoint_items": 1,
+      "repair_input_items": 0
+    },
+    "I2S_LRCLK_BUF": {
+      "checkpoint_items": 2,
+      "repair_input_items": 0
+    }
+  },
+  "ripped_nets": [
+    "3V3_A",
+    "3V3_D",
+    "AUDIO_READY",
+    "BOUT_L",
+    "DAC_L_N",
+    "DAC_L_P",
+    "DAC_R_N",
+    "I2S_BCLK",
+    "I2S_DATA",
+    "I2S_DATA_BUF",
+    "I2S_LRCLK",
+    "I2S_LRCLK_BUF"
+  ],
+  "number_ripped": 12
+}

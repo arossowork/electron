@@ -1,6 +1,6 @@
 # Compiler baseline: desktop DAC and HD6XX amplifier
 
-This board is a reference case for the proposed DSL-to-PCB compiler. First capture what unchanged `hwflow` does at commit `ca10fa8e0b9d67745787734b979e784f4422a3ec`; then compare any compiler change against the same design and toolchain. Circuit capture, source checks, schematic/ERC and a real-footprint feasibility run are now recorded in [notes/circuit-baseline.md](notes/circuit-baseline.md). The four controlled routing benchmark cases below remain **NOT CHECKED**, blocked on circuit simulation/protection validation. The separate [architecture-only baseline](notes/floorplan-baseline.md) records the placeholder floorplan and its negative fit check.
+This board is a reference case for the proposed DSL-to-PCB compiler. First capture what unchanged `hwflow` does at commit `ca10fa8e0b9d67745787734b979e784f4422a3ec`; then compare any compiler change against the same design and toolchain. Circuit capture, source checks, schematic/ERC and a real-footprint feasibility run are now recorded in [notes/circuit-baseline.md](notes/circuit-baseline.md). The original model blocker is repaired and the qualified power/protection checks now pass. The first bounded current-engine routing run reached the 750 s outer timeout before a final result; the complete matched four-case baseline/candidate comparison remains **NOT CHECKED**. The separate [architecture-only baseline](notes/floorplan-baseline.md) records the placeholder floorplan and its negative fit check.
 
 ## Freeze the input
 
@@ -10,7 +10,7 @@ Run each case in its own copy under `projects/` so its generated `build/` data c
 
 ## Four runs
 
-These circuit/build/routing cases begin only after circuit capture and real footprint verification. The current design has real components, but has not cleared its circuit simulation gate; a feasibility run does not substitute for a completed routing benchmark.
+These circuit/build/routing cases begin only after circuit capture and real footprint verification. The current design has cleared its stated model-level circuit gate. Physical bench qualifications remain open; a feasibility result does not substitute for completed routing.
 
 | Case | Input and command | What to compare |
 | --- | --- | --- |
@@ -27,10 +27,10 @@ One current limitation is worth observing explicitly: a floorplan region can con
 
 | Case | Floorplan | Layout / DRC | Wall time | Fixed positions | Cache / route groups | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| Cold | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
-| Warm | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
-| Local edit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
-| Impossible fit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Circuit simulation/protection prerequisite open |
+| Cold | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Matched controlled comparison not yet run |
+| Warm | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Matched controlled comparison not yet run |
+| Local edit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Matched controlled comparison not yet run |
+| Impossible fit | NOT CHECKED | NOT CHECKED | — | NOT CHECKED | NOT CHECKED | Matched controlled comparison not yet run |
 
 ## Findings during setup
 
@@ -38,4 +38,25 @@ On this baseline, `trace()` treats nonempty evidence prose for inspection/test r
 
 The original container build also selected the newest KRT binary despite pinned source, then failed on a version mismatch without Cargo. The environment-only correction pins the matching release; see the measured setup and floorplan results in `notes/floorplan-baseline.md`.
 
-Two verified compiler corrections are in this checkpoint: explicit evidence semantics and clearance-preserving placement snapping. The source-specific ERC short was a custom symbol geometry mistake, fixed in the project library; it was not attributed to the generator. `BOM cost: $0.00` currently accompanies a list of missing prices and must be read as **unpriced**, not a zero-cost estimate. A future report improvement should represent incomplete cost directly.
+Verified compiler corrections include explicit evidence semantics, clearance-preserving placement snapping and complete schematic sheet sizing. The simulation/protection work also exposed and repaired explicit PSpice parsing, incomplete operating-point audit reporting, timeout-log loss and query-URL round trips; see [simulation-build-repair.md](notes/simulation-build-repair.md). The source-specific ERC short was a custom symbol geometry mistake, fixed in the project library; it was not attributed to the generator. `BOM cost: $0.00` currently accompanies a list of missing prices and must be read as **unpriced**, not a zero-cost estimate. A future report improvement should represent incomplete cost directly.
+
+## Current-engine PCB attempt
+
+The validated electrical checkpoint source is SHA-256 `556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1`: 238 parts, 133 connected nets, 703 assigned pins, four fixed connectors, 234 movable parts, 140 × 80 mm and four layers. The first attempt preceded the routing-budget correction; the simulator/audit and YAML corrections are recorded in commits `a5ca1b5` and `2406fc5`. The first actual route used two attempts/two workers, a 600 s engine budget and a 750 s outer timeout; it reached the outer timeout after 750.4 s, having started only attempt a1. Its result is recorded separately in [layout-validation.md](notes/layout-validation.md) and `verification/layout-*.json`.
+
+This run begins with an already generated and verified schematic, simulation results and floorplan. It is a cold routing attempt, not the complete fresh-copy cold build specified in the four-case table. It cannot establish a routing speedup against unchanged engine `ca10fa8e`; that comparison is still outstanding. The first run used the validated electrical checkpoint unchanged; subsequent physical-rule corrections are listed below. Fixed anchors remain unchanged.
+
+That attempt exposed two compiler failures: the quick floorplan ignored fixed-part region conflicts, and the initial routing pass did not receive the layout deadline. Measured connector geometry justified padding the DAC region left edge from 38 to 37.6 mm and the power region top edge from 2 to 0.7 mm. Board size, connector positions, USB reserve and the 8 mm power/analog/DAC gap are unchanged. `verification/circuit-revision-equivalence.json` proves the electrical inputs are identical to the validated checkpoint. Two narrowly scoped rules also permit the intrinsic 0.15 mm pad gaps inside U204 and U336; every pad-to-track, pad-to-via and other-footprint clearance remains 0.20 mm. The corrected layout-source hash is `8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f`; keep the runs separate rather than claiming an unchanged-input routing speed comparison.
+
+## Selective repair measurements
+
+The current layout source `8d99069b…b96f` retains every electrical input and fixed anchor. A recorded harness rebuilds archived copper through the engine, verifies all 703 assigned pin nets, all 238 placements and the board/rules, then invokes the existing local-repair API. It does not insert a route-cache entry or claim the CLI layout stage passed.
+
+| Run | Search / wall time | Retained full-DRC result | Interpretation |
+|---|---|---|---|
+| First selective repair | 300.0 / 323.391 s | 6 → 3 open connections; zero other copper errors | Three ground islands connected; three signal nets remain open |
+| Neighbor-expansion follow-up | 300.0 / 318.370 s | 3 → 3 open connections; zero other copper errors | Actual second round freed 12 nets, timed out and was rejected; no demonstrated connectivity improvement |
+
+Both runs preserved all component positions, board dimensions, assigned pin nets and source bytes. The kept follow-up board has no dangling-copper warnings after pruning, but has 398 silk warnings, 78 NC-name/Datasheet parity warnings and nine decoupling-path warnings. Thirteen declared-current nets receive a width screen; copper-region containment and return-path/SI are not checked because the required net envelopes and edge-rate inputs are absent. These are partial routing outcomes, not whole-product success or a matched speedup result.
+
+The observed local-repair failure justified a small compiler fix: missing-connection endpoints now feed the existing neighbor search on retries. First-round behavior, the 12-net cap, width/layer checks and acceptance/rollback are unchanged. Commit `27f00af` has independent review and eight focused regressions; the final fast suite is 327 passed, 2 skipped, 14 deselected. A clean baseline is still needed before the warm/local-edit comparison in the table above.

@@ -1,0 +1,13 @@
+{
+  "layer_map": {},
+  "track_rules": [],
+  "layer_notes": [
+    "rule 'U204 internal pad clearance': clearance 0.15mm has a non-layer scope (netclass/area/... condition) -- skipped, KiCad will still enforce it",
+    "rule 'U336 internal pad clearance': clearance 0.15mm has a non-layer scope (netclass/area/... condition) -- skipped, KiCad will still enforce it"
+  ],
+  "track_notes": [
+    "rule 'U204 internal pad clearance': clearance 0.15mm has a non-layer scope (netclass/area/... condition) -- skipped, KiCad will still enforce it",
+    "rule 'U336 internal pad clearance': clearance 0.15mm has a non-layer scope (netclass/area/... condition) -- skipped, KiCad will still enforce it"
+  ],
+  "interpretation": "Legacy copper-clearance channels do not bind this pad-footprint condition; routing stays at the unchanged 0.20 mm class/CLI clearance. The full rule resolver parses the condition, and KiCad DRC applies it to the fixed pad pairs."
+}

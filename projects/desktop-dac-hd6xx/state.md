@@ -1,22 +1,32 @@
-stage: 4-circuit
+stage: 7-layout
 status: blocked
 
-Product: USB-C DAC/headphone amp for HD6XX; external regulated 5 V adapter; EUR 150-250 target.
-Branch: design/desktop-dac-headphone-amp; baseline engine ca10fa8e0b9d67745787734b979e784f4422a3ec.
-Working geometry: 140 x 80 mm, 4-layer PCB; provisional 160 x 100 x 40 mm enclosure.
-Format: stereo PCM 16/24/32-bit through 384 kHz; actual module configuration/playback unverified.
-Source: design.yaml; 235 real components, 128 nets, 4 fixed connectors, 231 movable parts.
-Circuit: Combo768 interface, ES9039Q2M, 2x OPA1612, OPA1622, supply sequence and DC/relay protection.
-Source check: PASS, 0 errors, 5 warnings. KiCad ERC: PASS, 0 errors, 4 warnings.
-Connectivity: 683/683 assigned source pins match exported KiCad netlist.
-Floorplan: PASS with real footprints; 60% fill, 29.6 mm depth, zero quick-placement violations.
-Blocker: TI-derived OPA1622 model fails OP convergence in single-channel isolation.
-Alternate official TINA model fails ngspice parsing; no valid amplifier measurement.
-Next: qualify model compatibility; simulate audio and startup/shutdown/DC faults, then Monte Carlo.
-Routing/DRC/post-layout/fabrication: NOT CHECKED; do not skip the circuit gate.
-Open: exact remaining passive/panel/enclosure parts, delivered cost, firmware configuration, bench tests.
-Trace: 0/10 verified; no product evidence claimed. No orders or fabrication.
-Compiler: explicit evidence, clearance-preserving grid snapping, automatic schematic sheet size.
-Tests: final fast tier 293 passed, 2 skipped, 14 deselected.
-Evidence: SUMMARY.md and notes/circuit-baseline.md; compiler changes committed separately.
-Custom MCU firmware: not applicable; vendor USB firmware qualification remains required.
+Product: USB-C DAC/headphone amp for HD6XX; regulated 5 V adapter; EUR 150-250 target.
+Branch: design/desktop-dac-headphone-amp; electrical checkpoint 3c002e1.
+Geometry: 140 x 80 mm, four layers; provisional 160 x 100 x 40 mm enclosure.
+Formats: stereo PCM 16/24/32-bit through 384 kHz; physical playback not checked.
+Source: 238 real components, 133 connected nets, 703 assigned pins; 4 fixed / 234 movable.
+Source SHA256: 8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f.
+Layout-only changes: two region edges + two internal-pad clearance rules; electrical equivalence PASS.
+Source check: PASS, 0 errors/5 warnings. KiCad ERC: PASS, 0 errors/4 warnings.
+Connectivity: PASS, 703/703 source-assigned pins match schematic and retained PCB.
+TI models: original libraries, explicit PSpice parsing; 16 focused + 13 chain checks PASS.
+Current-source simulation: 14/14 measures PASS; 50 tolerance trials, 100% yield; audit 0 issues.
+Power: 17 qualified analytical checks PASS; physical rail waveforms/order NOT CHECKED.
+Protection: 24/24 qualified scenarios + passive ngspice PASS; independent review complete.
+Protection startup: model midpoint 18 s, selected slow corner 37 s; physical timing NOT CHECKED.
+Floorplan: PASS in 58.9 s; 61% fill, 29.6 mm depth; zero placement/fixed-rule violations.
+PCB: build/layout-repair-followup/desktop_dac_hd6xx.kicad_pcb; native preview pcb.svg beside it.
+Layout gate: 3 open signals (DAC_L_P, I2S_BCLK, I2S_LRCLK); zero other copper DRC errors.
+All 238 placements unchanged; ground islands closed; 1666 segments / 238 vias.
+Post-layout: 9 decoupling-path warnings, 398 silk warnings, 78 NC/metadata parity warnings.
+SI/return-path and copper-region containment NOT CHECKED (edge rates/net envelopes undeclared).
+First route hit 750.4 s outer timeout; local repairs ended at their 300 s search limits.
+Neighbor-expanded retry did not improve connectivity; retained accepted board, no cache seeded.
+This failed layout gate is not a proof the board cannot route; no blocker bypass was used.
+Next: refine DAC escape/neighbor routing and decoupling paths; clean silk, then rerun full DRC/inspection.
+Engine fixes: 64f32d5 floorplan, 5422f97 bounded routing, 27f00af repair-neighbor expansion.
+Final fast tests: 327 passed, 2 skipped, 14 slow deselected; independent reviews clean.
+Evidence: notes/layout-validation.md and verification/layout-*.json; compact checkpoint ZIPs retained.
+Bench/USB/mechanics/cost/product gates incomplete; 0/10 whole-product requirements verified.
+No orders, fabrication, publication, headphone testing, full slow suite or merge; no jobs left running.

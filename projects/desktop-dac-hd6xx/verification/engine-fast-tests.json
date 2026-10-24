@@ -1,0 +1,26 @@
+{
+  "engine_commit": "27f00af5cbe5dd728229b5847fa5cd9e0289b93b",
+  "toolchain_image": "hwflow-audio:ca10fa8e",
+  "command": "python -m pytest -q -m \"not slow\"",
+  "inner_timeout_s": 240,
+  "status": "PASS",
+  "exit_code": 0,
+  "passed": 327,
+  "skipped": 2,
+  "slow_deselected": 14,
+  "pytest_elapsed_s": 101.12,
+  "full_slow_suite_run": false,
+  "files_sha256": {
+    "src/hwflow/cli.py": "9d51ffccc104043970802c4daa4909c89abb5544040760b10f8122323347f08a",
+    "src/hwflow/pcb.py": "1a52691c83c8d11f7530e0c144e4fcb6fb382017b308a90494717a5193cd955e",
+    "src/hwflow/regionroute.py": "d8087d94cf2a712713baf54a883dc7426e3d644ec6f80b380c3bb5b8c10088c5",
+    "src/hwflow/floorplan.py": "a9b08e537eb9d3e4dea9b0171664c9e60b1af6fcb9e5960dc413da05a0224a4a",
+    "src/hwflow/placer.py": "3ba5a3691fe289a60d5186376fa7e88e1fdc1d07f5e125e3fafc49cf15942ee1",
+    "src/hwflow/repair.py": "71a2db9b5c64112eabc1008e87cc74e05dfb85d970bd3507a69b7f86afebd2fe",
+    "tests/test_initial_route_budget.py": "c67bf8eaedde167eebde66fd74e92d88a5797c7d0e45b3e63ceed1efc673fb64",
+    "tests/test_floorplan.py": "0c4082ec0cf1fa2cfda20940177e9e7bb7021aaf50a269a27ba9f8876dcaf227",
+    "tests/test_repair_neighbors.py": "9e0238f15113ffa0e324a99cca6c2d2f1e81bce110cd6b90ddcbe320b671f782"
+  },
+  "log": "verification/engine-fast-tests.log",
+  "independent_review": "Routing timeout and repair-neighbor changes have independent review; 11 budget cases and 8 endpoint-neighbor cases were independently rerun."
+}

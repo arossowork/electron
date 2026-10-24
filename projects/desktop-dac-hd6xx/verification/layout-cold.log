@@ -1,0 +1,4 @@
+Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+[place] fixed parts: J100 outside floorplan region 'dac' (8.2 mm2)
+[place] fixed parts: J300 outside floorplan region 'power' (13.8 mm2)
+[layout] pin access 1.7 s: 0 nets without an exit at their width

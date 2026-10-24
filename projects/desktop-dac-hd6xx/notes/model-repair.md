@@ -1,5 +1,7 @@
 # Amplifier model integration repair — 2026-10-24
 
+> Layout-only revision: `verification/circuit-revision-equivalence.json` compares the validated electrical checkpoint with the later connector-region padding and two pad-specific clearance rules. All other source fields, including every component value, pin assignment, model, net and analysis, are identical; the original electrical results remain evidence for those unchanged inputs. This is an equivalence check, not a new electrical simulation run.
+
 ## Accepted integration
 
 `lib/spice/opa1622_ti.lib` and `lib/spice/opa161x_ti.lib` are now byte-for-byte copies of TI's original PSpice libraries. No amplifier component value, equation, protection limit, or electrical target was changed. Run ngspice 42 with explicit per-process `-D ngbehavior=ps`; native/default parsing is not qualified. The verification runners also use `-n` so user initialization files cannot silently change the test. The pinned runtime is `hwflow-audio:ca10fa8e` (ngspice 42, Python 3.11).
@@ -66,3 +68,7 @@ python verification/verify_audio_chain.py --model-dir lib/spice --output /tmp/an
 ```
 
 The output directories retain every generated bench, simulator log, data table, and summary. Bound the entire named `--rm --network=none --userns=keep-id` container with `timeout 90s`; the scripts independently bound each ngspice process. The original-model failure fixture must be run without PSpice compatibility, while the OPA161x cold-start limitation fixture requires `-D ngbehavior=ps`.
+
+## Current layout-source refresh
+
+After the region padding and pad-specific clearance rules, `sim --mc 50` completed in 14.0 s on source `8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f`: 14/14 measures passed, 50 tolerance trials gave 100% yield, and the derating audit reported zero issues. The five nominal/temperature analysis entries were explicit cache hits for identical simulation inputs; this was a current-source validation refresh, not five fresh simulator solves. Exact output and compact results are in `verification/project-sim-final.log` and `verification/project-sim-final-results.json`. The wider 16-case device and 13-case chain qualifications above remain tied to the unchanged electrical inputs through the recorded equivalence check.

@@ -1,5 +1,7 @@
 # Power-sequence validation — qualified circuit analysis
 
+> Layout-only revision: `verification/circuit-revision-equivalence.json` compares the validated electrical checkpoint with the later connector-region padding and two pad-specific clearance rules. All other source fields, including every component value, pin assignment, model, net and analysis, are identical; the original electrical results remain evidence for those unchanged inputs. This is an equivalence check, not a new electrical simulation run.
+
 The current source fixes two electrical logic defects: the supervisor no longer charges three RC loads through its 10 kΩ pullup, and the two later TPS7A20 enables now use a logic AND gate whose low output can disable those regulators. The calculations pass their stated envelope. **Real output-rail order, arbitrary power ramps, converter dynamics, and hardware protection remain unverified.** This is not a vendor-model simulation or a fabrication release.
 
 Run `python projects/desktop-dac-hd6xx/verification/power_checks.py` from the repository root. The script reads the live component values and pin maps, rejects a changed topology, and writes `verification/power-results.json` plus `verification/power-waveforms.csv`. The JSON records SHA-256 hashes of both `design.yaml` and the model; rerun after any source edit. Its `qualified_checks_passed` and `hardware_status` fields deliberately report different things. The CSV is an illustrative event trace; its assumed LDO ramp and typical discharge are not evidence of actual rail waveforms.

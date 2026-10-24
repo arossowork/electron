@@ -38,7 +38,7 @@ Interfaces: DAC consumes `3V3_D`, `3V3_C`, `3V3_A`, `DAC_EN`, `PWR_GOOD`; output
 
 - [x] Verify application circuits, symbols and footprints; record calculations and source URLs.
 - [x] Implement each section, including real control/protection circuitry and explicit unsolved limits.
-- [ ] Run meaningful analog and control simulations where models permit; keep model limitations explicit.
+- [x] Run meaningful analog and control simulations where models permit; keep model limitations explicit.
 - [x] Integrate sections into `design.yaml`, replace placeholder memberships with real refs, and run `hwflow check` and schematic/ERC.
 
 ## Task 2: Correct verification evidence semantics
@@ -68,4 +68,6 @@ The user already authorized circuit/PCB implementation and compiler improvements
 
 ## Checkpoint outcome
 
-Circuit capture, source checks, schematic/ERC, 683-pin exported connectivity comparison and real-footprint packing are complete. Model simulation is blocked: the inherited TI-derived model fails operating-point convergence; the distinct official TINA model fails ngspice parsing. Startup/protection and nominal Monte Carlo remain open, so the conditional routing benchmark has not begun. Three compiler fixes were separately implemented and reviewed: explicit evidence, placement-snap clearance preservation, and schematic page sizing after visual export caught clipping. Final fast regression: 293 passed, 2 skipped, 14 deselected. No purchase, publication or fabrication occurred.
+The original circuit checkpoint is recorded in `notes/circuit-baseline.md`. The follow-up repaired the TI model compatibility path, passed 14 project measures and 50 tolerance trials, and added source-derived analog-chain, power and protection validation. Final power/protection checks pass within documented assumptions; physical bench qualification remains open. The source now has 238 real components, 133 connected nets and 703 assigned pins, all matching KiCad export. The unchanged board outline has feasible packing and no quick-placement violations. Actual placement and routing produced a retained board; local repair closed three ground islands. A bounded follow-up exercised the corrected neighbor-repair logic but retained three open signals after its 300 s budget. See `notes/layout-validation.md` for the measured result and the nine decoupling-path warnings; a final PCB acceptance verdict remains outstanding.
+
+Compiler fixes have independent review and focused regressions; the final fast suite passed 327 tests (2 skipped, 14 deselected). The original evidence, placement rounding and schematic sizing fixes are followed by explicit PSpice parsing/audit failure handling, reliable YAML query-URL round trips, fixed-part floorplan checks, initial routing deadline/copper retention and neighbor expansion around open connections. No purchase, publication, merge or fabrication occurred.

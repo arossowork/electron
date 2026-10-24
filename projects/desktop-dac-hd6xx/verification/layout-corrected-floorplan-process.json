@@ -1,0 +1,33 @@
+{
+  "command_argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-i",
+    "--name",
+    "dac-layout-corrected-floorplan-20261024",
+    "--network=none",
+    "--userns=keep-id",
+    "--mount",
+    "type=bind,src=/home/luca/.codex/worktrees/desktop-dac-headphone-amp/hwflow,dst=/workspace",
+    "-w",
+    "/workspace",
+    "-e",
+    "PYTHONPATH=/workspace/src",
+    "-e",
+    "HWFLOW_LAYOUT_BUDGET_S=600",
+    "hwflow-audio:ca10fa8e",
+    "timeout",
+    "180",
+    "python",
+    "-u",
+    "-m",
+    "hwflow.cli",
+    "floorplan",
+    "projects/desktop-dac-hd6xx"
+  ],
+  "wall_elapsed_s": 59.687,
+  "exit_code": 0,
+  "source_sha256_before": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "source_sha256_after": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f"
+}

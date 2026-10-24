@@ -1,0 +1,637 @@
+{
+  "kind": "selective_repair_diagnostic",
+  "cli_layout_acceptance": "not_run",
+  "route_cache_written": false,
+  "repair_budget_s": 300,
+  "hard_outer_timeout_s": 450,
+  "source_sha256_before": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "harness_sha256": "a44e410ccf7b97d7823ee95f71f46dcb161dbe2eb92f5f661c173bdd06bbb865",
+  "engine_head": "5422f97d3a5f5375808b7599b43ed20292e83be2",
+  "engine_source_sha256": {
+    "pcb.py": "1a52691c83c8d11f7530e0c144e4fcb6fb382017b308a90494717a5193cd955e",
+    "cli.py": "9d51ffccc104043970802c4daa4909c89abb5544040760b10f8122323347f08a",
+    "repair.py": "307fdddb3d02cd61225857dc5ca68730fc0dd534b8429c46c4aceb8cfb08b870",
+    "placer.py": "3ba5a3691fe289a60d5186376fa7e88e1fdc1d07f5e125e3fafc49cf15942ee1",
+    "postlayout.py": "ec5a207ee944a1e565a434a726b56dcb8bfb22367a0c3f9ea0c590769abd59db",
+    "floorplan.py": "a9b08e537eb9d3e4dea9b0171664c9e60b1af6fcb9e5960dc413da05a0224a4a",
+    "regionroute.py": "d8087d94cf2a712713baf54a883dc7426e3d644ec6f80b380c3bb5b8c10088c5"
+  },
+  "input_board": "/workspace/projects/desktop-dac-hd6xx/verification/layout-cold-preserved/desktop_dac_hd6xx_krt2n0.kicad_pcb",
+  "input_sha256": "de6d75a13b382899a3d9f2174a472d69d375cd0b34f45289457206c84eff81b8",
+  "input_parity": {
+    "components": 238,
+    "source_assigned_pins": 703,
+    "mismatches": []
+  },
+  "input_geometry": {
+    "edge_bounds_mm": [
+      0.0,
+      0.0,
+      140.0,
+      80.0
+    ],
+    "layers": [
+      "F.Cu",
+      "In1.Cu",
+      "In2.Cu",
+      "B.Cu"
+    ],
+    "via_size_drill_layers": [
+      [
+        0.6,
+        0.3,
+        [
+          "F.Cu",
+          "B.Cu"
+        ]
+      ]
+    ]
+  },
+  "input_placement": {
+    "placement_violations": [],
+    "fixed_rule_violations": [],
+    "fixed_anchors": {
+      "J100": [
+        42.0,
+        48.0,
+        0.0
+      ],
+      "J200": [
+        58.0,
+        76.0,
+        90.0
+      ],
+      "J201": [
+        123.0,
+        76.0,
+        90.0
+      ],
+      "J300": [
+        124.0,
+        15.0,
+        180.0
+      ]
+    },
+    "dimensions_mm": [
+      140,
+      80
+    ],
+    "copper_layers": 4
+  },
+  "budget_width_warnings": [],
+  "initial_drc": {
+    "errors": 6,
+    "unconnected": 6,
+    "non_connectivity_errors": 0,
+    "by_severity": {
+      "warning": 484,
+      "error": 6
+    },
+    "by_type": {
+      "silk_overlap": 199,
+      "silk_over_copper": 199,
+      "track_dangling": 1,
+      "via_dangling": 7,
+      "unconnected": 6,
+      "parity:footprint_symbol_field_mismatch": 40,
+      "parity:net_conflict": 38
+    },
+    "errors_with_locations": [
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Track [DAC_L_P] on In1.Cu, length 1.4142 mm",
+          "Pad 3 [DAC_L_P] of U100 on F.Cu"
+        ],
+        "at": [
+          [
+            85.8,
+            54.6
+          ],
+          [
+            69.7625,
+            55.8
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Zone [GND] on F.Cu, priority 0",
+          "Zone [GND] on F.Cu, priority 0"
+        ],
+        "at": [
+          [
+            0.3,
+            0.3
+          ],
+          [
+            0.3,
+            0.3
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Zone [GND] on F.Cu, priority 0",
+          "Zone [GND] on F.Cu, priority 0"
+        ],
+        "at": [
+          [
+            0.3,
+            0.3
+          ],
+          [
+            0.3,
+            0.3
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Zone [GND] on F.Cu, priority 0",
+          "Zone [GND] on F.Cu, priority 0"
+        ],
+        "at": [
+          [
+            0.3,
+            0.3
+          ],
+          [
+            0.3,
+            0.3
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Track [I2S_BCLK] on F.Cu, length 1.0000 mm",
+          "Pad 12 [I2S_BCLK] of U100 on F.Cu"
+        ],
+        "at": [
+          [
+            61.9,
+            59.0
+          ],
+          [
+            71.95,
+            58.9875
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Pad 13 [I2S_LRCLK] of U100 on F.Cu",
+          "Track [I2S_LRCLK] on F.Cu, length 1.0000 mm"
+        ],
+        "at": [
+          [
+            72.45,
+            58.9875
+          ],
+          [
+            63.7,
+            60.0
+          ]
+        ]
+      }
+    ]
+  },
+  "rebuilt_parity": {
+    "components": 238,
+    "source_assigned_pins": 703,
+    "mismatches": []
+  },
+  "initial_plan": {
+    "rip": [
+      "DAC_L_P",
+      "I2S_BCLK",
+      "I2S_LRCLK"
+    ],
+    "islands": [
+      "GND"
+    ],
+    "drop_vias": [],
+    "unfixable": 0
+  },
+  "output_board": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair/desktop_dac_hd6xx.kicad_pcb",
+  "elapsed_s": 321.378,
+  "initial_board_sha256": "0fc51db6c9ff3448d3d0d174fca66637f52c9cd580bceafd95211155040ce1d7",
+  "initial_drc_sha256": "9a1bb9073703eda64ddda2fb016c2c3d832553b1f35eb9ff36c434dc8c463ea8",
+  "repair": {
+    "before": 6,
+    "after": 3,
+    "unrouted_before": 6,
+    "unrouted_after": 3,
+    "rounds": 3,
+    "log": [
+      "round 1: 3 stitching vias; re-routed 3 nets (DAC_L_P, I2S_BCLK, I2S_LRCLK): 6 -> 3 errors, 104.0 s",
+      "round 2: re-routed 3 nets (DAC_L_P, I2S_BCLK, I2S_LRCLK): 3 -> 3 errors (rejected), 108.2 s",
+      "round 3: stopped at the repair budget (300 s, budget 300 s)"
+    ],
+    "skipped": false,
+    "seconds": 300.0
+  },
+  "pruned_dangling_items": 18,
+  "full_drc_acceptance": {
+    "candidate": {
+      "errors": 3,
+      "unconnected": 3,
+      "non_connectivity_errors": 0,
+      "by_severity": {
+        "warning": 478,
+        "error": 3
+      },
+      "by_type": {
+        "silk_overlap": 199,
+        "silk_over_copper": 199,
+        "track_dangling": 2,
+        "unconnected": 3,
+        "parity:footprint_symbol_field_mismatch": 40,
+        "parity:net_conflict": 38
+      },
+      "errors_with_locations": [
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Pad 3 [DAC_L_P] of U100 on F.Cu",
+            "Track [DAC_L_P] on F.Cu, length 0.7071 mm"
+          ],
+          "at": [
+            [
+              69.7625,
+              55.8
+            ],
+            [
+              86.3,
+              55.1
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Track [I2S_BCLK] on F.Cu, length 0.0250 mm",
+            "Pad 12 [I2S_BCLK] of U100 on F.Cu"
+          ],
+          "at": [
+            [
+              60.9,
+              59.0
+            ],
+            [
+              71.95,
+              58.9875
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Track [I2S_LRCLK] on F.Cu, length 0.0559 mm",
+            "Pad 13 [I2S_LRCLK] of U100 on F.Cu"
+          ],
+          "at": [
+            [
+              63.7,
+              61.0
+            ],
+            [
+              72.45,
+              58.9875
+            ]
+          ]
+        }
+      ]
+    },
+    "initial": {
+      "errors": 6,
+      "unconnected": 6,
+      "non_connectivity_errors": 0,
+      "by_severity": {
+        "warning": 484,
+        "error": 6
+      },
+      "by_type": {
+        "silk_overlap": 199,
+        "silk_over_copper": 199,
+        "track_dangling": 1,
+        "via_dangling": 7,
+        "unconnected": 6,
+        "parity:footprint_symbol_field_mismatch": 40,
+        "parity:net_conflict": 38
+      },
+      "errors_with_locations": [
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Track [DAC_L_P] on In1.Cu, length 1.4142 mm",
+            "Pad 3 [DAC_L_P] of U100 on F.Cu"
+          ],
+          "at": [
+            [
+              85.8,
+              54.6
+            ],
+            [
+              69.7625,
+              55.8
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Zone [GND] on F.Cu, priority 0",
+            "Zone [GND] on F.Cu, priority 0"
+          ],
+          "at": [
+            [
+              0.3,
+              0.3
+            ],
+            [
+              0.3,
+              0.3
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Zone [GND] on F.Cu, priority 0",
+            "Zone [GND] on F.Cu, priority 0"
+          ],
+          "at": [
+            [
+              0.3,
+              0.3
+            ],
+            [
+              0.3,
+              0.3
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Zone [GND] on F.Cu, priority 0",
+            "Zone [GND] on F.Cu, priority 0"
+          ],
+          "at": [
+            [
+              0.3,
+              0.3
+            ],
+            [
+              0.3,
+              0.3
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Track [I2S_BCLK] on F.Cu, length 1.0000 mm",
+            "Pad 12 [I2S_BCLK] of U100 on F.Cu"
+          ],
+          "at": [
+            [
+              61.9,
+              59.0
+            ],
+            [
+              71.95,
+              58.9875
+            ]
+          ]
+        },
+        {
+          "sev": "error",
+          "type": "unconnected",
+          "msg": "Missing connection between items",
+          "items": [
+            "Pad 13 [I2S_LRCLK] of U100 on F.Cu",
+            "Track [I2S_LRCLK] on F.Cu, length 1.0000 mm"
+          ],
+          "at": [
+            [
+              72.45,
+              58.9875
+            ],
+            [
+              63.7,
+              60.0
+            ]
+          ]
+        }
+      ]
+    },
+    "rejected": false
+  },
+  "final_drc": {
+    "errors": 3,
+    "unconnected": 3,
+    "non_connectivity_errors": 0,
+    "by_severity": {
+      "warning": 478,
+      "error": 3
+    },
+    "by_type": {
+      "silk_overlap": 199,
+      "silk_over_copper": 199,
+      "track_dangling": 2,
+      "unconnected": 3,
+      "parity:footprint_symbol_field_mismatch": 40,
+      "parity:net_conflict": 38
+    },
+    "errors_with_locations": [
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Pad 3 [DAC_L_P] of U100 on F.Cu",
+          "Track [DAC_L_P] on F.Cu, length 0.7071 mm"
+        ],
+        "at": [
+          [
+            69.7625,
+            55.8
+          ],
+          [
+            86.3,
+            55.1
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Track [I2S_BCLK] on F.Cu, length 0.0250 mm",
+          "Pad 12 [I2S_BCLK] of U100 on F.Cu"
+        ],
+        "at": [
+          [
+            60.9,
+            59.0
+          ],
+          [
+            71.95,
+            58.9875
+          ]
+        ]
+      },
+      {
+        "sev": "error",
+        "type": "unconnected",
+        "msg": "Missing connection between items",
+        "items": [
+          "Track [I2S_LRCLK] on F.Cu, length 0.0559 mm",
+          "Pad 13 [I2S_LRCLK] of U100 on F.Cu"
+        ],
+        "at": [
+          [
+            63.7,
+            61.0
+          ],
+          [
+            72.45,
+            58.9875
+          ]
+        ]
+      }
+    ]
+  },
+  "final_parity": {
+    "components": 238,
+    "source_assigned_pins": 703,
+    "mismatches": []
+  },
+  "all_placements_unchanged": true,
+  "final_geometry": {
+    "edge_bounds_mm": [
+      0.0,
+      0.0,
+      140.0,
+      80.0
+    ],
+    "layers": [
+      "F.Cu",
+      "In1.Cu",
+      "In2.Cu",
+      "B.Cu"
+    ],
+    "via_size_drill_layers": [
+      [
+        0.6,
+        0.3,
+        [
+          "F.Cu",
+          "B.Cu"
+        ]
+      ]
+    ]
+  },
+  "final_placement": {
+    "placement_violations": [],
+    "fixed_rule_violations": [],
+    "fixed_anchors": {
+      "J100": [
+        42.0,
+        48.0,
+        0.0
+      ],
+      "J200": [
+        58.0,
+        76.0,
+        90.0
+      ],
+      "J201": [
+        123.0,
+        76.0,
+        90.0
+      ],
+      "J300": [
+        124.0,
+        15.0,
+        180.0
+      ]
+    },
+    "dimensions_mm": [
+      140,
+      80
+    ],
+    "copper_layers": 4
+  },
+  "final_copper": {
+    "segments": 1668,
+    "vias": 238
+  },
+  "final_sha256": "b88addf35024448a6d3737c9ca71d15fe2e02e1d31011dbe29f6f61bef720462",
+  "static_inspection": {
+    "path": "/workspace/projects/desktop-dac-hd6xx/verification/layout-repair-inspection.json",
+    "by_severity": {
+      "error": 3,
+      "warn": 9,
+      "info": 32
+    },
+    "by_code": {
+      "unrouted": 3,
+      "decap-distance": 41
+    },
+    "decoupling_over_limit": 9,
+    "coverage": {
+      "spice_or_ir_drop": "not_run",
+      "declared_edge_rate_nets": [],
+      "declared_edge_rate_parts": [],
+      "return_path_and_si": "not_checked_no_edge_rates",
+      "two_layer_return_path_check": "not_applicable_four_layer_board",
+      "functional_layout_signoff": false
+    }
+  },
+  "native_svg": {
+    "path": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair/pcb.svg",
+    "exit_code": 0,
+    "stdout": "Plotted to '/workspace/projects/desktop-dac-hd6xx/build/layout-repair/pcb.svg'.\nDone.\n",
+    "stderr": ""
+  },
+  "source_sha256_after": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "input_sha256_after": "de6d75a13b382899a3d9f2174a472d69d375cd0b34f45289457206c84eff81b8",
+  "status": "partial_candidate_retained"
+}

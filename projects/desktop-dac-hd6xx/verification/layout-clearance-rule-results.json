@@ -1,0 +1,20 @@
+{
+  "status": "SCOPED_RULE_VALIDATED_ON_PRESERVED_CANDIDATE",
+  "canonical_source_not_edited": true,
+  "drc_errors_excluding_unconnected_before": 10,
+  "drc_errors_excluding_unconnected_after": 0,
+  "unconnected_items_before": 6,
+  "unconnected_items_after": 6,
+  "warnings_after": 605,
+  "general_clearance_mm": 0.2,
+  "exception_clearance_mm": 0.15,
+  "exception_scope": "Two pads within U204, or two pads within U336. Both items must be pads and belong to the same named footprint.",
+  "project_constraints_identical_excluding_filename_metadata": true,
+  "pcb_bytes_identical": true,
+  "rule_file": "verification/layout-clearance-rule-check/desktop_dac_hd6xx_krt2n0.kicad_dru",
+  "drc_command": "kicad-cli pcb drc --format json --severity-all --exit-code-violations --refill-zones --output drc.json desktop_dac_hd6xx_krt2n0.kicad_pcb",
+  "drc_exit_code": 5,
+  "remaining_failure": "Six unconnected items and warning-level cleanup; this remains an incomplete board.",
+  "rule_syntax_reference": "https://docs.kicad.org/10.0/en/pcbnew/pcbnew.html#custom_design_rules",
+  "capability_reference_supplied_and_checked_by_parent": "https://jlcpcb.com/capabilities/pcb-capabilities/"
+}

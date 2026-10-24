@@ -1,0 +1,794 @@
+{
+  "completed_call_logs": [
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.25",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r1.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r1.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.25",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--ordering",
+        "inside_out"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r2.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r2.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.25",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--mps-reverse-rounds"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r3.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0_r3.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.25",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--direction",
+        "backward"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.15",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r1.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r1.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.15",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--ordering",
+        "inside_out"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r2.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r2.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.15",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--mps-reverse-rounds"
+      ]
+    },
+    {
+      "input": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+      "output": "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r3.kicad_pcb",
+      "nets": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "argv": [
+        "python",
+        "/opt/tools/KiCadRoutingTools/py_router/route.py",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0.kicad_pcb",
+        "/workspace/projects/desktop-dac-hd6xx/build/layout-repair-followup/desktop_dac_hd6xx_rep0_0n0_r3.kicad_pcb",
+        "--nets",
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK",
+        "--track-width",
+        "0.15",
+        "--clearance",
+        "0.2",
+        "--via-size",
+        "0.6",
+        "--via-drill",
+        "0.3",
+        "--same-net-pad-clearance",
+        "0.15",
+        "--fab-tier",
+        "standard",
+        "--escalation",
+        "off",
+        "--no-fix-drc-settings",
+        "--strict-sizes",
+        "--keep-input-copper",
+        "--direction",
+        "backward"
+      ]
+    }
+  ],
+  "regrade_records": [
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 5,
+      "seconds": 0.15,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.49,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 5,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 4,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 0,
+      "multipoint_pads_connected": 0,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.41000000000000003,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 4,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 5,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.38,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 5,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 8,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.48,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 8,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.36,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.36,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.37,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 12,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 4,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.5,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 12,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    }
+  ],
+  "actual_expanded_input": "verification/layout-repair-followup-expansion.json",
+  "limitation": "The interrupted expanded round did not flush its buffered router logs. Its actual generated input was captured before cleanup; no completed-round improvement is claimed."
+}
