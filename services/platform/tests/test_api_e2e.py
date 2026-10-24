@@ -158,7 +158,7 @@ def test_end_to_end_with_sse_replay_and_live(live, gateway, api_settings):
 
     def drive():
         try:
-            time.sleep(1.0)  # let the stream connect and replay first
+            time.sleep(2.6)  # let the stream connect, replay, and idle past a keep-alive
 
             async def s2(db, st):
                 await st.upsert_stage(rid, StageRecord("sim", "sim", 1, StageStatus.running))
