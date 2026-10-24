@@ -66,3 +66,28 @@ def require_admin(ctx: TenantContext = Depends(tenant_context)) -> TenantContext
     if not ctx.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "owner or admin role required")
     return ctx
+
+
+# --- runs, storage, events (#12) ---------------------------------------------------------------------
+
+
+def get_gateway(request: Request):
+    return request.app.state.gateway
+
+
+def tenant_store(request: Request, ctx: TenantContext):
+    """The S3 ArtifactStore bound to the caller's tenant (no call can name another tenant's prefix)."""
+    from ..storage import S3ArtifactStore
+
+    s = request.app.state.settings
+    return S3ArtifactStore(request.app.state.s3, s.s3_bucket, ctx.tenant_id)
+
+
+def download_store(request: Request, ctx: TenantContext):
+    """Same store, but on the client that signs URLs for the public endpoint (None when not configured)."""
+    from ..storage import S3ArtifactStore
+
+    pub = request.app.state.s3_public
+    if pub is None:
+        return None
+    return S3ArtifactStore(pub, request.app.state.settings.s3_bucket, ctx.tenant_id)

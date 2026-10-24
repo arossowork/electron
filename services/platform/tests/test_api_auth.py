@@ -113,3 +113,36 @@ def test_login_into_foreign_tenant_refused(client, account):
 def test_account_helper_is_isolated(client):
     # Two signups never share a tenant.
     assert Account(client, "i1").tenant_id != Account(client, "i2").tenant_id
+
+
+# --- switch-tenant ---------------------------------------------------------------------------------------
+
+
+def _switch(client, rt, tenant_id):
+    return client.post("/api/v1/auth/switch-tenant", json={"refresh_token": rt, "tenant_id": tenant_id})
+
+
+def test_switch_tenant_without_password_rotates_and_checks_membership(client, account):
+    owner, me = account("swowner"), account("swme")
+    me.join(owner)  # `me` is now a member of owner's tenant and still owns its own
+    rt1 = me.tokens["refresh_token"]
+    r = _switch(client, rt1, owner.tenant_id)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["tenant_id"] == owner.tenant_id and out["user_id"] == me.tokens["user_id"]
+    h = {"Authorization": f"Bearer {out['access_token']}"}
+    info = client.get("/api/v1/auth/me", headers=h).json()
+    assert info["tenant_id"] == owner.tenant_id and info["role"] == "member"
+    # the spent token is dead (reuse), and the new one works for refresh in the new tenant
+    assert _switch(client, rt1, me.tenant_id).status_code == 401
+    r2 = client.post("/api/v1/auth/refresh", json={"refresh_token": out["refresh_token"]})
+    assert r2.status_code == 200 and r2.json()["tenant_id"] == owner.tenant_id
+
+
+def test_switch_tenant_refuses_a_tenant_without_membership(client, account):
+    a, b = account("swa"), account("swb")
+    rt = a.tokens["refresh_token"]
+    assert _switch(client, rt, b.tenant_id).status_code == 403
+    # the refusal does not burn the session
+    assert client.post("/api/v1/auth/refresh", json={"refresh_token": rt}).status_code == 200
+    assert _switch(client, "rt.x.y", a.tenant_id).status_code == 401

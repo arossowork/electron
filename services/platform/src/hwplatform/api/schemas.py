@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -22,6 +22,11 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh_token: str = Field(max_length=512)
+
+
+class SwitchTenantIn(BaseModel):
+    refresh_token: str = Field(max_length=512)
+    tenant_id: uuid.UUID
 
 
 class AcceptedOut(BaseModel):
@@ -100,3 +105,120 @@ class ProjectOut(BaseModel):
     slug: str
     created_by: uuid.UUID | None
     created_at: datetime
+
+
+# --- design versions, runs, artifacts, questions (#12) ------------------------------------------------
+
+T = TypeVar("T")
+
+RunKindT = Literal["build", "design"]
+RunStatusT = Literal["queued", "running", "waiting", "succeeded", "failed", "cancelled"]
+
+
+class Page(BaseModel, Generic[T]):
+    """Cursor pagination: pass `next_cursor` back as `?cursor=` for the next page (null = last page)."""
+
+    items: list[T]
+    next_cursor: str | None = None
+
+
+class DesignVersionOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    seq: int
+    content_sha256: str
+    design_sha256: str
+    requirements_sha256: str | None
+    source: Literal["upload", "agent"]
+    parent_id: uuid.UUID | None
+    message: str
+    created_by: uuid.UUID | None
+    created_at: datetime
+
+
+class TreeFileOut(BaseModel):
+    path: str
+    sha256: str
+    size: int
+    mode: int
+
+
+class DesignVersionDetailOut(DesignVersionOut):
+    files: list[TreeFileOut]
+
+
+class RunIn(BaseModel):
+    """`options` for kind build: until, mc, reuse, force, rebuild, auto, attempts, retry_layout, seeds, iters,
+    passes, brief (a bool). For kind design: brief (text, required), answerer ("human"), stages."""
+
+    kind: RunKindT = "build"
+    design_version_id: uuid.UUID
+    options: dict[str, Any] = Field(default_factory=dict)
+    settings_overrides: dict[str, Any] = Field(
+        default_factory=dict, description="allowlisted: layout.budget_s, layout.seed0, layout.asic.*"
+    )
+
+
+class StageOut(BaseModel):
+    key: str
+    stage: str
+    seq: int
+    status: str
+    verdict: str | None
+    cached: bool
+    attempt: int
+    started_at: datetime | None
+    ended_at: datetime | None
+    seconds: float | None
+    summary: dict[str, Any]
+    error: dict[str, Any] | None
+
+
+class RunSummaryOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    design_version_id: uuid.UUID
+    kind: RunKindT
+    status: RunStatusT
+    verdict: Literal["PASS", "FAIL"] | None
+    options_hash: str
+    parent_run_id: uuid.UUID | None
+    created_at: datetime
+    started_at: datetime | None
+    ended_at: datetime | None
+
+
+class RunOut(RunSummaryOut):
+    workflow_id: str
+    options: dict[str, Any]
+    error: dict[str, Any] | None
+    artifacts: list[str]
+    stages: list[StageOut]
+
+
+class ArtifactOut(BaseModel):
+    name: str
+    stage_key: str | None
+    sha256: str
+    size: int
+    media_type: str
+
+
+class QuestionOut(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    stage: str
+    status: Literal["open", "answered", "expired", "cancelled"]
+    questions: list[dict[str, Any]]
+    answers: dict[str, Any] | None
+    answered_by: uuid.UUID | None
+    asked_at: datetime
+    answered_at: datetime | None
+
+
+class AnswerIn(BaseModel):
+    answers: dict[str, Any] = Field(description="question id -> answer")
+
+
+class ErrorOut(BaseModel):
+    detail: str

@@ -56,6 +56,7 @@ class AuthGuard:
         self.policies = {
             "login": Policy(s.rate_window_s, s.rate_login_email_max, s.rate_login_ip_max),
             "refresh": Policy(s.rate_window_s, None, s.rate_refresh_ip_max),
+            "switch": Policy(s.rate_window_s, None, s.rate_refresh_ip_max),
             "verify": Policy(s.rate_window_s, None, s.rate_refresh_ip_max),
             "signup": Policy(s.rate_signup_window_s, s.rate_signup_email_max, s.rate_signup_ip_max),
         }

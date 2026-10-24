@@ -58,7 +58,46 @@ class Settings(BaseSettings):
     purge_events_after_s: int = 24 * 3600  # auth_events older than this (must exceed every window)
 
     default_max_concurrent_runs: int = 2
+    # Object storage (#6): S3 API, SeaweedFS in the dev stack. Path-style addressing.
     s3_bucket: str = "hwflow-artifacts"
+    s3_endpoint_url: str = "http://127.0.0.1:8333"
+    s3_access_key: str = "hwflowaccess"
+    s3_secret_key: SecretStr = Field(default=SecretStr("change-me-s3-secret-key"))
+    s3_region: str = "us-east-1"
+    s3_presign_ttl_s: int = 900
+
+    # Event bus (#11): outbox relay -> NATS JetStream. The relay connects as the role `hwflow_relay`,
+    # which sees every tenant's outbox rows (policy relay_all) and nothing else.
+    nats_url: str = "nats://127.0.0.1:4222"
+    relay_database_url: str = "postgresql+asyncpg://hwflow_relay:change-me-relay@127.0.0.1:15432/hwflow"
+    relay_enabled: bool = True  # run the relay inside hwplatform-api (leader-elected by an advisory lock)
+    relay_poll_s: float = 1.0
+    relay_batch: int = 100
+    outbox_purge_after_s: int = 30 * 24 * 3600  # hwplatform-purge deletes published outbox rows after this
+
+    # Presigned download URLs (#12): the S3 endpoint a browser can reach (SeaweedFS behind the ingress).
+    # Empty (dev): the API streams the object itself.
+    s3_public_url: str = ""
+    # Origins of the web UI (comma separated, e.g. "https://app.example.com"). hwplatform-migrate sets a CORS
+    # rule on the artifact bucket for them, so the browser may follow a presigned download URL.
+    # The web container's CSP must allow the S3 origin in connect-src too
+    # (WEB_CSP_CONNECT_EXTRA, docs/web.md).
+    # Empty: no rule.
+    web_origins: str = ""
+    s3_download_url_ttl_s: int = 300
+
+    # Temporal (#12 starts, cancels and signals workflows; the workflows are #9)
+    temporal_address: str = "127.0.0.1:7233"
+    temporal_namespace: str = "default"
+    temporal_engine_queue: str = "hwflow-engine"
+
+    # Uploads of design versions (ADR 6)
+    max_bundle_bytes: int = 50 * 1024 * 1024  # uncompressed size of all files of one version
+    max_bundle_files: int = 5000
+
+    # SSE (ADR 5.5)
+    sse_keepalive_s: float = 15.0
+    sse_poll_s: float = 5.0  # outbox poll while a stream is open: fills gaps if NATS lost or delayed an event
 
     host: str = "127.0.0.1"
     port: int = 8080
@@ -70,6 +109,9 @@ class Settings(BaseSettings):
         if not v.replace("_", "").isalnum() or not v[0].isalpha():
             raise ValueError("app_db_role must be a plain SQL identifier")
         return v
+
+    def web_origin_list(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.web_origins.split(",") if o.strip()]
 
     def require_jwt_secret(self) -> bytes:
         key = self.jwt_secret.get_secret_value().encode()

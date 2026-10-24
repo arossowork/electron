@@ -1,0 +1,8 @@
+*
+!pyproject.toml
+!uv.lock
+!harness/pyproject.toml
+!services/platform
+services/platform/tests
+**/__pycache__
+**/.pytest_cache
