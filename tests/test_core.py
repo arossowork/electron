@@ -5,10 +5,14 @@ import pytest
 
 from hwflow import sexpr
 from hwflow.design import Design, check, parse_value, snap_e
+from hwflow import pcb
 from hwflow.pcb import ipc2221_width_mm
 from hwflow.postlayout import microstrip
 
 EX = "examples/sensor_preamp"
+needs_a_router = pytest.mark.skipif(
+    not ((pcb.KRT_DIR / "py_router" / "route.py").exists() or Path(pcb.FREEROUTING).exists()),
+    reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
 
 @pytest.mark.parametrize("s,v", [("4k7", 4700), ("100n", 1e-7), ("2.2meg", 2.2e6), ("1M", 1e6), ("10", 10),
@@ -119,6 +123,7 @@ def test_custom_pad_exports_full_outline():
     assert max(xs) - min(xs) > 4000  # um: anchor 1.475 mm plus the 3.1 mm tab
 
 
+@needs_a_router
 @pytest.mark.slow
 def test_post_layout_inductors_are_damped(tmp_path):
     import json
