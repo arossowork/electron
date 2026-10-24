@@ -44,7 +44,11 @@ spec:
                 echo "waiting for temporal"; sleep 3; done
           env:
             - {name: HOME, value: /tmp}
-          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          # admin-tools declares a non-numeric user: runAsNonRoot needs an explicit uid.
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            runAsUser: 1000
+            runAsGroup: 1000
           resources: {{- toYaml .Values.hookResources | nindent 12 }}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
