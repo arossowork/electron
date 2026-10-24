@@ -9,8 +9,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY harness/pyproject.toml harness/pyproject.toml
 COPY services/platform services/platform
-RUN mkdir -p src/hwflow harness/src && touch src/hwflow/__init__.py README.md \
- && uv sync --frozen --no-dev --package hwplatform
+# hwplatform imports only the stdlib-only engine contract modules (hwflow.artifacts, hwflow.runs, hwflow.ids): they
+# are copied as a tiny package; the engine and its numeric dependencies are not installed.
+COPY src/hwflow/artifacts.py src/hwflow/runs.py src/hwflow/ids.py /contracts/hwflow/
+RUN mkdir -p src/hwflow harness/src && touch src/hwflow/__init__.py README.md /contracts/hwflow/__init__.py \
+ && uv sync --frozen --no-dev --package hwplatform --no-install-package hwflow --no-install-package numpy --no-install-package scipy --no-install-package shapely --no-install-package pillow --no-install-package ruamel-yaml --no-install-package ruamel-yaml-clib
+ENV PYTHONPATH=/contracts
 RUN useradd -m -u 10001 app
 USER app
 ENV HWPLATFORM_HOST=0.0.0.0
