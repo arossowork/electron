@@ -1034,7 +1034,7 @@ run's SSE stream) and the "answered by default" badge with a form to replace the
 `fw_test` -> `EngineToolWorkflow` -> `engine_tool` on `hwflow-engine` (policy 900 s), over the workspace tree; the
 agent's `make -C projects/<p>/fw test` maps to it in the tool table of the prompt. The worker image gains `gcc` and
 `libc6-dev` (no make) and `fw/framework` under `HWFLOW_ROOT`; the sanitizer and LTO parts of gcc are removed. Measured
-on ubuntu:24.04: +127 MiB untrimmed, +85 MiB trimmed (see the CI "Image size" step for the whole image).
+on the worker image: about +143 MB (image size delta, with the sanitizer and LTO parts removed; see the CI "Image size" step for the whole image).
 
 ## 8. Reduced (M1) vs full (M2) stack
 

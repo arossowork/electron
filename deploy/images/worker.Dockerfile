@@ -3,7 +3,7 @@
 # KiCadRoutingTools router, and optionally Java + Freerouting. No Claude CLI, no UI, no KiCad GUI, no 3D models.
 #   docker build -f deploy/images/worker.Dockerfile -t hwplatform-worker:dev .
 #   docker build -f deploy/images/worker.Dockerfile --build-arg WITH_FREEROUTING=0 -t hwplatform-worker:dev .
-# gcc and libc6-dev (about 80 MiB with the sanitizer and LTO parts removed, measured on ubuntu:24.04) are
+# gcc and libc6-dev (about +143 MB in the image, measured, with the sanitizer and LTO parts removed) are
 # there for `hwflow fw test` (firmware host tests, #54); make is not needed.
 # The agent worker (#15) gets its own image later. docker/Dockerfile stays the all-in-one image for local use.
 ARG UBUNTU=ubuntu:24.04
