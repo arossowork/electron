@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute, spice
+from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute, simrobust, spice
 from ..design import Design, check
 from ..libs import Libs
 from ..settings import get_settings
@@ -57,6 +57,7 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
            "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
+    out.update(simrobust.sim_summary(d, res, w, _out(d) / "simcache"))
     prev = _status(d).get("sim") or {}
     if mc and prev.get("monte_carlo") and prev.get("inputs_hash") == _inputs_hash(d) and prev.get("mc_runs") == mc:
         out["monte_carlo"], out["mc_runs"] = prev["monte_carlo"], mc  # Monte Carlo once per design (backlog 27)
