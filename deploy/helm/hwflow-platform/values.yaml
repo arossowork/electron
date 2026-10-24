@@ -39,7 +39,7 @@ networkPolicy:
 images:
   api: {repository: hwplatform-api, tag: dev}
   web: {repository: hwplatform-web, tag: dev}
-  worker: {repository: hwflow-worker, tag: dev}
+  worker: {repository: hwplatform-worker, tag: dev}   # deploy/images/worker.Dockerfile (#10)
   postgres: {repository: postgres, tag: 17.11-alpine}
   temporal: {repository: temporalio/server, tag: 1.31.4}
   temporalAdminTools: {repository: temporalio/admin-tools, tag: 1.31.4}
@@ -76,11 +76,20 @@ web:
 worker:
   enabled: false   # the entrypoint and image come with issues #9 and #10
   priorityClassName: apps-high
-  # Command the worker image starts. Reduced: one process polling all queues.
+  # Command the worker image starts (container args after the image ENTRYPOINT). Reduced: one process polling all queues.
   command: [hwplatform-worker]
   # Env var that selects the queues; empty value = all queues (reduced). Placeholder until #9 fixes the name.
   queuesEnvVar: HWPLATFORM_WORKER_QUEUES
   extraEnv: {}
+  # Health endpoint the worker process must serve (issue #9 contract, docs/platform-k8s.md): HTTP on probes.port,
+  # 200 on startupPath once the Temporal client and the pollers are up, readyPath while polling, livePath while the
+  # event loop answers. Off until #9 exposes it (a probe against a missing port would restart the pod forever).
+  probes:
+    enabled: false
+    port: 8081
+    startupPath: /readyz
+    readyPath: /readyz
+    livePath: /livez
   # Writable scratch for build trees (stage child processes) and tool caches.
   scratchSize: 2Gi
   replicas: 1
