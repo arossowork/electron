@@ -58,7 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
  && apt-get update && apt-get install -y --no-install-recommends \
       kicad kicad-symbols kicad-footprints ngspice tini locales gcc libc6-dev \
  && if [ "$WITH_RENDER" = 1 ]; then apt-get install -y --no-install-recommends xvfb xauth libgl1-mesa-dri; fi \
- && if [ "$WITH_FREEROUTING" = 1 ]; then apt-get install -y --no-install-recommends openjdk-21-jre-headless; fi \
+ && if [ "$WITH_FREEROUTING" = 1 ]; then apt-get install -y --no-install-recommends openjdk-25-jre-headless; fi \
  && sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen \
  && apt-get purge -y software-properties-common gpg-agent && apt-get autoremove -y \
  && cd /usr/bin && rm -f kicad eeschema pcbnew gerbview pl_editor pcb_calculator bitmap2component \

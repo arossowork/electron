@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
  && add-apt-repository -y ppa:kicad/kicad-10.0-releases \
  && apt-get update && apt-get install -y --no-install-recommends \
       kicad kicad-symbols kicad-footprints \
-      ngspice openjdk-21-jre-headless \
+      ngspice openjdk-25-jre-headless \
       git curl ca-certificates locales tini xvfb xauth libgl1-mesa-dri \
  && sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen \
  && apt-get purge -y software-properties-common && apt-get autoremove -y \

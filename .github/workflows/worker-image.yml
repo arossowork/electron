@@ -71,6 +71,10 @@ jobs:
           docker run --rm --read-only --tmpfs /tmp --tmpfs /scratch:uid=10001,gid=10001,size=1g,exec \
             -v "$PWD/examples:/examples:ro" -v "$PWD/deploy/images/worker-smoke.sh:/smoke.sh:ro" \
             hwplatform-worker:ci /smoke.sh sim
+      - name: Smoke - Java 25 runs the Freerouting jar (class version 69, issue #58)
+        run: |
+          docker run --rm --entrypoint java hwplatform-worker:ci -version 2>&1 | tee /dev/stderr | grep -q 'version "25\.'
+          docker run --rm --entrypoint java hwplatform-worker:ci -jar /opt/tools/freerouting.jar --help > /dev/null
       - name: Entry points on PATH
         run: |
           docker run --rm --entrypoint hwflow hwplatform-worker:ci --help > /dev/null
