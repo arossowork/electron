@@ -3,49 +3,31 @@ real BuildWorkflow on the engine queue and fake activities (no database, S3 or e
 
 Proves the gateway's wire behaviour: workflow ID, task queue, argument dataclass, search attributes, the ID
 conflict policy USE_EXISTING (a second start while the build runs is the same run, not a second one), cancel
-(the build records `cancelled` and ends cancelled) and the answer signal. DesignWorkflow is #15, so the signal goes
-to a stand-in named like it. Skipped when the dev server cannot start (no network).
+(the build records `cancelled` and ends cancelled), and the real DesignWorkflow (fake activities) with the answer
+and retry signals. Skipped when the dev server cannot start (no network).
 """
 
 from __future__ import annotations
 
 import asyncio
-import uuid
-from dataclasses import asdict
 from datetime import timedelta
 
 import pytest
 
-from hwplatform.contracts import QUEUES, DesignInput, QuestionAnswer, RunCtx
+from hwplatform.contracts import QUEUES, DesignOutput, QuestionAnswer
 from hwplatform.gateway import GatewayError, TemporalGateway, WorkflowNotFound
 from hwplatform.settings import Settings
 
 temporalio = pytest.importorskip("temporalio")
-from temporalio import workflow  # noqa: E402
 from temporalio.client import Client, WorkflowFailureError  # noqa: E402
 from temporalio.common import SearchAttributeKey  # noqa: E402
 from temporalio.exceptions import CancelledError  # noqa: E402
 from temporalio.testing import WorkflowEnvironment  # noqa: E402
-from temporalio.worker import Worker  # noqa: E402
+from test_workflow_design import DesignFakes, asks, design_arg, done, key_error, wait_for, workers_for  # noqa: E402
 from wf_fakes import Fakes, Workers, arg, hang  # noqa: E402
 
 from hwplatform.workers.main import build_workers  # noqa: E402
 from hwplatform.workflows import BuildWorkflow  # noqa: E402
-
-
-@workflow.defn(name="DesignWorkflow")
-class FakeDesign:
-    def __init__(self):
-        self.answers: list[dict] = []
-
-    @workflow.run
-    async def run(self, arg: DesignInput) -> dict:
-        await workflow.wait_condition(lambda: bool(self.answers), timeout=None)
-        return {"run_id": arg.ctx.run_id, "answers": self.answers}
-
-    @workflow.signal(name="answer_question")
-    def answer(self, a: QuestionAnswer) -> None:
-        self.answers.append(asdict(a))
 
 
 def test_gateway_start_signal_cancel_against_temporal():
@@ -72,8 +54,7 @@ def test_gateway_start_signal_cancel_against_temporal():
                 max_heartbeat_throttle_interval=timedelta(milliseconds=200),
                 default_heartbeat_throttle_interval=timedelta(milliseconds=200),
             )
-            design_q = f"design-{uuid.uuid4()}"
-            async with Workers(workers), Worker(env.client, task_queue=design_q, workflows=[FakeDesign]):
+            async with Workers(workers):
                 a = arg({"until": "sim"})
                 wf = a.ctx.workflow_id
                 await gw.start_build(wf, a)
@@ -97,22 +78,27 @@ def test_gateway_start_signal_cancel_against_temporal():
                 assert [r.to for r in fakes.runs] == ["running", "cancelled"]
                 assert fakes.cancelled == ["check"]
 
-                gw_design = TemporalGateway(
-                    Settings(temporal_address=address, temporal_engine_queue=design_q)
-                )
-                dw = f"design-{uuid.uuid4()}"
-                rid = str(uuid.uuid4())
-                await gw_design.start_design(dw, DesignInput(RunCtx("t", "p", rid, dw), "dv", "a brief"))
-                await gw_design.signal_answer(dw, QuestionAnswer("q1", {"a": 1}, "u1"))
-                res = await env.client.get_workflow_handle(dw).result()
-                assert res == {
-                    "run_id": rid,
-                    "answers": [{"question_id": "q1", "answers": {"a": 1}, "answered_by": "u1"}],
-                }
                 with pytest.raises(WorkflowNotFound):
                     await gw.cancel("build-does-not-exist")
                 with pytest.raises(WorkflowNotFound):
                     await gw.signal_answer("build-does-not-exist", QuestionAnswer("q", {}, "u"))
+            # the real DesignWorkflow: start, a question, the answer signal, an invalid key, the retry signal
+            f = DesignFakes({"requirements": [asks, done], "partition": [key_error("key_invalid"), done]})
+            async with workers_for(env, f):
+                a = design_arg(["requirements", "partition"])
+                dw = a.ctx.workflow_id
+                await gw.start_design(dw, a)
+                await wait_for(lambda: "ask" in f.ops(), "the question")
+                await gw.signal_answer(dw, QuestionAnswer(f.questions[0].question_id, {"q1": "AA"}, "u1"))
+                await wait_for(lambda: "key_wait" in f.ops(), "the key wait")
+                await gw.signal_retry(dw)
+                res = await env.client.get_workflow_handle(dw, result_type=DesignOutput).result()
+            assert res.status == "succeeded" and f.ops() == ["ask", "resumed", "key_wait", "key_resumed"]
+            assert f.agent_calls[1].answers == {"q1": "AA"} and f.agent_calls[1].resume == "answers"
+            running = [w async for w in env.client.list_workflows(f"WorkflowId = '{dw}'")]
+            assert running and running[0].workflow_type == "DesignWorkflow"
+            with pytest.raises(WorkflowNotFound):
+                await gw.signal_retry("design-does-not-exist")
             bad = TemporalGateway(Settings(temporal_address="127.0.0.1:1"))
             with pytest.raises(GatewayError):
                 await bad.start_build("x", arg({}))

@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from .. import llm_keys
 from ..crypto import Keyring
 from ..db import Database
+from ..gateway import GatewayError, WorkflowGateway
 from ..tenancy import TenantContext
-from .deps import get_db, require_admin
+from .deps import get_db, get_gateway, require_admin
 
+log = logging.getLogger("hwplatform.api.llm_keys")
 router = APIRouter(prefix="/tenant/llm-keys", tags=["llm-keys"])
 
 
@@ -50,8 +54,10 @@ async def put_key(
     request: Request,
     ctx: TenantContext = Depends(require_admin),
     db: Database = Depends(get_db),
+    gateway: WorkflowGateway = Depends(get_gateway),
 ):
-    """Validate the key with the provider, then store it encrypted (replaces the current one)."""
+    """Validate the key with the provider, then store it encrypted (replaces the current one). Design runs
+    waiting for a valid key are signalled `retry`."""
     provider = _provider(provider)
     ring = _keyring(request)
     try:
@@ -64,7 +70,33 @@ async def put_key(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"could not validate the key: {e}") from None
     except llm_keys.KeyConflict as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    await _signal_waiting_runs(db, gateway, ctx)
     return LlmKeyOut(**st.__dict__)
+
+
+async def _signal_waiting_runs(db: Database, gateway: WorkflowGateway, ctx: TenantContext) -> None:
+    """ADR 7.4: every design run of the tenant that waits (it may wait for a key) gets `retry`. A run that waits
+    for an answer ignores it. Best effort: the key is stored either way, and a run that missed the signal still
+    retries on its next `retry` or fails after its wait."""
+    async with db.tx(tenant_id=ctx.tenant_id, user_id=ctx.user_id) as s:
+        rows = (
+            (
+                await s.execute(
+                    text(
+                        "SELECT workflow_id FROM runs WHERE tenant_id = :t AND kind = 'design' "
+                        "AND status = 'waiting' ORDER BY id"
+                    ),
+                    {"t": ctx.tenant_id},
+                )
+            )
+            .scalars()
+            .all()
+        )
+    for wf in rows:
+        try:
+            await gateway.signal_retry(wf)
+        except GatewayError as e:
+            log.warning("retry signal to %s failed: %s", wf, type(e).__name__)
 
 
 @router.get("/{provider}", response_model=LlmKeyOut)

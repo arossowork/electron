@@ -124,6 +124,7 @@ async def start_run(
     project_id: uuid.UUID,
     body: RunIn,
     response: Response,
+    request: Request,
     ctx: TenantContext = Depends(tenant_context),
     db: Database = Depends(get_db),
     gateway: WorkflowGateway = Depends(get_gateway),
@@ -219,6 +220,7 @@ async def start_run(
                     brief=options["brief"],
                     answerer=options["answerer"],
                     stages=options["stages"],
+                    question_timeout_s=request.app.state.settings.agent_question_timeout_s,
                 ),
             )
     except GatewayError as e:  # the row exists as queued: do not leave it holding a quota slot

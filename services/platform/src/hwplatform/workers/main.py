@@ -1,14 +1,15 @@
 """`hwplatform-worker --queues hwflow-engine,hwflow-sim,hwflow-layout,hwflow-verify` (ADR 0001, 4.2 and 8).
 
-One process polls every queue it is given, one Temporal Worker per queue, with the slots of the reduced
-stack (`contracts.SLOTS`: the engine queue runs 4 workflow tasks and 2 activities, every tool queue 1
-activity, so one layout at a time). The engine queue hosts the workflows and the local record_*
-activities. The agent queue is polled from #15 on (its activities do not exist yet), so it is not in the
-default list.
+One process polls every queue it is given, one Temporal Worker per queue, with the slots of the reduced stack
+(`contracts.SLOTS`: the engine queue runs 4 workflow tasks and 2 activities, every tool queue 1 activity, so
+one layout at a time). The engine queue hosts the workflows and the local record_* activities. The agent queue
+(#15) is in the default list too, but only an image with the Claude Agent SDK and the prompts
+(deploy/images/agent.Dockerfile) polls it: without them the worker leaves it out and says so. A worker that
+polls the agent queue makes itself non-dumpable, so the Claude Code subprocess cannot read its environment.
 
 Workflows run in the Temporal sandbox; only the stdlib-only engine modules (hwflow.buildplan,
-hwflow.artifacts, hwflow.ids, hwflow.runs) and hwplatform.contracts are passed through. SIGTERM / SIGINT:
-stop polling, let running activities finish their cancel (the stage children are killed), then exit.
+hwflow.artifacts, hwflow.ids, hwflow.runs) and hwplatform.contracts are passed through. SIGTERM / SIGINT: stop
+polling, let running activities finish their cancel (the stage children are killed), then exit.
 """
 
 from __future__ import annotations
@@ -24,8 +25,36 @@ from ..settings import Settings, get_settings
 
 log = logging.getLogger("hwplatform.worker")
 
-DEFAULT_QUEUES = tuple(q for q in QUEUES if q != Q_AGENT)
+DEFAULT_QUEUES = QUEUES
 PASSTHROUGH = ("hwflow.buildplan", "hwflow.artifacts", "hwflow.ids", "hwflow.runs", "hwplatform.contracts")
+
+
+def agent_ready() -> str | None:
+    """None when this process can run agent sessions; else what is missing."""
+    import importlib.util
+
+    for mod, what in (
+        ("claude_agent_sdk", "the claude-agent-sdk package"),
+        ("hwharness.prompts", "hwharness"),
+    ):
+        try:
+            if importlib.util.find_spec(mod) is None:
+                return what
+        except ModuleNotFoundError:
+            return what
+    from ..agent.sandbox import bundled_cli
+
+    return None if bundled_cli() else "the bundled Claude Code CLI"
+
+
+def usable_queues(queues: tuple[str, ...]) -> tuple[str, ...]:
+    if Q_AGENT not in queues:
+        return queues
+    missing = agent_ready()
+    if missing is None:
+        return queues
+    log.warning("not polling %s: %s is not installed (deploy/images/agent.Dockerfile)", Q_AGENT, missing)
+    return tuple(q for q in queues if q != Q_AGENT)
 
 
 def sandbox_runner():
@@ -38,8 +67,7 @@ def sandbox_runner():
 
 def build_workers(client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows=None, activities=None, **kw):
     """One temporalio Worker per queue. `workflows` / `activities` override what is registered, `kw` goes to
-    every
-    Worker (tests)."""
+    every Worker (tests)."""
     from temporalio.worker import Worker
 
     from ..activities import activities_for
@@ -72,8 +100,7 @@ def build_workers(client, deps, queues=DEFAULT_QUEUES, *, slots=SLOTS, workflows
 
 class Health:
     """GET /livez: 200 while the event loop answers (independent of Temporal and Postgres). GET /readyz: 200
-    only
-    when the Temporal client is connected and every poller runs, else 503. A minimal HTTP/1.0 server on
+    only when the Temporal client is connected and every poller runs, else 503. A minimal HTTP/1.0 server on
     asyncio."""
 
     def __init__(self):
@@ -135,11 +162,18 @@ async def connect(settings: Settings, stop: asyncio.Event):
 async def run(queues=DEFAULT_QUEUES, settings: Settings | None = None) -> None:
     """Serve /livez and /readyz, connect, poll `queues` until SIGTERM/SIGINT, then shut down gracefully: no
     new tasks, running activities get `worker_shutdown_grace_s` to finish, then they are cancelled (stage
-    children
-    killed, the activity retried elsewhere)."""
+    children killed, the activity retried elsewhere)."""
     from ..activities import Deps
 
     settings = settings or get_settings()
+    queues = usable_queues(tuple(queues))
+    if Q_AGENT in queues:
+        from ..agent.sandbox import make_non_dumpable
+
+        if not make_non_dumpable():
+            log.warning(
+                "could not make the worker non-dumpable (prctl): the agent subprocess may read its env"
+            )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
@@ -153,6 +187,7 @@ async def run(queues=DEFAULT_QUEUES, settings: Settings | None = None) -> None:
         if client is None:
             return
         health.client = client
+        deps.temporal = client  # the agent's tools start linked builds and engine tool workflows
         workers = build_workers(
             client,
             deps,
@@ -195,6 +230,9 @@ def main(argv: list[str] | None = None) -> None:
     if unknown:
         p.error(f"unknown queues: {', '.join(unknown)} (known: {', '.join(QUEUES)})")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from ..logredact import install_log_redaction
+
+    install_log_redaction()  # ADR 7.4: no API key in any log record of the worker
     asyncio.run(run(queues, settings))
 
 

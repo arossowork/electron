@@ -46,13 +46,25 @@ def test_health_live_and_ready():
 
 
 def test_queues_from_flag_env_or_default():
-    assert queues_from(None, Settings()) == DEFAULT_QUEUES and Q_AGENT not in DEFAULT_QUEUES
+    # every queue by default; the agent queue is dropped by usable_queues where the SDK is not installed
+    assert queues_from(None, Settings()) == DEFAULT_QUEUES and Q_AGENT in DEFAULT_QUEUES
     assert queues_from(None, Settings(worker_queues="hwflow-sim, hwflow-layout")) == (
         "hwflow-sim",
         "hwflow-layout",
     )
     assert queues_from("hwflow-engine", Settings(worker_queues="hwflow-sim")) == ("hwflow-engine",)
-    assert set(DEFAULT_QUEUES) < set(QUEUES)
+    assert set(DEFAULT_QUEUES) == set(QUEUES)
+
+
+def test_agent_queue_needs_the_sdk(monkeypatch):
+    import importlib
+
+    wm = importlib.import_module("hwplatform.workers.main")
+
+    assert wm.agent_ready() is None  # the platform test env installs the `agent` extra
+    assert wm.usable_queues(QUEUES) == QUEUES
+    monkeypatch.setattr(wm, "agent_ready", lambda: "the claude-agent-sdk package")
+    assert Q_AGENT not in wm.usable_queues(QUEUES) and wm.usable_queues(("hwflow-sim",)) == ("hwflow-sim",)
 
 
 def test_stage_error_classification():
