@@ -1,12 +1,19 @@
 """End-to-end build of the reference design: zero ERC/DRC errors and full routing."""
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 
+from hwflow import pcb
 from hwflow.cli import main
 
+needs_a_router = pytest.mark.skipif(
+    not ((pcb.KRT_DIR / "py_router" / "route.py").exists() or Path(pcb.FREEROUTING).exists()),
+    reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
+
+@needs_a_router
 @pytest.mark.slow
 def test_full_build(tmp_path):
     proj = tmp_path / "sensor_preamp"

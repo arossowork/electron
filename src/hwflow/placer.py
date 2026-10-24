@@ -1387,10 +1387,19 @@ class Placer:
 
     def _finish(self, movable):
         self.legalize()
+        before = self._state()
+        n0 = len(self._rule_violations()[0])
         for p in movable:  # snap to 0.05 mm grid
             p.x, p.y = round(p.x / 0.05) * 0.05, round(p.y / 0.05) * 0.05
             self._refs(p)
         self.legalize()
+        if len(self._rule_violations()[0]) > n0:
+            # The snap moved a part up to 0.035 mm into an isolation or keep-out distance that the annealed position met
+            # exactly. Which side of the limit the optimum lands on depends on float rounding (the BLAS kernel of the
+            # CPU, via the global placement), so keep the unsnapped position rather than a grid position that violates.
+            self._restore(before)
+            for p in self.parts.values():
+                self._refs(p)
         return self.cost()
 
     def unstick(self, rounds: int = 3, step: float = 1.5, polish: float = 0.25) -> float:
