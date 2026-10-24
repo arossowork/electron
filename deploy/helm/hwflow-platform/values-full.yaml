@@ -38,13 +38,17 @@ worker:
         image: {repository: hwflow-verify, tag: dev}
         replicas: 1
         resources: {requests: {cpu: 500m, memory: 1Gi}, limits: {cpu: "4", memory: 4Gi}}
-      hwflow-agent:
-        image: {repository: hwflow-agent, tag: dev}
-        replicas: 1
-        resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: "2", memory: 2Gi}}
   keda:
     enabled: false      # needs the KEDA operator and its Temporal scaler; then minReplicas default to 0
     maxReplicaCount: 8
+
+# the agent worker is its own Deployment (templates/agent.yaml), not a perQueue entry: its own sandbox and egress
+agent:
+  enabled: true
+  replicas: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
 
 postgres:
   persistence: {size: 100Gi}

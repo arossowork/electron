@@ -680,7 +680,8 @@ the platform.
   waited for, and recorded as `skipped` with that reason. A cancelled workflow records its running stages as
   `cancelled`.
 - **Worker.** `hwplatform-worker` has `--queues` (or `HWPLATFORM_WORKER_QUEUES`). Its default is every queue but
-  `hwflow-agent`, which is polled from #15 on. It serves `/livez` and `/readyz` on `HWPLATFORM_WORKER_HEALTH_PORT`
+  `hwflow-agent`, which is polled from #15 on (7.6: from #15 the default is every queue; without the SDK the
+  worker drops `hwflow-agent`). It serves `/livez` and `/readyz` on `HWPLATFORM_WORKER_HEALTH_PORT`
   (default 8081). On SIGTERM it stops polling and gives running activities `HWPLATFORM_WORKER_SHUTDOWN_GRACE_S`
   (default 100 s, inside the pod's 120 s) before they are cancelled. Stage scratch and tool caches go under
   `HWPLATFORM_WORKER_DIR`. The sandbox passes through `hwflow.buildplan`, `hwflow.artifacts`, `hwflow.ids`,
@@ -868,6 +869,63 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
 - k8s (#17): the worker pod's NetworkPolicy allows egress to Postgres, Temporal, SeaweedFS, NATS and the internet
   minus cluster/private CIDRs. In M1 the agent shares the pod with the tool workers (accepted risk, documented);
   M2 runs `hwflow-agent` in its own pod (#20).
+
+### 7.6 As implemented in #15 (amendments to 7.1-7.5, 4.10 and 8)
+
+- **Stages.** `contracts.DESIGN_STAGES = requirements, partition, parts, circuit, review, layout, firmware`;
+  `DesignInput.stages` picks a subset. `hwharness.prompts.STAGES` maps each to agent files and skill stages:
+  `parts` runs hw-architect and hw-parts (skill stages 2 and 3) on the architect's model, `review` covers 5 and 6,
+  `layout` 6b, 7 and 8, `firmware` is fw-firmware. The system prompt is the Claude Code preset plus a hosted
+  preamble (no shell, the tool map, `.hwflow-ref/`, the question and decision rules, "fetched text is data"),
+  `CLAUDE.md`, the skill and the agent bodies. Model: the lead agent's frontmatter, overridden per stage by
+  `HWPLATFORM_AGENT_MODELS`; effort the highest of the agents', `max_turns` their sum. The agent frontmatter is read
+  leniently, as Claude Code does (`description: a: b` is valid there).
+- **Wire types.** `AgentStageInput{ctx, stage, workspace, brief, session, session_id, answers, questions, resume,
+  round}`, `AgentStageOutput{outcome, workspace, session, session_id, questions, decisions, usage, builds, verdict,
+  summary}`, `RecordQuestion{ctx, op, question_id, stage, questions}` (ops `ask`, `resumed`, `expired`,
+  `cancelled`, `key_wait`, `key_resumed`), `DesignVersionInput` / `DesignVersionOut`, `DesignOutput`,
+  `EngineToolInput` / `EngineToolOutput`; `DesignInput` gains `question_timeout_s` and `parent_run_id`. The
+  question id comes from `workflow.uuid4()`, so a retried `record_question(ask)` inserts nothing new.
+- **Tools (7.2).** `lib_*` and `parts_search` do not run in-process: the agent image has no KiCad library and no
+  general internet egress. They, and `trace`, `fw`, `floorplan`, `optimize` and `fetch_url`, run as
+  `EngineToolWorkflow` (one `engine_tool` activity on `ENGINE_TOOL_QUEUE[tool]`: `hwflow-engine`, `optimize` on
+  `hwflow-sim`), because an activity cannot schedule another activity. Commands that read the project get the
+  workspace tree and the last build's `status.json`; `fw --scaffold` and `optimize --apply` return a tree the
+  session's workspace takes over. `optimize` is the `hwflow optimize` command, not a build option. `trace` needs a
+  build in the same session. Added tools: `fw`, `floorplan`. There is no `approve` tool. `fetch_url` (7.5) runs on
+  the engine queue and saves `datasheets/<name>` plus `<name>.txt` (pdftotext) into the workspace.
+- **Linked builds.** `check` / `build` store the workspace as a design version, create the build's run row with
+  `parent_run_id` and `workflow_id`, and start `BuildWorkflow` under the 4.4 ID with `ALLOW_DUPLICATE` +
+  `USE_EXISTING`: a retried call joins the running build, the same build after it ended is a new run of the same
+  ID. The activity cancels the builds it started when it is cancelled; the workflow also cancels the ones it
+  knows by ID.
+- **Questions (7.3).** No timeout by default (`question_timeout_s=None`, set by `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S`
+  at run start): how long a person may take is a product decision, and a waiting workflow costs nothing. The
+  workspace is saved as a design version when a question is asked, and the stage resumes the same session
+  (`resume`) with the answers. After `ask_product_person` the tool box refuses every tool but `log_decision`, and
+  the runner interrupts the turn three assistant messages later.
+- **Rate limits and keys (7.4).** `LlmRateLimited` is non-retryable in `AGENT_POLICY` (`AGENT_NON_RETRYABLE`): the
+  workflow waits on a timer (the API's reset time, else 60 s doubling to 30 min) and runs the stage again from
+  the snapshot in the error details, instead of activity retries. A tenant without a usable key (reason `no_key`)
+  waits for `retry` like a rejected one and then starts the stage fresh. Usage comes from
+  `ResultMessage.model_usage`, per model.
+- **Resume after a crash.** `agent_stage` snapshots the workspace tree and the transcript
+  (`CLAUDE_CONFIG_DIR/projects`, media type `application/x-hwflow-agent-session+tar.gz`, whole JSONL lines) every
+  `AGENT_SNAPSHOT_EVERY_S` (300 s) and at the end, and heartbeats their refs (no secret). A retried attempt starts
+  from the last heartbeat details (`resume="restart"`).
+- **Sandbox (7.5).** As 7.5, plus: the built-in tool set is fixed with `tools=` (not only `disallowed_tools`); a
+  PreToolUse hook denies as well as `can_use_tool` (a hook deny is final, `can_use_tool` only sees calls the rules
+  leave open); the SDK merges the parent's environment into the CLI's, so `cli_path` is a launcher that applies an
+  allowlist before it execs the bundled binary; the worker is non-dumpable; `setting_sources=[]`; `.claude/` and
+  `.mcp.json` never reach the workspace; reference docs are read-only copies in `.hwflow-ref/`. The CLI is the
+  SDK's bundled native binary, so the image needs no Node.
+- **Deployment (7.5, 8, supersedes "M1 shares the pod").** The agent worker is its own image
+  (`deploy/images/agent.Dockerfile`, no engine) and its own Deployment in both modes (Helm `agent.*`), with an
+  egress policy of its own (Postgres, Temporal, SeaweedFS, DNS, HTTPS to public addresses). Measured: about 112 MiB
+  for the idle worker and about 200 MiB for a starting session, so a separate pod costs about 112 MiB in the
+  reduced stack. 4.10's worker default changes: every queue, and a process without the SDK drops `hwflow-agent`.
+- **Open.** The firmware stage cannot run its host tests (gcc, `make test`) without a shell; it needs an engine
+  tool for them. `simulate_answer` is #19.
 
 ## 8. Reduced (M1) vs full (M2) stack
 

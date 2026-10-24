@@ -92,7 +92,7 @@ Integration tests (marker `integration`) use the compose stack, not testcontaine
 
 ```
 export HWPLATFORM_TEMPORAL_ADDRESS=127.0.0.1:7233        # plus the database and S3 variables above
-uv run --package hwplatform hwplatform-worker            # all queues but hwflow-agent; --queues or HWPLATFORM_WORKER_QUEUES to pick
+uv run --package hwplatform hwplatform-worker            # every queue it can serve; --queues or HWPLATFORM_WORKER_QUEUES to pick
 curl -s localhost:8081/readyz                            # 200 when connected and polling (HWPLATFORM_WORKER_HEALTH_PORT)
 ```
 
@@ -250,7 +250,83 @@ Each tenant brings and pays for its own key. The agent worker (#15) calls `get_t
 - **Validation:** PUT first calls `GET {HWPLATFORM_ANTHROPIC_API_BASE}/v1/models` with `x-api-key` and `anthropic-version`. 401/403 gives 422 (not stored); network error or other status gives 502 (not stored). Tests inject a fake through `create_app(key_validator=...)`.
 - **Never returned, never logged:** responses carry only provider, `last4`, status and timestamps; the request body has no pydantic constraints (so a 422 cannot echo the key); `logredact.install_log_redaction()` replaces `sk-ant-...` in every log record, including exception text.
 - Replacing a key sets `rotated_at`; deleting removes the row. `mark_invalid()` lets the worker flag a key the provider refused (status `invalid`, `get_tenant_llm_key` then returns None).
-- Not done here: exhausted-key/rate-limit retry in the workflow (that belongs to the worker, #15).
+- Invalid, exhausted and rate-limited keys during a design run: see the design agent section below (#15).
+
+## Design agent: DesignWorkflow and the agent worker (#15)
+
+`POST /projects/{id}/runs` with `kind=design` and `options={brief, stages?}` starts `DesignWorkflow` (ADR 0001, 7 and
+7.6). It runs the stages `requirements -> partition -> parts -> circuit -> review -> layout -> firmware` (or the
+listed subset). Each stage is one `agent_stage` activity on `hwflow-agent`: one Claude Agent SDK session whose
+system prompt is the stage's `.claude/agents/*.md` files plus the `/hw-design` skill and `CLAUDE.md`, built by
+`hwharness.prompts` (the local harness's protocol, `inbox/` and `claude -p`, is unchanged). The model of a stage
+is the agent frontmatter's (Opus 5.5 `claude-opus-5-5`, Sonnet 5.5 `claude-sonnet-5-5`, Haiku 4.5
+`claude-haiku-4-5-20251001`), overridable with `HWPLATFORM_AGENT_MODELS="layout=sonnet,circuit=claude-opus-5-5"`.
+`HWPLATFORM_AGENT_MAX_BUDGET_USD` caps one session's spend.
+
+- **Tools.** The session has no shell. Its engine actions are the MCP tools of the in-process server `hwflow`
+  (`hwplatform.agent.tools`): `check` and `build` start a linked `BuildWorkflow` (its own run row,
+  `parent_run_id` = the design run, so no quota slot) and wait for it; `lib_*`, `parts_search`, `trace`, `fw`,
+  `floorplan`, `optimize` and `fetch_url` run as `EngineToolWorkflow` on the engine queue, because the agent
+  image has no KiCad and no general internet access. `ask_product_person` and `log_decision` replace
+  `inbox/questions.json` and `answers.md`.
+- **Questions.** `ask_product_person` ends the session's turn; the workflow saves the workspace as a design
+  version, writes the `questions` row (`question.asked`, run `waiting`) and waits on the `answer_question` signal
+  that `POST /questions/{id}/answer` sends, with no timeout unless `HWPLATFORM_AGENT_QUESTION_TIMEOUT_S` is set.
+  The same session then resumes from its saved transcript with the answers.
+- **BYOK.** The activity reads the tenant's key; it exists only in the CLI subprocess's environment. Usage is
+  recorded per model after each result. A rejected or exhausted key: `mark_invalid`, run `waiting` (reason
+  `llm_key_invalid`) until `PUT /tenant/llm-keys/anthropic` sends `retry` (72 h at most). A rate limit: a workflow
+  timer (the API's reset time, else 60 s doubling to 30 min). Signals and timers only, no polling.
+- **Resume.** Every 5 min and at the end of a session the activity stores the workspace tree and the transcript
+  (`application/x-hwflow-agent-session+tar.gz`) in S3 and heartbeats their refs. A stage cut by a worker restart
+  is retried by Temporal and resumes the same session from the last snapshot; finished stages are not run again.
+  Each stage end that changed files saves a design version (source `agent`).
+- **Worker.** `hwplatform-worker --queues hwflow-agent` in the image `deploy/images/agent.Dockerfile` (Python, the
+  SDK with its bundled native Claude Code binary, no Node, no KiCad, no engine; 914 MB uncompressed, 291 MB of it
+  the CLI). A worker without the SDK drops the agent queue at start and says so. Measured in that image: the worker
+  process idles at about 112 MiB, a Claude Code session starts at about 200 MiB and grows with its context. Helm
+  runs it as its own Deployment in both modes (`agent.*` values): sharing the reduced-mode worker pod would save
+  about 112 MiB but put the session next to the build tools, the scratch of every build and the wider worker
+  egress, and would need the SDK in the 2.9 GB worker image.
+
+### Agent sandbox: threat model
+
+The asset to protect is everything the session can reach that is not its own project: other tenants' data, the
+platform's credentials (database, S3, master key, Temporal), the tenant's API key, and the cluster network. The
+threat is the content the session reads: an uploaded design, a datasheet from `fetch_url`, a web search result or a
+tool's output can carry instructions (prompt injection). The model can follow them and misuse its tools. So the
+sandbox treats the session as untrusted code and does not rely on the model behaving.
+
+| Misuse | Mitigation |
+|---|---|
+| Run commands, read the worker's files or environment | No shell: the session's built-in tools are only Read, Write, Edit, Glob, Grep, WebSearch (`tools=`); Bash, WebFetch, NotebookEdit, Task/Agent, Skill and the rest are absent and also in `disallowed_tools`. A PreToolUse hook (its deny is final) and `can_use_tool` reject any path that leaves the workspace after `realpath` (absolute paths, `..`, `~`, symlinks, glob roots) and writes to the read-only `.hwflow-ref/` (`hwplatform.agent.sandbox.PathGuard`). |
+| Steal the platform's credentials | The CLI starts through a launcher that keeps an allowlist of variables (PATH, HOME, the tenant key, Claude Code switches) and drops the rest (the SDK merges the parent's environment otherwise). The worker process is non-dumpable (`PR_SET_DUMPABLE=0`), so a same-uid child cannot read `/proc/<worker>/environ`. The agent pod carries only the app DB role (row-level security), S3, the master key and Temporal; not the JWT secret, the owner or relay DB roles or NATS. |
+| Load hooks, MCP servers or settings from the upload | `setting_sources=[]` and `strict_mcp_config`; `.claude/` and `.mcp.json` are removed from the workspace when it is materialized and never saved. |
+| Exfiltrate data or reach internal services over the network | The agent pod's NetworkPolicy allows DNS, Postgres, Temporal and SeaweedFS, and HTTPS (443) to public addresses only (`networkPolicy.agentEgressCidrs` pins it to Anthropic's ranges or a proxy). WebSearch runs on Anthropic's side. `fetch_url` runs on the engine queue and refuses non-http(s), ports other than 80/443, credentials in the URL and any host with a private, loopback, link-local or reserved address; it checks the connected peer and each redirect (at most 5) and caps the body at 20 MiB. |
+| Reach another tenant | The workspace, transcript and versions are the run's tenant's S3 prefix and RLS rows; every tool call carries the run's `RunCtx`, never one from the model. |
+| Abuse the engine through arguments | Engine tools build their `hwflow` command lines from validated fields (`--` before free text, `--opt=value`), never a shell string. |
+| Leak the tenant's key | It is fetched inside the activity and goes only into the subprocess environment: not in workflow inputs, heartbeats, errors, events, logs (`logredact`), transcripts or artifacts. `tests/test_design_e2e.py` checks the histories, the outbox, the captured logs and every S3 object of the run's tenant for it. |
+| Run up cost | `max_turns` per stage (the agents' `maxTurns`), optional `HWPLATFORM_AGENT_MAX_BUDGET_USD`, usage recorded per model, and the run's 2 h activity timeout. |
+| Escape the container | uid 10001, read-only root, all capabilities dropped, no privilege escalation, seccomp RuntimeDefault, no service-account token, the workspace on an emptyDir. |
+
+Residual risks: the session can write anything inside its own project (a design version records every change and
+the person reviews it); it can put text it read into a question to the product person or into the design files;
+WebSearch results are untrusted text. The model is told that fetched text is data, but that is a mitigation, not
+a boundary.
+
+Tests: `tests/test_workflow_design.py` (the workflow in the Temporal test servers with a fake `agent_stage`: stage
+order, question and answer, key wait and `retry`, rate-limit timer, worker restart resume, cancellation, and the
+`build` tool starting a linked BuildWorkflow through the real backend), `tests/test_agent_sandbox.py` (the path
+guard, the launcher's environment, the SDK options), `tests/test_agent_tools.py` (the MCP tools, engine argument
+building, the URL check, workspace snapshots, the stage prompts) and `tests/test_design_e2e.py` (the API, the
+real gateway and activities with a scripted runner, and the key-leak checks).
+
+The real Claude API smoke (`tests/test_agent_smoke.py`: one short Haiku session through the sandbox, a few cents
+on the key you give it) runs only on request; the default suite and CI never collect it:
+
+```
+HWPLATFORM_AGENT_SMOKE=1 ANTHROPIC_API_KEY=sk-ant-... uv run --package hwplatform --extra agent pytest -q tests/test_agent_smoke.py
+```
 
 ## Swapping for OIDC (Keycloak, M2)
 
@@ -263,3 +339,6 @@ The API depends only on `AuthBackend.authenticate(bearer) -> Principal(user_id, 
 - Invitation creation is not rate limited beyond the admin role requirement.
 - After logout an access token stays valid until it expires (15 min, see Hardening). A removed member is refused at once.
 - The OIDC mode does not mount the sign-up, verify and accept-invite routes; mapping invitations to IdP users is an M2 task.
+- Design agent (#15): the firmware stage cannot run its host tests (`make test`, gcc), since the session has no
+  shell; it writes the code and uses the `fw` tool. `simulate_answer` (the evals answerer) is #19. There is no
+  `approve` tool: the sign-off stays with the person.

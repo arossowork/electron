@@ -38,6 +38,18 @@ worker:
   perQueue: {enabled: false}
   keda: {enabled: false}
 
+# The design agent (#15) does not share the worker pod: measured in the agent image, the worker process idles at
+# about 112 MiB and a Claude Code session starts at about 200 MiB (more as its context grows). A second pod costs
+# the 112 MiB, and keeps the session out of the build worker's file system, tools and wider egress. Requests with
+# the agent: about 1.7 GiB. Set enabled false to run builds only.
+agent:
+  enabled: true
+  priorityClassName: apps-high
+  scratchSize: 1Gi
+  resources:
+    requests: {cpu: 50m, memory: 320Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
 postgres:
   persistence: {size: 2Gi}
   resources:

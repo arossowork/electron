@@ -35,11 +35,15 @@ networkPolicy:
   # CIDRs the worker must not reach (cluster and private ranges); everything else on the internet is allowed
   # (Anthropic API, package mirrors). ADR 0001 section 7.
   workerEgressExceptCidrs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10]
+  # The agent pod's HTTPS egress (#15): empty = any public address on port 443 (the except list above applies);
+  # set it to Anthropic's published API ranges (or an egress proxy) to pin it.
+  agentEgressCidrs: []
 
 images:
   api: {repository: hwplatform-api, tag: dev}
   web: {repository: hwplatform-web, tag: dev}
   worker: {repository: hwplatform-worker, tag: dev}   # deploy/images/worker.Dockerfile (#10)
+  agent: {repository: hwplatform-agent, tag: dev}     # deploy/images/agent.Dockerfile (#15)
   postgres: {repository: postgres, tag: 17.11-alpine}
   temporal: {repository: temporalio/server, tag: 1.31.4}
   temporalAdminTools: {repository: temporalio/admin-tools, tag: 1.31.4}
@@ -106,6 +110,25 @@ worker:
     cooldownPeriod: 300
     maxReplicaCount: 4
     targetQueueSize: 1
+
+agent:
+  # The design agent's worker (#15): its own Deployment in every mode (the decision and the measurements are in
+  # services/platform/README.md "Agent sandbox"). The single reduced-mode worker does not poll hwflow-agent: its
+  # image has no Claude Agent SDK, so it drops that queue at start.
+  enabled: false
+  priorityClassName: ""
+  command: [hwplatform-worker, --queues, hwflow-agent]
+  replicas: 1
+  # Per-stage models, "stage=model,..." (aliases opus/sonnet/haiku or model IDs); empty = the .claude/agents
+  # frontmatter. maxBudgetUsd caps one session's spend on the tenant's key (empty = no cap).
+  models: ""
+  maxBudgetUsd: ""
+  extraEnv: {}
+  # One session at a time per pod (SLOTS hwflow-agent = 1): the workspace, the transcript and the CLI's own files.
+  scratchSize: 2Gi
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {cpu: "1", memory: 1536Mi}
 
 postgres:
   priorityClassName: ""
