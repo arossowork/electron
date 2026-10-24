@@ -140,6 +140,8 @@ The built-in models are in `src/hwflow/models/generic.lib`. You set their parame
 ```yaml
 sim:
   ambient_c: 40
+  ngbehavior: ps                         # optional PSpice parser; default native
+  derating_timeout_s: 60                  # separate operating-point audit (default 600)
   includes: [models/vendor.lib]          # optional extra model files
   sources:                               # testbench only, not in the BOM
     - {name: VIN, p: J1.1, n: J1.2, value: "DC 5 AC 0 PULSE(4.5 5.25 1m 10u 10u 2m 4m)"}
@@ -161,6 +163,8 @@ sim:
       measures:
         - {name: noise_uv, plot: noise2, expr: "onoise_total*1e6", max: 50, unit: uVrms, req: R6}
 ```
+
+`ngbehavior: ps` runs ngspice with `-n -D ngbehavior=ps`, before it parses the circuit. Use original PSpice model files with this explicit mode instead of translating their switches or mathematical functions by hand. The generated netlist records the mode and includes it in the simulation cache key; the setting does not modify a global `.spiceinit` or affect other designs. Only `native` and `ps` are supported.
 
 Each analysis that stresses the design (a hot-plug, reverse polarity, a surge, a brown-out) carries a `realism:` note, free text that `hwflow` ignores: `realism: "who: user, one cell reversed; how often: once per battery change; timing: >= 5 s between removal and insertion; limit: Q1 Idmax 2 A DC, 8 A for 10 us (datasheet p.3)"`. If no user or fault can produce the scenario, write `realism: "stress case: <why unreachable>"`. A stress case does not block the verdict and does not justify a hardware change without a product decision.
 
@@ -206,6 +210,8 @@ A scoped analysis simulates one block instead of the whole board, so that a bloc
 The validation gate is mandatory: at every temperature where the full board converges (with a plausible fallback counted), the full and the scoped analysis both run, and every non-debug measure of the scoped run must be within `max(tol x |full|, atol)` of the full one. Passed: the scoped values are the result at every temperature, including those where the full board does not converge. Failed, or no temperature where the full board converges: the scope is rejected; where the full board converged its own result stands, elsewhere every measure fails with `n/a: scope not validated (...)`. The report lists the gate (`scope <analysis>: VALIDATED at ...` or `REJECTED (...)`, full vs scoped per measure and temperature, the boundary models and run times) and `status.json` holds it under `sim.scopes`. Every run goes through the simulation cache, so an unchanged netlist does not rerun the full-board validation. A scope applies to the schematic-level simulation only: post-layout and Monte Carlo runs simulate the full board.
 
 When a full-board analysis does not converge, the report names the nets of ngspice's `check node` messages and suggests a scope.
+
+The separate derating operating-point audit accepts `sim.derating_timeout_s` (default 600 seconds). A timeout, simulator error, or incomplete set of pin-current results fails the simulation stage; it never reports a clean derating audit. Timed-out analyses preserve partial simulator diagnostics in their `.log` files.
 
 ## blocks
 

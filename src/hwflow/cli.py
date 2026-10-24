@@ -244,15 +244,21 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
     res = spice.run_all(d, w, cache=_out(d) / "simcache")
     allrows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
     rows = [r for r in allrows if not r.get("debug")]  # dbg_* probes never count (backlog 19)
-    der = spice.derating_audit(d, w)
+    audit_errors = []
+    try:
+        der = spice.derating_audit(d, w)
+    except RuntimeError as e:
+        der = []
+        audit_errors.append(str(e))
     out = {"analyses": res, "passed": sum(r["pass"] for r in rows), "total": len(rows),
            "fails": [r for r in rows if not r["pass"]], "derating": der,
+           "derating_status": "failed" if audit_errors else "ok",
            "debug": [r for r in allrows if r.get("debug")],
            "runs": _run_summary(res),
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
-           "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
+           "errors": audit_errors + [f"{a['name']}: {e}" for a in res for e in a["errors"]],
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
     from . import simrobust
     out.update(simrobust.sim_summary(d, res, w, _out(d) / "simcache"))
@@ -1040,7 +1046,8 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - approximate models (built-in, datasheet fit, behavioral or no `spice.source`): "
                      f"{', '.join(c['generic_models'])}; justify each in notes/models.md or use a vendor model")
         hot = sorted(c["derating"], key=lambda r: -r.get("p_w", 0))[:3]
-        L.append("- derating: " + ("OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
+        L.append("- derating: " + ("FAILED" if c.get("derating_status") == "failed" else
+                                 "OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
                  "; top dissipation " + ", ".join(f"{r['ref']} {r['p_w'] * 1e3:.1f} mW" for r in hot))
         for i in c["derating_issues"][:8]:
             L.append(f"  - {i}")
