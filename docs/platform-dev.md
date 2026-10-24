@@ -57,3 +57,7 @@ Far below the 1.5-2 GB target; the target leaves room for the application servic
 - `temporal operator namespace list` shows `default`; a second `up` leaves it unchanged.
 - S3 put, get and delete on `hwflow-artifacts` with aws-cli.
 - NATS: `/healthz?js-enabled-only=true` is `ok`; `nats stream add/ls/rm` works.
+
+## Web UI and API (profile `web`)
+
+`COMPOSE_PROFILES=web scripts/platform.sh up` also starts the platform API (`api`), a one-shot that registers the Temporal search attributes, and the web UI (`web`, http://127.0.0.1:8088, `WEB_PORT`). Details, required `.env` values and the e2e test: [docs/web.md](web.md). The old local UI `ui/server.py` is deprecated and will be removed once the platform runs the agent (#15).
