@@ -63,13 +63,13 @@ class ArtifactHashMismatch(ValueError):
     """The bytes do not hash to the expected sha256; nothing was stored (or the object was removed)."""
 
 
-def make_s3_client(settings: Settings):
+def make_s3_client(settings: Settings, endpoint_url: str | None = None):
     import boto3
     from botocore.config import Config
 
     return boto3.client(
         "s3",
-        endpoint_url=settings.s3_endpoint_url,
+        endpoint_url=endpoint_url or settings.s3_endpoint_url,
         aws_access_key_id=settings.s3_access_key,
         aws_secret_access_key=settings.s3_secret_key.get_secret_value(),
         region_name=settings.s3_region,

@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..db import Database
 from ..tenancy import ProjectRepo, TenantContext, slugify
-from .deps import get_db, tenant_context
+from .deps import get_db, require_admin, tenant_context
 from .schemas import ProjectIn, ProjectOut
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -45,7 +45,7 @@ async def get_project(
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
-    project_id: uuid.UUID, ctx: TenantContext = Depends(tenant_context), db: Database = Depends(get_db)
+    project_id: uuid.UUID, ctx: TenantContext = Depends(require_admin), db: Database = Depends(get_db)
 ) -> Response:
     async with db.tx(tenant_id=ctx.tenant_id, user_id=ctx.user_id) as s:
         deleted = await ProjectRepo(s, ctx).delete(project_id)

@@ -60,6 +60,20 @@ class RunNotFound(KeyError):
     pass
 
 
+class QuotaExceeded(Exception):
+    """The tenant already has max_concurrent_runs active runs (API: 429 quota_exceeded)."""
+
+    def __init__(self, *, limit: int, active: int):
+        super().__init__(f"{active} of {limit} concurrent runs in use")
+        self.limit, self.active = limit, active
+
+
+@dataclasses.dataclass(frozen=True)
+class Admission:
+    run: Run
+    created: bool  # False: an existing run was returned (idempotency key or active workflow ID)
+
+
 # --- (de)serialization helpers ------------------------------------------------------------------------
 
 
@@ -243,6 +257,16 @@ class PgRunStore:
             project=ref(r["project_tree_sha256"], "project"),
         )
 
+    async def get_design_version(self, design_version_id: str | uuid.UUID) -> DesignVersionRef:
+        """RunNotFound-style: LookupError when the version does not exist (or is another tenant's)."""
+        async with self._tx() as s:
+            did = uuid.UUID(str(design_version_id))
+            if (
+                await s.execute(text("SELECT 1 FROM design_versions WHERE id = :i"), {"i": did})
+            ).first() is None:
+                raise LookupError(f"design version {design_version_id} not found")
+            return await self._design_version(s, did)
+
     # -- reading runs ------------------------------------------------------------------------------
     async def _get(self, s: AsyncSession, rid: uuid.UUID) -> Run:
         r = (await s.execute(text("SELECT * FROM runs WHERE id = :i"), {"i": rid})).mappings().first()
@@ -342,63 +366,131 @@ class PgRunStore:
     ) -> Run:
         """Insert the run as `queued` (UUIDv7 id generated when run.run_id is empty) and emit run.queued.
         With an idempotency_key, a second create with the same key returns the first run."""
+        async with self._tx() as s:
+            return await self._create(s, run, idempotency_key, requested_by)
+
+    async def _create(
+        self,
+        s: AsyncSession,
+        run: Run,
+        idempotency_key: str | None,
+        requested_by: str | uuid.UUID | None,
+    ) -> Run:
         if run.status != RunStatus.queued:
             raise ValueError("a run is created in state queued")
         rid = _uuid(run.run_id) if run.run_id else uuid7()
-        async with self._tx() as s:
-            inserted = (
+        inserted = (
+            await s.execute(
+                text(
+                    "INSERT INTO runs (id, tenant_id, project_id, design_version_id, kind, workflow_id, options, "
+                    "options_hash, idempotency_key, settings, code, tools, parent_run_id, requested_by, created_at) "
+                    "VALUES (:id, :t, :p, :dv, CAST(:kind AS run_kind), :wf, CAST(:opt AS jsonb), :oh, :ik, "
+                    "CAST(:set AS jsonb), CAST(:code AS jsonb), CAST(:tools AS jsonb), :par, :rb, :ca) "
+                    "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING id"
+                ),
+                {
+                    "id": rid,
+                    "t": self.tenant_id,
+                    "p": uuid.UUID(str(run.project_id)),
+                    "dv": uuid.UUID(run.design_version.id),
+                    "kind": run.kind,
+                    "wf": run.workflow_id or f"run-{rid}",
+                    "opt": _dump(run.options),
+                    "oh": run.options_hash,
+                    "ik": idempotency_key,
+                    "set": _dump(run.settings),
+                    "code": _dump(run.code),
+                    "tools": _dump(run.tools),
+                    "par": _uuid(run.parent_run_id),
+                    "rb": _uuid(requested_by),
+                    "ca": run.created_at or datetime.now(UTC),
+                },
+            )
+        ).scalar_one_or_none()
+        if inserted is None:  # idempotent replay
+            existing = (
                 await s.execute(
-                    text(
-                        "INSERT INTO runs (id, tenant_id, project_id, design_version_id, kind, workflow_id, options, "
-                        "options_hash, idempotency_key, settings, code, tools, parent_run_id, requested_by, created_at) "
-                        "VALUES (:id, :t, :p, :dv, CAST(:kind AS run_kind), :wf, CAST(:opt AS jsonb), :oh, :ik, "
-                        "CAST(:set AS jsonb), CAST(:code AS jsonb), CAST(:tools AS jsonb), :par, :rb, :ca) "
-                        "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING id"
-                    ),
-                    {
-                        "id": rid,
-                        "t": self.tenant_id,
-                        "p": uuid.UUID(str(run.project_id)),
-                        "dv": uuid.UUID(run.design_version.id),
-                        "kind": run.kind,
-                        "wf": run.workflow_id or f"run-{rid}",
-                        "opt": _dump(run.options),
-                        "oh": run.options_hash,
-                        "ik": idempotency_key,
-                        "set": _dump(run.settings),
-                        "code": _dump(run.code),
-                        "tools": _dump(run.tools),
-                        "par": _uuid(run.parent_run_id),
-                        "rb": _uuid(requested_by),
-                        "ca": run.created_at or datetime.now(UTC),
-                    },
+                    text("SELECT id FROM runs WHERE tenant_id = :t AND idempotency_key = :k"),
+                    {"t": self.tenant_id, "k": idempotency_key},
+                )
+            ).scalar_one()
+            return await self._get(s, existing)
+        for rec in run.stages:
+            await self._upsert_stage(s, rid, rec)
+        await emit(
+            s,
+            self.tenant_id,
+            rid,
+            "run.queued",
+            f"runs/{rid}",
+            {
+                "kind": run.kind,
+                "project_id": str(run.project_id),
+                "design_version_id": run.design_version.id,
+                "options": run.options,
+                "requested_by": str(requested_by) if requested_by else None,
+            },
+        )
+        return await self._get(s, rid)
+
+    async def admit(
+        self,
+        run: Run,
+        *,
+        idempotency_key: str | None = None,
+        requested_by: str | uuid.UUID | None = None,
+    ) -> Admission:
+        """Admission of a new run (ADR 4.8), in ONE transaction under a lock on the tenant row:
+
+        1. the same idempotency key returns that run;
+        2. an active run (queued/running/waiting) with the same workflow ID is returned (the ADR's workflow-ID rule:
+           starting the same build twice while one runs gives the running one);
+        3. otherwise, if the tenant already has `max_concurrent_runs` active top-level runs (parent_run_id IS NULL),
+           raise QuotaExceeded;
+        4. else insert the run as `queued` (+ `run.queued` in the outbox) and commit. The caller then starts the
+           workflow and, if that fails, marks the run `failed`.
+        """
+        async with self._tx() as s:
+            limit = (
+                await s.execute(
+                    text("SELECT max_concurrent_runs FROM tenants WHERE id = :t FOR UPDATE"),
+                    {"t": self.tenant_id},
                 )
             ).scalar_one_or_none()
-            if inserted is None:  # idempotent replay
-                existing = (
+            if limit is None:
+                raise LookupError(f"tenant {self.tenant_id} not found")
+            if idempotency_key is not None:
+                prior = (
                     await s.execute(
                         text("SELECT id FROM runs WHERE tenant_id = :t AND idempotency_key = :k"),
                         {"t": self.tenant_id, "k": idempotency_key},
                     )
-                ).scalar_one()
-                return await self._get(s, existing)
-            for rec in run.stages:
-                await self._upsert_stage(s, rid, rec)
-            await emit(
-                s,
-                self.tenant_id,
-                rid,
-                "run.queued",
-                f"runs/{rid}",
-                {
-                    "kind": run.kind,
-                    "project_id": str(run.project_id),
-                    "design_version_id": run.design_version.id,
-                    "options": run.options,
-                    "requested_by": str(requested_by) if requested_by else None,
-                },
-            )
-            return await self._get(s, rid)
+                ).scalar_one_or_none()
+                if prior is not None:
+                    return Admission(await self._get(s, prior), created=False)
+            if run.workflow_id:
+                active = (
+                    await s.execute(
+                        text(
+                            "SELECT id FROM runs WHERE workflow_id = :w AND status IN ('queued', 'running', 'waiting')"
+                        ),
+                        {"w": run.workflow_id},
+                    )
+                ).scalar_one_or_none()
+                if active is not None:
+                    return Admission(await self._get(s, active), created=False)
+            n_active = (
+                await s.execute(
+                    text(
+                        "SELECT count(*) FROM runs WHERE tenant_id = :t AND parent_run_id IS NULL "
+                        "AND status IN ('queued', 'running', 'waiting')"
+                    ),
+                    {"t": self.tenant_id},
+                )
+            ).scalar_one()
+            if n_active >= limit:
+                raise QuotaExceeded(limit=limit, active=n_active)
+            return Admission(await self._create(s, run, idempotency_key, requested_by), created=True)
 
     async def transition(
         self,

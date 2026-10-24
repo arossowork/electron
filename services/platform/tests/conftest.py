@@ -370,3 +370,108 @@ def run_env(settings, account):
             await db.dispose()
 
     return make
+
+
+# --- API with a fake workflow gateway (#12) --------------------------------------------------------------
+
+
+class FakeGateway:
+    """Records what the API asked Temporal to do; `fail` / `missing` simulate an unreachable or empty engine."""
+
+    def __init__(self):
+        self.started: list[tuple[str, object]] = []
+        self.cancelled: list[str] = []
+        self.signals: list[tuple[str, object]] = []
+        self.fail = False
+        self.missing: set[str] = set()
+
+    def _check(self):
+        from hwplatform.gateway import GatewayError
+
+        if self.fail:
+            raise GatewayError("fake: engine down")
+
+    async def start_build(self, workflow_id, arg):
+        self._check()
+        self.started.append((workflow_id, arg))
+
+    async def start_design(self, workflow_id, arg):
+        self._check()
+        self.started.append((workflow_id, arg))
+
+    async def cancel(self, workflow_id):
+        from hwplatform.gateway import WorkflowNotFound
+
+        self._check()
+        if workflow_id in self.missing:
+            raise WorkflowNotFound(workflow_id)
+        self.cancelled.append(workflow_id)
+
+    async def signal_answer(self, workflow_id, answer):
+        self._check()
+        self.signals.append((workflow_id, answer))
+
+    async def close(self):
+        return None
+
+
+@pytest.fixture
+def gateway():
+    return FakeGateway()
+
+
+@pytest.fixture
+def api_settings(settings, s3_settings):
+    """Settings for an API app: the Postgres of `settings`, the S3 of the test stack, no relay."""
+
+    def make(**overrides):
+        from hwplatform.settings import Settings
+
+        return Settings(
+            **{
+                **dict(settings),
+                "s3_endpoint_url": s3_settings.s3_endpoint_url,
+                "s3_access_key": s3_settings.s3_access_key,
+                "s3_secret_key": s3_settings.s3_secret_key,
+                "s3_bucket": s3_settings.s3_bucket,
+                "nats_url": NATS_URL,
+                "relay_database_url": sa_url(RELAY_URL),
+                **overrides,
+            }
+        )
+
+    return make
+
+
+@pytest.fixture
+def make_api(api_settings, validator, gateway, s3_client, nats_ready):
+    """A TestClient on an app wired to the fake gateway; keyword overrides go to Settings."""
+    from fastapi.testclient import TestClient
+
+    from hwplatform.api.app import create_app
+    from hwplatform.mail import InMemoryEmailSender
+
+    opened = []
+
+    def make(**overrides):
+        c = TestClient(
+            create_app(
+                api_settings(**overrides),
+                key_validator=validator,
+                email_sender=InMemoryEmailSender(),
+                gateway=gateway,
+            ),
+            client=(random_ip(), 5000),
+        )
+        c.__enter__()
+        opened.append(c)
+        return c
+
+    yield make
+    for c in opened:
+        c.__exit__(None, None, None)
+
+
+@pytest.fixture
+def api(make_api):
+    return make_api()

@@ -75,6 +75,24 @@ class Settings(BaseSettings):
     relay_batch: int = 100
     outbox_purge_after_s: int = 30 * 24 * 3600  # hwplatform-purge deletes published outbox rows after this
 
+    # Presigned download URLs (#12): the S3 endpoint a browser can reach (SeaweedFS behind the ingress).
+    # Empty (dev): the API streams the object itself.
+    s3_public_url: str = ""
+    s3_download_url_ttl_s: int = 300
+
+    # Temporal (#12 starts, cancels and signals workflows; the workflows are #9)
+    temporal_address: str = "127.0.0.1:7233"
+    temporal_namespace: str = "default"
+    temporal_engine_queue: str = "hwflow-engine"
+
+    # Uploads of design versions (ADR 6)
+    max_bundle_bytes: int = 50 * 1024 * 1024  # uncompressed size of all files of one version
+    max_bundle_files: int = 5000
+
+    # SSE (ADR 5.5)
+    sse_keepalive_s: float = 15.0
+    sse_poll_s: float = 5.0  # outbox poll while a stream is open: fills gaps if NATS lost or delayed an event
+
     host: str = "127.0.0.1"
     port: int = 8080
 

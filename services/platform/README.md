@@ -1,6 +1,6 @@
 # hwplatform: the hosted multi-tenant service
 
-The platform side of epic #21. It is a uv workspace member, separate from the engine: `src/hwflow` knows nothing about tenants, users or HTTP. This package holds the tenancy data model and the built-in auth (#13); the API for designs, runs and artifacts (#12) and BYOK keys (#14) build on it.
+The platform side of epic #21. It is a uv workspace member, separate from the engine: `src/hwflow` knows nothing about tenants, users or HTTP. This package holds the tenancy data model and the built-in auth (#13); the API for designs, runs, artifacts, questions and events (#12) and BYOK keys (#14) build on it.
 
 ## Architecture
 
@@ -19,7 +19,11 @@ src/hwplatform/
   contracts.py     ArtifactRef/ArtifactStore and Run/RunStore types from ADR 0001 (until hwflow.artifacts/runs land)
   runs.py          PgRunStore: runs, stages, artifact refs, project state, manifest export (#7)
   ids.py           uuid7()
-  events/          Event (CloudEvents envelope), outbox.emit(), relay.Relay (outbox -> NATS JetStream) (#11)
+  events/          Event (CloudEvents envelope), outbox.emit(), relay.Relay (outbox -> NATS JetStream) (#11), sse (SSE streams, #12)
+  gateway.py       WorkflowGateway: start/cancel/signal Temporal workflows (TemporalGateway; tests use a fake) (#12)
+  designs.py       design versions from an upload: files + tree artifact in S3, content-addressed (#12)
+  questions.py     QuestionStore: ask / answer the questions of a run (#12)
+  run_options.py   allowlist and normalization of run options, options_hash (#12)
   auth/backend.py  AuthBackend interface (authenticate a bearer token -> Principal)
   auth/local.py    LocalAuthBackend: signup + e-mail verification, login, refresh (rotating), logout
   auth/ratelimit.py  AuthGuard: sliding-window limits and lockout in Postgres (#26)
@@ -27,7 +31,7 @@ src/hwplatform/
   mail.py          EmailSender interface; dev sender logs to stdout; no SMTP in M1
   purge.py         hwplatform-purge: expired/revoked tokens, old rate-limit rows
   api/             FastAPI app, routes under /api/v1
-  migrations/      Alembic; 0001_tenancy creates tables, RLS policies and grants; 0004_runs, 0005_outbox (#7, #11)
+  migrations/      Alembic; 0001_tenancy creates tables, RLS policies and grants; 0004_runs, 0005_outbox, 0006_questions (#7, #11, #12)
 ```
 
 Stack: FastAPI, SQLAlchemy 2 (async, asyncpg), Alembic, pydantic v2, argon2-cffi, PyJWT, boto3 (S3), nats-py (JetStream). Postgres 17, SeaweedFS and NATS from `deploy/compose/platform.yaml`.
@@ -145,7 +149,39 @@ Migration `0005_outbox`: `outbox` (bigserial id, unique `event_id`, tenant, run,
 - **Stream** `HWFLOW_EVENTS`: subjects `hwflow.>`, file storage, limits retention, 7 days, 512 MiB, discard old, duplicate window 2 h, 1 replica. Created or updated idempotently by `hwplatform-migrate` (it exits 1 if NATS is unreachable after migrating; an empty `HWPLATFORM_NATS_URL` skips it) and by the relay at start.
 - **Ordering caveat.** Rows are published in `id` order, but `id` is assigned at INSERT; a transaction with a lower id can commit after a higher one, so a consumer can see two events of a run swapped. The per-run `seq` is gapless and authoritative: the SSE replay (#12) reads the outbox ordered by `seq`.
 
-Not done here: the durable consumers (`notifier`, `eval-scorer`, #19), the SSE bridge (#12), emitting `question.*` events (the API, #15).
+Not done here: the durable consumers (`notifier`, `eval-scorer`, #19). The SSE bridge is in the API section below.
+
+## API: design versions, runs, artifacts, questions, events (#12)
+
+Everything is under `/api/v1`, bearer JWT, tenant from the token (membership re-read per request). Another tenant's object is a `404`, never a `403`. Lists of design versions and runs are cursor-paged: `?limit=50&cursor=<id>` returns `{items, next_cursor}` (UUIDv7 ids sort by time, newest first). The OpenAPI document is `/openapi.json` (Swagger UI at `/docs`); the copy committed as `services/platform/openapi.json` is checked by `tests/test_openapi.py`. After an API change run `uv run --package hwplatform python -m hwplatform.api.openapi` and commit the result.
+
+| Method | Path | Role | Notes |
+|---|---|---|---|
+| POST | `/projects/{pid}/design-versions` | member | multipart: `design` (design.yaml), `requirements`, `notes` (many), `bundle` (tar.gz, entries validated, 50 MiB uncompressed cap); explicit parts override bundle entries. `201` new version, `200` existing one when the content hash matches. Only YAML syntax is checked (`422`); `413` over the cap |
+| GET | `/projects/{pid}/design-versions`, `/design-versions/{id}` | member | list (paged); metadata + file list |
+| GET | `/design-versions/{id}/files/{path}` | member | `302` to a presigned URL (the bytes when `HWPLATFORM_S3_PUBLIC_URL` is unset) |
+| POST | `/projects/{pid}/runs` | member | `{kind: build\|design, design_version_id, options, settings_overrides?}` and optional `Idempotency-Key`. `202` queued; `200` when the same build is already active or the key was used; `429 quota_exceeded`; `422` for options outside the allowlist; `503` when Temporal is down (the run is marked `failed`) |
+| GET | `/projects/{pid}/runs?kind=&status=` | member | summaries, paged |
+| GET | `/runs/{id}` | member | run with `stages[]`, `verdict`, `error` |
+| POST | `/runs/{id}/cancel` | member | `202`; `409` when already finished |
+| GET | `/runs/{id}/manifest`, `/runs/{id}/report` | member | `hwflow.run/1` JSON rendered live; `REPORT.md` as `text/markdown` |
+| GET | `/runs/{id}/artifacts`, `/runs/{id}/artifacts/{name}` | member | list; `302` to a presigned GET (TTL `HWPLATFORM_S3_DOWNLOAD_URL_TTL_S`, 300 s) |
+| GET | `/runs/{id}/questions?status=` | member | open and answered questions |
+| POST | `/questions/{qid}/answer` | member | `{answers: {id: value}}`; `422` unknown id or missing answer without a default; `409` not open or run ended; writes the answer, emits `question.answered`, then signals the workflow (signal failure: `503`, the question stays open) |
+| GET | `/runs/{id}/events`, `/projects/{pid}/events`, `/events` | member | SSE, see below |
+| DELETE | `/projects/{pid}` | owner/admin | members get `403` |
+
+**Starting a run.** In one transaction under a row lock on the tenant, `PgRunStore.admit` (1) returns the run with the same `Idempotency-Key`, (2) returns the active run with the same workflow ID (`build-<tenant>-<project>-<content_sha256[:16]>-<options_hash>`), (3) answers `429` when the tenant has `max_concurrent_runs` active top-level runs, (4) else inserts the run as `queued` (+ `run.queued`). Then the `WorkflowGateway` starts `BuildWorkflow` (ID reuse `ALLOW_DUPLICATE`, conflict policy `USE_EXISTING`, task queue `HWPLATFORM_TEMPORAL_ENGINE_QUEUE`, argument `contracts.BuildInput`, search attributes `HwTenantId`, `HwProjectId`, `HwRunId`, `HwRunKind`, which the namespace must have registered). Build options: `until, mc, reuse, force, rebuild, auto, attempts, retry_layout, seeds, iters, passes, brief` (defaults filled, so the same request always has the same `options_hash`); `settings_overrides`: `layout.budget_s`, `layout.seed0`, `layout.asic.*`. A design run takes `{brief, answerer: "human", stages?}`. The workflows are issue #9; until they run, a started run stays `queued`.
+
+**SSE** (`text/event-stream`). The outbox is the source of truth, NATS JetStream the low-latency path. A stream subscribes to an ephemeral ordered consumer on `hwflow.<tenant>.>` first, then replays from the outbox after `Last-Event-ID` (header, or `?last_event_id=`), then follows live: the next `seq` is sent as it arrives, a duplicate is dropped, a gap is filled from the outbox, and the outbox is also re-read every `HWPLATFORM_SSE_POLL_S` (5 s), so a stream still works when NATS is down. `/runs/{id}/events`: `id:` is the per-run `seq`, `event:` the type, `data:` the CloudEvents envelope; it ends after `run.completed|failed|cancelled`. `/projects/{pid}/events` and `/events` (the whole tenant): `id:` is the outbox id; without `Last-Event-ID` they start at the current end. A `: keep-alive` comment goes out every 15 s (`HWPLATFORM_SSE_KEEPALIVE_S`). Browsers cannot set an `Authorization` header on `EventSource`; use `fetch` streaming (or a polyfill).
+
+**Questions** (`0006_questions`, RLS like the other run tables). The worker calls `QuestionStore.ask(run_id, stage, questions)` (row + `question.asked`); the API answers. `tests/test_questions_rls.py` proves isolation with raw SQL.
+
+**Downloads.** The API checks the `run_artifacts` / `artifacts` row under RLS, builds the key from the caller's tenant (`tenant_key`), and redirects to a presigned URL signed for `HWPLATFORM_S3_PUBLIC_URL` (the browser-reachable SeaweedFS). Unset (dev): the API streams the object.
+
+Tests: `tests/test_api_runs.py` (HTTP, fake gateway: versions, start, idempotency, quota, cancel, artifacts, questions, roles, cross-tenant 404 on every endpoint) and `tests/test_api_e2e.py` (a real uvicorn server with the relay: create project, upload, start, follow SSE replay and live in `seq` order, presigned download, answer a question, check the signal). Config added: `HWPLATFORM_S3_PUBLIC_URL`, `S3_DOWNLOAD_URL_TTL_S`, `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_ENGINE_QUEUE`, `MAX_BUNDLE_BYTES`, `MAX_BUNDLE_FILES`, `SSE_KEEPALIVE_S`, `SSE_POLL_S`.
+
+Not done here: `POST /evals` (EvalWorkflow, #19), the `PUT /tenant/llm-keys` signal `retry` to runs waiting on a key (#15), `fab.zip` creation (the `render_run` activity, #9), the workflows themselves (#9).
 
 ## Auth flow
 
