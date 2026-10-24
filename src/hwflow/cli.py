@@ -63,6 +63,29 @@ def _design_hash(d) -> str:
     return h.hexdigest()[:12]
 
 
+def _evidence_hash(d: Design) -> str:
+    """Manual attestations bind the entire requirement, including its written target.
+
+    The build cache deliberately ignores requirement prose; a bench-test record must
+    instead go stale when a target written in `text` changes. Evidence excludes itself.
+    """
+    import hashlib
+
+    import yaml
+    rp = d.dir / "requirements.yaml"
+    reqs = yaml.safe_load(rp.read_text()) if rp.exists() else {}
+
+    def strip_evidence(x):
+        if isinstance(x, dict):
+            return {k: strip_evidence(v) for k, v in x.items() if k != "evidence"}
+        if isinstance(x, list):
+            return [strip_evidence(v) for v in x]
+        return x
+
+    raw = [yaml.safe_load(d.path.read_text()), strip_evidence(reqs)]
+    return hashlib.sha256(json.dumps(raw, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
 def _inputs_hash(d) -> str:
     """Everything a build stage reads besides design.yaml: model files, project libraries and the hwflow code.
     Two builds with the same inputs give the same results, so `build` skips a stage whose inputs did not change
@@ -1130,6 +1153,8 @@ def write_report(d: Design, history: bool = False) -> str:
         for r in t["rows"]:
             if r["status"] in ("FAIL", "UNVERIFIED"):
                 L.append(f"  - {r['id']} {r['status']}: {r['text'][:90]}")
+                if r.get("evidence_reason"):
+                    L.append(f"    - {r['evidence_reason']}")
         for r in t["rows"]:
             if r.get("evidence_missing"):
                 L.append(f"  - {r['id']} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
@@ -1241,6 +1266,8 @@ def trace(d: Design) -> dict:
             for rid in str(r.get("req") or "").replace(" ", "").split(","):
                 if rid:
                     results.setdefault(rid, []).append((r["name"], r["pass"]))
+    sim_results = results
+    results = {}
     for r in (s.get("layout") or {}).get("isolation") or []:   # board.isolation with req: (backlog 38)
         for rid in str(r.get("req") or "").replace(" ", "").split(","):
             if rid:
@@ -1266,29 +1293,69 @@ def trace(d: Design) -> dict:
                                                     set(nst[n]["layers"]) <= set(L)))
     post = {x["name"]: x["pass_post"] for x in (s.get("post") or {}).get("deltas", [])}
     rows = []
+    evidence_hash = _evidence_hash(d)
+    manual_methods = ("inspection", "datasheet", "analysis", "test")
     for q in reqs:
-        ms = results.get(q["id"], [])
+        sim_ms, layout_ms = sim_results.get(q["id"], []), results.get(q["id"], [])
+        ms = sim_ms + layout_ms
         method = q.get("verification", "simulation")
-        if ms:
-            ok = all(p for _, p in ms) and all(post.get(n, True) for n, _ in ms)
-            status = "pass" if ok else "FAIL"
-        elif method == "layout" and q.get("evidence"):
-            status = "layout?"  # evidence text only: no check on the routed board names it (evidence_only)
-        elif method in ("inspection", "datasheet", "analysis", "test") and q.get("evidence"):
+        eligible = {"simulation": sim_ms, "layout": layout_ms}.get(method, [])
+        ev_status, reason = _manual_evidence(d, q.get("evidence"), evidence_hash)
+        if any(not p or not post.get(n, True) for n, p in ms) or ev_status == "FAIL":
+            status = "FAIL"
+        elif eligible:
+            status = "pass"
+        elif method in manual_methods and ev_status == "pass":
             status = method
         else:
             status = "UNVERIFIED"
+            if method in ("simulation", "layout"):
+                reason = f"no current {method} check names this requirement"
         row = {"id": q["id"], "text": q.get("text", ""), "priority": q.get("priority", "must"),
                "status": status, "measures": [f"{n}:{'ok' if p else 'FAIL'}" for n, p in ms]}
+        if status == "UNVERIFIED":
+            row["evidence_reason"] = reason
+        if method == "layout" and q.get("evidence") and not eligible:
+            row["evidence_only"] = True
         miss = missing_evidence(d.dir, q.get("evidence"))
         if miss:
             row["evidence_missing"] = miss
         rows.append(row)
-    return {"rows": rows, "total": len(rows), "covered": sum(r["status"] not in ("UNVERIFIED",) for r in rows),
+    return {"rows": rows, "total": len(rows),
+            "covered": sum(r["status"] not in ("UNVERIFIED", "FAIL") for r in rows),
             "failing": sum(r["status"] == "FAIL" for r in rows),
             "unverified": sum(r["status"] == "UNVERIFIED" for r in rows),
+            "design_hash": _design_hash(d), "evidence_hash": evidence_hash,
             "evidence_missing": sorted((r["id"] for r in rows if r.get("evidence_missing")), key=_natural),
-            "evidence_only": [r["id"] for r in rows if r["status"] == "layout?"]}
+            "evidence_only": [r["id"] for r in rows if r.get("evidence_only")]}
+
+
+def _manual_evidence(d: Design, evidence, current_hash: str) -> tuple[str, str]:
+    """A manual result is an explicit attestation with an artifact for this design.
+
+    Existence/freshness checks do not independently verify the artifact's contents.
+    Legacy prose is retained for readers but cannot stand in for a completed check.
+    """
+    if not isinstance(evidence, dict):
+        return "UNVERIFIED", "no explicit evidence record (status, artifact, design_hash)"
+    state = evidence.get("status")
+    if state not in ("pass", "fail"):
+        return "UNVERIFIED", "evidence status is not pass or fail"
+    if evidence.get("design_hash") != current_hash:
+        return "UNVERIFIED", "evidence design_hash is absent or stale"
+    artifact = evidence.get("artifact")
+    if not isinstance(artifact, str) or not artifact.strip():
+        return "UNVERIFIED", "evidence artifact is absent"
+    try:
+        rel = Path(artifact)
+        path = (d.dir / rel).resolve()
+        if rel.is_absolute() or not path.is_relative_to(d.dir.resolve()):
+            return "UNVERIFIED", "evidence artifact must be a file inside the project"
+        if not path.is_file() or path.stat().st_size == 0:
+            return "UNVERIFIED", "evidence artifact is missing, empty, or not a file"
+    except (OSError, ValueError, RuntimeError):
+        return "UNVERIFIED", "evidence artifact cannot be read"
+    return ("pass" if state == "pass" else "FAIL"), ""
 
 
 def _natural(s: str):
@@ -1308,6 +1375,8 @@ def missing_evidence(root: Path, evidence) -> list[str]:
         ext = r"md|py|csv|txt|pdf|ya?ml|json|cir|lib|sp|ipynb|png|svg|kicad_\w+"
         _EVIDENCE_PATH = re.compile(r"(?<![\w/.:-])((?:notes|build|models|lib|docs|datasheets)/[\w./-]*[\w-]"
                                     rf"|(?:[\w.-]+/)*[\w-][\w.-]*\.(?:{ext}))(?![\w/-])")
+    if isinstance(evidence, dict):
+        evidence = evidence.get("artifact")
     text = " ".join(str(x) for x in evidence) if isinstance(evidence, list) else str(evidence or "")
     text = re.sub(r"\w+://\S+", " ", text)
     out = []
@@ -1556,14 +1625,17 @@ def main(argv=None):
         return 0
     if a.cmd == "trace":
         t = trace(d)
+        print(f"evidence design hash: {t['evidence_hash']}")
         for r in t["rows"]:
             print(f"{r['id']:<5} {r['status']:<10} {r['priority']:<6} {r['text'][:70]}"
                   + (f"  [{', '.join(r['measures'])}]" if r["measures"] else ""))
+            if r.get("evidence_reason"):
+                print(f"      {r['evidence_reason']}")
         for r in t["rows"]:
             if r.get("evidence_missing"):
                 print(f"{r['id']:<5} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
         if t["evidence_only"]:
-            print(f"layout requirements verified by evidence text only, no board check (layout?): "
+            print(f"layout requirements without a current board check remain unverified: "
                   f"{', '.join(t['evidence_only'])}; tie them to a check with `req:` (nets, board.isolation, budgets)")
         print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified"
               + (f"; evidence files missing for {len(t['evidence_missing'])} ({', '.join(t['evidence_missing'])})"

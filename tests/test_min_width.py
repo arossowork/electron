@@ -59,7 +59,7 @@ def test_layout_requirement_with_evidence_only_is_flagged(tmp_path):
                 [{"id": "R13", "text": "230 V at 1 mm", "verification": "layout", "evidence": "IPC"},
                  {"id": "R1", "text": "fits the box", "verification": "layout", "evidence": "notes/x.md"}])
     st = {r["id"]: r["status"] for r in t["rows"]}
-    assert st == {"R13": "pass", "R1": "layout?"} and t["evidence_only"] == ["R1"]
+    assert st == {"R13": "pass", "R1": "UNVERIFIED"} and t["evidence_only"] == ["R1"]
 
 
 def test_shared_library_is_searched_after_project_libraries():

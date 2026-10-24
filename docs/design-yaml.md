@@ -74,7 +74,7 @@ nets:
 
 `min_width_mm` is the narrowest copper the net may have: the router does not neck the net under it (no pad-entry or neck-down pass at a smaller width, no corridor-proof narrow-first pass or seed route when it is above the 0.15 mm neck floor), so a net that does not fit at that width stays open. A track of the net narrower than it is a layout failure (`too_narrow` in the layout status). Use it where a neck is a safety problem, for example a mains track that must carry the fuse's let-through I²t.
 
-`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no check names (no `req:` on a net, a `board.isolation` group or a budget) shows as `layout?` in `hwflow trace`: verified by its evidence text only. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
+`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no current board check names (no `req:` on a net, a `board.isolation` group or a budget) stays `UNVERIFIED` in `hwflow trace`; evidence prose does not verify routed copper. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
 
 `layers` lists the copper layers the router may use for the net (KiCad names; globs such as `In*.Cu` match the board's layers). KiCadRoutingTools routes those nets in passes of their own, with every other layer forbidden (`--layers <all> --layer-costs`, -1 on the others: an obstacle that through vias may cross, no track on it); repair reroutes keep the same passes. The Freerouting path writes the net class with `(circuit (use_layer ...))`. `hwflow check` fails on a name that matches no copper layer of the board, and on an SMD pad of the net that sits only on layers outside the list (through-hole pads reach every layer). A track of the net on another layer is a layout failure (`off_layer` in the layout status) and a post-layout error (`net-layer`), so the build cannot pass with it. The net's layers win over a `board.drc_rules` `disallow` rule on a named rule area (`A.intersectsArea('Z')`, for example a mains-off-the-inner-layers rule): when the list shares a copper layer with area Z and the rule names the net (NetName, its class or its isolation class) or no net at all, hwflow writes the rule with `&& A.NetName != '<net>'`, for KiCad DRC and the router alike, and `hwflow check` warns about the overlap.
 
@@ -359,3 +359,25 @@ A flagged change is an **error** (the build stops at check) unless the product p
 - a question in `inbox/questions*.json` with `"change": "layers"`; the warning says whether `inbox/answers.md` already holds the answer of that round.
 
 After the answer, run `hwflow approve <proj>` so the new state becomes the baseline and the warning goes. Without `build/approved.json` check only prints an info line. `build/approved.json` is written by hwflow only; the design agents run `approve` only after an answered question.
+
+
+## Requirement verification evidence
+
+`requirements.yaml` selects what proves each requirement with `verification`. A `simulation` requirement needs current tagged simulation measures; `layout` needs current tagged board checks. Failing linked checks still fail a requirement, but passing simulation alone cannot complete a `test` (bench), `inspection`, `datasheet`, or `analysis` requirement.
+
+For those four manual methods, record a completed result explicitly:
+
+```yaml
+requirements:
+  - id: R1
+    text: Both channels meet the output target at the headphone jack.
+    verification: test
+    evidence:
+      status: pass                  # pass | fail | not_checked
+      artifact: notes/output-test.md
+      design_hash: 0123456789abcdef  # copy the evidence design hash printed by hwflow trace
+```
+
+The artifact must be a nonempty file inside the project, and `design_hash` must match the current parsed design and all requirement fields except evidence itself, including written targets in `text`. Edits to component values, connectivity, requirement wording or provenance invalidate it; YAML comments, whitespace, key order and evidence edits do not. This is deliberately stricter than the build-cache hash, which ignores requirement prose. This hash is a design-version check, not an artifact-content signature or a complete hash of external models and tools. Revalidate manually when those dependencies change.
+
+A record is an explicit attestation by its author: hwflow checks the state, design version and file existence, not whether a written measurement is truthful or sufficient. `fail` contributes to the failing count; `not_checked`, missing/invalid records, absent/empty files and stale hashes stay unverified with a reason. Legacy prose evidence remains visible in the source and its missing-file diagnostics, but no longer counts as verification. Migrate it only after reviewing the actual result; do not automatically label every old note `pass`. The verified count excludes failures, so verified + failing + unverified equals total.
