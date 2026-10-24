@@ -4,17 +4,16 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 
 ## Layout
 
-- `src/hwflow/`: the EDA engine (design model, SPICE, KiCad schematic and PCB writers, the layout flow, post-layout extraction, optimizer, firmware headers).
-  Packages (layers, top to bottom): `pipeline`, `verify`, `layout` (`route`, `place`, `board`), `sim` | `schematic`, `core`; `fw` imports only `core`. Contracts and the module map: `docs/import-graph.md`.
-- `docs/layout-flow.md`: the single layout flow, stage by stage: macro stage, analytic global placement with RUDY density feedback, legalization, local moves, short anneal, pin access, KRT routing with repair.
+- `src/hwflow/`: the EDA engine, no LLM and no cloud imports. Packages: `core` (design model, libraries, settings), `pipeline` (stage specs, runner, report, trace), `layout` (placer, router bridge, checks, diagnosis), `fw` (firmware headers and host tests), plus `buildplan`, `artifacts`, `runs` (the contracts shared with the platform).
+- `harness/`: the local agent harness (`claude -p` sessions, limits, product-person simulator support).
+- `services/platform/`: `hwplatform`, the hosted platform (API, Temporal workflows and workers, agent worker, outbox relay, Postgres migrations, S3). `web/`: its React SPA. `deploy/`: compose, Helm chart, worker image. See `docs/platform-dev.md`, `docs/platform-k8s.md`, `docs/runbook.md`, `docs/adr/0001-platform-contracts.md`.
 - `docs/design-yaml.md`: the design file reference. Read it before you write a `design.yaml`.
 - `.claude/skills/hw-design/`: the orchestrator skill (`/hw-design`).
-- `.claude/agents/`: specialist subagents (requirements, HW/SW partition, architect, parts, circuit, reviewer, layout, firmware).
+- `.claude/agents/`: specialist subagents (requirements, architect, parts, circuit, layout, reviewer).
 - `projects/<name>/`: one folder per product. `examples/` holds reference designs.
-- `harness/` (package `hwharness`, uv workspace member): `claude -p` sessions (`hwharness.agent`), the product-person protocol (`hwharness.protocol`: approval, conflicts, inbox) and the eval scorer. It registers hooks in the engine through `hwflow.pipeline.hooks`; the engine never imports it.
 - `evals/`: the evaluation harness (fixtures, product-person simulator, scorer, baseline).
-- `ui/`: the local web UI that drives `claude -p` sessions.
-- `tools/`: KiCadRoutingTools (the router) and the Freerouting jar (fallback). KiCad is in `~/Applications/KiCad`.
+- `ui/`: the old local web UI (deprecated, replaced by `web/`; kept until its last features are ported).
+- `tools/`: Freerouting jar and KiCadRoutingTools (gitignored). KiCad is in `~/Applications/KiCad`.
 
 ## Rules
 
@@ -23,6 +22,7 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 - A number in a design decision has a source: a datasheet, a calculation in `notes/`, or a simulation.
 - A requirement is done only when `hwflow trace` shows it verified and `hwflow build` gives a PASS verdict.
 - A layout verdict `layout blocked, go back to <stage>` sends the loop back to that stage (parts, circuit or architecture). More layout cycles cannot fix it.
+- You never read credential files or variables (`~/.claude/.credentials.json`, `.env`, API keys, OAuth tokens, `HWFLOW_*` remote tokens). Commands and the platform get them from the environment; if one is missing, say so and stop.
 - If a fix needs a product decision (cost against performance, a changed spec), you ask the product person. You do not decide alone.
 
 ## Commands
@@ -35,8 +35,9 @@ uv run hwflow lib pads <lib:fp>        # pads of a footprint
 uv run hwflow parts <category> k=v --text "<words>"   # JLCPCB in-stock search
 uv run hwflow check <proj>             # static and library checks
 uv run hwflow build <proj> [--until sim] [--mc 50] [--reuse]
+uv run hwflow build <proj> --remote    # on the hosted platform instead of inline (`run status|wait --remote` too)
 uv run hwflow build <proj> ... --detach   # in the background; then:
-uv run hwflow run wait <proj> [run_id]    # 0 PASS, 1 FAIL/failed, 2 still running (call again)
+uv run hwflow run wait <proj> [run_id]    # 0 PASS, 1 FAIL/failed, 2 still running (call again); `run status` for a snapshot
 uv run hwflow build <proj> --retry-layout   # only when the product person overrides a blocked layout (docs/layout-diagnosis.md)
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix
