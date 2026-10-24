@@ -446,6 +446,29 @@ copy the outputs to their canonical paths (hardlinks from the CAS when possible)
 newer one. Skills, `ui/server.py` and evals keep reading `build/` unchanged (#7 done-when). The platform stores the
 same two files as run artifacts.
 
+### 3.6 As implemented in #7 (amendments to 3.1-3.5)
+
+- **One source of truth for the state machines.** `hwflow.runs` and `hwflow.ids` are stdlib-only (with
+  `hwflow.artifacts`; import-linter contract "engine contract modules are stdlib-only"). They define `TRANSITIONS`,
+  `TERMINAL`, `allowed_from(to)`, `check_transition`, `StageStatus`, `STAGE_TERMINAL`, `stage_update_applies` (the
+  late-replay rule), `STAGE_EVENT`, `RUN_EVENT`, `USER_VISIBLE`, `InvalidTransition`, `RunNotFound`, the dataclasses,
+  `RunStore`, `run_to_manifest`/`run_from_manifest`, `rfc3339`, `envelope` and `uuid7`. `hwplatform.contracts`,
+  `hwplatform.ids` and `hwplatform.runs` import them instead of keeping copies; for that the workflow contract of 1.2
+  drops `hwflow.artifacts` and `hwflow.runs` from its forbidden list (they load nothing but the stdlib).
+- **Stage records of a build**: a stage that ran is `succeeded` with its verdict (`pass`, `fail`, `blocked`), one that
+  raised is `failed` with verdict `error`; stages after a hard failure are `skipped` (`reason: hard_failure:<stage>`).
+  State refs go into `StageRecord.outputs` as `state/<name>`. `execute_stage` adds `design_hash` to the summary
+  (status.json's `design_hash`). Scratch dirs: `scratch_root = build/runs`, so `build/runs/<run_id>/<stage>-<hex>/`.
+- **`checkout(run, project_dir, store, *, output_paths, report=None, runs=None) -> bool`**: `output_paths[stage][name]`
+  (build-relative, from the StageSpecs) and `report` (the pipeline's `write_report`) are passed in, because
+  `hwflow.runs` cannot import the pipeline. It merges `render_status` into the existing status.json (the `trace`,
+  `score` and command entries such as `optimize`, `fw`, `floorplan`, `em` stay; a cached stage whose entry has the
+  same `inputs_hash` keeps it), and returns False without writing when the run is not `LATEST`. A run that is not the
+  newest renders its REPORT.md in a temporary copy of its design version (run artifact only).
+- **status.json content**: unchanged for skills except the new setting `settings.paths.cas_dir` (2.2); compared with the
+  previous engine on `examples/sensor_preamp` for `check`, `build --until sim --rebuild`, `report`, `trace` and
+  `build --until layout` (timestamps, timings, paths and hashes ignored).
+
 ## 4. Temporal (#9, #15, #19)
 
 ### 4.1 One planner, two drivers

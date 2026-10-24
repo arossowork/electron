@@ -75,7 +75,7 @@ Still cyclic through lazy imports, each inside one package (the layer contracts 
 4. `hwflow.fw` imports none of sim, schematic, layout, verify, pipeline, commands, cli.
 5. Layout layers: `diagnose` > `checks | feasibility` > `route` > `place` > `board`.
 6. `pipeline` and `commands` do not import `cli`.
-7. The contract modules the platform imports (`hwflow.artifacts`; `hwflow.ids`, `hwflow.runs` with #7) are
+7. The contract modules the platform imports (`hwflow.artifacts`, `hwflow.ids`, `hwflow.runs`) are
    stdlib-only: no engine package, no yaml/pydantic. They sit outside the layers (any layer may import them).
 
 There are no `ignore_imports`. A layer violation is fixed by moving the shared code down, not by an exception.

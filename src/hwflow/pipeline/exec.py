@@ -167,7 +167,7 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
     limits which cached verdicts a hit may return (the CLI reuses passes only, as its skip logic always did)."""
     from ..core.design import Design
     from ..core.libs import Libs
-    from .status import CURRENT_INPUTS
+    from .status import CURRENT_INPUTS, _design_hash
     t0 = time.time()
     work = Path(scratch_root) / inp.run_id / f"{inp.stage}-{secrets.token_hex(4)}"
     work.mkdir(parents=True)
@@ -213,7 +213,7 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
             error = {"type": "StageException", "message": r["exception"][:2000], "retryable": False}
         state = collect_state(spec, store, build, r, iid) if verdict != "error" else {}
         res = StageResult(stage=spec.name, verdict=verdict, cache_key=key, cached=False, result=result_ref,
-                          outputs=outputs, state=state, summary=spec.summarize(r), seconds=round(time.time() - t0, 3),
+                          outputs=outputs, state=state, summary={**spec.summarize(r), "design_hash": _design_hash(d)}, seconds=round(time.time() - t0, 3),
                           tool_versions=tools, error=error)
         if verdict in spec.cache_verdicts and verdict in CACHEABLE:
             cache.put(spec.name, key, res)
