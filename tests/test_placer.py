@@ -152,7 +152,7 @@ def test_isolation_groups_keep_creepage_plus_margin(tmp_path):
         for i, a in enumerate(keys):
             for b in keys[i + 1:]:
                 if pl.pad_grp[a] != pl.pad_grp[b] and a[0] != b[0]:
-                    ba, bb = pl._pad_box(parts[a[0]], a[1]), pl._pad_box(parts[b[0]], b[1])
+                    ba, bb = pl.part_pad_box(parts[a[0]], a[1]), pl.part_pad_box(parts[b[0]], b[1])
                     gaps.append(math.hypot(max(0, ba[0] - bb[2], bb[0] - ba[2]), max(0, ba[1] - bb[3], bb[1] - ba[3])))
         assert gaps and min(gaps) >= 3.5 - 0.02, (seed, min(gaps))
 
@@ -190,7 +190,7 @@ def test_net_class_clearance_keeps_pads_of_other_nets_apart(tmp_path):
         for (ra, pa), (rb, pb) in itertools.combinations(pl.pad_grp, 2):
             na, nb = pl.pad_net[(ra, pa)], pl.pad_net[(rb, pb)]
             if ra != rb and na != nb and "HV" in (na[:2], nb[:2]):
-                ba, bb = pl._pad_box(parts[ra], pa), pl._pad_box(parts[rb], pb)
+                ba, bb = pl.part_pad_box(parts[ra], pa), pl.part_pad_box(parts[rb], pb)
                 gap = math.hypot(max(0, ba[0] - bb[2], bb[0] - ba[2]), max(0, ba[1] - bb[3], bb[1] - ba[3]))
                 assert gap >= 2.1 - 0.02, (seed, ra, rb, gap)
 

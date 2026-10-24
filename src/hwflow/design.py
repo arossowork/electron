@@ -6,4 +6,10 @@ import sys
 
 from .core import design as _m
 
+from .verify import checks as _x
+
+# the design check moved to hwflow.verify.checks; the old names stay reachable through the alias
+for _n in ['check']:
+    setattr(_m, _n, getattr(_x, _n))
+
 sys.modules[__name__] = _m

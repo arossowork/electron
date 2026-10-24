@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
 from hwflow.cli import main
 
 needs_a_router = pytest.mark.skipif(
-    not ((pcb.krt_dir() / "py_router" / "route.py").exists() or Path(pcb.freerouting_jar()).exists()),
+    not ((krt.krt_dir() / "py_router" / "route.py").exists() or Path(krt.freerouting_jar()).exists()),
     reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
 
@@ -30,7 +30,7 @@ def test_full_build(tmp_path):
 @pytest.mark.slow
 def test_full_build_krt(tmp_path):
     """Same reference design routed with KiCadRoutingTools: clean DRC, full routing, no vias in pads."""
-    from hwflow.layout.board.pcb import krt_dir
+    from hwflow.layout.route.krt import krt_dir
     if not (krt_dir() / "py_router" / "route.py").exists():
         pytest.skip("KiCadRoutingTools not installed")
     proj = tmp_path / "sensor_preamp"

@@ -19,7 +19,7 @@ Checks:
 1. pad_escape: a pad between foreign pads in a row (`pad_escape`, the formula `diagnose.escape` has always used)
    whose net is wider than the board track and that no track of the net's width leaves at all, neither out of the
    part nor to a via between the pads (configuration space above). Every such pad needs a neck. Two or more on one
-   part (`diagnose.ESCAPE_PINS`) is the diagnosis's package verdict, now before any layout. Nets at the board track
+   part (`ESCAPE_PINS`) is the diagnosis's package verdict, now before any layout. Nets at the board track
    width are left out (when in doubt, do not fire: a signal pin may be entered at the board minimum width).
 2. part_escape, inner pads: a pad that not even a track of the board minimum width (`min_track_mm`, else
    routing.NECK_FLOOR) leaves on its layer is walled in (a QFN/BGA inner pad, a thermal pad without a same-net ring
@@ -49,6 +49,7 @@ from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
+ESCAPE_PINS = 2  # pads on one part that need a neck before the package itself is the problem (the diagnosis's verdict)
 QS = 8          # buffer segments per quarter circle (inscribed polygons: obstacles come out slightly small)
 EPS = 1e-6
 
@@ -251,9 +252,8 @@ class _Part:
 
 def part_findings(design, ref: str, fpd: dict) -> list[dict]:
     """pad_escape and part_escape findings of component `ref` with library footprint `fpd`."""
-    from .. import diagnose
     from ..board import pcb
-    from . import routing
+    from ..board import routing
     c = design.components[ref]
     pads = footprint_pads(c, fpd)
     netted = [p for p in pads if p["net"]]
@@ -281,7 +281,7 @@ def part_findings(design, ref: str, fpd: dict) -> list[dict]:
         mine = [p for p in netted if p["number"] == e["pad"] and p["net"] == e["net"]]
         if mine and not any(P.leaves(p, e["width"]) for p in mine):
             hard.append(e)
-    if len(hard) >= diagnose.ESCAPE_PINS:
+    if len(hard) >= ESCAPE_PINS:
         nets = sorted({e["net"] for e in hard})
         listed = ", ".join(f"{e['pad']} ({e['net']} {e['width']} mm)" for e in hard)
         worst = max(hard, key=lambda e: e["width"] - e["escape"])

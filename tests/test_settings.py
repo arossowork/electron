@@ -2,12 +2,13 @@
 import re
 from pathlib import Path
 
-from hwflow.layout.place import asicflow, keepout
+from hwflow.layout.place import asicflow
+from hwflow.layout.board import keepout
 from hwflow.core.settings import get_settings
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "hwflow"
 # subprocess environments that pass the parent environment through to a child on purpose (file: how many)
-ALLOWED = {"layout/board/kicad.py": 1, "layout/board/pcb.py": 1, "commands/em.py": 2}
+ALLOWED = {"layout/board/kicad.py": 1, "layout/route/krt.py": 1, "commands/em.py": 2}
 
 
 def test_defaults(monkeypatch):

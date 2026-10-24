@@ -8,14 +8,16 @@ from shapely.geometry import LineString, box
 
 from hwflow.layout import diagnose
 from hwflow.layout.place import floorplan, placer
-from hwflow import postlayout
+from hwflow.verify import postlayout
 from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
 from hwflow.core import sexpr
-from hwflow.core.design import Design, check
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
 from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
-needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def make(tmp_path, regions=None, board=None, nets=None):
@@ -182,8 +184,8 @@ def test_dsn_class_uses_only_the_net_layers(tmp_path):
 
 def test_layer_args():
     cu = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
-    assert pcb.layer_args(cu, ()) == [] and pcb.layer_args(cu, tuple(cu)) == []
-    assert pcb.layer_args(cu, ("In2.Cu", "B.Cu")) == ["--layers", *cu, "--layer-costs", "-1", "-1", "3.0", "3.0"]
+    assert krt.layer_args(cu, ()) == [] and krt.layer_args(cu, tuple(cu)) == []
+    assert krt.layer_args(cu, ("In2.Cu", "B.Cu")) == ["--layers", *cu, "--layer-costs", "-1", "-1", "3.0", "3.0"]
 
 
 @needs_router
@@ -202,8 +204,8 @@ def test_restricted_nets_route_in_their_own_pass(tmp_path, monkeypatch):
         seen.append((nets, base))
         return (Path(base[2]), {}, 0), [("default order", "0 unrouted")], [""]
 
-    monkeypatch.setattr(pcb, "route_class", fake)
-    pcb.krt_route(d, src, tmp_path / "out", "x_")
+    monkeypatch.setattr(krt, "route_class", fake)
+    krt.krt_route(d, src, tmp_path / "out", "x_")
     own = [b for n, b in seen if "AMP_OUT" in n]
     assert len(own) == 1 and [n for n, b in seen if "AMP_OUT" in n] == [["AMP_OUT"]]
     b = own[0]

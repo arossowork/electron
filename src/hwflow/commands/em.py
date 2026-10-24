@@ -14,7 +14,7 @@ from ..pipeline.status import _save_status
 def cmd_em(a, argv) -> int:
     """openEMS lives in its own venv (built from source). Re-execute there when it is not importable here."""
     import os
-    from .. import em
+    from ..verify import em
     if not em.available():
         ts = get_settings().tools
         py = Path(ts.openems_python)

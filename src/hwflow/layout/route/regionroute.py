@@ -5,7 +5,7 @@
   pad inside its region is that seed's group; a net of no seed with no pad in a seed region is in `rest`; any other
   net (pads in several regions, or a seed net with a pad outside its region) is an `interface` net.
 - Order. The seed groups route first, smallest first (the most constrained: mains takes seconds), then `rest`, then
-  the interface nets. Each group is one pcb.krt_route call on the board that holds the copper of the groups routed
+  the interface nets. Each group is one krt.krt_route call on the board that holds the copper of the groups routed
   before it (and the pads of every net), so the per-pass work of krt_route (isolation and conductive keep-outs,
   nets.<name>.layers passes, between_mm classes, neck-down) runs inside each group job. Layout blocks keep their
   copper; a port net routes with the group that holds it.
@@ -29,6 +29,7 @@ from shapely.geometry import Point
 from shapely.ops import unary_union
 
 from ..board import pcb
+from . import krt
 from ...core.settings import get_settings
 
 GROUP_DIR = "groups"  # per-group route cache, under build/routecache/
@@ -37,7 +38,7 @@ GROUP_DIR = "groups"  # per-group route cache, under build/routecache/
 def seeds(design) -> list[dict]:
     """The net groups the floorplan and the isolation rules declare: [{name, members, poly}], poly the region shape in
     board coordinates (None for an isolation group with no region). Seeds that share a net are merged."""
-    from ..place import floorplan
+    from ...core import floorplan
     rows = [{"name": r["region"], "members": set(r["nets"]), "poly": r["poly"]} for r in floorplan.net_regions(design)]
     rows += [{"name": g["name"], "members": set(g["members"]), "poly": None}
              for g in pcb.isolation_groups(design) if g["members"]]
@@ -109,10 +110,11 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     lays = pcb.net_layers(design)
     h = hashlib.sha256(json.dumps([sorted(nets), mine, near, {n: classes.get(n) for n in sorted(nets)},
                                    {n: lays.get(n) for n in sorted(nets)}, pcb.isolation_needs(design),
-                                   design.raw.get("floorplan"), design.board, rules, pcb.KRT_VARIANTS,
-                                   pcb.router_version(design), _knobs()], sort_keys=True, default=str).encode())
+                                   design.raw.get("floorplan"), design.board, rules, krt.KRT_VARIANTS,
+                                   krt.router_version(design), _knobs()], sort_keys=True, default=str).encode())
     from ..board import pcb as board_pcb
-    from . import pinaccess, routing
+    from ..place import pinaccess
+    from ..board import routing
     for m in (board_pcb, routing, sys.modules[__name__], pinaccess):
         h.update(Path(m.__file__).read_bytes())
     from ..place import asicflow
@@ -139,11 +141,11 @@ def _route_one(design, libs, parts, workdir: Path, g: dict, i, tracks, vias, kee
         src = workdir / f"{design.name}_g{i}.kicad_pcb"
         pcb.write_board(src, pcb.build_board(design, libs, parts, tracks, vias))
     nets = set(g["nets"])
-    cur, last, notes, npass = pcb.krt_route(design, src, workdir, f"{design.name}_krt_g{i}_", nets=nets,
+    cur, last, notes, npass = krt.krt_route(design, src, workdir, f"{design.name}_krt_g{i}_", nets=nets,
                                             keep_first=bool(keep or tracks or vias), timeout=timeout)
     tr, vi = _own(cur, nets, skip)
-    opened = sorted({n for v in last.values() for n in pcb.krt_open_nets(v)} & nets)
-    return {"tracks": tr, "vias": vi, "unrouted": sum(pcb.krt_unrouted(v) for v in last.values()), "open": opened,
+    opened = sorted({n for v in last.values() for n in krt.krt_open_nets(v)} & nets)
+    return {"tracks": tr, "vias": vi, "unrouted": sum(krt.krt_unrouted(v) for v in last.values()), "open": opened,
             "passes": npass, "notes": notes, "seconds": round(time.time() - t1, 1)}
 
 
@@ -157,8 +159,7 @@ def _save(cache: Path, key: str, data: dict):
 def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
     """Route the board group by group (module docstring). Returns (tracks, vias, summary, unrouted, rows), rows
     [{name, kind, nets, key, cache (hit, miss), seconds, unrouted, open}] in routing order, or None when the nets
-    form fewer than two groups (pcb.run_krt routes the board as one job)."""
-    from .repair import _thermal_keys
+    form fewer than two groups (krt.run_krt routes the board as one job)."""
     workdir = Path(workdir).resolve()
     name = design.name
     src = workdir / f"{name}_unrouted.kicad_pcb"
@@ -181,7 +182,8 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
     dru = workdir / f"{name}.kicad_dru"
     rules = dru.read_text() if dru.exists() else ""
     gdir = Path(cache) / GROUP_DIR
-    skip = _thermal_keys(design, libs, parts)
+    from .repair import thermal_keys
+    skip = thermal_keys(design, libs, parts)
     rows, entries = [], {}
     for g in groups:
         key = group_key(design, g["nets"], board, routed, rules, parts)
@@ -218,7 +220,7 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
 def stale(rows: list[dict], drc: list[dict]) -> list[tuple[dict, int]]:
     """The reused groups whose copper a DRC error names: [(row, errors)]. An error counts when it names a track or
     via of one of the group's nets, or the group's net is unconnected (unless the cached route left it open)."""
-    from .repair import _parse_item, errors
+    from .repair import errors, parse_item
     out = []
     for r in rows:
         if r["cache"] != "hit":
@@ -226,7 +228,7 @@ def stale(rows: list[dict], drc: list[dict]) -> list[tuple[dict, int]]:
         nets, opened = set(r["nets"]), set(r.get("open") or [])
         n = 0
         for x in errors(drc):
-            items = [_parse_item(s, None) for s in x["items"]]
+            items = [parse_item(s, None) for s in x["items"]]
             if x["type"] == "unconnected":
                 n += any(i["net"] in nets - opened for i in items)
             else:
@@ -241,13 +243,13 @@ def validate(design, libs, parts, workdir: Path, cache: Path, tracks: list, vias
     """The joined board's DRC on reused copper: every reused group a DRC error names (stale) loses its cache entry and
     routes again on the board with all other copper; `check(tracks, vias)` then gives the new DRC. Returns
     (tracks, vias, drc)."""
-    from .repair import _thermal_keys
     bad = stale(rows, drc)
     if not bad:
         return tracks, vias, drc
     workdir = Path(workdir).resolve()
     gdir = Path(cache) / GROUP_DIR
-    skip = _thermal_keys(design, libs, parts)
+    from .repair import thermal_keys
+    skip = thermal_keys(design, libs, parts)
     keep = False
     if design.raw.get("blocks"):
         from ...core import blocks

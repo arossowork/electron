@@ -2,8 +2,8 @@
 `hwflow check` error, measured with the pad's real outline (a round pad is a circle, not its box)."""
 from test_barrier import ALL, Libs, _design, _pad
 
-from hwflow.layout.route import padiso
-from hwflow.postlayout import pad_shape
+from hwflow.layout.place import padiso
+from hwflow.verify.postlayout import pad_shape
 
 
 def _run(tmp_path, x, shape):

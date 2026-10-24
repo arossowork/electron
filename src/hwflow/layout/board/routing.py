@@ -1,4 +1,4 @@
-"""What hwflow adds around each KiCadRoutingTools pass (pcb.krt_route), using only the router's documented inputs:
+"""What hwflow adds around each KiCadRoutingTools pass (krt.krt_route), using only the router's documented inputs:
 
 - Isolation keep-outs. The router keeps creepage track to track only (pcb.isolation_router_rules). Before a pass,
   hwflow writes named rule areas into the pass input: the copper of the other side of every `board.isolation`

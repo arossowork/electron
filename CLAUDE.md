@@ -5,6 +5,7 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 ## Layout
 
 - `src/hwflow/`: the EDA engine (design model, SPICE, KiCad schematic and PCB writers, the layout flow, post-layout extraction, optimizer, firmware headers).
+  Packages (layers, top to bottom): `pipeline`, `verify`, `layout` (`route`, `place`, `board`), `sim` | `schematic`, `core`; `fw` imports only `core`. Contracts and the module map: `docs/import-graph.md`.
 - `docs/layout-flow.md`: the single layout flow, stage by stage: macro stage, analytic global placement with RUDY density feedback, legalization, local moves, short anneal, pin access, KRT routing with repair.
 - `docs/design-yaml.md`: the design file reference. Read it before you write a `design.yaml`.
 - `.claude/skills/hw-design/`: the orchestrator skill (`/hw-design`).

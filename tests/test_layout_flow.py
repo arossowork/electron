@@ -128,7 +128,7 @@ def test_inflation_follows_the_map(tmp_path):
 
 def test_pin_access_counts_directions_and_finds_a_walled_in_pad(tmp_path):
     from test_barrier import Libs, _design, _pad
-    from hwflow.layout.route import corridor, pinaccess
+    from hwflow.layout.place import corridor, pinaccess
     # P1 alone: every direction is open. P2 in a ring of foreign pads 0.3 mm away: no track of any width leaves.
     ring = [_pad(str(k + 2), 20 + dx, 10 + dy, 0.8, 0.8) for k, (dx, dy) in
             enumerate([(-1.1, -1.1), (0, -1.1), (1.1, -1.1), (-1.1, 0), (1.1, 0), (-1.1, 1.1), (0, 1.1), (1.1, 1.1)])]

@@ -9,51 +9,7 @@ from pathlib import Path
 
 import yaml
 
-_SI = {"f": 1e-15, "p": 1e-12, "n": 1e-9, "u": 1e-6, "µ": 1e-6, "m": 1e-3, "": 1.0,
-       "k": 1e3, "K": 1e3, "meg": 1e6, "M": 1e6, "g": 1e9, "G": 1e9}
-
-
-def parse_value(v) -> float:
-    """'4k7' -> 4700, '100n' -> 1e-7, '2.2meg' -> 2.2e6, 10 -> 10."""
-    if isinstance(v, (int, float)):
-        return float(v)
-    s = str(v).strip().replace(" ", "")
-    s = re.sub(r"(ohm|Ω|F|H|V|A|W|Hz)$", "", s, flags=re.I) or s
-    m = re.fullmatch(r"(\d+)([pnuµmkKMgG]|meg|R)(\d+)", s)  # 4k7, 4R7
-    if m:
-        mult = 1.0 if m.group(2) == "R" else _SI[m.group(2)]
-        return float(f"{m.group(1)}.{m.group(3)}") * mult
-    m = re.fullmatch(r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)(meg|[fpnuµmkKMgG]?)", s)
-    if not m:
-        raise ValueError(f"cannot parse value {v!r}")
-    return float(m.group(1)) * _SI[m.group(2)]
-
-
-def fmt_value(x: float, unit: str = "") -> str:
-    if x == 0:
-        return f"0{unit}"
-    for suf, mult in (("G", 1e9), ("M", 1e6), ("k", 1e3), ("", 1), ("m", 1e-3), ("u", 1e-6), ("n", 1e-9), ("p", 1e-12)):
-        if abs(x) >= mult * 0.9999:
-            s = f"{x / mult:.3g}"
-            return f"{s}{suf}{unit}"
-    return f"{x:.3g}{unit}"
-
-
-E_SERIES = {
-    "E6": [1.0, 1.5, 2.2, 3.3, 4.7, 6.8],
-    "E12": [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2],
-    "E24": [1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1,
-            5.6, 6.2, 6.8, 7.5, 8.2, 9.1],
-}
-E_SERIES["E96"] = [round(10 ** (i / 96), 2) for i in range(96)]
-
-
-def snap_e(x: float, series: str = "E24") -> float:
-    dec = math.floor(math.log10(x))
-    base = x / 10 ** dec
-    vals = E_SERIES[series] + [10.0]
-    best = min(vals, key=lambda v: abs(math.log(v / base)))
-    return best * 10 ** dec
+from .units import E_SERIES, fmt_value, parse_value, snap_e  # noqa: F401  (re-exported: the design API)
 
 
 @dataclass
@@ -93,7 +49,7 @@ class Design:
             d.components[ref] = Component(ref, c or {})
         if raw.get("blocks"):
             from . import blocks
-            blocks.expand(d)  # instantiate mode: components a block adds
+            blocks.expand(d, Component)  # instantiate mode: components a block adds
         return d
 
     def save(self):
@@ -168,9 +124,9 @@ class Design:
         rows = []
         for g in groups.values():
             g["qty"] = len(g["refs"])
-            g["refs"] = ",".join(sorted(g["refs"], key=_natkey))
+            g["refs"] = ",".join(sorted(g["refs"], key=natkey))
             rows.append(g)
-        return sorted(rows, key=lambda r: _natkey(r["refs"]))
+        return sorted(rows, key=lambda r: natkey(r["refs"]))
 
     def cost(self) -> tuple[float, list[str]]:
         total, missing = 0.0, []
@@ -182,7 +138,7 @@ class Design:
         return total, missing
 
 
-def _natkey(s: str):
+def natkey(s: str):
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
 
 
@@ -230,8 +186,9 @@ def package_findings(c: Component, fp: dict) -> list[tuple[str, str]]:
     return out
 
 
-def check(design: Design, libs=None) -> list[dict]:
-    """Return findings: {sev: error|warn|info, code, msg}."""
+def netlist_findings(design: Design, libs=None, component_check=None) -> list[dict]:
+    """Findings of the netlist and the library: {sev: error|warn|info, code, msg}. `component_check(design, c)` may
+    return one more error message per component (hwflow.verify.checks passes the SPICE element check)."""
     f: list[dict] = []
 
     def add(sev, code, msg):
@@ -256,8 +213,7 @@ def check(design: Design, libs=None) -> list[dict]:
             add("error", "bad-role", f"{c.ref} role {c.get('role')!r} is not temp_sensor, antenna or none")
         if not c.pins:
             add("error", "no-pins", f"{c.ref} has no pin-to-net map")
-        from ..sim.spice import element_mismatch
-        msg = element_mismatch(design, c)
+        msg = component_check(design, c) if component_check else None
         if msg:
             add("error", "spice-element", msg)
 
@@ -281,7 +237,7 @@ def check(design: Design, libs=None) -> list[dict]:
                 for p in c.pins:
                     if p not in spins:
                         add("error", "unknown-pin", f"{c.ref} pin {p} is not in symbol {c.get('symbol')} "
-                                                    f"(has {sorted(spins, key=_natkey)})")
+                                                    f"(has {sorted(spins, key=natkey)})")
                 nc = {str(x) for x in (c.get("nc") or [])}
                 for num, p in spins.items():
                     if num not in c.pins and num not in nc and p["type"] != "no_connect":
@@ -294,7 +250,7 @@ def check(design: Design, libs=None) -> list[dict]:
                     missing = [n for n in spins if n not in pads]
                     if missing:
                         add("error", "pad-mismatch", f"{c.ref}: symbol pins {missing} have no pad in "
-                                                     f"{c.get('footprint')} (pads {sorted(pads, key=_natkey)})")
+                                                     f"{c.get('footprint')} (pads {sorted(pads, key=natkey)})")
         # electrical rule checks on pin types
         drivers = {"power_out", "output"}
         for net, conns in nets.items():
@@ -313,81 +269,16 @@ def check(design: Design, libs=None) -> list[dict]:
                     and not design.net_info(net).get("external_supply"):
                 add("warn", "no-power-source", f"net {net} feeds power_in pins but no power_out pin drives it "
                                                f"(set nets.{net}.external_supply: true if it comes from a connector)")
-    from ..layout.place.floorplan import cut_pad_findings, cuts, validate
-    for msg in validate(design):
-        add("error", "floorplan", msg)
-    from ..layout.board import pcb
-    if libs is not None and cuts(design):  # pads of fixed parts within the copper-to-edge clearance of a cut
-        from ..layout.place import placer
-        try:
-            parts = placer.build_parts(design, libs)
-        except Exception:  # noqa: BLE001 - a missing footprint is reported above
-            parts = {}
-        edge = max(float(design.board["clearance_mm"]), pcb.EDGE_CLEARANCE_MM)
-        for msg in cut_pad_findings(design, parts, edge):
-            add("warn", "cut-pad", msg)
-    # board.isolation between_mm: a positive distance; pads of fixed parts of two member nets closer than it
-    between = False
-    for i, g in enumerate(design.board.get("isolation") or []):
-        v = g.get("between_mm") if isinstance(g, dict) else None
-        if v is None:
-            continue
-        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
-            add("error", "isolation", f"board.isolation[{i}].between_mm must be a positive number (mm)")
-        else:
-            between = True
-    if libs is not None and between:
-        from ..layout.place import placer
-        try:
-            parts = placer.build_parts(design, libs)
-            pl = placer.Placer(design, parts, float(design.board["width_mm"]), float(design.board["height_mm"]))
-            for msg in pl.fixed_violations():
-                if "between_mm" in msg:
-                    add("warn", "isolation", f"fixed parts: {msg}")
-        except Exception:  # noqa: BLE001 - a missing footprint is reported above
-            pass
-    # nets.<name>.layers: known copper layers, and an SMD pad of the net on one of them
-    import fnmatch
-    copper = pcb.cu_layers(int(design.board["layers"]))
-    allowed = pcb.net_layers(design)
-    for net, lays in allowed.items():
-        pats = design.net_info(net).get("layers")
-        pats = [pats] if isinstance(pats, str) else pats
-        if not isinstance(pats, (list, tuple)) or not pats:
-            add("error", "net-layers", f"nets.{net}.layers must be a list of copper layer names")
-            continue
-        for p in pats:
-            if not any(fnmatch.fnmatchcase(L, str(p)) for L in copper):
-                add("error", "net-layers", f"nets.{net}.layers: {p} is not a copper layer of this "
-                                           f"{design.board['layers']}-layer board ({', '.join(copper)})")
-        if libs is None or not lays:
-            continue
-        from ..layout.route.routing import pad_layers
-        for ref, pin in nets.get(net, []):
-            c = design.components[ref]
-            if c.get("virtual"):
-                continue
-            try:
-                pads = [p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pin]
-            except Exception:  # noqa: BLE001 - reported as footprint-missing
-                continue
-            for p in pads:
-                cu = pad_layers(p["layers"], copper)
-                if p["kind"] == "smd" and cu and not set(cu) & set(lays):
-                    add("error", "net-layers", f"{ref}.{pin} ({net}) is an SMD pad on {', '.join(cu)} only, not on "
-                                               f"the net's layers {', '.join(lays)}")
-                    break
-    if libs is not None and allowed:  # a disallow rule area that nets.<name>.layers overrides for a net
-        for e in pcb.net_layer_exemptions(design, libs)[1]:
-            add("warn", "net-layers", f"board.drc_rules rule {e['rule']} keeps {e['net']} out of rule area {e['area']}, "
-                                      f"but nets.{e['net']}.layers allows {', '.join(e['layers'])} there: the net's "
-                                      f"layers win (the rule does not apply to {e['net']})")
-    from ..layout.budgets import check as budget_check
-    f += budget_check(design)
-    if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)
-        from ..layout.feasibility import check as feasibility_check
-        f += feasibility_check(design, libs)
-    # decoupling heuristic: each IC supply net has a cap to ground
+    return f
+
+
+def decoupling_findings(design: Design) -> list[dict]:
+    """Decoupling heuristic: each IC supply net has a capacitor to ground."""
+    f: list[dict] = []
+
+    def add(sev, code, msg):
+        f.append({"sev": sev, "code": code, "msg": msg})
+
     gnds = design.ground_nets()
     caps_on = {}
     for c in design.components.values():
@@ -401,9 +292,4 @@ def check(design: Design, libs=None) -> list[dict]:
             for net in set(c.pins.values()) - gnds:
                 if design.net_info(net).get("class") == "power" and net not in caps_on:
                     add("warn", "no-decoupling", f"{c.ref} on power net {net} has no capacitor to ground")
-    if design.raw.get("blocks"):
-        from . import blocks
-        f += blocks.findings(design, libs)
-    from ..sim.simrobust import check_findings
-    f += check_findings(design)
     return f

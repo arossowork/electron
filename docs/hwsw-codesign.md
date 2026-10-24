@@ -84,7 +84,7 @@ modules:            # one task each; `owns` = the only module that may drive tho
 failure_modes: [{id: F1, what: "...", hw: "...", sw: "...", req: [...]}]
 ```
 
-MCU knowledge lives in one small table per family in `src/hwflow/fw.py` (`FAMILIES`): how a symbol pin name gives the GPIO number (`^IO(\d+)` for the ESP32-C3-MINI-1), the ADC channel per GPIO, the deep-sleep wake-capable GPIOs and the strapping pins, with the datasheet as source. ESP32-C3 is the first entry; a new family is a new entry, not new code.
+MCU knowledge lives in one small table per family in `src/hwflow/fw/__init__.py` (`FAMILIES`): how a symbol pin name gives the GPIO number (`^IO(\d+)` for the ESP32-C3-MINI-1), the ADC channel per GPIO, the deep-sleep wake-capable GPIOs and the strapping pins, with the datasheet as source. ESP32-C3 is the first entry; a new family is a new entry, not new code.
 
 What `hwflow fw` derives, and the check behind each value:
 

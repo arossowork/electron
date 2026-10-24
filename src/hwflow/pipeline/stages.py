@@ -10,14 +10,18 @@ import sys
 import time
 from pathlib import Path
 
-from ..layout import budgets
+from ..sim import budgets
 from ..layout.board import kicad, pcb
+from ..layout.route import krt
 from ..layout.place import placer
-from .. import postlayout
-from ..layout.route import barrier, corridor, pinaccess, regionroute, repair, routing, seedroute
+from ..verify import postlayout
+from ..layout.place import barrier, corridor, pinaccess
+from ..layout.route import regionroute, repair, seedroute
+from ..layout.board import routing
 from ..sim import simrobust, spice
 from ..core import blocks as core_blocks
-from ..core.design import Design, check
+from ..core.design import Design
+from ..verify.checks import check
 from ..core.libs import Libs
 from ..core.settings import get_settings
 from .hooks import registry
@@ -93,18 +97,18 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
     name = d.name
     groups = getattr(d, "route_groups", None)
     if d.board.get("router", "krt") == "krt":
-        if (pcb.krt_dir() / "py_router" / "route.py").exists():
+        if (krt.krt_dir() / "py_router" / "route.py").exists():
             if groups is not None:
                 from ..layout.route import regionroute
                 res = regionroute.route(d, libs, parts, out, _out(d) / "routecache")
                 if res is not None:
                     groups += res[4]
                     return res[:4]
-            return pcb.run_krt(d, libs, parts, out)
+            return krt.run_krt(d, libs, parts, out)
         print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
-    log = pcb.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
-    tracks, vias = pcb.import_ses(out / f"{name}.ses", d)
+    log = krt.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
+    tracks, vias = krt.import_ses(out / f"{name}.ses", d)
     import re as _re
     done = [ln for ln in log.splitlines() if "Auto-routing stage completed" in ln]
     m = _re.search(r"\((\d+) unrouted and (\d+) violations\)", done[0] if done else "")
@@ -156,7 +160,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     for suf in (".kicad_pro", ".kicad_dru"):
         f = out / f"{d.name}{suf}"
         h.update(f.read_bytes() if f.exists() else b"-")
-    h.update(json.dumps([d.board, passes, pcb.KRT_VARIANTS, pcb.router_version(d)], sort_keys=True, default=str).encode())
+    h.update(json.dumps([d.board, passes, krt.KRT_VARIANTS, krt.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
     h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
@@ -286,7 +290,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             finally:
                 d.route_groups = None
                 tm["route_s"] = round(time.time() - t, 1)
-        seeds = seedroute.load(out)  # the seed copper of this route (pcb.krt_route)
+        seeds = seedroute.load(out)  # the seed copper of this route (krt.krt_route)
         drc = route_check(tracks, vias)
         if any(g["cache"] == "hit" for g in groups):  # reused group copper: the joined board's DRC judges it
             from ..layout.route import regionroute
@@ -294,7 +298,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                                                      groups, route_check)
         rounds = int(d.board.get("repair_rounds", 3))
         if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
-                and (pcb.krt_dir() / "py_router" / "route.py").exists()):
+                and (krt.krt_dir() / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
             t = time.time()
             r = repair.repair(d, libs, parts, tracks, vias, drc, board,

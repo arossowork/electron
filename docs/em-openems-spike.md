@@ -1,6 +1,6 @@
 # openEMS spike: optional field-solver stage
 
-Status: prototype (`src/hwflow/em.py`, `hwflow em <proj>`). Machine: macOS arm64, 10 cores, 24 GB.
+Status: prototype (`src/hwflow/verify/em.py`, `hwflow em <proj>`). Machine: macOS arm64, 10 cores, 24 GB.
 
 ## Installation (works, no sudo, about 10 minutes)
 

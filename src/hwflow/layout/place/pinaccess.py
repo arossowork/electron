@@ -10,7 +10,7 @@ extended from the part's own pads to the whole board). The free-space model is c
 
 An SMD pad that has no access on its layer at any width is reported (`no_access`): its net can only leave by a via
 in the pad. The layout flow (asicflow.necked) sends a net with a pad that has no exit at its width, but at least
-one at the board minimum, through pcb.krt_route's narrow-first `necked` path.
+one at the board minimum, through krt.krt_route's narrow-first `necked` path.
 
 Nothing here is specific to a design: every input is the board's rules and placement (docs/asic-ideas.md, idea 6)."""
 from __future__ import annotations

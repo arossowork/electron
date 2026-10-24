@@ -16,6 +16,8 @@ PKG = "hwflow"
 def modules():
     out = {}
     for p in sorted((ROOT / PKG).rglob("*.py")):
+        if p.read_text().startswith('"""Compatibility alias'):
+            continue  # a sys.modules alias of a moved module (issue #5), not a module of its own
         rel = p.relative_to(ROOT).with_suffix("")
         parts = rel.parts[:-1] if rel.name == "__init__" else rel.parts
         out[".".join(parts)] = p

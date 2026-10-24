@@ -29,9 +29,10 @@ import math
 import re
 from pathlib import Path
 
+from .place.partescape import ESCAPE_PINS
+
 ATTRIB_MM = 1.5       # a failure without a pad is put on the parts with a pad this close to it
 PERSIST_SHARE = 0.75  # share of the attempts a part must fail in to be persistent
-ESCAPE_PINS = 2       # pads on one part that need a neck before the package itself is the problem
 PAD_RE = re.compile(r"Pad (\S+) \[([^\]]*)\] of (\S+)")
 STAGES = {"parts": "stage 3 (parts)", "circuit": "stage 4 (circuit)", "architecture": "stage 2 (architecture)",
           "layout": "stage 7 (layout)"}
@@ -82,7 +83,7 @@ def persistent(per_attempt: list[dict[str, list[str]]]) -> list[str]:
 def escape(fp: dict, classes: dict, clearance: float, default_w: float) -> list[dict]:
     """Pads of footprint `fp` whose net class is wider than the widest straight escape between its foreign
     neighbours in a row (partescape.pad_escape, which also runs before layout in `hwflow check`)."""
-    from .route.partescape import pad_escape
+    from .place.partescape import pad_escape
     return pad_escape(fp, classes, clearance, default_w)
 
 
@@ -97,7 +98,7 @@ def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
         if r in design.components:
             x0, y0, x1, y1 = p.box()
             out[_side(design, r) if _side(design, r) in out else "front"] += (x1 - x0) * (y1 - y0)
-    from .place import floorplan
+    from ..core import floorplan
     area = floorplan.outline(design).area if floorplan.cuts(design) else W * H  # cut regions take board area away
     return {k: v / area if area > 0 else 0.0 for k, v in out.items()}
 
@@ -114,7 +115,7 @@ def structure_key(design) -> str:
                   for n, i in (design.raw.get("nets") or {}).items())
     b = design.board
     board = [b.get("width_mm"), b.get("height_mm"), b.get("layers"), b.get("track_mm"), b.get("clearance_mm")]
-    from .place import floorplan
+    from ..core import floorplan
     cs = floorplan.cuts(design)  # cut regions change the board shape (keys without them stay as they were)
     if cs:
         import shapely
@@ -157,9 +158,9 @@ def blocked(design, out: Path) -> dict | None:
 def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, libs=None) -> dict:
     """`attempts`: [{"failing": failing_parts(...)}] of the build's attempts; `board`: pcb.read_board of the kept
     board; `parts`: placer parts at the kept placement. Returns the diagnosis and records it in the history."""
-    from .place import floorplan
+    from ..core import floorplan
     from .board import pcb
-    from .route import routing
+    from .board import routing
     key = structure_key(design)
     per = [a["failing"] for a in attempts]
     pers = persistent(per)

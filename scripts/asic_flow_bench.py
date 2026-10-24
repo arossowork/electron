@@ -37,7 +37,8 @@ def sample(a):
         del os.environ[k]
     env = VARIANTS[a.variant]
     os.environ.update(env)
-    from hwflow import asicflow, corridor, pinaccess, placer
+    from hwflow.layout.place import asicflow, placer
+    from hwflow.layout.place import corridor, pinaccess
     from hwflow.core.design import Design
     from hwflow.core.libs import Libs
     d = Design.load(Path(a.design))

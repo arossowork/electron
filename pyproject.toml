@@ -53,18 +53,39 @@ ignore = ["E501", "E701", "E702", "E731", "E741", "F841"]  # F841/E731: existing
 root_packages = ["hwflow", "hwharness"]
 include_external_packages = true
 
-# Report-only start: contracts that are true today. Import cycles are all lazy (function-level), see docs/import-graph.md.
+# Strict contracts (issue #5, docs/import-graph.md). The root-level modules `hwflow.design`, `hwflow.pcb`, ... are
+# sys.modules aliases of the moved modules (compatibility shims, removal by 2026-12-31). They are in no layer, nothing
+# in the engine imports them, and they are deleted with the shims.
 [[tool.importlinter.contracts]]
-name = "hwflow does not depend on hwharness, the UI or the evals"
+name = "hwflow does not depend on hwharness, hwplatform, the UI or the evals"
 type = "forbidden"
 source_modules = ["hwflow"]
-forbidden_modules = ["hwharness", "harness", "ui", "evals"]
+forbidden_modules = ["hwharness", "hwplatform", "harness", "ui", "evals"]
 
 [[tool.importlinter.contracts]]
-name = "hwflow.cli is not imported by the engine modules"
+name = "hwflow.cli is not imported by the engine packages"
 type = "forbidden"
-source_modules = ["hwflow.design", "hwflow.pcb", "hwflow.placer", "hwflow.spice", "hwflow.sch", "hwflow.kicad", "hwflow.sexpr"]
+source_modules = ["hwflow.core", "hwflow.sim", "hwflow.schematic", "hwflow.layout", "hwflow.verify", "hwflow.fw",
+                  "hwflow.pipeline", "hwflow.commands"]
 forbidden_modules = ["hwflow.cli"]
+
+[[tool.importlinter.contracts]]
+name = "engine layers: pipeline > verify > layout > sim | schematic > core"
+type = "layers"
+layers = ["hwflow.pipeline", "hwflow.verify", "hwflow.layout", "hwflow.sim | hwflow.schematic", "hwflow.core"]
+
+[[tool.importlinter.contracts]]
+name = "hwflow.fw imports only hwflow.core"
+type = "forbidden"
+source_modules = ["hwflow.fw"]
+forbidden_modules = ["hwflow.sim", "hwflow.schematic", "hwflow.layout", "hwflow.verify", "hwflow.pipeline",
+                     "hwflow.commands", "hwflow.cli"]
+
+[[tool.importlinter.contracts]]
+name = "layout layers: diagnose > checks | feasibility > route > place > board"
+type = "layers"
+containers = ["hwflow.layout"]
+layers = ["diagnose", "checks | feasibility", "route", "place", "board"]
 
 [[tool.importlinter.contracts]]
 name = "hwflow.pipeline and hwflow.commands do not import hwflow.cli"

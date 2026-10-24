@@ -5,12 +5,13 @@ import yaml
 from shapely.geometry import box
 
 from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
 from hwflow.layout.place import placer
 from hwflow.layout.route import regionroute
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 
-needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def two_regions(tmp_path, r1x=4.0):

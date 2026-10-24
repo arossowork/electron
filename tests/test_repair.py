@@ -3,6 +3,7 @@ from hwflow.core.settings import get_settings
 import pytest
 
 from hwflow.layout.board import kicad, pcb
+from hwflow.layout.route import krt
 from hwflow.layout.place import placer
 from hwflow.layout.route import repair
 from hwflow.core.design import Design
@@ -30,7 +31,7 @@ components:
   R3: {value: 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {"1": C, "2": GND}, placement: {x: 20, y: 22, rot: 0, fixed: true}}
   R4: {value: 1k, symbol: Device:R, footprint: Resistor_SMD:R_0603_1608Metric, pins: {"1": A, "2": GND}, placement: {x: 30, y: 15, rot: 0, fixed: true}}
 """
-needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def _routed(tmp_path):
@@ -44,7 +45,7 @@ def _routed(tmp_path):
     assert not viol
     out = tmp_path / "build"
     out.mkdir()
-    tracks, vias, _, _ = pcb.run_krt(d, libs, parts, out)
+    tracks, vias, _, _ = krt.run_krt(d, libs, parts, out)
     board = out / f"{d.name}.kicad_pcb"
 
     def check(tr, vi, island=0):

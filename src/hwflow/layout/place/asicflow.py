@@ -13,10 +13,10 @@ Placement (Placer.run -> place), per placer seed:
 5. a short low-temperature anneal (ANNEAL) with the placer's terms (corridor, isolation, regions, budgets,
    decoupling; plain RUDY).
 
-Routing (pcb.krt_route -> necked), every router call:
+Routing (krt.krt_route -> necked), every router call:
 
 6. pin access (NECK): a net with a pad without an exit at its width, but with one at the board minimum
-   (pinaccess.pin_access), routes in pcb.krt_route's narrow-first `necked` path.
+   (pinaccess.pin_access), routes in krt.krt_route's narrow-first `necked` path.
 7. KRT detailed routing with the existing neck-down, seed route, region-split routing, repair, prune and
    min_width_mm (pcb.py, regionroute.py, repair.py).
 
@@ -169,14 +169,15 @@ def _inflate(g, R, cell, over, source):
 
 
 def necked(design, libs, src, nets=None) -> dict:
-    """For pcb.krt_route: {net: {need_mm, plain_mm, pad}} of the nets (of `nets`, or all) with a pad that has no exit
+    """For krt.krt_route: {net: {need_mm, plain_mm, pad}} of the nets (of `nets`, or all) with a pad that has no exit
     at the net's width but at least one at the board minimum (pinaccess.pin_access on the board `src`). They route
     narrow first. Empty under HWFLOW_FLOW=legacy, with HWFLOW_ASIC_NECK=0, or when the model cannot be built."""
     if not on(design) or not opt("neck"):
         return {}
     from pathlib import Path
 
-    from ..route import corridor, pinaccess, routing
+    from . import corridor, pinaccess
+    from ..board import routing
     from ..board import pcb
     try:
         if libs is None:

@@ -46,8 +46,9 @@ import math
 
 from shapely.geometry import Point, Polygon
 
-from . import barrier, routing
-from ..place import floorplan
+from . import barrier
+from ..board import routing
+from ...core import floorplan
 from ..board import pcb
 
 NAME = "corridor"
@@ -131,17 +132,17 @@ def findings(design, libs, parts=None, board=None) -> list[dict]:
     return barrier.with_budgets(design, parts, lambda: _findings(design, libs, parts, board))
 
 
-def _nodes(model, design, net, forced) -> list[dict] | None:
-    """The net's pads (barrier._nodes), or None when one of them is on none of the net's layers (design check
+def corridor_nodes(model, design, net, forced) -> list[dict] | None:
+    """The net's pads (barrier.barrier_nodes), or None when one of them is on none of the net's layers (design check
     reports that; it is no corridor)."""
-    nodes = barrier._nodes(model, design, net, forced)
+    nodes = barrier.barrier_nodes(model, design, net, forced)
     lays = set(model.net_copper(net))
     if any(not lays & set(n["layers"]) for n in nodes):
         return None
     return nodes
 
 
-def _connects(model, net, nodes, w, necks) -> bool:
+def corridor_connects(model, net, nodes, w, necks) -> bool:
     return len(model.groups(net, nodes, w, necks=necks)) == 1
 
 
@@ -149,7 +150,7 @@ def _widest(model, net, nodes, lo, hi, necks) -> float:
     """Largest width in [lo, hi] that connects the pads, given that lo does and hi does not."""
     while hi - lo > barrier.BISECT_MM:
         mid = (lo + hi) / 2
-        if _connects(model, net, nodes, mid, necks):
+        if corridor_connects(model, net, nodes, mid, necks):
             lo = mid
         else:
             hi = mid
@@ -160,9 +161,9 @@ def _have(model, net, nodes, w, necks=True) -> float:
     """The widest track below w that connects the pads (with necks above the minimum track when `necks`), 0 when
     none does. The pads must not connect at w."""
     f = model.floor
-    if necks and _connects(model, net, nodes, f, False):
+    if necks and corridor_connects(model, net, nodes, f, False):
         return _widest(model, net, nodes, f, w, w > f + EPS)
-    if not _connects(model, net, nodes, barrier.BISECT_MM, False):
+    if not corridor_connects(model, net, nodes, barrier.BISECT_MM, False):
         return 0.0
     return _widest(model, net, nodes, barrier.BISECT_MM, min(f, w) if necks else w, False)
 
@@ -180,30 +181,30 @@ def _findings(design, libs, parts, board) -> list[dict]:
     if not nets:
         return []
     model = Model(design, libs, parts, board)
-    forced = barrier._forced(design, libs) if model.pre else {}
+    forced = barrier.barrier_forced(design, libs) if model.pre else {}
     base = None
     out = []
     for net in nets:
-        nodes = _nodes(model, design, net, forced)
+        nodes = corridor_nodes(model, design, net, forced)
         if nodes is None or len(nodes) < 2:
             continue
         w = model.width(net)
-        if _connects(model, net, nodes, w, w > model.floor + EPS):
+        if corridor_connects(model, net, nodes, w, w > model.floor + EPS):
             continue
         base = base or barrier.Model(design, libs, parts, board)
-        bn = barrier._nodes(base, design, net, forced)
-        if not _connects(base, net, bn, base.floor, False) or \
-                (w > base.floor + EPS and not _connects(base, net, bn, w, True)):
+        bn = barrier.barrier_nodes(base, design, net, forced)
+        if not corridor_connects(base, net, bn, base.floor, False) or \
+                (w > base.floor + EPS and not corridor_connects(base, net, bn, w, True)):
             continue  # barrier reports it (barrier or channel) without these rules
-        out.append(_finding(model, design, net, nodes, w))
+        out.append(corridor_finding(model, design, net, nodes, w))
     if not model.pre and out:  # does the finding hold with fixed copper only (the placement of movable parts aside)?
         fm = Model(design, libs, parts, board, use={r for r, v in model.pos.items() if v[3]})
         pads = fm.pads
         for f in out:
             net = f["nets"][0]
-            nodes = _nodes(model, design, net, {})
+            nodes = corridor_nodes(model, design, net, {})
             fm.pads, fm._free = [p for p in pads if p["net"] != net] + nodes, {}
-            f["fixed"] = not _connects(fm, net, nodes, f["need_mm"], f["need_mm"] > fm.floor + EPS)
+            f["fixed"] = not corridor_connects(fm, net, nodes, f["need_mm"], f["need_mm"] > fm.floor + EPS)
     return out
 
 
@@ -236,7 +237,7 @@ def _blockers(model, net, at, layer, reach) -> list[dict]:
     return sorted(out, key=lambda x: x["d"])
 
 
-def _finding(model, design, net, nodes, w, fixed_only=False) -> dict:
+def corridor_finding(model, design, net, nodes, w, fixed_only=False) -> dict:
     """`fixed_only`: the model holds the fixed parts only (placer.corridor_blocks), as before placement."""
     alone = model.pre or fixed_only
     necks = w > model.floor + EPS
@@ -251,7 +252,7 @@ def _finding(model, design, net, nodes, w, fixed_only=False) -> dict:
     refs = sorted({b["ref"] for b in blk if b["ref"]})
     back = "architecture" if all(b["fixed"] for b in blk) else "layout"
     lays = model.net_copper(net)
-    a, b = barrier._label(nodes, g[0]), barrier._label(nodes, g[-1])
+    a, b = barrier.barrier_label(nodes, g[0]), barrier.barrier_label(nodes, g[-1])
     seen, why = set(), []
     for x in blk:
         if x["what"] not in seen:
@@ -277,21 +278,21 @@ def neck_needed(design, libs, parts=None, board=None) -> dict[str, dict]:
     """The constrained nets whose pads the corridor proof connects at their track width only with necks (a track
     narrowed to the board minimum for at most routing.NECK_MAX_MM per stretch): net -> {need_mm, plain_mm}, plain_mm
     the widest track that connects without a neck. A full-width router pass cannot route such a net (the room is an
-    upper bound), so pcb.krt_route routes it narrow first and widens it back (routing.widen)."""
+    upper bound), so krt.krt_route routes it narrow first and widens it back (routing.widen)."""
     def run():
         nets = constrained(design)
         if not nets:
             return {}
         model = Model(design, libs, parts, board)
-        forced = barrier._forced(design, libs) if model.pre else {}
+        forced = barrier.barrier_forced(design, libs) if model.pre else {}
         out = {}
         for net in nets:
-            nodes = _nodes(model, design, net, forced)
+            nodes = corridor_nodes(model, design, net, forced)
             if nodes is None or len(nodes) < 2:
                 continue
             w = model.width(net)
-            if w <= model.floor + EPS or _connects(model, net, nodes, w, False) \
-                    or not _connects(model, net, nodes, w, True):
+            if w <= model.floor + EPS or corridor_connects(model, net, nodes, w, False) \
+                    or not corridor_connects(model, net, nodes, w, True):
                 continue
             out[net] = {"need_mm": round(w, 3), "plain_mm": round(_have(model, net, nodes, w, False), 3)}
         return out
@@ -303,18 +304,18 @@ def margin(design, libs, parts=None, board=None) -> list[dict]:
     SEARCH_MM), against its width, and where the narrowest place of the no-neck corridor lies."""
     def run():
         model = Model(design, libs, parts, board)
-        forced = barrier._forced(design, libs) if model.pre else {}
+        forced = barrier.barrier_forced(design, libs) if model.pre else {}
         rows = []
         for net in constrained(design):
-            nodes = _nodes(model, design, net, forced)
+            nodes = corridor_nodes(model, design, net, forced)
             if nodes is None or len(nodes) < 2:
                 continue
             w = model.width(net)
             row = {"net": net, "width": w, "layers": model.net_copper(net), "pads": len(nodes)}
             for key, necks in (("plain", False), ("necks", True)):
-                if not _connects(model, net, nodes, barrier.BISECT_MM, False):
+                if not corridor_connects(model, net, nodes, barrier.BISECT_MM, False):
                     row[key] = 0.0
-                elif _connects(model, net, nodes, SEARCH_MM, necks):
+                elif corridor_connects(model, net, nodes, SEARCH_MM, necks):
                     row[key] = SEARCH_MM
                 else:
                     row[key] = round(_widest(model, net, nodes, barrier.BISECT_MM, SEARCH_MM, necks), 3)

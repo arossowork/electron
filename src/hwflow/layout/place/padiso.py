@@ -18,7 +18,7 @@ NAME = "padiso"
 
 def findings(design, libs, parts=None, board=None) -> list[dict]:
     from . import barrier
-    from ..place import floorplan
+    from ...core import floorplan
     needs = floorplan.conductive_needs(design)
     if not needs:
         return []

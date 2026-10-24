@@ -7,12 +7,15 @@ import pytest
 import yaml
 
 from hwflow.core import blocks
+from hwflow.verify import blocks as authoring
 from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
 from hwflow.layout.place import placer
-from hwflow.core.design import Design, check
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
 from hwflow.core.libs import Libs
 
-needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 BOOST = {"U": "U2", "L": "L1", "CIN": "C3", "COUT": "C4"}
 
@@ -211,7 +214,7 @@ def test_extract_round_trip(tmp_path):
     parts = placer.build_parts(d, libs)
     f = tmp_path / "b.kicad_pcb"
     pcb.write_board(f, pcb.build_board(d, libs, parts))
-    got = blocks.extract(f, list(BOOST.values()), "boost_copy", "test board", roles=dict(BOOST), design=d, libs=libs)
+    got = authoring.extract(f, list(BOOST.values()), "boost_copy", "test board", roles=dict(BOOST), design=d, libs=libs)
     src = blocks.load("tps61299_boost")
     assert got["ports"] == ["GND", "VBAT", "VOUT"]  # J1 and R1 reach these nets
     for role in BOOST:

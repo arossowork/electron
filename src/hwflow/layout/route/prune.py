@@ -4,7 +4,7 @@ on a route-cache hit; the route cache keeps the router's own copper."""
 
 from __future__ import annotations
 
-from .repair import _parse_item, errors
+from .repair import errors, parse_item
 
 DANGLING = ("track_dangling", "via_dangling")
 EPS = 0.01  # mm: a dangling item reported by DRC is matched to track ends and vias this close
@@ -12,7 +12,7 @@ EPS = 0.01  # mm: a dangling item reported by DRC is matched to track ends and v
 
 def dangling(tracks: list, vias: list, drc: list[dict]) -> tuple[list, list, int]:
     """(tracks, vias, number removed) without the items `drc` reports as dangling."""
-    hits = [_parse_item(str(it), at) for x in drc if x["type"] in DANGLING
+    hits = [parse_item(str(it), at) for x in drc if x["type"] in DANGLING
             for it, at in zip(x.get("items") or [], x.get("at") or []) if at]
     near = lambda a, b: abs(a[0] - b[0]) <= EPS and abs(a[1] - b[1]) <= EPS  # noqa: E731
     vs = [v for v in vias if not any(h["kind"] == "Via" and h["net"] == v["net"] and near(h["at"], (v["x"], v["y"]))

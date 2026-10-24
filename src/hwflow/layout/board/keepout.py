@@ -19,7 +19,7 @@ from shapely.geometry import MultiPoint, Polygon
 
 from ...core.settings import get_settings
 from ...core import sexpr
-from .placer import rot
+from ...core.geometry import rot
 
 
 def enabled(flag: bool | None = None) -> bool:
@@ -29,7 +29,7 @@ def enabled(flag: bool | None = None) -> bool:
     return get_settings().layout.keepout_strict
 
 
-def _pts(node) -> list[tuple[float, float]]:
+def node_points(node) -> list[tuple[float, float]]:
     return [(float(p[1]), float(p[2])) for p in sexpr.find_all(sexpr.find(node, "pts") or [], "xy")]
 
 
@@ -43,7 +43,7 @@ def _courtyard(fp: list, layer: str) -> list[tuple[float, float]]:
             continue
         kind = str(g[0])
         if kind == "fp_poly":
-            pts += _pts(g)
+            pts += node_points(g)
         elif kind in ("fp_line", "fp_rect"):
             s, e = sexpr.find(g, "start"), sexpr.find(g, "end")
             a, b = (float(s[1]), float(s[2])), (float(e[1]), float(e[2]))
@@ -61,7 +61,7 @@ def _courtyard(fp: list, layer: str) -> list[tuple[float, float]]:
     return pts
 
 
-def _rule_areas(tree: list, kinds: tuple = ("footprints", "pads")) -> list[dict]:
+def rule_areas(tree: list, kinds: tuple = ("footprints", "pads")) -> list[dict]:
     """Every keep-out zone that forbids one of `kinds` (default footprints or pads): board level and inside footprints
     (stored in board coordinates)."""
     out = []
@@ -77,7 +77,7 @@ def _rule_areas(tree: list, kinds: tuple = ("footprints", "pads")) -> list[dict]
             lay = sexpr.find(z, "layers") or sexpr.find(z, "layer") or []
             layers = [str(x) for x in lay[1:]]
             poly = sexpr.find(sexpr.find(z, "polygon") or [], "pts")
-            pts = _pts(sexpr.find(z, "polygon") or []) if poly else []
+            pts = node_points(sexpr.find(z, "polygon") or []) if poly else []
             if len(pts) < 3:
                 continue
             out.append({"name": str(sexpr.value(z, "name", "")), "owner": owner, "forbids": forbids, "layers": layers,
@@ -99,7 +99,7 @@ def violations(pcb: Path | str) -> list[dict]:
     overlaps a rule area that forbids footprints. One violation per footprint, for the first area it overlaps, as KiCad does. A footprint without courtyard is checked by the bounding box of its pads."""
     tree = sexpr.loads(Path(pcb).read_text())
     t = tree[0] if tree and isinstance(tree[0], list) and tree[0] and tree[0][0] == "kicad_pcb" else tree
-    areas = _rule_areas(t)
+    areas = rule_areas(t)
     if not areas:
         return []
     out = []
@@ -200,7 +200,7 @@ def placement_areas(design, libs) -> list[dict]:
         if design.raw.get("blocks"):
             from ...core import blocks
             pl = blocks.anchor(design, c.ref) or pl  # a member of a fixed block
-        for a in _rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
+        for a in rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
             # library zones are in footprint coordinates (pcb.py writes them moved to the part); only a part with a
             # set position gives a fixed area for the placer
             if "x" not in pl or "y" not in pl:

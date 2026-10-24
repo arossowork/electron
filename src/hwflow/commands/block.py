@@ -9,10 +9,11 @@ from ..core.libs import Libs
 
 
 def cmd_block(a) -> int:
-    """`hwflow block list|show|check|extract`: the layout block library (src/hwflow/blocks.py)."""
+    """`hwflow block list|show|check|extract`: the layout block library (src/hwflow/core/blocks.py)."""
     import tempfile
 
     from ..core import blocks
+    from ..verify import blocks as authoring
     d = Design.load(a.project) if a.project else None
     if a.what == "list":
         for n in blocks.names(d):
@@ -27,7 +28,7 @@ def cmd_block(a) -> int:
         return 0
     if a.what == "check":
         w = Path(a.out) if a.out else Path(tempfile.mkdtemp(prefix=f"block_{a.arg}_"))
-        r = blocks.verify(a.arg, w, d)
+        r = authoring.verify(a.arg, w, d)
         for x in r["drc"]:
             if x["sev"] == "error":
                 print(f"  {x['type']}: {x['msg']} {x['items']}")
@@ -41,7 +42,7 @@ def cmd_block(a) -> int:
         print("hwflow block extract <board.kicad_pcb> --refs U2,L1 --name <name> --source <text>")
         return 2
     roles = dict(x.split("=", 1) for x in a.roles.split(",")) if a.roles else None
-    b = blocks.extract(Path(a.arg), refs, a.name, a.source or "", roles, d, Libs(design=d) if d else Libs())
+    b = authoring.extract(Path(a.arg), refs, a.name, a.source or "", roles, d, Libs(design=d) if d else Libs())
     f = blocks.write(b, Path(a.out) if a.out else None)
     print(f"wrote {f}: {len(b['roles'])} parts, ports {', '.join(b['ports'])}, {len(b['copper']['tracks'])} tracks, "
           f"{len(b['copper']['vias'])} vias")

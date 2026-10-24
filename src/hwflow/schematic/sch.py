@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from ..core import sexpr
-from ..core.design import Design, _natkey
+from ..core.design import Design, natkey
 from ..core.sexpr import Q
 
 SCH_VERSION = "20250114"
@@ -76,7 +76,7 @@ def build_schematic(design: Design, libs) -> list:
     embedded = set()
     items = []
     instances = []  # (ref, unit, sym, comp)
-    for c in sorted(design.components.values(), key=lambda c: _natkey(c.ref)):
+    for c in sorted(design.components.values(), key=lambda c: natkey(c.ref)):
         if c.get("virtual"):
             continue
         sym = libs.symbol(c.get("symbol"))

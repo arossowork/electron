@@ -18,7 +18,7 @@ sys_path = str(ROOT / "src")
 import sys  # noqa: E402
 
 sys.path.insert(0, sys_path)
-from hwflow import placer  # noqa: E402
+from hwflow.layout.place import placer  # noqa: E402
 from hwflow.core.design import Design  # noqa: E402
 from hwflow.core.libs import Libs  # noqa: E402
 

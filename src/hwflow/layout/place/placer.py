@@ -14,7 +14,7 @@ from ...core.geometry import COURTYARD_MARGIN, Part, Parts, Rigid, rot  # noqa: 
 
 def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[str, Part]:
     parts = Parts()
-    from . import keepout
+    from ..board import keepout
     parts.areas = keepout.placement_areas(design, libs)
     for c in design.components.values():
         if c.get("virtual"):
@@ -71,12 +71,12 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
     for a, b in ((pa, pb), (pb, pa)):
         if a.tht and b.sides:
             for n in a.tht:
-                pad = _pad_box(a, n)
+                pad = part_pad_box(a, n)
                 total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
     return total
 
 
-def _pad_box(p: "Part", n):
+def part_pad_box(p: "Part", n):
     x, y = p.pad(n)
     w, h = (p.pad_size or {}).get(n, (0.0, 0.0))
     if p.r % 180:
@@ -367,7 +367,7 @@ class Placer:
             keys = [k for k, g in self.pad_grp.items() if g == gi]
             refs = {k[0] for k in keys}
             if refs and all(self.parts[r].fixed for r in refs):
-                pts = [c for k in keys for c in _corners(_pad_box(self.parts[k[0]], k[1]))]
+                pts = [c for k in keys for c in _corners(part_pad_box(self.parts[k[0]], k[1]))]
                 hull = MultiPoint(pts).convex_hull
                 if hull.area > 1.0:
                     self.iso_hulls.append((hull, refs, f"isolation group {gi + 1} area"))
@@ -375,7 +375,7 @@ class Placer:
             self.pad_grp = {}
         self.reach = max(self.iso_need + self.iso_between + list(cls.values()) + [0.0]) + 1.0
         self.part_pads = {r: [k for k in self.pad_grp if k[0] == r] for r in self.parts} if self.pad_grp else {}
-        from . import floorplan
+        from ...core import floorplan
         self.regions, self.region_start = floorplan.placer_regions(self.d, self.parts)  # design.yaml floorplan.regions
 
     # ---- routing corridors of the constrained nets ----------------------------------------------------------------
@@ -385,7 +385,7 @@ class Placer:
         `layers` and the nets of a floorplan region with `nets`. self.cor: (net, pads, track width, layers it may use,
         static obstacles [(polygon, spacing, name)]): the conductive keep-outs its region keeps the isolation from and
         the rule areas without tracks on every layer it may use."""
-        from . import floorplan
+        from ...core import floorplan
         from ..board import pcb
         d = self.d
         self.cor, self.cor_part = [], {}
@@ -481,7 +481,7 @@ class Placer:
                 if m == n or not self._cor_blocks(pq, pn, L):
                     continue
                 need = self._cor_space(n, m)
-                obs.append((self._pad_box(pq, pn), pn in pq.round, need, f"{q}.{pn} {m or 'no net'} {need:g} mm"))
+                obs.append((self.part_pad_box(pq, pn), pn in pq.round, need, f"{q}.{pn} {m or 'no net'} {need:g} mm"))
         total, links = 0.0, []
         for a, b in tree:
             W, lim = self._cor_link(pts[a], pts[b], self._cor_trim(pads[a]), self._cor_trim(pads[b]), w, obs, static)
@@ -584,7 +584,7 @@ class Placer:
         return list(_BLOCKS[key])
 
     def _block_check(self, nets, fixed) -> list[str]:
-        from ..route import corridor
+        from . import corridor
         libs = getattr(self.parts, "libs", None)
         if libs is None:
             from ...core.libs import Libs
@@ -592,13 +592,13 @@ class Placer:
         model = corridor.Model(self.d, libs, parts=self.parts, use=set(fixed))
         out = []
         for n in nets:
-            nodes = corridor._nodes(model, self.d, n, {})
+            nodes = corridor.corridor_nodes(model, self.d, n, {})
             if nodes is None or len(nodes) < 2:
                 continue
             w = model.width(n)
-            if corridor._connects(model, n, nodes, w, w > model.floor + corridor.EPS):
+            if corridor.corridor_connects(model, n, nodes, w, w > model.floor + corridor.EPS):
                 continue
-            f = corridor._finding(model, self.d, n, nodes, w, fixed_only=True)
+            f = corridor.corridor_finding(model, self.d, n, nodes, w, fixed_only=True)
             out.append(f"corridor {n} blocked between fixed parts: {f['msg']}")
         return out
 
@@ -631,7 +631,7 @@ class Placer:
                 continue
             cu = p.cu.get(n) if p.cu else None
             nl = self._blk_layers if cu is None or "*" in cu else min(self._blk_layers, len(cu))
-            b = _pad_box(p, n)
+            b = part_pad_box(p, n)
             boxes.append((b[0] - h, b[1] - h, b[2] + h, b[3] + h, nl))
         if not boxes:
             return None
@@ -724,7 +724,7 @@ class Placer:
             if owner != r and not self._same(owner, r) and sides & set(p.sides or ()):
                 for n in p.pads:
                     if n not in p.nocu:
-                        c += _overlap(self._pad_box(p, n), box)
+                        c += _overlap(self.part_pad_box(p, n), box)
         for hull, refs, _ in self.iso_hulls:
             if r not in refs and not any(self._same(r, q) for q in refs):
                 c += sum(_poly_overlap(b, hull) for b in (p.side_box("front"), p.side_box("back")) if b)
@@ -754,7 +754,7 @@ class Placer:
                 if b:
                     inside += self._in_region((b[0] + m, b[1] + m, b[2] - m, b[3] - m), g)
         for n in g["pads"].get(p.ref, ()):  # a pad outside is an isolation error: weighed like 10 times its area
-            b = _pad_box(p, n)
+            b = part_pad_box(p, n)
             pads += REGION_PAD_W * ((b[2] - b[0]) * (b[3] - b[1]) - self._in_region(b, g))
         return out, inside, pads
 
@@ -801,9 +801,9 @@ class Placer:
         return out
 
     def _boxes(self, p):
-        return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self._pad_box(p, n) for n in p.pads]
+        return [b for b in (p.side_box("front"), p.side_box("back")) if b] + [self.part_pad_box(p, n) for n in p.pads]
 
-    _pad_box = staticmethod(_pad_box)
+    part_pad_box = staticmethod(part_pad_box)
 
     def _iso_short(self, a, b):
         """Shortfall (mm) of the copper gap between pads a and b (ref, pad) below what they need: the creepage of a
@@ -819,7 +819,7 @@ class Placer:
                 need = max(need, self.iso_between[ga])
         if need <= 0:
             return 0.0
-        ba, bb = self._pad_box(self.parts[a[0]], a[1]), self._pad_box(self.parts[b[0]], b[1])
+        ba, bb = self.part_pad_box(self.parts[a[0]], a[1]), self.part_pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
 
@@ -1481,7 +1481,7 @@ class Placer:
         for r in P:
             if self._ko_cost(r) > 0.01:
                 yards = [b for b in (P[r].side_box("front"), P[r].side_box("back")) if b]
-                pads = [self._pad_box(P[r], k) for k in P[r].pads if k not in P[r].nocu]
+                pads = [self.part_pad_box(P[r], k) for k in P[r].pads if k not in P[r].nocu]
                 names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and (
                     any(_overlap(bx, box) > 0 and self._in_area(bx, o, n, courtyard=True) for bx in yards)
                     or any(_overlap(bx, box) > 0 and self._in_area(bx, o, n) for bx in pads))]

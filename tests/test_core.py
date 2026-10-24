@@ -4,14 +4,15 @@ from pathlib import Path
 import pytest
 
 from hwflow.core import sexpr
-from hwflow.core.design import Design, check, parse_value, snap_e
-from hwflow.layout.board import pcb
+from hwflow.core.design import Design, parse_value, snap_e
+from hwflow.verify.checks import check
+from hwflow.layout.route import krt
 from hwflow.layout.board.pcb import ipc2221_width_mm
-from hwflow.postlayout import microstrip
+from hwflow.verify.postlayout import microstrip
 
 EX = "examples/sensor_preamp"
 needs_a_router = pytest.mark.skipif(
-    not ((pcb.krt_dir() / "py_router" / "route.py").exists() or Path(pcb.freerouting_jar()).exists()),
+    not ((krt.krt_dir() / "py_router" / "route.py").exists() or Path(krt.freerouting_jar()).exists()),
     reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
 
@@ -97,7 +98,7 @@ def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
 
 def test_cpwg_matches_openems_reference():
     """Trace 0.25 mm wide, 0.2 mm from a same-layer pour on 1.6 mm FR-4: openEMS TDR gave 86.5 ohm."""
-    from hwflow.postlayout import cpwg_z0, microstrip
+    from hwflow.verify.postlayout import cpwg_z0, microstrip
     z, _ = cpwg_z0(0.25, 0.2, 1.6, 4.3)
     assert abs(z - 86.5) / 86.5 < 0.05
     assert microstrip(0.25, 1.6, 0.035, 4.3)[0] > 120  # the pour-free formula overestimates here
@@ -129,7 +130,7 @@ def test_post_layout_inductors_are_damped(tmp_path):
     import json
     import shutil
     from hwflow.cli import main
-    from hwflow import postlayout
+    from hwflow.verify import postlayout
     proj = tmp_path / "p"
     shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
     main(["build", str(proj), "--until", "layout"])
@@ -469,7 +470,7 @@ def test_monte_carlo_runs_once_per_design(tmp_path, capsys):
 def test_router_retries_a_class_in_another_net_order(tmp_path):
     """Backlog 40: a width class that leaves a net unrouted is routed again in another order; the best is kept."""
     import json
-    from hwflow.layout.board.pcb import route_class
+    from hwflow.layout.route.krt import route_class
     calls = []
 
     def run(args):

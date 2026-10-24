@@ -6,4 +6,10 @@ import sys
 
 from .core import blocks as _m
 
+from .verify import blocks as _x
+
+# block authoring moved to hwflow.verify.blocks; the old names stay reachable through the alias
+for _n in ['extract', 'verify']:
+    setattr(_m, _n, getattr(_x, _n))
+
 sys.modules[__name__] = _m

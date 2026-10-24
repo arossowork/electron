@@ -101,3 +101,8 @@ class Rigid:
 
 
 COURTYARD_MARGIN = 0.25  # mm around each courtyard in the placer's boxes
+
+
+def cu_layers(n: int) -> list[str]:
+    """Copper layer names of an n-layer board, front to back."""
+    return ["F.Cu"] + (["In1.Cu", "In2.Cu"] if n == 4 else []) + ["B.Cu"]

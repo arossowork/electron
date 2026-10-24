@@ -207,7 +207,7 @@ def component_lines(design: Design, nm: NodeMap, values: dict[str, float] | None
     return [ln for b in blocks for ln in b.lines], unmodeled, libs
 
 
-def _subst(text: str, nm: NodeMap, nets: set[str]) -> str:
+def subst_nets(text: str, nm: NodeMap, nets: set[str]) -> str:
     text = re.sub(r"\$\(([^)]+)\)", lambda m: nm.term(m.group(1)), text)
 
     def vrep(m):
@@ -225,7 +225,7 @@ def testbench_blocks(design: Design, nm: NodeMap) -> list[Block]:
     out = []
     for s in sim.get("sources") or []:
         if "line" in s:
-            ln = _subst(s["line"], nm, nets)
+            ln = subst_nets(s["line"], nm, nets)
         else:
             ln = f"{s['name']} {nm.term(str(s['p']))} {nm.term(str(s['n']))} {s['value']}"
         name = ln.split()[0].lower() if ln.split() else "?"
@@ -285,13 +285,13 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     lines += body
     if sim.get("leaks", True) is not False and not any("rshunt" in str(o).lower() for o in sim.get("options") or []):
         from . import simrobust  # sim.options rshunt already ties every node to ground
-        lines += simrobust.leak_lines(body, [str(MODELS)] + sorted(libs) + includes, simrobust._leak_ohm(design))
+        lines += simrobust.leak_lines(body, [str(MODELS)] + sorted(libs) + includes, simrobust.leak_ohm(design))
     lines.append(f".options temp={temp if temp is not None else sim.get('temp', 25)}")
     for opt in sim.get("options") or []:
         lines.append(f".options {opt}")
     lines.append(".control")
     lines.append("set noaskquit")
-    cmd_text = _subst(analysis.get("cmd", "op"), nm, nets)
+    cmd_text = subst_nets(analysis.get("cmd", "op"), nm, nets)
     pre, rest = split_cmd(cmd_text.splitlines())
     if mod is not None and mod.drop_alters:
         present = {ln.split()[0].lower() for ln in body if ln.split() and ln[0] not in "*.+"}
@@ -313,12 +313,12 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
         if "meas" in m:
             kind = analysis.get("cmd", "op").split()[0].lower()
             kind = {"noise": "ac"}.get(kind, kind)
-            lines.append(f"meas {kind} {m['name']} {_subst(m['meas'], nm, nets)}")
+            lines.append(f"meas {kind} {m['name']} {subst_nets(m['meas'], nm, nets)}")
         else:
-            lines.append(f"let {m['name']} = {_subst(m['expr'], nm, nets)}")
+            lines.append(f"let {m['name']} = {subst_nets(m['expr'], nm, nets)}")
         lines.append(f"echo HWF {m['name']} $&{m['name']}")
     for ln in analysis.get("control") or []:
-        lines.append(_subst(ln, nm, nets))
+        lines.append(subst_nets(ln, nm, nets))
     lines.append("quit")  # without it `ngspice -b` runs an op after the control section, which may not converge
     lines += [".endc", ".end", ""]
     return "\n".join(lines), unmodeled
@@ -330,7 +330,7 @@ def _alter_target(line: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
-_NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+NUM_PATTERN = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
 CRASH_RE = re.compile(r"free\(\): invalid|double free|corrupted (size|double)|malloc\(\)|segmentation fault|"
@@ -379,7 +379,7 @@ def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
 def parse_measures(out: str) -> dict[str, float | None]:
     res: dict[str, float | None] = {}
     for m in re.finditer(r"^HWF (\S+) (.*)$", out, re.M):
-        nums = re.findall(_NUM, m.group(2))
+        nums = re.findall(NUM_PATTERN, m.group(2))
         res[m.group(1)] = float(nums[0]) if nums and "&" not in m.group(2) else None
     return res
 
@@ -427,7 +427,7 @@ DETAIL_RE = re.compile(r"trouble with|no such vector|not found|singular matrix|t
 _NGSPICE_VERSION: list[str] = []
 
 
-def _cache_key(netlist: str) -> str:
+def netlist_cache_key(netlist: str) -> str:
     """Hash of everything that decides the ngspice output: the exact netlist text, the ngspice version and the
     content of every file the netlist includes (model files are named by path, so the path alone proves nothing)."""
     if not _NGSPICE_VERSION:
@@ -450,7 +450,7 @@ def run_cached(netlist: str, workdir: Path, name: str, cache: Path | None = None
     The .cir and .log files land in `workdir` either way."""
     # Result cache (L6): a netlist that did not change is not simulated again. The measure definitions are
     # lines of the netlist; evaluation (min, max, scale) reruns on the stored ngspice output.
-    cfile = cache / f"{_cache_key(netlist)}.json" if cache else None
+    cfile = cache / f"{netlist_cache_key(netlist)}.json" if cache else None
     hit = None
     try:
         hit = cfile and json.loads(cfile.read_text())
@@ -701,7 +701,7 @@ def derating_audit(design: Design, workdir: Path) -> list[dict]:
     net, _ = build_netlist(design, op, nm, ammeters=True)
     out, _ = run_ngspice(net, workdir, "derating")
     vals = {}
-    for m in re.finditer(rf"^\s*(\S+)\s*=\s*({_NUM})\s*$", out, re.M):
+    for m in re.finditer(rf"^\s*(\S+)\s*=\s*({NUM_PATTERN})\s*$", out, re.M):
         vals[m.group(1).lower()] = float(m.group(2))
     ta = float(sim.get("ambient_c", 25))
     rows = []

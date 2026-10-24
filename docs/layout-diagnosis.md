@@ -1,6 +1,6 @@
 # Layout diagnosis
 
-A failing layout build ends with a diagnosis (`src/hwflow/diagnose.py`) that answers one question: can more layout attempts fix this, or does the loop go back to an earlier stage? It is deterministic and uses only the boards of the build's attempts and the builds before it.
+A failing layout build ends with a diagnosis (`src/hwflow/layout/diagnose.py`) that answers one question: can more layout attempts fix this, or does the loop go back to an earlier stage? It is deterministic and uses only the boards of the build's attempts and the builds before it.
 
 ## What it looks at
 
@@ -69,7 +69,7 @@ Any verdict other than `layout` is `BLOCKED`. hwflow then refuses the next layou
 
 ## Barrier and channel proofs
 
-`src/hwflow/barrier.py`, `findings(design, libs, parts=None, board=None)`. Both checks are proofs of impossibility, per net.
+`src/hwflow/layout/place/barrier.py`, `findings(design, libs, parts=None, board=None)`. Both checks are proofs of impossibility, per net.
 
 **Room model.** For every net and copper layer, the region its copper may occupy is the board inset by the 0.3 mm edge clearance, minus panel cutouts, minus the rule areas that forbid tracks (footprint keep-outs such as the antenna, `KO_*` and notch parts), minus the `.kicad_dru` `disallow track/via` rules that name the net (`A.intersectsArea(...) && A.NetClass/NetName == ...`), minus the pads of other nets grown by the clearance of the pair, minus non-plated holes. The clearance of a pair includes the `board.isolation` clearance between a member and a non-member. Each subtracted item is a lower bound of what the rules forbid:
 - the smallest clearance any rule gives the pair (a `memberOfFootprint` rule lowers it at that part, an unread clearance rule lowers it everywhere);
@@ -102,7 +102,7 @@ On the baseline, the two accepted keep-out errors are the courtyards of BT1 and 
 
 On ht3, the unrouted K1_COIL_A/B and SENS_EN are no barrier and no channel. Without vias and without necks, a track of 0.35 mm (K1_COIL_A/B) and 0.31 mm (SENS_EN) still connects all their pads in every attempt, against a class width of 0.25 mm. The tightest spot is the pad escape between the 0.5 mm-pitch pads of U4 and U3.
 
-## Cut capacity (`src/hwflow/cutcap.py`, check `cut`)
+## Cut capacity (`src/hwflow/layout/place/cutcap.py`, check `cut`)
 
 **What it proves.** A cut is a curve across the board: a straight chord from edge to edge, or the boundary of a part's courtyard (or a cluster's) grown by 0.5, 1 or 2 mm. Every net with pads on both sides must cross it on some copper layer. If the copper the crossings need is more than the free length of the cut, no placement of the other parts and no router can route the board.
 
@@ -135,7 +135,7 @@ The demand counts only nets whose pads are all on fixed parts or on parts that a
 
 The bound is too weak to explain the home-thermostat-3 failures. U2, U4 and U5 fail on local geometry: escape between pads, and necks that conflict with neighbours. One crossing per net per cut does not see that. The 74 × 46 two-layer board (95 unrouted) is at about 10 % of a single cut's capacity. Its failure is total wire length against area, which no single cut sees either. The check stays as a cheap guard for gross cases, such as a part walled in by keep-outs or a narrow neck of board, and it gives zero false positives by construction.
 
-## Corridor proof (`src/hwflow/corridor.py`, check `corridor`)
+## Corridor proof (`src/hwflow/layout/place/corridor.py`, check `corridor`)
 
 **Why a module of its own.** `barrier` models the rules that apply to every net. Some nets carry rules of their own that shrink their room further. `corridor.Model` subclasses `barrier.Model` and adds those rules, so the room model and its upper-bound argument are reused, not copied. It reports only nets that `barrier` does not already cut apart, so the same net is never reported twice. `barrier` itself is unchanged, apart from two hooks: `net_copper` (the layers a net may use) and `neck_len` (the neck length bound).
 
@@ -157,7 +157,7 @@ The region outline itself is no barrier. Copper outside the region is only a `re
 
 The verdict is back to `architecture` when all blockers are fixed, else to `layout`. After placement, `fixed` says whether the finding holds with fixed copper alone. `corridor.margin(...)` lists every constrained net's widest corridor, failing or not.
 
-**Neck needed, as data for the router.** `corridor.neck_needed(...)` returns the constrained nets that connect at their width only with necks: net -> `{need_mm, plain_mm}`. `pcb.krt_route` computes it on the board it routes. Such a net gets a pass of its own, ahead of the other nets of its isolation side. It skips the full-width pass, which cannot route it, and routes at the board track width (when narrower than the net), then at `routing.neck_floor` (0.15 mm, or `min_track_mm` when larger). `routing.widen` then widens it back to its width wherever the clearances allow. The pass is accepted when no narrow stretch is longer than `NECK_MAX_MM`. The same neck-down runs for any net a pass leaves open, signal or power, not only for nets wider than the board track. The net's `layers` and its isolation keep-outs (between_mm included) apply to every neck pass. The layout notes give each necked net's narrow length, total length and longest neck, and say when a neck width left it open.
+**Neck needed, as data for the router.** `corridor.neck_needed(...)` returns the constrained nets that connect at their width only with necks: net -> `{need_mm, plain_mm}`. `krt.krt_route` computes it on the board it routes. Such a net gets a pass of its own, ahead of the other nets of its isolation side. It skips the full-width pass, which cannot route it, and routes at the board track width (when narrower than the net), then at `routing.neck_floor` (0.15 mm, or `min_track_mm` when larger). `routing.widen` then widens it back to its width wherever the clearances allow. The pass is accepted when no narrow stretch is longer than `NECK_MAX_MM`. The same neck-down runs for any net a pass leaves open, signal or power, not only for nets wider than the board track. The net's `layers` and its isolation keep-outs (between_mm included) apply to every neck pass. The layout notes give each necked net's narrow length, total length and longest neck, and say when a neck width left it open.
 
 **Calibration.**
 - **home-thermostat-3, before placement** (0.6 s; 1.0 s with `margin`): it fires on AC_ROOM1. The net is 1.0 mm wide, F.Cu only, and runs from K1.14 to J1.2.

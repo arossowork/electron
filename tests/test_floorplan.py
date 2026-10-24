@@ -6,7 +6,8 @@ import pytest
 import yaml
 
 from hwflow.layout.place import floorplan, placer
-from hwflow.core.design import Design, check
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
 from hwflow.core.libs import Libs
 
 

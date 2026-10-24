@@ -1,4 +1,4 @@
-"""Seed route: copper for a net the corridor proof connects but the router leaves open (pcb.krt_route, after the
+"""Seed route: copper for a net the corridor proof connects but the router leaves open (krt.krt_route, after the
 neck-down fallback).
 
 The router keeps routing.ISO_SLACK more than the rule from every isolation keep-out and moves on a 0.1 mm grid, so a
@@ -44,7 +44,8 @@ from shapely.ops import unary_union
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
-from . import barrier, corridor, routing
+from ..place import barrier, corridor
+from ..board import routing
 from ...core import sexpr
 from ...core.sexpr import Q
 
@@ -246,10 +247,10 @@ def _pieces(a, b):
 
 def _route_net(model, design, net, board, placed, floor) -> dict:
     w = model.width(net)
-    nodes = corridor._nodes(model, design, net, {})
+    nodes = corridor.corridor_nodes(model, design, net, {})
     if nodes is None or len(nodes) < 2:
         return {"ok": False, "msg": f"seed route {net}: not possible (fewer than two pads on its layers)"}
-    if not corridor._connects(model, net, nodes, w, w > model.floor + EPS):
+    if not corridor.corridor_connects(model, net, nodes, w, w > model.floor + EPS):
         return {"ok": False, "msg": f"seed route {net}: not possible (the corridor proof does not connect it at {w:g} mm)"}
     lays = model.net_copper(net)
     obst = {L: _obstacles(model, net, L, board, placed) for L in lays}

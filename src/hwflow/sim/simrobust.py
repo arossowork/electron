@@ -265,7 +265,7 @@ def leak_lines(body: list[str], files, ohm: float = 1e9) -> list[str]:
     return out
 
 
-def _leak_ohm(design: Design) -> float:
+def leak_ohm(design: Design) -> float:
     lk = (design.raw.get("sim") or {}).get("leaks", True)
     return float(parse_value(lk.get("ohm", 1e9))) if isinstance(lk, dict) else 1e9
 
@@ -331,7 +331,7 @@ def _leak_note(design: Design) -> str:
         return "sim.leaks is false, so ngspice may not converge"
     if _rshunt(design):
         return "sim.options rshunt already ties every node to ground"
-    return f"the simulation adds a noiseless {_leak_ohm(design):g} ohm leak to ground there (sim.leaks: false turns it off)"
+    return f"the simulation adds a noiseless {leak_ohm(design):g} ohm leak to ground there (sim.leaks: false turns it off)"
 
 
 def leak_report(design: Design, workdir: Path, cache: Path | None) -> list[dict]:
@@ -344,7 +344,7 @@ def leak_report(design: Design, workdir: Path, cache: Path | None) -> list[dict]
     isl, caps = design_islands(design)
     if not isl:
         return []
-    ohm = _leak_ohm(design)
+    ohm = leak_ohm(design)
     probe = op_probe(design, {"name": "leak_op", "cmd": "op"}, None, None, workdir, cache)
     if not probe["clean"]:
         rung, _, p2, _, _ = find_op(design, {"name": "leak_op", "cmd": "op"}, None, None, workdir, cache, "_leak")
@@ -391,7 +391,7 @@ def _lock(key: str) -> threading.Lock:
 
 def _run(netlist: str, workdir: Path, name: str, cache, timeout: float):
     """run_cached with one run per identical netlist at a time (parallel jobs share OP probes)."""
-    with _lock(spice._cache_key(netlist) if cache else name):
+    with _lock(spice.netlist_cache_key(netlist) if cache else name):
         return spice.run_cached(netlist, workdir, name, cache, timeout)
 
 
@@ -462,7 +462,7 @@ def measured_nodes(design: Design, analysis: dict, nm) -> set[str]:
     text = "\n".join([analysis.get("cmd", "")] + [str(m.get("meas") or m.get("expr") or "")
                                                    for m in analysis.get("measures") or []]
                      + [str(x) for x in analysis.get("control") or []])
-    text = spice._subst(text, nm, nets)
+    text = spice.subst_nets(text, nm, nets)
     return {n.lower() for m in _VREF.finditer(text) for n in m.groups() if n}
 
 
@@ -651,7 +651,7 @@ def extract_scope(design: Design, analysis: dict, nm=None) -> dict:
             by_node.setdefault(n, []).append(eid)
     boundary = {nm.net(b) for b in sc["boundary"]}
     seeds = {nm.net(n) for n in sc["nets"]} | measured_nodes(design, analysis, nm)
-    text = spice._subst("\n".join([analysis.get("cmd", "")] + [str(m.get("meas") or m.get("expr") or "")
+    text = spice.subst_nets("\n".join([analysis.get("cmd", "")] + [str(m.get("meas") or m.get("expr") or "")
                                                                  for m in analysis.get("measures") or []]),
                         nm, set(design.nets()))
     named = {m.lower() for m in re.findall(r"\bi\(\s*([^\s()]+)\s*\)", text, re.I)}

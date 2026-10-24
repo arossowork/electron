@@ -53,11 +53,11 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
-from ..place import keepout
+from ..board import keepout
 from ..board import pcb
-from . import routing
+from ..board import routing
 from ...core import sexpr
-from ..place.placer import rot
+from .placer import rot
 
 EDGE_MM = 0.3      # min_copper_edge_clearance written by pcb.write_project
 HOLE_MM = 0.25     # min_hole_clearance written by pcb.write_project
@@ -110,7 +110,7 @@ def _zones(tree) -> list[dict]:
             continue
         forbids = {k for k in ("tracks", "vias", "pads") if (sexpr.find(ko, k) or [0, 0])[1] == "not_allowed"}
         lay = sexpr.find(z, "layers") or sexpr.find(z, "layer") or []
-        pts = keepout._pts(sexpr.find(z, "polygon") or [])
+        pts = keepout.node_points(sexpr.find(z, "polygon") or [])
         if len(pts) >= 3:
             out.append({"name": str(sexpr.value(z, "name", "")), "layers": [str(x) for x in lay[1:]],
                         "forbids": forbids, "poly": pts})
@@ -278,7 +278,7 @@ class Model:
             for z in _zones(["root"] + list(blocks.keepout_zones(design, parts))):  # board coordinates already
                 self.areas.append({"name": z["name"], "owner": None, "forbids": z["forbids"],
                                    "layers": routing.pad_layers(z["layers"], self.copper), "poly": Polygon(z["poly"]).buffer(0)})
-        from ..place import floorplan
+        from ...core import floorplan
         cuts += [c["poly"] for c in floorplan.cuts(design)]  # floorplan cut regions: holes and notches of the board
         W, H = float(b["width_mm"]), float(b["height_mm"])
         self.outline = box(EDGE_MM, EDGE_MM, W - EDGE_MM, H - EDGE_MM)
@@ -491,7 +491,7 @@ class Model:
 
 # ------------------------------------------------------------------ the checks
 
-def _nodes(model: Model, design, net: str, regions: dict) -> list[dict]:
+def barrier_nodes(model: Model, design, net: str, regions: dict) -> list[dict]:
     """Own pads of `net` with known position, plus (before placement) one node per floorplan region a pad of the net
     must lie in (the whole region counts as reached: an over-estimate, so a finding still holds)."""
     nodes = [dict(p, region=False) for p in model.pads if p["net"] == net]
@@ -505,10 +505,11 @@ def _nodes(model: Model, design, net: str, regions: dict) -> list[dict]:
     return [n for n in nodes if not n["own"].is_empty]
 
 
-def _forced(design, libs) -> dict:
+def barrier_forced(design, libs) -> dict:
     """(ref, pin) -> region polygon for the pads a floorplan region forces before placement (members of a region and
     pads of a region's nets)."""
-    from ..place import floorplan, placer
+    from . import placer
+    from ...core import floorplan
     try:
         parts = placer.build_parts(design, libs)
         rules, _ = floorplan.placer_regions(design, parts)
@@ -527,7 +528,7 @@ def _forced(design, libs) -> dict:
     return out
 
 
-def _label(nodes, grp) -> str:
+def barrier_label(nodes, grp) -> str:
     xs = [f"{nodes[k]['ref']}.{nodes[k]['number']}" + (" (region)" if nodes[k].get("region") else "") for k in grp]
     return ", ".join(sorted(set(xs))[:4]) + (" ..." if len(set(xs)) > 4 else "")
 
@@ -570,7 +571,7 @@ def with_budgets(design, parts, fn):
     saved = getattr(design, "budget_widths", None)
     if parts is not None and not saved and design.raw.get("budgets"):
         try:
-            from .. import budgets
+            from ...sim import budgets
             design.budget_widths = budgets.widths(design, parts)[0]
         except Exception:  # noqa: BLE001 - a budget that cannot be estimated adds no width
             pass
@@ -582,10 +583,10 @@ def with_budgets(design, parts, fn):
 
 def _findings(design, libs, parts, board) -> list[dict]:
     model = Model(design, libs, parts, board)
-    forced = _forced(design, libs) if model.pre else {}
+    forced = barrier_forced(design, libs) if model.pre else {}
     out = []
     for net in sorted(design.nets()):
-        nodes = _nodes(model, design, net, forced)
+        nodes = barrier_nodes(model, design, net, forced)
         if len(nodes) < 2:
             continue
         g = model.groups(net, nodes, model.floor)
@@ -603,7 +604,7 @@ def _findings(design, libs, parts, board) -> list[dict]:
         base = fm.pads
         for f in out:
             net = f["nets"][0]
-            nodes = _nodes(model, design, net, {})
+            nodes = barrier_nodes(model, design, net, {})
             fm.pads, fm._free = [p for p in base if p["net"] != net] + nodes, {}
             w = model.floor if f["check"] == "barrier" else f["width_mm"]
             f["fixed"] = len(fm.groups(net, nodes, w, necks=f["check"] == "channel")) > 1
@@ -615,7 +616,7 @@ def _barrier(model, net, nodes, g) -> dict:
     gap = model.gap(net, nodes, g, model.floor)
     at = [round(gap[1][0], 2), round(gap[1][1], 2)] if gap else None
     refs = sorted({nodes[k]["ref"] for grp in g for k in grp} | set(who))
-    a, b = _label(nodes, g[0]), _label(nodes, g[1])
+    a, b = barrier_label(nodes, g[0]), barrier_label(nodes, g[1])
     where = f" near ({at[0]}, {at[1]})" if at else ""
     msg = (f"{net}: pads {a} and {b} are cut apart by {cause}{where}: no track of the {model.floor} mm minimum "
            f"connects them on any layer or through any via site. Options: move "
@@ -639,7 +640,7 @@ def _channel(model, net, nodes, g, w) -> dict:
     at = [round(gap[1][0], 2), round(gap[1][1], 2)] if gap else None
     refs = sorted({nodes[k]["ref"] for grp in g for k in grp})
     where = f" at ({at[0]}, {at[1]}) on {gap[2]}" if gap else ""
-    msg = (f"{net} ({w:g} mm class width): pads {_label(nodes, g[0])} and {_label(nodes, g[1])} connect only through "
+    msg = (f"{net} ({w:g} mm class width): pads {barrier_label(nodes, g[0])} and {barrier_label(nodes, g[1])} connect only through "
            f"a channel{where} where a track of at most {lo:.2f} mm fits (need {w + 2 * clr:.2f} mm with clearance, "
            f"have {lo + 2 * clr:.2f} mm) for longer than the {routing.NECK_MAX_MM:g} mm neck. Options: a narrower "
            f"net ({lo:.2f} mm: lower current or a looser copper budget), or move the geometry that makes the "

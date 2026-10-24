@@ -13,6 +13,7 @@ from shapely.ops import unary_union
 
 from ...core.settings import get_settings
 from ..board import kicad, pcb
+from . import krt
 from ...core import sexpr
 
 _NET = re.compile(r"\[([^\]]+)\]")
@@ -36,7 +37,7 @@ def score(drc: list[dict]) -> tuple[int, int]:
     return len(e), sum(x["type"] == "unconnected" for x in e)
 
 
-def _parse_item(desc: str, at) -> dict:
+def parse_item(desc: str, at) -> dict:
     m, ly = _NET.search(desc), _ON.search(desc)
     return {"kind": desc.split(" ", 1)[0], "net": m.group(1) if m else None, "layer": ly.group(1) if ly else None,
             "at": tuple(at) if at else None}
@@ -48,7 +49,7 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
     pour = set(d.ground_nets()) if d.board["gnd_pour"] else set()
     rip, islands, drop, centers, left = [], [], [], [], 0
     for x in errors(drc):
-        items = [_parse_item(s, a) for s, a in zip(x["items"], x.get("at") or [None] * len(x["items"]))]
+        items = [parse_item(s, a) for s, a in zip(x["items"], x.get("at") or [None] * len(x["items"]))]
         n0 = (len(rip), len(islands), len(drop))
         if x["type"] == "unconnected":
             zones = [i["net"] for i in items if i["net"] in pour]  # a split pour shows as zone-zone or pad-pad
@@ -208,7 +209,7 @@ def stitch_vias(d, board: Path, net: str) -> tuple[list[dict], int, bool]:
         area[g] = area.get(g, 0) + nodes[i][1].area
         held[g] = held.get(g, False) or holds[i]
     main = max(area, key=area.get)
-    from ..place import floorplan
+    from ...core import floorplan
     m = pcb.EDGE_CLEARANCE_MM + r + 0.1
     inner = floorplan.outline(d).buffer(-m, join_style="mitre")
     obst = _obstacles(d, board, net)
@@ -242,7 +243,7 @@ def stitch_vias(d, board: Path, net: str) -> tuple[list[dict], int, bool]:
 
 # ------------------------------------------------------------------ the loop
 
-def _thermal_keys(d, libs, parts) -> set:
+def thermal_keys(d, libs, parts) -> set:
     return {(round(v["x"], 2), round(v["y"], 2)) for v in pcb.thermal_vias(d, libs, parts)}
 
 
@@ -252,12 +253,12 @@ def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list,
     (time.time()) stops the router calls (subprocess.TimeoutExpired)."""
     src = workdir / f"{d.name}_rep.kicad_pcb"
     pcb.write_board(src, pcb.build_board(d, libs, parts, tracks, vias, island_removal=island))
-    n = len(pcb.KRT_VARIANTS)
-    variants = [pcb.KRT_VARIANTS[(attempt + j) % n] for j in range(1 + int(d.board.get("router_retries", 3)))]
-    cur, _, _, _ = pcb.krt_route(d, src, workdir, f"{d.name}_rep{attempt}_", nets=set(nets), keep_first=True, variants=variants,
+    n = len(krt.KRT_VARIANTS)
+    variants = [krt.KRT_VARIANTS[(attempt + j) % n] for j in range(1 + int(d.board.get("router_retries", 3)))]
+    cur, _, _, _ = krt.krt_route(d, src, workdir, f"{d.name}_rep{attempt}_", nets=set(nets), keep_first=True, variants=variants,
                                   deadline=deadline)
     rb = pcb.read_board(cur)
-    skip = _thermal_keys(d, libs, parts)  # build_board adds the declared thermal vias itself
+    skip = thermal_keys(d, libs, parts)  # build_board adds the declared thermal vias itself
     return ([dict(s) for s in rb["segments"] if s["net"]],
             [dict(v) for v in rb["vias"] if v["net"] and (round(v["x"], 2), round(v["y"], 2)) not in skip])
 

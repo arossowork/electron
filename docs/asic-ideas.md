@@ -342,7 +342,7 @@ analysis in the style of TritonRoute: for each pad, which directions a track of 
 Code: `src/hwflow/globalroute.py` (model, router, pin access, CLI `python -m hwflow.globalroute <proj> [--board B]
 [--access] [--pitch P]`), `tests/test_globalroute.py`, and the harness `scripts/groute_bench.py` (prep / route /
 predict). The module is generic. It contains no design names or design constants; every input comes from the
-board's rules and placement through `corridor.Model`. The hook in `pcb.krt_route` is off by default:
+board's rules and placement through `corridor.Model`. The hook in `krt.krt_route` is off by default:
 
 | switch | effect |
 |---|---|
@@ -549,14 +549,14 @@ The full home-thermostat-4 route was not run: the synthetic results favour neith
 ## Combined flow (`HWFLOW_FLOW=asic`)
 
 Experiment of 2026-10-23, same branch. One flow built from the pieces above, off by default: env `HWFLOW_FLOW=asic`
-or `placement: {flow: asic}` in design.yaml. Code: `src/hwflow/asicflow.py` (stages, density maps, pin access term,
+or `placement: {flow: asic}` in design.yaml. Code: `src/hwflow/layout/place/asicflow.py` (stages, density maps, pin access term,
 router helper), hooks in `Placer.run`, `gplace.Global.run` (`feedback`, `infl`), `Placer.legalize(refs=)` and
-`pcb.krt_route`. Tests: `tests/test_asic_ideas.py` (incremental pin access term with undo, walled pad, stage list,
+`krt.krt_route`. Tests: `tests/test_asic_ideas.py` (incremental pin access term with undo, walled pad, stage list,
 inflation). Harness: `scripts/asic_flow_bench.py` (one proxy sample per process, `--table` for the medians). Nothing
 in it names a design; every input is the board's rules and placement.
 
 ```
- placement (per placer seed)                                     routing (pcb.krt_route, every call)
+ placement (per placer seed)                                     routing (krt.krt_route, every call)
  ---------------------------                                     -----------------------------------
  1 macro      blocks / units >= 10x median courtyard?            5b pin access (globalroute.pin_access, 0.1-0.7 s)
               yes: mixed-size GP -> legalize macros ->              nets with a pad with 0 exits at its width but

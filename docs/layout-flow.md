@@ -5,8 +5,8 @@ repeats it over placer seeds with repair and area search. Every stage comes from
 `docs/asic-ideas.md`, and each stage was kept because it improved results there. Nothing in the flow names a design.
 Every input comes from the board rules, the floorplan and the placement.
 
-Code: `src/hwflow/asicflow.py` (stage order, density map, pin-access hint), `placer.py` (cost terms, legalization,
-detailed moves, anneal), `gplace.py` (global placement), `pinaccess.py`, `pcb.krt_route` and `regionroute.py`,
+Code: `src/hwflow/layout/place/asicflow.py` (stage order, density map, pin-access hint), `placer.py` (cost terms, legalization,
+detailed moves, anneal), `gplace.py` (global placement), `pinaccess.py`, `krt.krt_route` and `regionroute.py`,
 `repair.py`, `prune.py` (routing). Tests: `tests/test_layout_flow.py`.
 
 ## Placement (per placer seed, `placer.place` → `Placer.run` → `asicflow.place`)
@@ -35,7 +35,7 @@ detailed moves, anneal), `gplace.py` (global placement), `pinaccess.py`, `pcb.kr
 After the stages, `place` keeps the best seed. `unstick` (a grid search for a part stuck on a violation) still runs
 on a violation.
 
-## Routing (every `pcb.krt_route` call, including the repair's reroutes)
+## Routing (every `krt.krt_route` call, including the repair's reroutes)
 
 6. **Pin access** (`pinaccess.pin_access`, `asicflow.necked`, `HWFLOW_ASIC_NECK`). For each pad, 8 directions are
    checked on each of its copper layers. Each check asks whether a track of the net's width, and separately one of

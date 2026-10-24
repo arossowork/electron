@@ -61,7 +61,7 @@ from shapely.ops import linemerge, nearest_points, polygonize, unary_union
 from shapely.strtree import STRtree
 
 from ..board import pcb
-from ..route import routing
+from ..board import routing
 from .placer import rot
 
 NAME = "cut"
@@ -120,7 +120,8 @@ class Layout:
     """Pads, holes and keep-outs of the parts with a known position, and the parts a floorplan region holds."""
 
     def __init__(self, design, libs, parts=None):
-        from . import keepout, placer
+        from ..board import keepout
+        from . import placer
         b = design.board
         self.design = design
         self.W, self.H = float(b["width_mm"]), float(b["height_mm"])
@@ -163,7 +164,7 @@ class Layout:
         areas = []
         for ref, part in self.placed.items():
             tree = libs.footprint_tree(design.components[ref].get("footprint"))
-            for a in keepout._rule_areas(tree, ("tracks", "vias")):
+            for a in keepout.rule_areas(tree, ("tracks", "vias")):
                 if {"tracks", "vias"} <= set(a["forbids"]):
                     areas.append((a["name"], ref, a["layers"], a["poly"].exterior.coords, part))
         for name, ref, alayers, coords, part in areas:
@@ -192,7 +193,7 @@ class Layout:
         # before placement: parts a floorplan region holds (their courtyard stays inside the region polygon)
         self.held = {}
         if not self.post:
-            from . import floorplan
+            from ...core import floorplan
             try:
                 fp = floorplan.parse(design)
             except floorplan.FloorplanError:
@@ -207,7 +208,7 @@ class Layout:
                             self.held[ref] = poly if prev is None else prev.intersection(poly)
         self.stacked = False
         try:
-            from . import floorplan
+            from ...core import floorplan
             fp = floorplan.parse(design)
             self.stacked = bool(fp and fp.get("construction") == "stacked")
         except Exception:  # an invalid floorplan: the board outline is still the rectangle

@@ -14,6 +14,7 @@ import re
 
 import numpy as np
 
+RHO_CU = 1.72e-8    # ohm m, copper at the board temperature the post-layout extraction uses
 KINDS = ("copper_r", "copper_len")
 DETOUR = 1.0        # routed length over the Manhattan pad distance (width estimate before routing; `detour:` overrides).
 #                     home-thermostat-3: two routed guard paths measured 8.4 and 9.2 mOhm against 15.6 estimated at
@@ -111,7 +112,6 @@ def check(design) -> list[dict]:
 
 def via_r(board: dict) -> float:
     """Resistance of one plated via barrel (ohm), as postlayout.Extraction: 25 um plating, board thickness long."""
-    from ..postlayout import RHO_CU
     return RHO_CU * board["thickness_mm"] * 1e-3 / (math.pi * board["via_drill_mm"] * 1e-3 * 25e-6)
 
 
@@ -136,7 +136,6 @@ def widths(design, parts: dict) -> tuple[dict[str, float], list[dict]]:
     first. R = rho * L / (w * t) at 20 C with t = 35 um x copper_oz, as the post-layout extraction. The width rounds
     up to WIDTH_STEP and stops at board.budget_max_track_mm; a budget the cap cannot meet says so with the numbers.
     net_classes takes the larger of this width and the net's own, so a budget never narrows a net."""
-    from ..postlayout import RHO_CU
     b = design.board
     t_m = 0.035 * float(b["copper_oz"]) * 1e-3
     cap = float(b.get("budget_max_track_mm", MAX_WIDTH_MM))
@@ -237,7 +236,7 @@ def _roots(ex, pads) -> list | None:
     return [ex.uf.find(ex.pad_nodes[p]) for p in pads]
 
 
-def _leg_r(ex, leg: dict, design):
+def leg_r(ex, leg: dict, design):
     """(ohm, currents, pad pair text) of one leg on the routed copper, or None when it is not connected."""
     els = _net_graph(ex, leg["net"])
     if leg["a"] is not None:
@@ -288,7 +287,7 @@ def measure(design, ex) -> list[dict]:
         else:
             lim, tot, groups = float(bd["max_mohm"]), 0.0, {}
             for x in lg:
-                r = _leg_r(ex, x, design)
+                r = leg_r(ex, x, design)
                 if r is None:
                     missing.append(x["text"])
                     continue
