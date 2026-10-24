@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs once, on first start of an empty data volume.
+set -eu
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres <<SQL
+CREATE ROLE hwflow LOGIN PASSWORD '${HWFLOW_DB_PASSWORD}';
+CREATE ROLE temporal LOGIN PASSWORD '${TEMPORAL_DB_PASSWORD}';
+CREATE DATABASE hwflow OWNER hwflow;
+CREATE DATABASE temporal OWNER temporal;
+CREATE DATABASE temporal_visibility OWNER temporal;
+SQL
