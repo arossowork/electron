@@ -1,0 +1,74 @@
+name: platform
+
+# The hosted platform package (services/platform, issue #13): ruff, unit tests, and integration tests
+# against a real Postgres 17 prepared like deploy/compose/postgres-init.sh (owner role + non-owner app role).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/platform/**
+      - deploy/compose/postgres-init.sh
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/platform.yml
+  pull_request:
+    paths:
+      - services/platform/**
+      - deploy/compose/postgres-init.sh
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/platform.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGPASSWORD: postgres
+      POSTGRES_USER: postgres
+      HWFLOW_DB_PASSWORD: ci-owner
+      HWFLOW_APP_DB_PASSWORD: ci-app
+      TEMPORAL_DB_PASSWORD: ci-temporal
+      HWPLATFORM_TEST_OWNER_URL: postgresql://hwflow:ci-owner@127.0.0.1:5432/hwflow
+      HWPLATFORM_TEST_APP_URL: postgresql://hwflow_app:ci-app@127.0.0.1:5432/hwflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.10"
+          enable-cache: true
+      - name: Install
+        run: uv sync --package hwplatform --frozen
+      - name: Ruff
+        working-directory: services/platform
+        run: |
+          uv run --package hwplatform --frozen ruff check .
+          uv run --package hwplatform --frozen ruff format --check .
+      - name: Database roles (same script as the compose stack)
+        run: sh deploy/compose/postgres-init.sh
+      - name: Tests (fails if the integration tests were skipped)
+        working-directory: services/platform
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --package hwplatform --frozen pytest -v -rs 2>&1 | tee pytest.out
+          ! grep -q "^SKIPPED" pytest.out

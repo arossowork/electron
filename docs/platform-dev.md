@@ -6,7 +6,7 @@ Local stack for the hosted hwflow platform (epic #21, issue #8). It is independe
 
 | Service | Image (pinned) | Host port (127.0.0.1) | Role |
 |---|---|---|---|
-| postgres | `postgres:17.11-alpine` | 15432 (`PG_PORT`) | databases `hwflow`, `temporal`, `temporal_visibility`; roles `hwflow`, `temporal` |
+| postgres | `postgres:17.11-alpine` | 15432 (`PG_PORT`) | databases `hwflow`, `temporal`, `temporal_visibility`; roles `hwflow` (owner), `hwflow_app` (hwplatform API, non-owner, see `services/platform/README.md`), `temporal` |
 | temporal-schema (one-shot) | `temporalio/admin-tools:1.31.4` | - | creates/updates the Temporal schemas (`temporal-sql-tool`) |
 | temporal | `temporalio/server:1.31.4` | 7233 (`TEMPORAL_PORT`) | single process, Postgres persistence and visibility, no Elasticsearch, 4 history shards |
 | temporal-namespace (one-shot) | `temporalio/admin-tools:1.31.4` | - | creates namespace `default` (72h retention) if missing |

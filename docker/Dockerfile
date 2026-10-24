@@ -46,6 +46,7 @@ RUN curl -fsSL -o /opt/tools/freerouting.jar \
 # Python deps first (cached unless pyproject/uv.lock change), then the router binary built against that venv.
 WORKDIR /app
 COPY --chown=hw:hw pyproject.toml uv.lock .python-version ./
+COPY --chown=hw:hw services/platform/pyproject.toml services/platform/pyproject.toml
 RUN uv sync --frozen --no-install-project --group dev \
  && cd $KRT_DIR && /opt/venv/bin/python build_router.py
 

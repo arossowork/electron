@@ -22,6 +22,10 @@ dev = ["pytest>=8"]
 requires = ["uv_build>=0.11.15,<0.12.0"]
 build-backend = "uv_build"
 
+[tool.uv.workspace]
+# The hosted platform (epic #21) is a separate member; `uv run hwflow` and `uv run pytest` stay engine-only.
+members = ["services/platform"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["slow: end-to-end builds and router or DRC runs over 15 s (`pytest -m \"not slow\"` skips them)"]

@@ -15,6 +15,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in deploy/compose/.env}
       HWFLOW_DB_PASSWORD: ${HWFLOW_DB_PASSWORD:?set in deploy/compose/.env}
+      HWFLOW_APP_DB_PASSWORD: ${HWFLOW_APP_DB_PASSWORD:?set in deploy/compose/.env}
       TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?set in deploy/compose/.env}
     command:
       - postgres
