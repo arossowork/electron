@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 
+from .. import simrobust
 from ..design import Design
 from .score import score
 from .status import _design_hash, _out, _save_status, _stale_stages, _status
@@ -81,6 +82,7 @@ def write_report(d: Design, history: bool = False) -> str:
                      + (f"; {x['reason']}" if x.get("reason") else "") + ("; flaky: crashed once, retried" if x.get("flaky") else ""))
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
+        L += simrobust.report_lines(c)
         if c.get("debug"):
             L.append("  - debug probes (not counted): " + ", ".join(
                 f"{r['analysis']}/{r['name']}={_fmt(r['value'])}" for r in c["debug"][:12])
