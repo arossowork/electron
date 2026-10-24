@@ -19,8 +19,8 @@ import sys  # noqa: E402
 
 sys.path.insert(0, sys_path)
 from hwflow import placer  # noqa: E402
-from hwflow.design import Design  # noqa: E402
-from hwflow.libs import Libs  # noqa: E402
+from hwflow.core.design import Design  # noqa: E402
+from hwflow.core.libs import Libs  # noqa: E402
 
 SOIC8 = "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
 SOIC16 = "Package_SO:SOIC-16_3.9x9.9mm_P1.27mm"

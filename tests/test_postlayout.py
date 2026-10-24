@@ -115,7 +115,7 @@ def test_isolation_rules_come_from_design_data(tmp_path):
     import yaml
 
     from hwflow.pipeline import _design_hash, isolation_distances, trace
-    from hwflow.design import Design
+    from hwflow.core.design import Design
     from hwflow.pcb import isolation_groups, write_project
     raw = {"project": "iso", "board": {"layers": 2, "isolation": [
         {"name": "mains", "class": "mains", "nets": "HV_*", "clearance_mm": 4.0, "creepage_mm": 6.0, "req": "R8"}]},
@@ -168,7 +168,7 @@ def test_si_screen_flags_long_lines_plane_gaps_and_decap_loops():
 
     import numpy as np
 
-    from hwflow.design import Component, Design
+    from hwflow.core.design import Component, Design
     from hwflow.postlayout import si_screen
     raw = {"board": {"layers": 4}, "nets": {"CLK": {"edge_ns": 0.5}, "GND": {"class": "ground"}},
            "components": {"U1": {"pins": {"1": "CLK", "2": "VCC", "3": "GND"}}, "R1": {"pins": {"1": "CLK"}},
@@ -257,7 +257,7 @@ def _seg(x1, y1, x2, y2, w, layer="F.Cu", net=1):
 def _board(tmp_path, comps, fps, copper, nets=None, extra=None):
     import yaml
 
-    from hwflow.design import Design
+    from hwflow.core.design import Design
     raw = {"project": "pl", "board": {"layers": 2, "gnd_pour": False, "width_mm": 40, "height_mm": 30},
            "components": comps, **({"nets": nets} if nets else {}), **(extra or {})}
     (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))

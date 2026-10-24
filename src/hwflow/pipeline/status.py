@@ -10,7 +10,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from ..design import Design
+from ..core.design import Design
 
 
 def _out(d: Design) -> Path:
@@ -61,7 +61,7 @@ def _inputs_hash(d) -> str:
     (backlog 27)."""
     import hashlib
 
-    from ..libs import project_lib_dirs, shared_lib_files
+    from ..core.libs import project_lib_dirs, shared_lib_files
     h = hashlib.sha1(_design_hash(d).encode())
     files = [d.dir / f for f in (d.raw.get("sim") or {}).get("includes") or []]
     files += [d.dir / c.get("spice")["lib"] for c in d.components.values()
@@ -83,7 +83,7 @@ def _inputs_hash(d) -> str:
 
 def _block_files(d) -> list[Path]:
     """The block.yaml files of the layout blocks the design uses."""
-    from .. import blocks
+    from ..core import blocks
     return [f for e in (d.raw.get("blocks") or {}).values() if (f := blocks.find(str((e or {}).get("use")), d))]
 
 

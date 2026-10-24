@@ -8,8 +8,8 @@ import pytest
 
 from hwflow import kicad, pcb, repair
 from hwflow.pipeline import stages as pl_stages
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 YAML = """project: perf
 description: two fixed parts

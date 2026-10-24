@@ -7,8 +7,8 @@ import time
 import yaml
 
 from hwflow import placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 W, H = 30, 20
 PIN1 = "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"

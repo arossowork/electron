@@ -681,7 +681,7 @@ def _parts(design, libs, fp: dict):
     """(parts, synthetic design): the real parts of design.yaml plus a placeholder part for each item without real
     refs. A placeholder has one pad per estimated net (floorplan.nets) at its centre."""
     from . import placer
-    from .design import Component, Design
+    from .core.design import Component, Design
     parts = placer.build_parts(design, libs) if design.components else placer.Parts()
     if not design.components:
         parts.areas = []

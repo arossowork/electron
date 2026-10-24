@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .settings import get_settings
+from .core.settings import get_settings
 
 def cli() -> str:
     c = get_settings().tools.kicad_cli  # KICAD_CLI, PATH, then the macOS app
@@ -152,7 +152,7 @@ def mirrored_back_parts(pcb: Path) -> dict[str, dict]:
     """Footprints drawn for the back face on F.Cu: a `_back` footprint is the front one mirrored in x, with its body
     (courtyard, fab) on B.* layers, placed on F.Cu. KiCad's position file calls them top. ref -> {rot (KiCad
     orientation on F.Cu)}. A footprint with F.CrtYd or F.Fab graphics, or one on B.Cu, is not one."""
-    from . import sexpr
+    from .core import sexpr
     t = sexpr.loads(Path(pcb).read_text())
     out = {}
     for fp in sexpr.find_all(t, "footprint"):
@@ -209,7 +209,7 @@ def fix_back_positions(pcb: Path, positions: Path, cpl: Path) -> dict:
 
 
 def _tht_refs(pcb: Path) -> set[str]:
-    from . import sexpr
+    from .core import sexpr
     out = set()
     for fp in sexpr.find_all(sexpr.loads(Path(pcb).read_text()), "footprint"):
         attr = sexpr.find(fp, "attr")

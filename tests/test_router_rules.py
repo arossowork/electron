@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from hwflow import pcb, placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
@@ -132,7 +132,7 @@ def test_router_keeps_the_creepage_between_isolation_sides(tmp_path):
 def test_router_keeps_tracks_out_of_a_tracks_not_allowed_area(tmp_path, monkeypatch):
     """Rule areas are read by the router from the board itself, so no `disallow` rule is needed for them."""
     from shapely.geometry import LineString, Polygon
-    from hwflow import sexpr
+    from hwflow.core import sexpr
     from hwflow.pipeline import stage_layout
     zone = '''(zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (uuid "5b6c1a0e-3d0a-4c7e-9a11-0a1b2c3d4e0a") (name "KO_T") (hatch edge 0.5)
       (connect_pads (clearance 0)) (min_thickness 0.25)
@@ -204,7 +204,7 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     from types import SimpleNamespace
 
     from hwflow import diagnose, postlayout, routing
-    from hwflow.design import check
+    from hwflow.core.design import check
     d = _between_project(tmp_path)
     (g,) = pcb.isolation_groups(d)
     assert g["between_mm"] == 0.6 and g["members"] == ["AMP_OUT", "SENS_IN"]
@@ -295,7 +295,7 @@ class _PadLibs:
                          for n, k, x, y, w, h, L in self.fps[fid]], "bbox": (-1, -1, 1, 1), "sides": {}}
 
     def footprint_tree(self, fid):
-        from hwflow import sexpr
+        from hwflow.core import sexpr
         pads = " ".join(f'(pad "{n}" {k} rect (at {x} {y}) (size {w} {h}) (layers {" ".join(chr(34) + v + chr(34) for v in L)}))'
                         for n, k, x, y, w, h, L in self.fps[fid])
         return sexpr.loads(f'(footprint "{fid}" (layer "F.Cu") (property "Reference" "REF" (at 0 0 0) (layer "F.SilkS")) '

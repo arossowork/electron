@@ -9,10 +9,11 @@ from pathlib import Path
 
 import numpy as np
 
-from . import sexpr, spice
-from .design import Design
+from .core import sexpr
+from .sim import spice
+from .core.design import Design
 from .pcb import ipc2221_width_mm, net_classes, net_layers, read_board
-from .spice import NodeMap
+from .sim.spice import NodeMap
 
 RHO_CU = 1.72e-8
 C0 = 299792458.0

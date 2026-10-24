@@ -21,7 +21,7 @@ FEASIBILITY_CHECKS: list[tuple[str, str]] = [
 def findings(design, libs=None, parts=None, board=None) -> list[dict]:
     """The findings of every registered check, each with its `code`."""
     if libs is None:
-        from .libs import Libs
+        from .core.libs import Libs
         libs = Libs(design=design)
     out = []
     for code, mod in FEASIBILITY_CHECKS:
@@ -33,7 +33,7 @@ def findings(design, libs=None, parts=None, board=None) -> list[dict]:
 def check(design, libs=None) -> list[dict]:
     """design.check findings: an error per finding; a check that crashes is a warning, not a lost check run."""
     if libs is None:
-        from .libs import Libs
+        from .core.libs import Libs
         libs = Libs(design=design)
     out = []
     for code, mod in FEASIBILITY_CHECKS:

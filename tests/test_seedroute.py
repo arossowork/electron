@@ -7,8 +7,9 @@ import pytest
 import yaml
 from shapely.geometry import LineString, Point, box
 
-from hwflow import corridor, pcb, routing, seedroute, sexpr
-from hwflow.design import Design
+from hwflow import corridor, pcb, routing, seedroute
+from hwflow.core import sexpr
+from hwflow.core.design import Design
 
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 F = ("F.Cu",)

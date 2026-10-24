@@ -28,7 +28,7 @@ from shapely.geometry import Point
 from shapely.ops import unary_union
 
 from . import pcb
-from .settings import get_settings
+from .core.settings import get_settings
 
 GROUP_DIR = "groups"  # per-group route cache, under build/routecache/
 
@@ -116,7 +116,7 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from . import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
     if design.raw.get("blocks") and parts is not None:
-        from . import blocks
+        from .core import blocks
         h.update(here.with_name("blocks.py").read_bytes())
         h.update(json.dumps(blocks.copper(design, parts), sort_keys=True, default=str).encode())
     return h.hexdigest()[:24]
@@ -167,7 +167,7 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
     pcb.write_project(workdir, name, design)
     closed, keep = set(), False
     if design.raw.get("blocks"):  # layout blocks: their copper stays, the nets it closes are not routed
-        from . import blocks
+        from .core import blocks
         closed = blocks.closed_nets(design, libs)
         keep = any(blocks.copper(design, parts))
     gnds = design.ground_nets() if design.board["gnd_pour"] else set()
@@ -248,7 +248,7 @@ def validate(design, libs, parts, workdir: Path, cache: Path, tracks: list, vias
     skip = _thermal_keys(design, libs, parts)
     keep = False
     if design.raw.get("blocks"):
-        from . import blocks
+        from .core import blocks
         keep = any(blocks.copper(design, parts))
     for r, n in bad:
         (gdir / f"{r['key']}.json").unlink(missing_ok=True)

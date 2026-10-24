@@ -25,8 +25,8 @@ from pathlib import Path
 
 import yaml
 
-from .settings import get_settings
-from .design import Design, parse_value
+from ..core.settings import get_settings
+from ..core.design import Design, parse_value
 
 # ------------------------------------------------------------------ MCU families
 # GPIO number from the symbol pin name; ADC channel per GPIO; GPIOs that can wake the chip from deep sleep; strapping

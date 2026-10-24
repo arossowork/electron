@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import yaml
 
-from hwflow import design as design_mod
+from hwflow.core import design as design_mod
 from hwflow import diagnose, feasibility, partescape
-from hwflow.design import Design
+from hwflow.core.design import Design
 
 
 def _pad(n, x, y, w, h, shape="rect", kind="smd"):

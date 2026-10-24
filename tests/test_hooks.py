@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 from hwflow.pipeline import hooks, report, stages, status
 
 EX = Path(__file__).resolve().parents[1] / "examples" / "sensor_preamp"

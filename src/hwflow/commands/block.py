@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..design import Design
-from ..libs import Libs
+from ..core.design import Design
+from ..core.libs import Libs
 
 
 def cmd_block(a) -> int:
     """`hwflow block list|show|check|extract`: the layout block library (src/hwflow/blocks.py)."""
     import tempfile
 
-    from .. import blocks
+    from ..core import blocks
     d = Design.load(a.project) if a.project else None
     if a.what == "list":
         for n in blocks.names(d):

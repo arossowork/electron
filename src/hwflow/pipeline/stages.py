@@ -10,10 +10,11 @@ import sys
 import time
 from pathlib import Path
 
-from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute, simrobust, spice
-from ..design import Design, check
-from ..libs import Libs
-from ..settings import get_settings
+from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute
+from ..sim import simrobust, spice
+from ..core.design import Design, check
+from ..core.libs import Libs
+from ..core.settings import get_settings
 from .hooks import registry
 from .status import _block_files, _design_hash, _inputs_hash, _out, _status
 
@@ -35,7 +36,7 @@ def stage_sch(d: Design, libs: Libs) -> dict:
     out = _out(d)
     kicad.write_lib_tables(d, libs, out)
     pcb.write_project(out, d.name, d)
-    from .. import sch
+    from ..schematic import sch
     sch.write_schematic(d, libs, out / f"{d.name}.kicad_sch")
     v = kicad.erc(out / f"{d.name}.kicad_sch")
     errs = [x for x in v if x["sev"] == "error"]

@@ -4,8 +4,9 @@ from types import SimpleNamespace
 
 import yaml
 
-from hwflow import barrier, sexpr
-from hwflow.design import Design
+from hwflow import barrier
+from hwflow.core import sexpr
+from hwflow.core.design import Design
 
 ALL = ["*.Cu"]
 

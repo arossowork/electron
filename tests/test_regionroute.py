@@ -5,8 +5,8 @@ import yaml
 from shapely.geometry import box
 
 from hwflow import pcb, placer, regionroute
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 

@@ -12,8 +12,8 @@ from shapely.geometry import Point, box
 
 from hwflow import diagnose, floorplan, pcb, placer, postlayout, repair, routing
 from hwflow.pipeline import stages as pl_stages
-from hwflow.design import Design, check
-from hwflow.libs import Libs
+from hwflow.core.design import Design, check
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")

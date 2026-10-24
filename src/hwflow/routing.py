@@ -23,8 +23,8 @@ from pathlib import Path
 from shapely.geometry import LineString, Point, box
 from shapely.ops import unary_union
 
-from . import sexpr
-from .sexpr import Q
+from .core import sexpr
+from .core.sexpr import Q
 
 ISO_ZONE = "hwflow_iso"  # name prefix of the rule areas in a pass input
 # The router keeps track and via copper `clearance` away from a rule-area edge, so an area grown by

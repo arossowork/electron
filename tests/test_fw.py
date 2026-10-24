@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from hwflow import fw
-from hwflow.design import Design
+from hwflow.core.design import Design
 
 PROJ = Path(__file__).resolve().parents[1] / "projects" / "home-thermostat-3"
 
@@ -267,7 +267,7 @@ def test_no_contract(design, tmp_path):
 
 def test_real_libraries(design):
     """Same result with the KiCad symbols (skipped without a KiCad library install)."""
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     try:
         libs = Libs(design=design)
         libs.symbol("Driver_Motor:DRV8837")

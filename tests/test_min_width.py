@@ -33,7 +33,7 @@ def _traced(tmp_path, nets_status, reqs):
     import json
     import yaml
     from hwflow.pipeline import _design_hash, trace
-    from hwflow.design import Design
+    from hwflow.core.design import Design
     raw = {"project": "mw", "board": {"layers": 2, "gnd_pour": False},
            "nets": {"AC": {"class": "mains", "width_mm": 1.0, "min_width_mm": 1.0, "layers": ["F.Cu"], "req": "R13"}},
            "components": {"J1": {"pins": {"1": "AC", "2": "GND"}}, "K1": {"pins": {"1": "AC", "2": "GND"}}}}
@@ -63,7 +63,7 @@ def test_layout_requirement_with_evidence_only_is_flagged(tmp_path):
 
 
 def test_shared_library_is_searched_after_project_libraries():
-    from hwflow.libs import Libs, shared_lib, shared_lib_dirs
+    from hwflow.core.libs import Libs, shared_lib, shared_lib_dirs
     SHARED_LIB = shared_lib()
     if not (SHARED_LIB / "footprints" / "hw.pretty").is_dir():
         return

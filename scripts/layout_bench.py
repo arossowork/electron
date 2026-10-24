@@ -73,8 +73,8 @@ def design_set() -> dict[str, Path]:
 def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
     from hwflow import kicad, pcb, placer, postlayout, repair
     from hwflow.pipeline import stages as pl_stages
-    from hwflow.design import Design
-    from hwflow.libs import Libs
+    from hwflow.core.design import Design
+    from hwflow.core.libs import Libs
 
     events = (rundir / "bench_events.jsonl").open("a")
     totals = {k: 0.0 for k in PHASES}
@@ -219,8 +219,8 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
 def prep(src: Path, work: Path, name: str) -> Path:
     """Fresh copy of a design in the work dir with check and sch run (library tables, project files)."""
     from hwflow.pipeline import stages as pl_stages
-    from hwflow.design import Design
-    from hwflow.libs import Libs
+    from hwflow.core.design import Design
+    from hwflow.core.libs import Libs
     dst = work / name / "prep"
     shutil.rmtree(dst.parent, ignore_errors=True)
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("build", "__pycache__", ".venv"))

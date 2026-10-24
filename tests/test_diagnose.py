@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import yaml
 
 from hwflow import diagnose
-from hwflow.design import Design
+from hwflow.core.design import Design
 
 
 def _design(tmp_path, nets=None, fp="Package_TO_SOT_SMD:SOT-563", at=None):

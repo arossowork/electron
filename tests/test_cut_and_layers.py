@@ -6,9 +6,10 @@ import pytest
 import yaml
 from shapely.geometry import LineString, box
 
-from hwflow import diagnose, floorplan, pcb, placer, postlayout, sexpr
-from hwflow.design import Design, check
-from hwflow.libs import Libs
+from hwflow import diagnose, floorplan, pcb, placer, postlayout
+from hwflow.core import sexpr
+from hwflow.core.design import Design, check
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
@@ -103,7 +104,7 @@ def test_cut_is_a_keepout_for_the_placer_and_the_area(tmp_path):
     front = next(s for s in res["sides"] if s["side"] == "front")
     assert front["usable_mm2"] == pytest.approx(38 * 28 - 40)
     # a part placed in the cut is a violation, and the placer moves parts out of it
-    from hwflow.design import Component
+    from hwflow.core.design import Component
     for i in range(4):
         d.components[f"R{i}"] = Component(f"R{i}", {"footprint": "Resistor_SMD:R_0603_1608Metric",
                                                     "pins": {"1": f"N{i}", "2": f"N{i + 1}"}})

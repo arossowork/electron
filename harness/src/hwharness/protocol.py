@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 
-from hwflow.design import Design
+from hwflow.core.design import Design
 from hwflow.pipeline.status import _design_hash, _out
 
 

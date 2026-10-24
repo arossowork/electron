@@ -30,7 +30,7 @@ from __future__ import annotations
 import math
 import time
 
-from .settings import get_settings
+from .core.settings import get_settings
 
 import numpy as np
 
@@ -179,7 +179,7 @@ def necked(design, libs, src, nets=None) -> dict:
     from . import corridor, pcb, pinaccess, routing
     try:
         if libs is None:
-            from .libs import Libs
+            from .core.libs import Libs
             libs = Libs(design=design)
         t = time.time()
         m = corridor.Model(design, libs, board=pcb.read_board(Path(src)))

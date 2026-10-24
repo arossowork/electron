@@ -11,8 +11,9 @@ from pathlib import Path
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
-from .settings import get_settings
-from . import kicad, pcb, sexpr
+from .core.settings import get_settings
+from . import kicad, pcb
+from .core import sexpr
 
 _NET = re.compile(r"\[([^\]]+)\]")
 _ON = re.compile(r" on (\S+?)(?:,| -|$)")

@@ -1,10 +1,10 @@
 
-from hwflow.settings import get_settings
+from hwflow.core.settings import get_settings
 import pytest
 
 from hwflow import kicad, pcb, placer, repair
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
 YAML = """project: repairfix
@@ -117,7 +117,7 @@ def test_plan_names_nets_islands_and_stitching_vias():
 
 def _island_board(path, vias):
     """20 x 20 mm, GND pour on both layers; a SIG track cuts the corner off F.Cu, and the GND pad TP1 sits in it."""
-    from hwflow.sexpr import Q, dumps
+    from hwflow.core.sexpr import Q, dumps
 
     def zone(layer, n):
         return ["zone", ["net", 1], ["net_name", Q("GND")], ["layer", Q(layer)], ["uuid", Q(f"00000000-0000-0000-0000-00000000000{n}")],

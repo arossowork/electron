@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import time
 
-from .. import simrobust
-from ..design import Design
+from ..sim import simrobust
+from ..core.design import Design
 from .hooks import registry
 from .status import _design_hash, _out, _save_status, _stale_stages, _status
 from .trace import trace

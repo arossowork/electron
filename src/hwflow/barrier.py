@@ -53,7 +53,8 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
-from . import keepout, pcb, routing, sexpr
+from . import keepout, pcb, routing
+from .core import sexpr
 from .placer import rot
 
 EDGE_MM = 0.3      # min_copper_edge_clearance written by pcb.write_project
@@ -271,7 +272,7 @@ class Model:
                 for g in getattr(cut, "geoms", [cut]):
                     cuts.append(Polygon(_xf(g.exterior.coords, x, y, r)))
         if design.raw.get("blocks") and parts is not None:
-            from . import blocks
+            from .core import blocks
             for z in _zones(["root"] + list(blocks.keepout_zones(design, parts))):  # board coordinates already
                 self.areas.append({"name": z["name"], "owner": None, "forbids": z["forbids"],
                                    "layers": routing.pad_layers(z["layers"], self.copper), "poly": Polygon(z["poly"]).buffer(0)})
@@ -312,7 +313,7 @@ class Model:
             return None
         pl = c.get("placement") or {}
         if design.raw.get("blocks"):
-            from . import blocks
+            from .core import blocks
             pl = blocks.anchor(design, ref) or pl
         if "x" in pl and "y" in pl and pl.get("fixed", True):
             return pl

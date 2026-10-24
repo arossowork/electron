@@ -15,11 +15,11 @@ from pathlib import Path
 
 from shapely.geometry import box
 
-from .settings import get_settings
-from . import sexpr
-from .design import Design
+from .core.settings import get_settings
+from .core import sexpr
+from .core.design import Design
 from .placer import Part, rot
-from .sexpr import Q
+from .core.sexpr import Q
 
 PCB_VERSION = "20241229"
 
@@ -259,7 +259,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
         tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields))
     routed = tracks is not None
     if design.raw.get("blocks"):  # layout blocks: their copper, once, on the unrouted and on the routed board
-        from . import blocks
+        from .core import blocks
         tracks, vias = blocks.merge(design, parts, tracks, vias)
         tree += blocks.keepout_zones(design, parts)
     for t in tracks or []:
@@ -482,7 +482,7 @@ def area_layers(design: Design, libs=None) -> dict[str, list[str]]:
     """Named rule areas (zones) of the design's footprints -> the copper layers they cover, in board order."""
     from .routing import pad_layers
     if libs is None:
-        from .libs import Libs
+        from .core.libs import Libs
         libs = Libs(design=design)
     copper = cu_layers(int(design.board["layers"]))
     out: dict[str, list[str]] = {}
@@ -591,7 +591,7 @@ def write_project(dirpath: Path, name: str, design: Design):
     rules = net_layer_exemptions(design)[0] + [r for g in isolation_groups(design) for r in g["kicad"]]
     rules += [x["rule"] for x in iso]
     if design.raw.get("blocks"):  # the land-pattern rules of the layout blocks
-        from . import blocks
+        from .core import blocks
         rules += blocks.drc_rules(design)
     if rules:
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
@@ -685,7 +685,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     library.append(["padstack", Q(via_name)] + [["shape", ["circle", L, vd]] for L in layers] + [["attach", "off"]])
     wiring = ["wiring"]
     if design.raw.get("blocks"):  # layout blocks: their copper as protected wiring
-        from . import blocks
+        from .core import blocks
         bt, bv = blocks.copper(design, parts)
         wiring += [["wire", ["path", t["layer"], _um(t["w"]), _um(t["x1"]), -_um(t["y1"]), _um(t["x2"]), -_um(t["y2"])],
                     ["net", Q(t["net"])], ["type", "protect"]] for t in bt]
@@ -753,7 +753,7 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
     write_project(workdir, name, design)  # the rules DRC will use: net classes (.kicad_pro) and .kicad_dru
     nets, keep = None, False
     if design.raw.get("blocks"):  # layout blocks: keep their copper from the first pass, skip the nets it closes
-        from . import blocks
+        from .core import blocks
         closed = blocks.closed_nets(design, libs)
         nets = set(design.nets()) - closed if closed else None
         keep = any(blocks.copper(design, parts))
@@ -1015,7 +1015,7 @@ def _neck_needed(design: Design, src: Path, libs=None) -> dict[str, dict]:
         return {}
     try:
         if libs is None:
-            from .libs import Libs
+            from .core.libs import Libs
             libs = Libs(design=design)
         return corridor.neck_needed(design, libs, board=read_board(Path(src)))
     except Exception:  # noqa: BLE001 - a board or footprint the proof cannot read: no reordering

@@ -6,8 +6,8 @@ import pytest
 import yaml
 
 from hwflow import floorplan, placer
-from hwflow.design import Design, check
-from hwflow.libs import Libs
+from hwflow.core.design import Design, check
+from hwflow.core.libs import Libs
 
 
 def make(tmp_path, fp, board=None, comps=None, nets=None):

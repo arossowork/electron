@@ -6,9 +6,10 @@ from collections import Counter
 import pytest
 import yaml
 
-from hwflow import blocks, pcb, placer
-from hwflow.design import Design, check
-from hwflow.libs import Libs
+from hwflow.core import blocks
+from hwflow import pcb, placer
+from hwflow.core.design import Design, check
+from hwflow.core.libs import Libs
 
 needs_router = pytest.mark.skipif(not (pcb.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 

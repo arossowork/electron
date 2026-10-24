@@ -5,24 +5,12 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-from ..design import Design
-from ..libs import Libs
-from ..settings import get_settings
+from ..core.design import Design
+from ..core.libs import Libs
+from ..core.settings import get_settings
 from .hooks import registry
 from .report import _brief, write_report
-from .stages import (
-    _auto_summary,
-    _layout_blocked,
-    _record_layout,
-    layout_auto,
-    layout_diagnosis,
-    stage_check,
-    stage_fab,
-    stage_layout,
-    stage_post,
-    stage_sch,
-    stage_sim,
-)
+from .stages import _auto_summary, _layout_blocked, _record_layout, layout_auto, layout_diagnosis, stage_check, stage_fab, stage_layout, stage_post, stage_sch, stage_sim
 from .status import _design_hash, _inputs_hash, _out, _save_status, _stale_stages, _status
 
 STAGES = ["check", "sch", "sim", "layout", "post", "fab"]

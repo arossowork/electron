@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from hwflow.design import Design
+from hwflow.core.design import Design
 from hwflow.pipeline.status import _fresh_status
 
 

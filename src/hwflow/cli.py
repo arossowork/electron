@@ -9,11 +9,11 @@ import re
 import sys
 import time
 
-from . import spice
+from .sim import spice
 from .commands.block import cmd_block
 from .commands.em import cmd_em
-from .design import Design
-from .libs import Libs
+from .core.design import Design
+from .core.libs import Libs
 from .pipeline.hooks import registry
 from .pipeline.report import _fmt, write_report
 from .pipeline.runner import BuildOptions, run_build
@@ -51,7 +51,7 @@ def cmd_lib(a) -> int:
 
 
 def cmd_parts(a) -> int:
-    from . import parts
+    from .core import parts
     filters = dict(f.split("=", 1) for f in a.filters)
     for r in parts.search(a.category, filters, a.text, a.limit):
         print(f"{r['lcsc']:>10} {r['mpn']:<28} {r['package']:<14} stock={r['stock']:<9} ${_fmt(r['price_usd'])}"
@@ -94,7 +94,7 @@ def cmd_trace(d: Design) -> int:
 
 
 def cmd_optimize(d: Design, a) -> int:
-    from . import optimize
+    from .sim import optimize
     res = optimize.run(d, _out(d), a.budget)
     print(json.dumps({k: res[k] for k in ("evals", "score", "fails", "start", "best")}, indent=1))
     print("measures:", {k: _fmt(v) for k, v in res["measures"].items()})

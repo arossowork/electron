@@ -89,7 +89,7 @@ def test_flow_stages_feedback_and_switches(tmp_path, monkeypatch):
 
 def test_macro_stage_places_the_block_first(tmp_path, monkeypatch):
     from test_blocks import BOOST, _design, _rigid
-    from hwflow import blocks
+    from hwflow.core import blocks
     monkeypatch.delenv("HWFLOW_FLOW", raising=False)
     d, libs = _design(tmp_path)
     parts = placer.build_parts(d, libs)

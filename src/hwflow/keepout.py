@@ -17,8 +17,8 @@ from pathlib import Path
 
 from shapely.geometry import MultiPoint, Polygon
 
-from .settings import get_settings
-from . import sexpr
+from .core.settings import get_settings
+from .core import sexpr
 from .placer import rot
 
 
@@ -198,7 +198,7 @@ def placement_areas(design, libs) -> list[dict]:
             continue
         pl = c.get("placement") or {}
         if design.raw.get("blocks"):
-            from . import blocks
+            from .core import blocks
             pl = blocks.anchor(design, c.ref) or pl  # a member of a fixed block
         for a in _rule_areas(libs.footprint_tree(c.get("footprint")), ("footprints", "pads", "tracks")):
             # library zones are in footprint coordinates (pcb.py writes them moved to the part); only a part with a

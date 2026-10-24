@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 from hwflow import asicflow, keepout
-from hwflow.settings import get_settings
+from hwflow.core.settings import get_settings
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "hwflow"
 # subprocess environments that pass the parent environment through to a child on purpose (file: how many)
@@ -53,7 +53,7 @@ def test_no_env_reads_outside_settings():
     bad = []
     for f in sorted(SRC.rglob("*.py")):
         rel = f.relative_to(SRC).as_posix()
-        if rel == "settings.py":
+        if rel == "core/settings.py":
             continue
         n = len(re.findall(r"os\.environ|os\.getenv|\bgetenv\(", "\n".join(
             line for line in f.read_text().splitlines() if not line.lstrip().startswith("#"))))

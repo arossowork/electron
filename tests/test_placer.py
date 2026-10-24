@@ -11,8 +11,8 @@ import pytest
 import yaml
 
 from hwflow import placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 W, H, N = 36, 30, 10
 

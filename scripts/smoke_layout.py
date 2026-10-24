@@ -2,8 +2,8 @@
 import sys
 from collections import Counter
 from pathlib import Path
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 from hwflow import kicad, pcb, placer
 proj = Path(sys.argv[1] if len(sys.argv) > 1 else "examples/sensor_preamp")
 d = Design.load(proj); L = Libs()

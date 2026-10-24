@@ -5,8 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from ..design import Design
-from ..settings import get_settings
+from ..core.design import Design
+from ..core.settings import get_settings
 from ..pipeline.report import _fmt
 from ..pipeline.status import _save_status
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from hwflow.design import Design
+from hwflow.core.design import Design
 
 EX = Path(__file__).resolve().parents[2] / "examples" / "sensor_preamp"
 

@@ -44,8 +44,9 @@ from shapely.ops import unary_union
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
-from . import barrier, corridor, routing, sexpr
-from .sexpr import Q
+from . import barrier, corridor, routing
+from .core import sexpr
+from .core.sexpr import Q
 
 MARGIN_MM = 0.01       # every piece of seed copper keeps its exact spacings plus this
 CHORD_MM = 0.005       # the room keeps this more, so a buffer chord never takes a centre line under MARGIN_MM
@@ -346,7 +347,7 @@ def seed(design, libs, src: Path, dst: Path, nets) -> dict[str, dict]:
     segments, vias}."""
     from .pcb import read_board
     if libs is None:
-        from .libs import Libs
+        from .core.libs import Libs
         libs = Libs(design=design)
     src, dst = Path(src), Path(dst)
     board = read_board(src)

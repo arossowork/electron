@@ -1,5 +1,5 @@
 
-from hwflow.settings import get_settings
+from hwflow.core.settings import get_settings
 import pytest
 
 from hwflow import kicad, keepout

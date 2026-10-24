@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from hwflow import sexpr
-from hwflow.design import Design, check, parse_value, snap_e
+from hwflow.core import sexpr
+from hwflow.core.design import Design, check, parse_value, snap_e
 from hwflow import pcb
 from hwflow.pcb import ipc2221_width_mm
 from hwflow.postlayout import microstrip
@@ -43,13 +43,13 @@ def test_microstrip_50_ohm():
 
 
 def test_design_check_clean():
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     d = Design.load(EX)
     assert [f for f in check(d, Libs()) if f["sev"] == "error"] == []
 
 
 def test_spice_ldo_and_gain(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     res = {r["name"]: r for a in spice.run_all(d, tmp_path) for r in a["rows"]}
     assert abs(res["v3v3"]["value"] - 3.30) < 0.01
@@ -61,7 +61,7 @@ def test_optimizer_keeps_constraints(tmp_path):
 
     import yaml
 
-    from hwflow import optimize
+    from hwflow.sim import optimize
     proj = tmp_path / "p"
     shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
     d = yaml.safe_load((proj / "design.yaml").read_text())
@@ -78,7 +78,7 @@ def test_optimizer_keeps_constraints(tmp_path):
 
 def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
     """A transient that stops before its stop time must not pass on the truncated waveform."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     fake = "doAnalyses: TRAN:  Timestep too small\nHWF __tend 0.001\n" + "".join(
@@ -104,7 +104,7 @@ def test_cpwg_matches_openems_reference():
 
 
 def test_monte_carlo_parallel_is_deterministic(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = spice.monte_carlo(d, tmp_path / "a", runs=12, workers=1)
     b = spice.monte_carlo(d, tmp_path / "b", runs=12, workers=6)
@@ -113,7 +113,7 @@ def test_monte_carlo_parallel_is_deterministic(tmp_path):
 
 def test_custom_pad_exports_full_outline():
     """SOT-89 tab is a custom pad: the router must see the whole tab, not just the anchor rectangle."""
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     from hwflow.pcb import _padstack
     pad = next(p for p in Libs().footprint("Package_TO_SOT_SMD:SOT-89-3")["pads"] if p["number"] == "2")
     _, ps = _padstack(pad, ["F.Cu", "B.Cu"])
@@ -140,7 +140,7 @@ def test_post_layout_inductors_are_damped(tmp_path):
     lines = postlayout.PostLayoutNodeMap(d, ex).extra()
     assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0
     # backlog 47 (a): the lumped transient network gives the same measures as the full R and C network
-    from hwflow import spice
+    from hwflow.sim import spice
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     lumped = spice.run_analysis(d, a, tmp_path / "l", postlayout.PostLayoutNodeMap(d, ex, lump=True))
     full = spice.run_analysis(d, a, tmp_path / "f", postlayout.PostLayoutNodeMap(d, ex, lump=False))
@@ -150,7 +150,7 @@ def test_post_layout_inductors_are_damped(tmp_path):
 
 
 def test_run_all_parallel_matches_serial(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = spice.run_all(d, tmp_path / "a", workers=1)
     b = spice.run_all(d, tmp_path / "b", workers=6)
@@ -159,7 +159,7 @@ def test_run_all_parallel_matches_serial(tmp_path):
 
 
 def test_thermal_vias_land_inside_their_pad():
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     from hwflow.pcb import thermal_vias
     from hwflow.placer import build_parts
     d = Design.load(EX)
@@ -190,7 +190,7 @@ def test_save_keeps_comments(tmp_path):
 
 
 def test_recoverable_singular_matrix_warning_is_not_an_abort(tmp_path, monkeypatch):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     out = "Warning: singular matrix: check node x\nNote: Starting dynamic gmin stepping\n" + "".join(
@@ -208,7 +208,7 @@ def _fake_out(a, extra=""):
 
 def test_measure_out_of_interval_is_a_warning_when_rows_pass(tmp_path, monkeypatch):
     """Backlog 20: 'Error: measure ... out of interval' with every measure passing is not a FAIL."""
-    from hwflow import spice
+    from hwflow.sim import spice
     from hwflow.pipeline.report import _sim_verdict
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
@@ -255,7 +255,7 @@ def test_debug_measures_do_not_count(tmp_path):
 
 def test_analysis_timeout_is_reported(tmp_path):
     """Backlog 22/42: per-analysis timeout_s; the analysis is marked timeout and its rows say why they are n/a."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient"), timeout_s=0.001)
     r = spice.run_analysis(d, a, tmp_path)
@@ -269,7 +269,7 @@ def test_ngspice_crash_is_retried_once(tmp_path, monkeypatch):
     """Backlog 41: a signal exit is retried once and the run is marked flaky, not reported as a design result."""
     import subprocess
     from types import SimpleNamespace
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     calls = []
@@ -306,7 +306,7 @@ def test_report_names_the_analysis_that_timed_out(tmp_path):
 def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
     """Backlog 55: a failing run is saved with seed, values and log; an aborted run is not in the spread."""
     import json
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     real = spice.run_analysis
 
@@ -354,7 +354,7 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
 
     from hwflow.pipeline import report as pl_report, stages as pl_stages, status as pl_status
     from hwharness.evals.scorer import score
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").unlink(missing_ok=True)
     d = Design.load(proj)
@@ -410,8 +410,8 @@ def test_check_fails_on_mos_model_under_q_reference(tmp_path):
 
 def test_check_compares_package_with_footprint():
     """Backlog 56: a SOD-882 part on a chip 0402 land pattern is flagged; pad count and pitch are compared."""
-    from hwflow.design import Component, package_findings
-    from hwflow.libs import Libs
+    from hwflow.core.design import Component, package_findings
+    from hwflow.core.libs import Libs
     libs = Libs()
     chip = libs.footprint("Diode_SMD:D_0402_1005Metric")
     c = Component("D4", {"footprint": "Diode_SMD:D_0402_1005Metric", "package": "SOD-882", "package_pads": 2,
@@ -426,7 +426,7 @@ def test_check_compares_package_with_footprint():
 
 def test_measure_on_missing_node_says_so(tmp_path):
     """Backlog 46: a measure on a node that is not in the netlist fails with the ngspice reason, not a silent n/a."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op"))
     a["measures"] = a["measures"] + [{"name": "ghost", "expr": "v(x_bt1_2,x_bt1_1)"}]
@@ -537,7 +537,7 @@ def test_post_is_stale_when_layout_ran_after_it(tmp_path):
 
 def test_analysis_cache_runs_ngspice_once_per_netlist(tmp_path, monkeypatch):
     """L6: an unchanged netlist is not simulated again; a changed one re-runs only its own analysis."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     b = next(x for x in d.raw["sim"]["analyses"] if x["name"] != "line_transient")
@@ -568,7 +568,7 @@ def test_recovered_bsource_overflow_is_a_warning_when_rows_pass(tmp_path, monkey
     """home-thermostat-3 burst_vbat20_corner post-layout @ 0 and 45 C: `Error: 1.3e+238, 2 out of range for ^` from a
     B source on one Newton iteration that ngspice rejected; the run reached its stop time with every measure valid,
     yet the analysis was reported as an error. It is a warning when every measure passes."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     msg = "Error: 1.30235e+238, 2 out of range for ^\n    in line b.xu2.bio\n"

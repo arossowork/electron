@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from hwflow import budgets
-from hwflow.design import Design, check
+from hwflow.core.design import Design, check
 from hwflow.postlayout import RHO_CU, Extraction
 
 GUARD = {"name": "guard", "req": "R4", "kind": "copper_r", "path": ["J1.1 -> Q1.3, Q2.3", "Q1.2, Q2.2 -> C1.1"],

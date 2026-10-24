@@ -3,8 +3,8 @@ import yaml
 from shapely.geometry import LineString
 
 from hwflow import cutcap, placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 R0402 = "Resistor_SMD:R_0402_1005Metric"
 

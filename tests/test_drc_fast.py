@@ -1,10 +1,10 @@
 
-from hwflow.settings import get_settings
+from hwflow.core.settings import get_settings
 import pytest
 
 from hwflow import kicad, pcb, placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 DRU = '''(version 1)
 (rule "R8 mains-SELV clearance" (constraint clearance (min 4.0mm)) (condition "A.NetName == 'AC_*' && B.NetName != 'AC_*'"))
