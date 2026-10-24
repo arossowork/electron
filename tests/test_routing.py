@@ -1,5 +1,4 @@
 """routing.py: isolation keep-outs for a router pass and neck-down widening, on small synthetic boards."""
-from pathlib import Path
 
 from shapely.geometry import Point, box
 

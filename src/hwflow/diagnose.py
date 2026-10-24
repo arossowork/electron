@@ -27,7 +27,6 @@ import hashlib
 import json
 import math
 import re
-import time
 from pathlib import Path
 
 ATTRIB_MM = 1.5       # a failure without a pad is put on the parts with a pad this close to it

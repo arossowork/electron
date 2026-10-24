@@ -1001,7 +1001,7 @@ def write_report(d: Design, history: bool = False) -> str:
         for e in c["errors"][:5]:
             L.append(f"  - ngspice: {e}")
         if c.get("debug"):
-            L.append(f"  - debug probes (not counted): " + ", ".join(
+            L.append("  - debug probes (not counted): " + ", ".join(
                 f"{r['analysis']}/{r['name']}={_fmt(r['value'])}" for r in c["debug"][:12])
                 + (f" and {len(c['debug']) - 12} more" if len(c["debug"]) > 12 else ""))
         if c.get("warnings"):

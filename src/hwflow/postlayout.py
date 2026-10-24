@@ -583,7 +583,7 @@ def conductive_clearances(design: Design, board: dict) -> list[dict]:
     """The copper (tracks, vias, pads) of the nets of a region with isolation_mm closer than that distance to a
     conductive keep-out or cut (floorplan.conductive_needs), on a pcb.read_board result: one row per net and keep-out
     with the smallest distance, {net, keepout, region, mm, need, at, item}. Empty when every distance holds."""
-    from shapely.geometry import LineString, Point, box as _box
+    from shapely.geometry import LineString, Point
 
     from . import floorplan
     needs = floorplan.conductive_needs(design)
@@ -622,7 +622,6 @@ def region_excursions(design: Design, board: dict) -> list[dict]:
     distance of that copper from the region (its farthest copper edge), at the centre of the worst item. The placer
     keeps the pads of those nets inside; the router does not see the region, so a track can leave it."""
     from shapely.geometry import LineString, Point
-    from shapely.geometry import box as _box
 
     from . import floorplan
     regs = floorplan.net_regions(design)

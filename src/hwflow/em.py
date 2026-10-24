@@ -30,7 +30,6 @@ from pathlib import Path
 
 import numpy as np
 
-from . import sexpr
 from .pcb import read_board
 from .postlayout import _edge_dist, _ellipk, _zone_fills, cpwg_z0, microstrip  # noqa: F401
 

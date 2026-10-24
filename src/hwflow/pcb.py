@@ -361,7 +361,6 @@ def _ring_items(pts: list, circles: list, stroke: list) -> list:
 
 def board_text(tree: list) -> str:
     """The board as text, its UUIDs renamed in order of appearance: the same input gives the same bytes."""
-    import re
     ids: dict[str, str] = {}
     text = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
                   lambda m: ids.setdefault(m.group(0), str(uuid.uuid5(uuid.NAMESPACE_URL, f"hwflow/{len(ids)}"))),
@@ -420,7 +419,6 @@ def isolation_needs(design: Design) -> list[dict]:
     `A.NetName == 'P' && B.NetName != 'P'` (P a glob; the largest value per P). `between` is the group's
     between_mm (the distance two different member nets keep), or None."""
     import fnmatch
-    import re
     out = [{"members": g["members"], "mm": float(g["creepage_mm"] if g["creepage_mm"] is not None else g["clearance_mm"]),
             "name": g["name"], "between": g["between_mm"]} for g in isolation_groups(design)
            if g["members"] and (g["creepage_mm"] is not None or g["clearance_mm"] is not None)]
@@ -449,7 +447,6 @@ def isolation_router_rules(design: Design) -> list[dict]:
     between_mm (`between: True`): the members keep that distance to each other's tracks. Returns
     [{class, members, mm, between, rule}]. Other condition shapes stay with KiCad DRC and the repair loop."""
     import fnmatch
-    import re
     nets = sorted(set(design.nets()) | set((design.raw.get("nets") or {})))
     out, seen = [], set()
 
@@ -516,7 +513,6 @@ def net_layer_exemptions(design: Design, libs=None) -> tuple[list[str], list[dic
     NetClass: the net's class or an `iso_` isolation class holding it), or every net when the rule names none.
     Returns (rules, [{rule, area, net, layers}] the exemptions made)."""
     import fnmatch
-    import re
     rules = [str(r) for r in design.board.get("drc_rules") or []]
     lays = net_layers(design)
     if not lays or not any("disallow" in r and "intersectsArea" in r for r in rules):

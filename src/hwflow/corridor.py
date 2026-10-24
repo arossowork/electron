@@ -45,7 +45,6 @@ import fnmatch
 import math
 
 from shapely.geometry import Point, Polygon
-from shapely.ops import unary_union
 
 from . import barrier, floorplan, pcb, routing
 
