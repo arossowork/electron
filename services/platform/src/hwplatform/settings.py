@@ -109,6 +109,15 @@ class Settings(BaseSettings):
     agent_prompts_dir: str = ""
     # A question waits this long for an answer, then the run fails with QuestionExpired. None: no limit.
     agent_question_timeout_s: float | None = None
+    # Evaluations (#19). The simulated product person's model (an alias or an ID; as HWFLOW_PM_MODEL
+    # locally), the
+    # most trials one evaluation runs at once when the request does not say, and the most trials it may have.
+    eval_pm_model: str = "sonnet"
+    eval_default_parallel: int = 1
+    eval_max_trials: int = 60
+    eval_fixtures_dir: str = (
+        ""  # fixtures an evaluation may name by id (a folder of <id>.yaml); empty = send them
+    )
 
     # Agent credentials (hwplatform.credentials). Subscription tokens (`claude setup-token`, sk-ant-oat...)
     # are for the operator's own tenants only: Anthropic does not allow offering claude.ai login or

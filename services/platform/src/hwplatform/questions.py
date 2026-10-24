@@ -126,9 +126,12 @@ class QuestionStore:
             )
             return [_row(r) for r in rows]
 
-    async def answer(self, qid: str | uuid.UUID, answers: dict, answered_by: str | uuid.UUID) -> Question:
+    async def answer(
+        self, qid: str | uuid.UUID, answers: dict, answered_by: str | uuid.UUID | None
+    ) -> Question:
         """open -> answered in one UPDATE (a second answer finds 0 rows: QuestionNotOpen) and emit
-        `question.answered`. QuestionNotFound for an unknown id or another tenant's."""
+        `question.answered`. QuestionNotFound for an unknown id or another tenant's. `answered_by` None: the
+        simulated product person of an evaluation (#19); the row and the event name no user."""
         q = uuid.UUID(str(qid))
         async with self.db.tx(tenant_id=self.tenant_id) as s:
             row = (
@@ -137,7 +140,11 @@ class QuestionStore:
                         "UPDATE questions SET status = 'answered', answers = CAST(:a AS jsonb), "
                         "answered_by = :by, answered_at = now() WHERE id = :i AND status = 'open' RETURNING run_id"
                     ),
-                    {"a": json.dumps(answers), "by": uuid.UUID(str(answered_by)), "i": q},
+                    {
+                        "a": json.dumps(answers),
+                        "by": uuid.UUID(str(answered_by)) if answered_by else None,
+                        "i": q,
+                    },
                 )
             ).first()
             if row is None:
@@ -149,7 +156,11 @@ class QuestionStore:
                 row.run_id,
                 "question.answered",
                 f"runs/{row.run_id}/questions/{q}",
-                {"question_id": str(q), "answered_by": str(answered_by), "answers": answers},
+                {
+                    "question_id": str(q),
+                    "answered_by": str(answered_by) if answered_by else "simulator",
+                    "answers": answers,
+                },
             )
             return await self._get(s, q)
 

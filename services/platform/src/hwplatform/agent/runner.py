@@ -116,6 +116,11 @@ class Hooks:
 class AgentRunner(Protocol):
     async def run(self, spec: SessionSpec, box: ToolBox, hooks: Hooks) -> SessionResult: ...
 
+    async def ask(self, spec: SessionSpec, hooks: Hooks) -> SessionResult:
+        """One turn with no tools (the simulated product person, #19): `spec.system` is the whole system
+        prompt, `spec.prompt` the message; the reply is `SessionResult.text`."""
+        ...
+
 
 def usage_by_model(result, fallback_model: str) -> list[tuple[str, dict]]:
     """[(model, {input_tokens, output_tokens, cache_*})] of one ResultMessage: per model when the CLI reports
@@ -172,6 +177,78 @@ class SdkRunner:
             resume=spec.resume,
             stderr=stderr,
         )
+
+    def ask_options(self, spec: SessionSpec, stderr: Callable[[str], None]):
+        from claude_agent_sdk import ClaudeAgentOptions
+
+        if not self.cli:
+            raise FileNotFoundError("the Claude Code CLI is missing (install claude-agent-sdk)")
+        return ClaudeAgentOptions(
+            tools=[],  # no built-in tool at all: the persona only talks
+            disallowed_tools=[*BUILTIN_TOOLS, *DENIED_TOOLS],
+            system_prompt=spec.system,
+            strict_mcp_config=True,
+            setting_sources=[],
+            permission_mode="default",
+            cwd=str(spec.ws),
+            cli_path=str(write_launcher(spec.bin_dir, self.python, self.cli)),
+            env=spec.env(),
+            model=spec.model,
+            fallback_model=spec.fallback_model,
+            max_turns=1,
+            max_budget_usd=spec.max_budget_usd,
+            stderr=stderr,
+        )
+
+    async def ask(self, spec: SessionSpec, hooks: Hooks) -> SessionResult:
+        from claude_agent_sdk import (
+            AssistantMessage,
+            ClaudeSDKClient,
+            ProcessError,
+            RateLimitEvent,
+            ResultMessage,
+        )
+
+        res = SessionResult(session_id=None)
+        tail: list[str] = []
+
+        def stderr(line: str) -> None:
+            tail.append(redact(line)[:500])
+            del tail[:-20]
+
+        try:
+            async with ClaudeSDKClient(options=self.ask_options(spec, stderr)) as client:
+                await client.query(spec.prompt)
+                async for msg in client.receive_response():
+                    if isinstance(msg, AssistantMessage):
+                        if msg.error and res.error is None:
+                            res.error = _ASSISTANT_ERRORS.get(msg.error, None)
+                    elif isinstance(msg, RateLimitEvent):
+                        info = msg.rate_limit_info
+                        if info.status == "rejected" and info.resets_at:
+                            import time
+
+                            res.retry_after_s = max(1.0, float(info.resets_at) - time.time())
+                    elif isinstance(msg, ResultMessage):
+                        for model, usage in usage_by_model(msg, spec.model):
+                            await hooks.on_usage(model, usage)
+                        res.num_turns, res.stop, res.text = (
+                            msg.num_turns,
+                            msg.subtype,
+                            (msg.result or "")[:4000],
+                        )
+                        if msg.is_error:
+                            res.error = (
+                                res.error
+                                or classify_status(msg.api_error_status)
+                                or limit_message(res.text)
+                                or FAILED
+                            )
+        except ProcessError as e:
+            res.error = res.error or classify_status(getattr(e, "api_error_status", None)) or FAILED
+            res.text = res.text or redact(f"{type(e).__name__}: {e}")[:2000]
+            log.warning("simulator session ended: %s (stderr tail: %s)", res.error, " | ".join(tail[-5:]))
+        return res
 
     async def run(self, spec: SessionSpec, box: ToolBox, hooks: Hooks) -> SessionResult:
         from claude_agent_sdk import (

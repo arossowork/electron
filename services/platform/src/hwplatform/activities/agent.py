@@ -84,6 +84,12 @@ def start_point(inp: AgentStageInput, details: list) -> Start:
     return Start(inp.workspace, inp.session, inp.session_id, inp.resume)
 
 
+def budget_cap(platform: float | None, requested: float | None) -> float | None:
+    """The session cost cap: the lower of the platform's setting and the run's request (None = no cap)."""
+    caps = [c for c in (platform, requested) if c]
+    return min(caps) if caps else None
+
+
 def prompt_for(inp: AgentStageInput, start: Start, can_resume: bool) -> str:
     from hwharness.prompts import RETRY_MESSAGE, answers_message, first_message
 
@@ -128,7 +134,7 @@ class AgentActivities:
 
     @activity.defn(name=A_AGENT_STAGE)
     async def agent_stage(self, inp: AgentStageInput) -> AgentStageOutput:
-        from hwharness.prompts import stage_prompt
+        from hwharness.prompts import model_id, stage_prompt
 
         ctx, settings = inp.ctx, self.deps.settings
         store = self.deps.store(ctx.tenant_id)
@@ -146,6 +152,10 @@ class AgentActivities:
             await asyncio.to_thread(wsmod.restore_session, store, start.session, dirs.config)
         can_resume = start.session is not None and bool(start.session_id)
         sp = stage_prompt(inp.stage, root, settings.agent_model_map())
+        model = (
+            model_id(inp.model) if inp.model else sp.model
+        )  # an evaluation compares models: one for all stages
+        budget = budget_cap(settings.agent_max_budget_usd, inp.budget_usd)
 
         state = {"session_id": start.session_id if can_resume else None, "line": "", "details": details}
         usage: dict[str, dict] = {}
@@ -171,14 +181,14 @@ class AgentActivities:
             bin_dir=dirs.bin,
             tmp_dir=dirs.tmp,
             system=sp.system,
-            model=sp.model,
+            model=model,
             prompt=prompt_for(inp, start, can_resume),
             api_key=cred.secret if cred.type == "api_key" else "",
             oauth_token=cred.secret if cred.type == "subscription_token" else "",
             effort=sp.effort,
             max_turns=sp.max_turns,
             resume=state["session_id"],
-            max_budget_usd=settings.agent_max_budget_usd,
+            max_budget_usd=budget,
             fallback_model=settings.agent_fallback_model or None,
         )
 

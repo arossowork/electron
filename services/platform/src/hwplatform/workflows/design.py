@@ -52,6 +52,7 @@ with workflow.unsafe.imports_passed_through():
         RATE_LIMIT_RESET_MAX_S,
         RECORD_POLICY,
         SIGNAL_ANSWER,
+        SIGNAL_CHILD_RATE_LIMITED,
         SIGNAL_RETRY,
         AgentStageInput,
         AgentStageOutput,
@@ -64,6 +65,7 @@ with workflow.unsafe.imports_passed_through():
         RecordQuestion,
         RecordRun,
         RecordStage,
+        SimulateInput,
         StageOut,
         errors,
     )
@@ -298,6 +300,8 @@ class DesignWorkflow:
                         questions=questions,
                         resume=resume,
                         round=rounds,
+                        model=self.arg.model,
+                        budget_usd=self.arg.budget_usd,
                     ),
                     result_type=AgentStageOutput,
                     task_queue=Q_AGENT,
@@ -318,21 +322,7 @@ class DesignWorkflow:
                 if typ == errors.LlmKeyInvalid:
                     await self._wait_for_key(stage, det.get("reason") or "key_invalid")
                 elif typ == errors.LlmRateLimited:
-                    reset = det.get("retry_after_s")
-                    if reset:  # a known reset time: wait for it (a durable timer, no polling)
-                        delay = min(float(reset), RATE_LIMIT_RESET_MAX_S)
-                    else:
-                        delay = backoff
-                        backoff = min(backoff * 2, RATE_LIMIT_BACKOFF_S[1])
-                    self.waiting = {"reason": "rate_limited", "seconds": delay}
-                    seen = self.retries  # a `retry` signal (say, a new key) ends the wait early
-                    try:
-                        await workflow.wait_condition(
-                            lambda seen=seen: self.retries > seen, timeout=timedelta(seconds=delay)
-                        )
-                    except TimeoutError:
-                        pass
-                    self.waiting = None
+                    backoff = await self._rate_wait(det, backoff)
                 else:
                     raise _Failed(_error(e)) from None
                 if det.get("reason") != "no_key":  # the session ran: its transcript has the last prompt
@@ -350,22 +340,73 @@ class DesignWorkflow:
             answers = await self._ask(stage, questions)
             resume = "answers"
 
+    async def _rate_wait(self, det: dict, backoff: float) -> float:
+        """A durable timer for a rate limit: the reset time when known (else the doubling backoff). A `retry`
+        signal ends it early. Tells the parent EvalWorkflow, which starts no new trial meanwhile. Returns the
+        next backoff."""
+        reset = det.get("retry_after_s")
+        if reset:  # a known reset time: wait for it (a durable timer, no polling)
+            delay = min(float(reset), RATE_LIMIT_RESET_MAX_S)
+        else:
+            delay = backoff
+            backoff = min(backoff * 2, RATE_LIMIT_BACKOFF_S[1])
+        self.waiting = {"reason": "rate_limited", "seconds": delay}
+        if self.arg.parent_workflow_id:
+            try:
+                await workflow.get_external_workflow_handle(self.arg.parent_workflow_id).signal(
+                    SIGNAL_CHILD_RATE_LIMITED, delay
+                )
+            except Exception:  # noqa: BLE001, S110 - the parent is gone: nobody to tell
+                pass
+        seen = self.retries  # a `retry` signal (say, a new key) ends the wait early
+        try:
+            await workflow.wait_condition(lambda: self.retries > seen, timeout=timedelta(seconds=delay))
+        except TimeoutError:
+            pass
+        self.waiting = None
+        return backoff
+
+    async def _simulate(self, stage: str, qid: str, questions: list[dict]) -> dict:
+        """The simulated product person's answers, with the same LLM waits as an agent stage (a rate limit
+        is a timer, an invalid key waits for `retry`)."""
+        backoff = RATE_LIMIT_BACKOFF_S[0]
+        while True:
+            try:
+                return await workflow.execute_activity(
+                    A_SIMULATE_ANSWER,
+                    SimulateInput(
+                        ctx=self.arg.ctx,
+                        question_id=qid,
+                        stage=stage,
+                        questions=questions,
+                        persona=self.arg.persona,
+                    ),
+                    result_type=dict,
+                    task_queue=Q_AGENT,
+                    start_to_close_timeout=timedelta(minutes=10),
+                    heartbeat_timeout=timedelta(seconds=60),
+                    retry_policy=_agent_retry(),
+                    cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
+                    summary=f"simulate {stage}",
+                )
+            except ActivityError as e:
+                if isinstance(e.cause, CancelledError):
+                    raise
+                typ, det = _failure(e)
+                if typ == errors.LlmKeyInvalid:
+                    await self._wait_for_key(stage, det.get("reason") or "key_invalid")
+                elif typ == errors.LlmRateLimited:
+                    backoff = await self._rate_wait(det, backoff)
+                else:
+                    raise _Failed(_error(e)) from None
+
     async def _ask(self, stage: str, questions: list[dict]) -> dict:
         qid = str(workflow.uuid4())
         await self._question("ask", question_id=qid, stage=stage, questions=questions)
         self.open_question = qid
         self.waiting = {"reason": "question", "question_id": qid}
         if self.arg.answerer == "simulator":  # #19: the evals product-person simulator answers
-            got = await workflow.execute_activity(
-                A_SIMULATE_ANSWER,
-                RecordQuestion(
-                    ctx=self.arg.ctx, op="simulate", question_id=qid, stage=stage, questions=questions
-                ),
-                result_type=dict,
-                task_queue=Q_AGENT,
-                start_to_close_timeout=timedelta(minutes=10),
-                heartbeat_timeout=timedelta(seconds=60),
-            )
+            got = await self._simulate(stage, qid, questions)
             self.answers[qid] = QuestionAnswer(qid, got, "simulator")
         t = self.arg.question_timeout_s
         try:

@@ -46,3 +46,12 @@ describe("eventLine", () => {
     expect(eventLine({ event: "x", data: "not json" })).toBeNull();
   });
 });
+
+describe("evals client", () => {
+  it("exposes the page and the endpoints", async () => {
+    const { EvalsPage } = await import("./EvalsPage");
+    const { evals } = await import("../api/api");
+    expect(typeof EvalsPage).toBe("function");
+    expect(Object.keys(evals).sort()).toEqual(["baselines", "get", "list", "promote", "report"]);
+  });
+});

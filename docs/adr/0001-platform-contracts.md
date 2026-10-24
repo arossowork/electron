@@ -939,7 +939,40 @@ and `LlmKeyInvalid`: the workflow sets `run.waiting` (reason `llm_key_invalid`) 
   for the idle worker and about 200 MiB for a starting session, so a separate pod costs about 112 MiB in the
   reduced stack. 4.10's worker default changes: every queue, and a process without the SDK drops `hwflow-agent`.
 - **Open.** The firmware stage cannot run its host tests (gcc, `make test`) without a shell; it needs an engine
-  tool for them. `simulate_answer` is #19.
+  tool for them. `simulate_answer` is 7.7 (#19).
+
+### 7.7 As implemented in #19 (EvalWorkflow, simulate_answer, baselines)
+
+- **Run.** `POST /evals` (owner or admin) admits one run of kind `eval` (counts as one run against
+  `max_concurrent_runs`, workflow ID `eval-<tenant_id>-<run_id>`) and starts `EvalWorkflow` with the fixtures
+  (inline documents, or ids of fixtures the operator installed in `HWPLATFORM_EVAL_FIXTURES_DIR`), the models, the
+  repetitions, a cost cap per session and `max_parallel`. Each trial (fixture x model x repetition) is a stage of the eval
+  run; its project, stub design version and `DesignWorkflow` run (`answerer="simulator"`, `parent_run_id` = the eval
+  run) are made by the `prepare_eval_trial` activity, the child is started with the eval's own deterministic ID
+  scheme, and a scoring `BuildWorkflow` (until `fab`, on the agent's last design version, mostly stage-cache hits)
+  runs as a second child.
+- **Fan-out.** At most `min(max_parallel, tenants.max_concurrent_runs)` trials at a time (a semaphore). A design
+  child that hits the subscription window signals `child_rate_limited` to the eval, which starts no new trial until the
+  window has passed. A failed or cancelled trial is scored as it ended (no design is a low score) or recorded as an
+  error; it never fails the eval. Cancelling the eval cancels the children (`REQUEST_CANCEL`, waiting for them) and
+  scores nothing more.
+- **Scoring** is `hwharness.evals.cards.score_card` over an `Evidence`, with two adapters: the local project
+  (`build/status.json`, `inbox/`) and the platform (manifest, `question.asked` events, the final version's documents,
+  the scoring build's `score.json`). Same card from both on the stored baseline (`harness/tests/test_evals_cards.py`).
+  The engine worker imports `hwharness` through the `evals` extra of `hwplatform`; without it the eval activities are
+  not registered.
+- **Output.** `finish_eval` stores `eval.json` (`hwflow.eval/1`: trials, errors, aggregate, comparison, verdict) and
+  `REPORT.md` as artifacts of the eval run. The verdict is FAIL on a regression against the baseline or when no
+  trial was scored; the run itself is `succeeded` when the evaluation completed.
+- **Baselines.** Table `eval_baselines` (migration 0008, insert-only, RLS). The baseline of an evaluation is, in
+  order, `baseline_run_id`, an inline `baseline` document (an eval document or the legacy `evals/baseline.json`
+  aggregate; `evals/baselines/<name>/baseline.json` is generated from the stored project by
+  `hwharness.evals.baseline`), or the newest promoted one of the suite. A finished evaluation becomes a
+  baseline only through `POST /evals/{id}/promote-baseline` (admin).
+- **simulate_answer** (agent queue): one SDK turn with no tools, the product-person prompt of the local harness
+  (`hwharness.evals.simulator`), the tenant's credential through the credential port, the same `LlmKeyInvalid` and
+  `LlmRateLimited` handling as `agent_stage` (the workflow turns them into the same waits). The hidden specification
+  travels in the activity input and never enters an agent workspace.
 
 ## 8. Reduced (M1) vs full (M2) stack
 

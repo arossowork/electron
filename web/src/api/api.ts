@@ -12,6 +12,9 @@ export type DesignVersionDetail = S["DesignVersionDetailOut"];
 export type Run = S["RunOut"];
 export type RunSummary = S["RunSummaryOut"];
 export type Stage = S["StageOut"];
+export type EvalSummary = S["EvalSummaryOut"];
+export type EvalDetail = S["EvalOut"];
+export type Baseline = S["BaselineOut"];
 export type Artifact = S["ArtifactOut"];
 export type Question = S["QuestionOut"];
 export type LlmKey = S["LlmKeyOut"];
@@ -82,6 +85,14 @@ export const runs = {
   artifacts: (id: string) => get<Artifact[]>(`/runs/${id}/artifacts`),
   questions: (id: string) => get<Question[]>(`/runs/${id}/questions`),
   answer: (qid: string, answers: Record<string, string>) => post<unknown>(`/questions/${qid}/answer`, { answers }),
+};
+
+export const evals = {
+  list: () => get<Page<EvalSummary>>("/evals?limit=100"),
+  get: (id: string) => get<EvalDetail>(`/evals/${id}`),
+  report: (id: string) => get<string>(`/evals/${id}/report`),
+  baselines: () => get<Baseline[]>("/evals/baselines"),
+  promote: (id: string, name: string) => post<Baseline>(`/evals/${id}/promote-baseline`, { name }),
 };
 
 /**

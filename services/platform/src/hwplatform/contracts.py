@@ -21,6 +21,9 @@ from hwflow.artifacts import ArtifactRef
 BUILD_WORKFLOW = "BuildWorkflow"
 DESIGN_WORKFLOW = "DesignWorkflow"  # issue #15
 EVAL_WORKFLOW = "EvalWorkflow"  # issue #19
+# EvalWorkflow -> its parent: a child design run waits out a rate limit; the eval starts no new trial
+# meanwhile.
+SIGNAL_CHILD_RATE_LIMITED = "child_rate_limited"
 SIGNAL_ANSWER = "answer_question"
 # PUT /tenant/llm-keys/anthropic signals `retry`: a run waiting with llm_key_invalid tries again (ADR 7.4).
 SIGNAL_RETRY = "retry"
@@ -62,7 +65,12 @@ A_RECORD_QUESTION = "record_question"
 A_GET_DESIGN_VERSION = "get_design_version"
 A_CREATE_DESIGN_VERSION = "create_design_version"
 A_ENGINE_TOOL = "engine_tool"
-A_SIMULATE_ANSWER = "simulate_answer"  # registered by #19 (the evals product-person simulator)
+A_SIMULATE_ANSWER = "simulate_answer"  # #19: the evals product-person simulator (hwflow-agent)
+# EvalWorkflow (#19, engine queue)
+A_PREPARE_EVAL_TRIAL = "prepare_eval_trial"
+A_PREPARE_SCORE_BUILD = "prepare_score_build"
+A_SCORE_TRIAL = "score_trial"
+A_FINISH_EVAL = "finish_eval"
 
 DESIGN_STAGES = ("requirements", "partition", "parts", "circuit", "review", "layout", "firmware")
 # Engine tools of the agent's MCP server (ADR 7.6). The agent image has no KiCad, no ngspice and no internet
@@ -177,6 +185,14 @@ class DesignInput:
     # None: wait for an answer without a limit (ADR 7.6); a number of seconds: then QuestionExpired.
     question_timeout_s: float | None = None
     parent_run_id: str | None = None  # an EvalWorkflow's run (#19)
+    # EvalWorkflow trials (#19): `model` replaces the model of every stage; `budget_usd` caps every
+    # agent session;
+    # `persona` is the fixture's hidden specification, which only `simulate_answer` reads (never the agent);
+    # `parent_workflow_id` is told when this run waits out a rate limit.
+    model: str = ""
+    budget_usd: float | None = None
+    persona: str = ""
+    parent_workflow_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +211,8 @@ class AgentStageInput:
     questions: list[dict] = field(default_factory=list)
     resume: str | None = None
     round: int = 0  # question rounds so far in this run (the agent cites "PM round N, qX")
+    model: str = ""  # replaces the stage's model (an alias or an ID); "" = the platform's setting
+    budget_usd: float | None = None  # replaces the session cost cap when lower than the platform's
 
 
 @dataclass(frozen=True)
@@ -226,6 +244,20 @@ class RecordQuestion:
     question_id: str | None = None
     stage: str = ""
     questions: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SimulateInput:
+    """simulate_answer (#19): the simulated product person answers `questions` from `persona`, the fixture's
+    hidden specification. The credential is the tenant's, like the agent's."""
+
+    ctx: RunCtx
+    question_id: str
+    stage: str
+    questions: list[dict]
+    persona: str
+    model: str = ""
+    round: int = 0
 
 
 @dataclass(frozen=True)
@@ -402,3 +434,113 @@ class BuildOutput:
     report: ArtifactRef | None
     status_json: ArtifactRef | None
     stages: dict[str, dict] = field(default_factory=dict)  # key -> {"verdict", "cached", "summary"}
+
+
+# --- EvalWorkflow (#19, ADR 7.7) ---
+
+
+@dataclass(frozen=True)
+class EvalInput:
+    """`fixtures`: the fixture documents (evals/fixtures/*.yaml: id, brief, hidden_spec, mode, requirements,
+    planted_conflicts, expected_requirements, limits). `baseline`: an eval document (`hwflow.eval/1`)
+    stored as an
+    artifact. `models`: model aliases or IDs, "" = the platform's setting. `max_parallel`: trials at
+    once, already
+    capped by the tenant's `max_concurrent_runs` by the API. `budget_usd`: cost cap of every agent session."""
+
+    ctx: RunCtx
+    suite: str
+    fixtures: list[dict]
+    baseline: ArtifactRef | None = None
+    baseline_name: str = ""
+    models: list[str] = field(default_factory=lambda: [""])
+    repetitions: int = 1
+    max_parallel: int = 1
+    budget_usd: float | None = None
+    question_timeout_s: float | None = None
+    options: dict = field(default_factory=dict)  # echoed into the report
+
+
+@dataclass(frozen=True)
+class PrepareTrial:
+    """prepare_eval_trial: the project, design version and run row of one trial (fixture x model x
+    repetition). `ctx` is the eval run's."""
+
+    ctx: RunCtx
+    key: str
+    fixture: dict
+    model: str
+    trial: int
+    budget_usd: float | None = None
+    question_timeout_s: float | None = None
+
+
+@dataclass(frozen=True)
+class PreparedTrial:
+    key: str
+    design: DesignInput  # ready to start: its ctx is the trial's own project and run
+    fixture_id: str = ""
+    model: str = ""
+    trial: int = 1
+
+
+@dataclass(frozen=True)
+class ScoreTrialInput:
+    """score_trial: reads the trial's design run (manifest, events), its final design version and the scoring
+    build; `build_run_id` is that build's run ("" when none ran). `design_status` / `design_error`:
+    how the design
+    run ended."""
+
+    ctx: RunCtx  # the eval run's
+    trial: PreparedTrial
+    fixture: dict
+    build_run_id: str = ""
+    design_status: str = "succeeded"
+    design_error: dict | None = None
+
+
+@dataclass(frozen=True)
+class ScoreBuildPlan:
+    """prepare_score_build: the build that produces the metrics of a trial (on its final design version), with
+    its run row created; None when the design run left no design version to build."""
+
+    build: BuildInput | None = None
+
+
+@dataclass(frozen=True)
+class TrialResult:
+    key: str
+    card: dict
+    card_ref: ArtifactRef
+
+
+@dataclass(frozen=True)
+class FinishEvalInput:
+    """finish_eval: aggregate the cards, compare with the baseline, store eval.json and REPORT.md as artifacts
+    of the eval run. `errors`: trials that produced no card."""
+
+    ctx: RunCtx
+    suite: str
+    cards: list[dict]
+    errors: list[dict]
+    baseline: ArtifactRef | None = None
+    baseline_name: str = ""
+    options: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FinishEvalOut:
+    verdict: str
+    report: ArtifactRef
+    eval_json: ArtifactRef
+
+
+@dataclass(frozen=True)
+class EvalOutput:
+    run_id: str
+    status: str
+    verdict: str | None
+    trials: int = 0
+    errors: int = 0
+    report: ArtifactRef | None = None
+    eval_json: ArtifactRef | None = None

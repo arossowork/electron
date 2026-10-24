@@ -21,6 +21,7 @@ from ..storage import make_s3_client
 from . import (
     routes_auth,
     routes_designs,
+    routes_evals,
     routes_events,
     routes_llm_keys,
     routes_projects,
@@ -39,6 +40,10 @@ OPENAPI_TAGS = [
         "description": "Immutable, content-addressed snapshots of a project's files.",
     },
     {"name": "runs", "description": "Build and design runs: start, status, cancel, artifacts."},
+    {
+        "name": "evals",
+        "description": "Evaluations: fixtures run as design workflows, scored against a baseline.",
+    },
     {"name": "questions", "description": "Questions a design run asks the person, and their answers."},
     {"name": "events", "description": "Server-sent events: replay from the outbox, then live."},
 ]
@@ -117,6 +122,7 @@ def create_app(
     v1.include_router(routes_llm_keys.router)
     v1.include_router(routes_designs.router)
     v1.include_router(routes_runs.router)
+    v1.include_router(routes_evals.router)
     v1.include_router(routes_questions.router)
     v1.include_router(routes_events.router)
     app.include_router(v1)

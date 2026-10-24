@@ -23,7 +23,7 @@ COPY pyproject.toml uv.lock .python-version ./
 COPY harness/pyproject.toml harness/pyproject.toml
 COPY services/platform/pyproject.toml services/platform/pyproject.toml
 COPY services/platform/README.md services/platform/README.md
-RUN uv sync --frozen --no-dev --package hwplatform --no-install-workspace
+RUN uv sync --frozen --no-dev --package hwplatform --extra evals --no-install-workspace
 # Layer 2: the KRT checkout at the pinned commit and its Rust router built from source against the venv's Python.
 # The prebuilt release asset is not used: upstream's latest release moved past the pinned commit (its version no longer
 # matches rust_router/Cargo.toml), and a mismatched binary can carry another ABI. The Rust toolchain stays in this stage.
@@ -34,10 +34,11 @@ RUN mkdir -p /opt/tools && git clone -q https://github.com/drandyhaas/KiCadRouti
  && rm -rf /opt/tools/KiCadRoutingTools/rust_router/target
 RUN if [ "$WITH_FREEROUTING" = 1 ]; then curl -fsSL -o /opt/tools/freerouting.jar \
       https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar; fi
-# Layer 3: the workspace packages (hwflow, hwplatform), installed non-editable so no source tree is needed.
+# Layer 3: the workspace packages (hwflow, hwharness for the evaluation scorer, hwplatform), installed non-editable so no source tree is needed.
 COPY src src
+COPY harness/src harness/src
 COPY services/platform/src services/platform/src
-RUN uv sync --frozen --no-dev --package hwplatform --no-editable
+RUN uv sync --frozen --no-dev --package hwplatform --extra evals --no-editable
 
 # ---------------------------------------------------------------------------------------------- runtime
 FROM ${UBUNTU} AS runtime

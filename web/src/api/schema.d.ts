@@ -462,6 +462,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List evaluations, newest first */
+        get: operations["list_evals_api_v1_evals_get"];
+        put?: never;
+        /**
+         * Start an evaluation
+         * @description Runs each fixture (times the models and repetitions) as a design run answered by a simulated product person, scores the results and compares them with a baseline. Owner or admin. Counts as one run for the tenant's `max_concurrent_runs` (429 `quota_exceeded`); its trials run at most `max_parallel` at a time, never above that quota. The baseline is, in order: `baseline_run_id`, an inline `baseline` document, the suite's promoted baseline.
+         */
+        post: operations["start_eval_api_v1_evals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/baselines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promoted baselines, newest first */
+        get: operations["list_baselines_api_v1_evals_baselines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/{eval_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An evaluation: its stages (one per trial) and its design runs */
+        get: operations["get_eval_api_v1_evals__eval_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/{eval_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** REPORT.md of the evaluation */
+        get: operations["get_eval_report_api_v1_evals__eval_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/{eval_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** eval.json of the evaluation: trials, aggregate, comparison, verdict */
+        get: operations["get_eval_result_api_v1_evals__eval_id__result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/{eval_id}/promote-baseline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make this evaluation the baseline of its suite
+         * @description Explicit and admin only: a baseline is never promoted automatically. The next evaluation of the suite compares with it unless it names another baseline. The history of promotions is kept.
+         */
+        post: operations["promote_baseline_api_v1_evals__eval_id__promote_baseline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/questions/{question_id}/answer": {
         parameters: {
             query?: never;
@@ -589,6 +698,37 @@ export interface components {
             /** Media Type */
             media_type: string;
         };
+        /** BaselineIn */
+        BaselineIn: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /** BaselineOut */
+        BaselineOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Suite */
+            suite: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Sha256 */
+            sha256: string;
+            /** Name */
+            name: string;
+            /** Promoted By */
+            promoted_by: string | null;
+            /**
+             * Promoted At
+             * Format: date-time
+             */
+            promoted_at: string;
+        };
         /** Body_upload_design_version_api_v1_projects__project_id__design_versions_post */
         Body_upload_design_version_api_v1_projects__project_id__design_versions_post: {
             /** Design */
@@ -604,6 +744,21 @@ export interface components {
              * @default
              */
             message: string;
+        };
+        /** ConflictIn */
+        ConflictIn: {
+            /** Id */
+            id: string;
+            /**
+             * Desc
+             * @default
+             */
+            desc: string;
+            /**
+             * Keywords
+             * @description all groups must hit; a group hits when any keyword is present
+             */
+            keywords: string[][];
         };
         /** DesignVersionDetailOut */
         DesignVersionDetailOut: {
@@ -685,6 +840,183 @@ export interface components {
         ErrorOut: {
             /** Detail */
             detail: string;
+        };
+        /**
+         * EvalIn
+         * @description `fixtures`: fixture documents, or ids of fixtures the operator installed (HWPLATFORM_EVAL_FIXTURES_DIR).
+         *     `baseline_run_id` / `baseline`: compare with an earlier evaluation or an inline eval document (for example
+         *     the stored `evals/baselines/<name>/baseline.json`); both absent: the suite's promoted baseline, if any.
+         */
+        EvalIn: {
+            /** Suite */
+            suite: string;
+            /** Fixtures */
+            fixtures: (components["schemas"]["FixtureIn"] | string)[];
+            /**
+             * Models
+             * @description model aliases or IDs; empty = the platform's setting
+             */
+            models?: string[];
+            /**
+             * Repetitions
+             * @default 1
+             */
+            repetitions: number;
+            /** Max Parallel */
+            max_parallel?: number | null;
+            /**
+             * Budget Usd
+             * @description cost cap of every agent session
+             */
+            budget_usd?: number | null;
+            /** Baseline Run Id */
+            baseline_run_id?: string | null;
+            /** Baseline */
+            baseline?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** EvalOut */
+        EvalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Design Version Id
+             * Format: uuid
+             */
+            design_version_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "build" | "design" | "eval";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled";
+            /** Verdict */
+            verdict: ("PASS" | "FAIL") | null;
+            /** Options Hash */
+            options_hash: string;
+            /** Parent Run Id */
+            parent_run_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Workflow Id */
+            workflow_id: string;
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: {
+                [key: string]: unknown;
+            } | null;
+            /** Artifacts */
+            artifacts: string[];
+            /** Stages */
+            stages: components["schemas"]["StageOut"][];
+            /** Suite */
+            suite: string;
+            /** Children */
+            children: components["schemas"]["RunSummaryOut"][];
+        };
+        /** EvalSummaryOut */
+        EvalSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Design Version Id
+             * Format: uuid
+             */
+            design_version_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "build" | "design" | "eval";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled";
+            /** Verdict */
+            verdict: ("PASS" | "FAIL") | null;
+            /** Options Hash */
+            options_hash: string;
+            /** Parent Run Id */
+            parent_run_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Suite */
+            suite: string;
+        };
+        /**
+         * FixtureIn
+         * @description One product of an evaluation (evals/fixtures/*.yaml). `hidden_spec` is known only to the simulated product
+         *     person; the agent sees `brief`. `mode: from_requirements` skips the interview (`requirements` is the final
+         *     requirements.yaml) and starts at the partition stage.
+         */
+        FixtureIn: {
+            /** Id */
+            id: string;
+            /** Brief */
+            brief: string;
+            /**
+             * Hidden Spec
+             * @default
+             */
+            hidden_spec: string;
+            /**
+             * Mode
+             * @default full
+             * @enum {string}
+             */
+            mode: "full" | "from_requirements";
+            /**
+             * Requirements
+             * @default
+             */
+            requirements: string;
+            /** Planted Conflicts */
+            planted_conflicts?: components["schemas"]["ConflictIn"][];
+            /** Expected Requirements */
+            expected_requirements?: string[][];
+            /** Limits */
+            limits?: {
+                [key: string]: number;
+            };
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -792,6 +1124,13 @@ export interface components {
         Page_DesignVersionOut_: {
             /** Items */
             items: components["schemas"]["DesignVersionOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** Page[EvalSummaryOut] */
+        Page_EvalSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["EvalSummaryOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
         };
@@ -925,7 +1264,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "build" | "design";
+            kind: "build" | "design" | "eval";
             /**
              * Status
              * @enum {string}
@@ -982,7 +1321,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "build" | "design";
+            kind: "build" | "design" | "eval";
             /**
              * Status
              * @enum {string}
@@ -1902,7 +2241,7 @@ export interface operations {
     list_runs_api_v1_projects__project_id__runs_get: {
         parameters: {
             query?: {
-                kind?: ("build" | "design") | null;
+                kind?: ("build" | "design" | "eval") | null;
                 status?: ("queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled") | null;
                 limit?: number;
                 cursor?: string | null;
@@ -2298,6 +2637,323 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_evals_api_v1_evals_get: {
+        parameters: {
+            query?: {
+                status?: ("queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled") | null;
+                suite?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EvalSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_eval_api_v1_evals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalIn"];
+            };
+        };
+        responses: {
+            /** @description The Idempotency-Key was used */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalOut"];
+                };
+            };
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description quota_exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_baselines_api_v1_evals_baselines_get: {
+        parameters: {
+            query?: {
+                suite?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BaselineOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_eval_api_v1_evals__eval_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_eval_report_api_v1_evals__eval_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_eval_result_api_v1_evals__eval_id__result_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_baseline_api_v1_evals__eval_id__promote_baseline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BaselineIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BaselineOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -4,6 +4,7 @@ import { auth } from "./api/api";
 import { useAuth, useMe } from "./auth";
 import { ErrorBox } from "./components/ui";
 import { AcceptInvitePage, LoginPage, SignupPage, VerifyPage } from "./pages/AuthPages";
+import { EvalsPage } from "./pages/EvalsPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RunPage } from "./pages/RunPage";
@@ -19,6 +20,8 @@ export function App() {
         <Route path="/" element={<Navigate to="/projects" replace />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:projectId" element={<ProjectPage />} />
+        <Route path="/evals" element={<EvalsPage />} />
+        <Route path="/evals/:evalId" element={<EvalsPage />} />
         <Route path="/runs/:runId" element={<RunPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
@@ -57,6 +60,7 @@ function Shell() {
           hwflow
         </Link>
         <Link to="/projects">Projects</Link>
+        <Link to="/evals">Evals</Link>
         <Link to="/settings">Settings</Link>
         <span className="spacer" />
         {me.tenants.length > 1 ? (

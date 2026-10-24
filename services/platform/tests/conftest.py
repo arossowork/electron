@@ -32,7 +32,7 @@ SMOKE_CREDENTIAL_VARS = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
 
 
 def pytest_ignore_collect(collection_path, config):
-    if collection_path.name != "test_agent_smoke.py":
+    if collection_path.name not in ("test_agent_smoke.py", "test_eval_smoke.py"):
         return None
     expr = config.getoption("markexpr", "") or ""
     asked = bool(re.search(r"(?<!not )\banthropic_smoke\b", expr)) or (
@@ -414,6 +414,10 @@ class FakeGateway:
         self.started.append((workflow_id, arg))
 
     async def start_design(self, workflow_id, arg):
+        self._check()
+        self.started.append((workflow_id, arg))
+
+    async def start_eval(self, workflow_id, arg):
         self._check()
         self.started.append((workflow_id, arg))
 

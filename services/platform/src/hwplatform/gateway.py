@@ -2,8 +2,9 @@
 
 The routes depend on the `WorkflowGateway` interface only, so tests inject a fake and the API runs without a
 Temporal server for everything that does not touch a workflow. The workflows live in `hwplatform.workflows`
-(BuildWorkflow, #9; DesignWorkflow is #15) and run in `hwplatform-worker`; the API never imports them: it
-starts them by name with the ADR's workflow IDs, task queue and argument dataclasses (`hwplatform.contracts`).
+(BuildWorkflow, #9; DesignWorkflow, #15; EvalWorkflow, #19) and run in `hwplatform-worker`; the API never
+imports them: it starts them by name with the ADR's workflow IDs, task queue and argument dataclasses
+(`hwplatform.contracts`).
 """
 
 from __future__ import annotations
@@ -14,10 +15,12 @@ from typing import Protocol
 from .contracts import (
     BUILD_WORKFLOW,
     DESIGN_WORKFLOW,
+    EVAL_WORKFLOW,
     SIGNAL_ANSWER,
     SIGNAL_RETRY,
     BuildInput,
     DesignInput,
+    EvalInput,
     QuestionAnswer,
 )
 from .settings import Settings
@@ -41,6 +44,11 @@ def design_workflow_id(tenant_id: str, project_id: str, run_id: str) -> str:
     return f"design-{tenant_id}-{project_id}-{run_id}"
 
 
+def eval_workflow_id(tenant_id: str, run_id: str) -> str:
+    """ADR 4.4: eval-<tenant_id>-<run_id>."""
+    return f"eval-{tenant_id}-{run_id}"
+
+
 def search_attributes(attrs: dict[str, str]):
     """TypedSearchAttributes of the Keyword attributes registered by hwplatform-migrate (ADR 4.4)."""
     from temporalio.common import SearchAttributeKey, SearchAttributePair, TypedSearchAttributes
@@ -61,6 +69,8 @@ class WorkflowGateway(Protocol):
         ...
 
     async def start_design(self, workflow_id: str, arg: DesignInput) -> None: ...
+
+    async def start_eval(self, workflow_id: str, arg: EvalInput) -> None: ...
 
     async def cancel(self, workflow_id: str) -> None:
         """Request cancellation (`handle.cancel()`); the workflow records the `cancelled` state itself."""
@@ -148,6 +158,19 @@ class TemporalGateway:
                 "HwProjectId": arg.ctx.project_id,
                 "HwRunId": arg.ctx.run_id,
                 "HwRunKind": "design",
+            },
+        )
+
+    async def start_eval(self, workflow_id: str, arg: EvalInput) -> None:
+        await self._start(
+            EVAL_WORKFLOW,
+            workflow_id,
+            arg,
+            {
+                "HwTenantId": arg.ctx.tenant_id,
+                "HwProjectId": arg.ctx.project_id,
+                "HwRunId": arg.ctx.run_id,
+                "HwRunKind": "eval",
             },
         )
 

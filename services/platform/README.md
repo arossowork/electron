@@ -198,7 +198,7 @@ Everything is under `/api/v1`, bearer JWT, tenant from the token (membership re-
 
 Tests: `tests/test_api_runs.py` (HTTP, fake gateway: versions, start, idempotency, quota, cancel, artifacts, questions, roles, cross-tenant 404 on every endpoint) and `tests/test_api_e2e.py` (a real uvicorn server with the relay: create project, upload, start, follow SSE replay and live in `seq` order, presigned download, answer a question, check the signal). `tests/test_gateway_temporal.py` runs `TemporalGateway` against the temporalio dev server (downloaded once) with stand-in workflows named like the ADR's: start with the workflow ID, `USE_EXISTING`, the answer signal, cancel, not found. Config added: `HWPLATFORM_S3_PUBLIC_URL`, `S3_DOWNLOAD_URL_TTL_S`, `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_ENGINE_QUEUE`, `MAX_BUNDLE_BYTES`, `MAX_BUNDLE_FILES`, `SSE_KEEPALIVE_S`, `SSE_POLL_S`.
 
-Not done here: `POST /evals` (EvalWorkflow, #19), the `PUT /tenant/llm-keys` signal `retry` to runs waiting on a key (#15), `fab.zip` creation (the `render_run` activity, #9), the workflows themselves (#9).
+Not done here: the `PUT /tenant/llm-keys` signal `retry` to runs waiting on a key (#15), `fab.zip` creation (the `render_run` activity, #9), the workflows themselves (#9).
 
 ## Auth flow
 
@@ -379,6 +379,33 @@ ANTHROPIC_API_KEY=sk-ant-api... uv run --package hwplatform --extra agent pytest
 # or, the operator's own subscription token, with ANTHROPIC_API_KEY unset:
 CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat... uv run --package hwplatform --extra agent pytest -q -s -m anthropic_smoke tests/test_agent_smoke.py
 ```
+
+## Evaluations: EvalWorkflow (#19)
+
+`POST /api/v1/evals` (owner or admin) runs fixtures as design workflows answered by a simulated product person, scores
+them and compares with a baseline (ADR 0001, 7.7). Request: `suite`, `fixtures` (fixture documents like
+`evals/fixtures/*.yaml`, or ids installed in `HWPLATFORM_EVAL_FIXTURES_DIR`), `models`, `repetitions`, `max_parallel`,
+`budget_usd`, and optionally `baseline_run_id` or an inline `baseline`.
+
+| Endpoint | |
+|---|---|
+| `POST /evals` | start (202; 429 `quota_exceeded`; 422 for bad fixtures or more than `HWPLATFORM_EVAL_MAX_TRIALS` trials) |
+| `GET /evals`, `GET /evals/{id}` | list (filters `status`, `suite`) and detail with the design runs (`children`) |
+| `GET /evals/{id}/report`, `/result` | `REPORT.md` and `eval.json` |
+| `GET /evals/baselines` | promoted baselines |
+| `POST /evals/{id}/promote-baseline` | explicit, admin: the next evaluation of the suite compares with it |
+
+Modules: `workflows/eval.py` (fan-out, rate-limit pause, cancel cascade), `activities/evals.py` (`prepare_eval_trial`,
+`prepare_score_build`, `score_trial`, `finish_eval`; engine queue, needs the `evals` extra), `activities/simulate.py`
+(`simulate_answer`; agent queue), `api/routes_evals.py`. The scorer is `hwharness.evals.cards`, shared with the local
+CLI (`uv run python evals/harness.py platform run|get|wait|report|promote`, `HWPLATFORM_API_URL`, `HWPLATFORM_TOKEN`).
+Config: `HWPLATFORM_EVAL_PM_MODEL` (default `sonnet`), `EVAL_DEFAULT_PARALLEL` (1), `EVAL_MAX_TRIALS` (60),
+`EVAL_FIXTURES_DIR`.
+
+Tests: `tests/test_workflow_eval.py` (time-skipping, fake design runs and simulator: fan-out bound, scoring, baseline
+comparison, cancel cascade, a failing fixture, rate-limit pause), `tests/test_api_evals.py`, `tests/test_eval_activities.py`
+(real Postgres and S3), `tests/test_simulate.py`; the real simulator smoke is
+`CLAUDE_CODE_OAUTH_TOKEN=... uv run --package hwplatform --extra agent pytest -q -s -m anthropic_smoke tests/test_eval_smoke.py`.
 
 ## Swapping for OIDC (Keycloak, M2)
 

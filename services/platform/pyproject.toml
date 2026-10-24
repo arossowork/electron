@@ -28,6 +28,8 @@ dependencies = [
 # The agent worker (#15, queue hwflow-agent): the Claude Agent SDK with its bundled Claude Code CLI (about 125 MB).
 # Only deploy/images/agent.Dockerfile and CI install it; the API and engine worker images do not.
 agent = ["claude-agent-sdk>=0.2.174", "hwharness"]
+# The evaluation activities of the engine worker (#19: scoring, report) use the scorer of hwharness (stdlib only).
+evals = ["hwharness"]
 
 [project.scripts]
 hwplatform-api = "hwplatform.main:run"

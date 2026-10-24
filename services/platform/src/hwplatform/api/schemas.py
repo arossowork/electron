@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
 
 
 class SignupIn(BaseModel):
@@ -111,7 +111,10 @@ class ProjectOut(BaseModel):
 
 T = TypeVar("T")
 
-RunKindT = Literal["build", "design"]
+RunKindT = Literal["build", "design", "eval"]
+StartKindT = Literal[
+    "build", "design"
+]  # kinds a client starts with POST /projects/{id}/runs; evals: POST /evals
 RunStatusT = Literal["queued", "running", "waiting", "succeeded", "failed", "cancelled"]
 
 
@@ -151,7 +154,7 @@ class RunIn(BaseModel):
     """`options` for kind build: until, mc, reuse, force, rebuild, auto, attempts, retry_layout, seeds, iters,
     passes, brief (a bool). For kind design: brief (text, required), answerer ("human"), stages."""
 
-    kind: RunKindT = "build"
+    kind: StartKindT = "build"
     design_version_id: uuid.UUID
     options: dict[str, Any] = Field(default_factory=dict)
     settings_overrides: dict[str, Any] = Field(
@@ -222,3 +225,76 @@ class AnswerIn(BaseModel):
 
 class ErrorOut(BaseModel):
     detail: str
+
+
+# --- evaluations (#19) -----------------------------------------------------------------------------------
+
+
+# a keyword is text; fixtures write numbers too (15 in `15 x 15 mm`)
+Keyword = Annotated[str, BeforeValidator(lambda v: str(v) if isinstance(v, int | float) else v)]
+
+
+class ConflictIn(BaseModel):
+    id: str = Field(min_length=1, max_length=60)
+    desc: str = Field(default="", max_length=500)
+    keywords: list[list[Keyword]] = Field(
+        description="all groups must hit; a group hits when any keyword is present"
+    )
+
+
+class FixtureIn(BaseModel):
+    """One product of an evaluation (evals/fixtures/*.yaml). `hidden_spec` is known only to the simulated product
+    person; the agent sees `brief`. `mode: from_requirements` skips the interview (`requirements` is the final
+    requirements.yaml) and starts at the partition stage."""
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$")
+    brief: str = Field(min_length=1, max_length=20_000)
+    hidden_spec: str = Field(default="", max_length=20_000)
+    mode: Literal["full", "from_requirements"] = "full"
+    requirements: str = Field(default="", max_length=100_000)
+    planted_conflicts: list[ConflictIn] = Field(default_factory=list, max_length=50)
+    expected_requirements: list[list[Keyword]] = Field(default_factory=list, max_length=100)
+    limits: dict[str, float] = Field(default_factory=dict)
+
+
+class EvalIn(BaseModel):
+    """`fixtures`: fixture documents, or ids of fixtures the operator installed (HWPLATFORM_EVAL_FIXTURES_DIR).
+    `baseline_run_id` / `baseline`: compare with an earlier evaluation or an inline eval document (for example
+    the stored `evals/baselines/<name>/baseline.json`); both absent: the suite's promoted baseline, if any."""
+
+    suite: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$")
+    fixtures: list[FixtureIn | str] = Field(min_length=1, max_length=50)
+    models: list[str] = Field(
+        default_factory=list, max_length=6, description="model aliases or IDs; empty = the platform's setting"
+    )
+    repetitions: int = Field(default=1, ge=1, le=10)
+    max_parallel: int | None = Field(default=None, ge=1, le=20)
+    budget_usd: float | None = Field(
+        default=None, gt=0, le=1000, description="cost cap of every agent session"
+    )
+    baseline_run_id: uuid.UUID | None = None
+    baseline: dict[str, Any] | None = None
+
+
+class EvalSummaryOut(RunSummaryOut):
+    suite: str
+
+
+class EvalOut(RunOut):
+    suite: str
+    children: list[RunSummaryOut]
+
+
+class BaselineIn(BaseModel):
+    name: str = Field(default="", max_length=200)
+
+
+class BaselineOut(BaseModel):
+    id: uuid.UUID
+    suite: str
+    run_id: uuid.UUID | None
+    sha256: str
+    name: str
+    promoted_by: uuid.UUID | None
+    promoted_at: datetime

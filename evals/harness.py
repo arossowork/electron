@@ -4,6 +4,7 @@
   uv run python evals/harness.py score <run_dir>                 # re-score saved runs, no agent calls
   uv run python evals/harness.py compare <run_dir> [--baseline evals/baseline.json]
   uv run python evals/harness.py baseline <run_dir>              # save run aggregate as the new baseline
+  uv run python evals/harness.py platform run|get|wait|report|promote   # the same on the platform (evals/remote.py)
 
 The agent runs through `claude -p` (the logged-in subscription). The product person is a second
 `claude -p` session that answers only from the fixture's hidden spec. Scoring is deterministic:
@@ -17,7 +18,6 @@ import json
 import os
 import re
 import shutil
-import statistics
 import subprocess
 import sys
 import time
@@ -28,28 +28,16 @@ import yaml
 from hwharness.agent import (  # noqa: F401  (re-exported for the callers of the old module)
     CALL_TIMEOUT, LIMIT_RE, MODEL_KEYS, USAGE_KEYS, _add_usage, _limit_wait_seconds, _usage, claude, designer_args,
     headless_env, model_usage_delta)
+from hwharness.evals.cards import evidence_from_project, score_card  # the card is shared with the platform
+from hwharness.evals.report import aggregate, baseline_aggregate, compare_lines  # noqa: F401
+from hwharness.evals.report import compare as compare_rows
+from hwharness.evals.simulator import PM_PROMPT  # noqa: F401  (the persona is shared with the platform)
 
 ROOT = Path(__file__).resolve().parents[1]
 DONE_RE = re.compile(r"^\s*[-*]?\s*status\s*:\s*`?(done|blocked)\b", re.I | re.M)  # explicit final status line only
 FIX = ROOT / "evals" / "fixtures"
 RUNS = ROOT / "evals" / "runs"
 PM_MODEL = os.environ.get("HWFLOW_PM_MODEL", "sonnet")
-
-PM_PROMPT = """You are the product manager in a hardware project. You are not an engineer.
-Answer the engineer's questions using ONLY the facts below. Keep each answer to one or two sentences.
-Rules, in this order:
-1. A number in the facts (size, cost, battery life, current, accuracy) is a hard limit. Keep it, unless a
-   preference rule in the facts says you may relax it, and the engineer showed numbers that prove the conflict.
-2. If the engineer proves a conflict and the facts give a preference rule, follow that rule exactly.
-3. If the engineer proves a conflict and no rule covers it, answer: "That limit is firm. Find a solution
-   inside it, or tell me the smallest change you need and its cost." Do not accept a relaxed limit yourself.
-4. If a question is not covered by the facts, answer "No preference, use your judgment."
-Never invent new requirements. Answer every question by its id, as "q1: ...".
-
-FACTS:
-{spec}
-"""
-
 
 # ------------------------------------------------------------------ one trial
 
@@ -161,29 +149,12 @@ def find_session(tdir: Path) -> str | None:
 
 # ------------------------------------------------------------------ deterministic scoring
 
-def _text(proj: Path, names) -> str:
-    out = []
-    for n in names:
-        p = proj / n
-        if p.exists():
-            out.append(p.read_text(errors="replace"))
-    return "\n".join(out).lower()
-
-
-def _hit(text: str, group: list) -> bool:
-    return any(str(k).lower() in text for k in group)
-
-
 def score_trial(tdir: Path, fx: dict) -> dict:
     proj = tdir / "proj"
     meta = json.loads((tdir / "meta.json").read_text()) if (tdir / "meta.json").exists() else {}
     _fid, _model, _tr = tdir.name.split("__")  # the folder name is the source of truth
-    card: dict = {"fixture": fx["id"], "model": meta.get("model") or _model,
-                  "trial": meta.get("trial") or int(_tr.lstrip("t"))}
-    has_design = (proj / "design.yaml").exists()
-    card["has_design"] = has_design
-    sc = {}
-    if has_design:
+    timeout = False
+    if (proj / "design.yaml").exists():
         shutil.rmtree(proj / "build", ignore_errors=True)  # never trust the agent's own build
         import signal
         proc = subprocess.Popen([sys.executable, "-m", "hwflow.cli", "build", str(proj), "--force"], cwd=ROOT,
@@ -193,88 +164,23 @@ def score_trial(tdir: Path, fx: dict) -> dict:
         except subprocess.TimeoutExpired:
             os.killpg(proc.pid, signal.SIGKILL)  # the build and every ngspice it started
             proc.wait()
-            card["build_timeout"] = True  # stages not finished in time score as missing (0 points)
+            timeout = True  # stages not finished in time score as missing (0 points)
             subprocess.run([sys.executable, "-m", "hwflow.cli", "report", str(proj)], cwd=ROOT,
                            capture_output=True, text=True, timeout=300)
-        sp = proj / "build" / "status.json"
-        sc = json.loads(sp.read_text()).get("score", {}) if sp.exists() else {}
-    card.update({f"m_{k}": v for k, v in sc.items()})
-    text = _text(proj, ["requirements.yaml", "conflicts.md", "architecture.md", "SUMMARY.md", "state.md"])
-    conf_text = _text(proj, ["conflicts.md", "requirements.yaml", "architecture.md"])
-    for q in sorted((proj / "inbox").glob("questions_round*.json")):  # conflicts raised with the PM count too
-        conf_text += "\n" + q.read_text(errors="replace").lower()
-    pc = fx.get("planted_conflicts") or []
-    found = [c["id"] for c in pc if all(_hit(conf_text, g) for g in c["keywords"])]
-    er = fx.get("expected_requirements") or []
-    req_hits = sum(_hit(text, g) for g in er)
-    lim = fx.get("limits") or {}
-
-    def ok(v, f):
-        return v is not None and f(v)
-
-    pts = {
-        "design_exists": 5 * has_design,
-        "erc_clean": 10 * ok(sc.get("erc_errors"), lambda v: v == 0),
-        "drc_clean": 10 * ok(sc.get("drc_errors"), lambda v: v == 0),
-        "routed": 10 * ok(sc.get("unrouted"), lambda v: v == 0),
-        "sim_pass": 15 * (sc.get("sim_pass_ratio") or 0),
-        "post_pass": 10 * (sc.get("post_pass_ratio") or 0),
-        "req_coverage": 10 * (req_hits / len(er) if er else 1.0),
-        "req_verified": 10 * (1 - (sc.get("req_unverified") or 0) / sc["req_total"] if sc.get("req_total") else 0),
-        "conflicts": 15 * (len(found) / len(pc) if pc else 1.0),
-        "area_ok": 2.5 * ok(sc.get("area_mm2"), lambda v: v <= lim.get("max_area_mm2", 1e9)),
-        "cost_ok": 2.5 * ok(sc.get("cost_usd"), lambda v: 0 < v <= lim.get("max_cost_usd", 1e9)),
-    }
-    card.update({"points": {k: round(v, 2) for k, v in pts.items()}, "score": round(sum(pts.values()), 2),
-                 "conflicts_found": found, "req_hits": req_hits, **{k: meta.get(k) for k in
-                                                                     ("questions", "rounds", "designer_calls",
-                                                                      "cost_usd", "seconds", "tokens",
-                                                                      "tokens_by_model")}})
+    ev = evidence_from_project(proj, meta, build_timeout=timeout)
+    card = score_card(ev, fx, model=meta.get("model") or _model, trial=meta.get("trial") or int(_tr.lstrip("t")))
     (tdir / "score.json").write_text(json.dumps(card, indent=1))
     return card
 
 
-# ------------------------------------------------------------------ aggregation
-
-def aggregate(cards: list[dict]) -> dict:
-    groups: dict[str, list] = {}
-    for c in cards:
-        groups.setdefault(f"{c['fixture']}::{c['model']}", []).append(c)
-    out = {}
-    for k, cs in sorted(groups.items()):
-        s = [c["score"] for c in cs]
-        out[k] = {"n": len(s), "mean": round(statistics.mean(s), 2),
-                  "std": round(statistics.stdev(s), 2) if len(s) > 1 else 0.0, "min": min(s), "max": max(s),
-                  "points": {p: round(statistics.mean(c["points"][p] for c in cs), 2) for p in cs[0]["points"]},
-                  "questions": round(statistics.mean(c.get("questions") or 0 for c in cs), 1),
-                  "seconds": round(statistics.mean(c.get("seconds") or 0 for c in cs), 0),
-                  "cost_usd_equiv": round(statistics.mean(c.get("cost_usd") or 0 for c in cs), 3),
-                  "tokens_k": {k: round(statistics.mean((c.get("tokens") or {}).get(k, 0) for c in cs) / 1e3)
-                               for k in USAGE_KEYS}}
-    models = sorted({c["model"] for c in cards})
-    out["_overall"] = {m: round(statistics.mean(c["score"] for c in cards if c["model"] == m), 2) for m in models}
-    return out
-
+# ------------------------------------------------------------------ aggregation (hwharness.evals.report)
 
 def load_cards(run_dir: Path) -> list[dict]:
     return [json.loads(p.read_text()) for p in sorted(run_dir.glob("*/score.json"))]
 
 
 def compare(agg: dict, base: dict) -> list[str]:
-    lines = []
-    for k, v in agg.items():
-        if k.startswith("_") or k not in base:
-            continue
-        b = base[k]
-        delta = v["mean"] - b["mean"]
-        tol = max(5.0, 2 * max(v["std"], b["std"]))
-        tag = "REGRESSION" if delta < -tol else "IMPROVED" if delta > tol else "same"
-        lines.append(f"{k:<34} {b['mean']:6.1f} -> {v['mean']:6.1f}  ({delta:+.1f}, tol {tol:.1f})  {tag}")
-        for p, pv in v["points"].items():
-            bp = b["points"].get(p, 0)
-            if abs(pv - bp) >= 2:
-                lines.append(f"    {p:<16} {bp:6.1f} -> {pv:6.1f}")
-    return lines
+    return compare_lines(compare_rows(agg, baseline_aggregate(base)))
 
 
 def main():
@@ -294,7 +200,12 @@ def main():
         p.add_argument("run_dir")
         p.add_argument("--only", default="")
         p.add_argument("--baseline", default=str(ROOT / "evals" / "baseline.json"))
+    import remote  # evals/remote.py: the same evaluations on the hosted platform (issue #19)
+
+    remote.add_parser(sub)
     a = ap.parse_args()
+    if a.cmd == "platform":
+        sys.exit(remote.command(a))
     fixtures = {p.stem: yaml.safe_load(p.read_text()) for p in sorted(FIX.glob("*.yaml"))}
     if a.cmd == "run":
         sel = list(fixtures) if a.fixtures == "all" else a.fixtures.split(",")

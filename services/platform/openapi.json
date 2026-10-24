@@ -1192,7 +1192,8 @@
                 {
                   "enum": [
                     "build",
-                    "design"
+                    "design",
+                    "eval"
                   ],
                   "type": "string"
                 },
@@ -1746,6 +1747,540 @@
         }
       }
     },
+    "/api/v1/evals": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Start an evaluation",
+        "description": "Runs each fixture (times the models and repetitions) as a design run answered by a simulated product person, scores the results and compares them with a baseline. Owner or admin. Counts as one run for the tenant's `max_concurrent_runs` (429 `quota_exceeded`); its trials run at most `max_parallel` at a time, never above that quota. The baseline is, in order: `baseline_run_id`, an inline `baseline` document, the suite's promoted baseline.",
+        "operationId": "start_eval_api_v1_evals_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The Idempotency-Key was used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "description": "quota_exceeded"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "List evaluations, newest first",
+        "operationId": "list_evals_api_v1_evals_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "waiting",
+                    "succeeded",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "suite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suite"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_EvalSummaryOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evals/baselines": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Promoted baselines, newest first",
+        "operationId": "list_baselines_api_v1_evals_baselines_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "suite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suite"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BaselineOut"
+                  },
+                  "title": "Response List Baselines Api V1 Evals Baselines Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evals/{eval_id}": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "An evaluation: its stages (one per trial) and its design runs",
+        "operationId": "get_eval_api_v1_evals__eval_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evals/{eval_id}/report": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "REPORT.md of the evaluation",
+        "operationId": "get_eval_report_api_v1_evals__eval_id__report_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evals/{eval_id}/result": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "eval.json of the evaluation: trials, aggregate, comparison, verdict",
+        "operationId": "get_eval_result_api_v1_evals__eval_id__result_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evals/{eval_id}/promote-baseline": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Make this evaluation the baseline of its suite",
+        "description": "Explicit and admin only: a baseline is never promoted automatically. The next evaluation of the suite compares with it unless it names another baseline. The history of promotions is kept.",
+        "operationId": "promote_baseline_api_v1_evals__eval_id__promote_baseline_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/questions/{question_id}/answer": {
       "post": {
         "tags": [
@@ -2189,6 +2724,79 @@
         ],
         "title": "ArtifactOut"
       },
+      "BaselineIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "BaselineIn"
+      },
+      "BaselineOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "suite": {
+            "type": "string",
+            "title": "Suite"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "promoted_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promoted By"
+          },
+          "promoted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Promoted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "suite",
+          "run_id",
+          "sha256",
+          "name",
+          "promoted_by",
+          "promoted_at"
+        ],
+        "title": "BaselineOut"
+      },
       "Body_upload_design_version_api_v1_projects__project_id__design_versions_post": {
         "properties": {
           "design": {
@@ -2244,6 +2852,39 @@
         },
         "type": "object",
         "title": "Body_upload_design_version_api_v1_projects__project_id__design_versions_post"
+      },
+      "ConflictIn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "desc": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Desc",
+            "default": ""
+          },
+          "keywords": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "all groups must hit; a group hits when any keyword is present"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "keywords"
+        ],
+        "title": "ConflictIn"
       },
       "DesignVersionDetailOut": {
         "properties": {
@@ -2451,6 +3092,462 @@
           "detail"
         ],
         "title": "ErrorOut"
+      },
+      "EvalIn": {
+        "properties": {
+          "suite": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$",
+            "title": "Suite"
+          },
+          "fixtures": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FixtureIn"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Fixtures"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Models",
+            "description": "model aliases or IDs; empty = the platform's setting"
+          },
+          "repetitions": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Repetitions",
+            "default": 1
+          },
+          "max_parallel": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Parallel"
+          },
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd",
+            "description": "cost cap of every agent session"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suite",
+          "fixtures"
+        ],
+        "title": "EvalIn",
+        "description": "`fixtures`: fixture documents, or ids of fixtures the operator installed (HWPLATFORM_EVAL_FIXTURES_DIR).\n`baseline_run_id` / `baseline`: compare with an earlier evaluation or an inline eval document (for example\nthe stored `evals/baselines/<name>/baseline.json`); both absent: the suite's promoted baseline, if any."
+      },
+      "EvalOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "design_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Design Version Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "build",
+              "design",
+              "eval"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "options_hash": {
+            "type": "string",
+            "title": "Options Hash"
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageOut"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "suite": {
+            "type": "string",
+            "title": "Suite"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/RunSummaryOut"
+            },
+            "type": "array",
+            "title": "Children"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "design_version_id",
+          "kind",
+          "status",
+          "verdict",
+          "options_hash",
+          "parent_run_id",
+          "created_at",
+          "started_at",
+          "ended_at",
+          "workflow_id",
+          "options",
+          "error",
+          "artifacts",
+          "stages",
+          "suite",
+          "children"
+        ],
+        "title": "EvalOut"
+      },
+      "EvalSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "design_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Design Version Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "build",
+              "design",
+              "eval"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "options_hash": {
+            "type": "string",
+            "title": "Options Hash"
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "suite": {
+            "type": "string",
+            "title": "Suite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "design_version_id",
+          "kind",
+          "status",
+          "verdict",
+          "options_hash",
+          "parent_run_id",
+          "created_at",
+          "started_at",
+          "ended_at",
+          "suite"
+        ],
+        "title": "EvalSummaryOut"
+      },
+      "FixtureIn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$",
+            "title": "Id"
+          },
+          "brief": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Brief"
+          },
+          "hidden_spec": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Hidden Spec",
+            "default": ""
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "full",
+              "from_requirements"
+            ],
+            "title": "Mode",
+            "default": "full"
+          },
+          "requirements": {
+            "type": "string",
+            "maxLength": 100000,
+            "title": "Requirements",
+            "default": ""
+          },
+          "planted_conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictIn"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Planted Conflicts"
+          },
+          "expected_requirements": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Expected Requirements"
+          },
+          "limits": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Limits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "brief"
+        ],
+        "title": "FixtureIn",
+        "description": "One product of an evaluation (evals/fixtures/*.yaml). `hidden_spec` is known only to the simulated product\nperson; the agent sees `brief`. `mode: from_requirements` skips the interview (`requirements` is the final\nrequirements.yaml) and starts at the partition stage."
       },
       "HTTPValidationError": {
         "properties": {
@@ -2706,6 +3803,33 @@
           "items"
         ],
         "title": "Page[DesignVersionOut]"
+      },
+      "Page_EvalSummaryOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvalSummaryOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[EvalSummaryOut]"
       },
       "Page_RunSummaryOut_": {
         "properties": {
@@ -2970,7 +4094,8 @@
             "type": "string",
             "enum": [
               "build",
-              "design"
+              "design",
+              "eval"
             ],
             "title": "Kind"
           },
@@ -3124,7 +4249,8 @@
             "type": "string",
             "enum": [
               "build",
-              "design"
+              "design",
+              "eval"
             ],
             "title": "Kind"
           },
@@ -3592,6 +4718,10 @@
     {
       "name": "runs",
       "description": "Build and design runs: start, status, cancel, artifacts."
+    },
+    {
+      "name": "evals",
+      "description": "Evaluations: fixtures run as design workflows, scored against a baseline."
     },
     {
       "name": "questions",

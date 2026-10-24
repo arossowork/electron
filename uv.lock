@@ -925,6 +925,9 @@ agent = [
     { name = "claude-agent-sdk" },
     { name = "hwharness" },
 ]
+evals = [
+    { name = "hwharness" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -945,6 +948,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "hwflow", editable = "." },
     { name = "hwharness", marker = "extra == 'agent'", editable = "harness" },
+    { name = "hwharness", marker = "extra == 'evals'", editable = "harness" },
     { name = "nats-py", specifier = ">=2.16.0" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.3" },
@@ -955,7 +959,7 @@ requires-dist = [
     { name = "temporalio", specifier = ">=1.8" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
-provides-extras = ["agent"]
+provides-extras = ["agent", "evals"]
 
 [package.metadata.requires-dev]
 dev = [
