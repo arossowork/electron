@@ -21,7 +21,8 @@ export class ApiError extends Error {
 }
 
 const RT_KEY = "hwflow.refresh";
-const API = "/api/v1";
+// BASE_URL is "/" or the build's base path (WEB_BASE, e.g. "/platform/" behind the VPS host nginx).
+const API = `${import.meta.env.BASE_URL}api/v1`;
 
 let access: string | null = null;
 let refreshToken: string | null = null;

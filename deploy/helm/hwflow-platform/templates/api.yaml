@@ -100,6 +100,9 @@ spec:
           resources: {{- toYaml .Values.web.resources | nindent 12 }}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            # the image's entrypoint renders default.conf.template (envsubst) into conf.d at start
+            - {name: nginx-conf, mountPath: /etc/nginx/conf.d}
       volumes:
         - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+        - {name: nginx-conf, emptyDir: {sizeLimit: 1Mi}}
 {{- end }}

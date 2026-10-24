@@ -1,0 +1,45 @@
+# The VPS deploy (issue #17), on top of values-reduced.yaml. Nothing secret and no host name in here: the public
+# URL and the operator tenant id go in a values file kept on the VPS (docs/platform-k8s.md "Deploy on the VPS").
+#   helm upgrade --install hwp deploy/helm/hwflow-platform -n hwflow \
+#     -f values-reduced.yaml -f values-vps.yaml -f /root/hwflow-platform/values-local.yaml --wait --timeout 15m
+#
+# Namespace `hwflow`, not `hwflow-platform`: the operator's Claude subscription token already lives there (Secret
+# hwflow-claude, key token), and a pod can only mount a Secret of its own namespace. Installing next to it means the
+# token is never read or copied. The chart's NetworkPolicies select only the release's pods, so the old `hwflow` UI
+# Deployment in the same namespace is not affected.
+
+images:
+  api: {tag: 1f2e7b9}
+  web: {tag: 1f2e7b9-platform}   # web/Dockerfile --build-arg WEB_BASE=/platform/ (served under /platform/)
+  worker: {tag: a0573d7}   # main after #59 (JRE 25) + the symbol index memory fix
+  agent: {tag: 9161da5}   # agent worker without the engine workflows
+
+# The worker serves /livez and /readyz on 8081 (hwplatform.workers.main), so the probes can be on.
+worker:
+  probes: {enabled: true}
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+
+agent:
+  # k8s_secret adapter (ADR 0001 7.6): mounted read-only at /var/run/secrets/hwflow/agent/token, only for the
+  # tenants of subscriptionTenantIds (set in values-local.yaml to the operator tenant, nothing else).
+  operatorCredential: {secretName: hwflow-claude, key: token, type: subscription_token}
+  resources:
+    requests: {cpu: 50m, memory: 192Mi}
+
+# Requests sized to the measured idle use (docs/platform-k8s.md "Deploy on the VPS"). With the reduced defaults the
+# node's memory requests reached 99% of allocatable (the old hwflow UI alone requests 1.5 GiB), so the scheduler
+# preempted the apps-low singing pod to place an apps-high platform pod. These leave about 0.6 GiB of requests free
+# for the hook Jobs, the backup and an API surge pod. Limits unchanged.
+api:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+postgres:
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+temporal:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+seaweedfs:
+  resources:
+    requests: {cpu: 30m, memory: 128Mi}

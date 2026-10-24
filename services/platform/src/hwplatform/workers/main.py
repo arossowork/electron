@@ -78,15 +78,20 @@ def build_workers(
     from ..contracts import Q_ENGINE
     from ..observability import metrics
     from ..observability.temporal import interceptors
-    from ..workflows import WORKFLOWS
 
+    if workflows is None and Q_ENGINE in queues:
+        # Only the engine queue hosts workflows. The agent image (`--queues hwflow-agent`) has no engine, and
+        # the workflow modules import hwflow.buildplan, so only a process that hosts them imports them.
+        from ..workflows import WORKFLOWS
+
+        workflows = WORKFLOWS
     kw.setdefault("graceful_shutdown_timeout", timedelta(seconds=15))
     kw.setdefault("interceptors", interceptors(otel))  # log context + activity metrics (#18)
     out = []
     for q in queues:
         s = slots.get(q, {"activities": 1})
         acts = activities(q) if activities is not None else activities_for(q, deps)
-        wfs = (workflows if workflows is not None else WORKFLOWS) if q == Q_ENGINE else []
+        wfs = (workflows or []) if q == Q_ENGINE else []
         if not acts and not wfs:
             continue
         metrics.SLOTS_MAX.labels(q).set(s.get("activities", 1))

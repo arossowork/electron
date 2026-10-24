@@ -111,11 +111,18 @@ spec:
                       echo "delete $p"; aws --endpoint-url "$EP" s3 rm --recursive --only-show-errors "s3://$BUCKET/postgres/$p"
                     fi
                   done
+                  {{- if not $ext }}
+                  # In-cluster target: mirror the artifact bucket too (server-side copy, no --delete, so an artifact
+                  # removed by mistake is still in the copy). An external target needs a second credential: not done.
+                  aws --endpoint-url "$EP" s3 sync --only-show-errors "s3://$ARTIFACT_BUCKET" "s3://$BUCKET/artifacts/"
+                  echo "artifacts mirrored to s3://$BUCKET/artifacts/"
+                  {{- end }}
                   echo "backup $ts uploaded"
               env:
                 - {name: HOME, value: /tmp}
                 - {name: EP, value: {{ if $ext }}{{ $ext | quote }}{{ else }}"http://{{ $s3 }}:8333"{{ end }}}
                 - {name: BUCKET, value: {{ .Values.backup.bucket | quote }}}
+                - {name: ARTIFACT_BUCKET, value: {{ .Values.seaweedfs.bucket | quote }}}
                 - {name: AWS_DEFAULT_REGION, value: {{ .Values.backup.target.region | quote }}}
                 - {name: RETENTION_DAYS, value: {{ .Values.backup.retentionDays | quote }}}
                 {{- if .Values.backup.target.secretName }}
