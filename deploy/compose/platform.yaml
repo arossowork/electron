@@ -1,0 +1,177 @@
+# Reduced platform stack for development (issue #8). Independent of docker/compose.yaml.
+#   cp deploy/compose/.env.example deploy/compose/.env   # then edit the secrets
+#   scripts/platform.sh up | down | status | mem
+name: hwflow-platform
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:17.11-alpine
+    mem_limit: 384m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in deploy/compose/.env}
+      HWFLOW_DB_PASSWORD: ${HWFLOW_DB_PASSWORD:?set in deploy/compose/.env}
+      HWFLOW_APP_DB_PASSWORD: ${HWFLOW_APP_DB_PASSWORD:?set in deploy/compose/.env}
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?set in deploy/compose/.env}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=60
+      - -c
+      - max_wal_size=512MB
+    ports: ["127.0.0.1:${PG_PORT:-15432}:5432"]
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hwflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: create/upgrade the Temporal schemas in Postgres (idempotent).
+  temporal-schema:
+    image: temporalio/admin-tools:1.31.4
+    mem_limit: 128m
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+    environment:
+      SQL_PLUGIN: postgres12
+      SQL_HOST: postgres
+      SQL_PORT: "5432"
+      SQL_USER: temporal
+      SQL_PASSWORD: ${TEMPORAL_DB_PASSWORD}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        T=/etc/temporal/schema/postgresql/v12
+        temporal-sql-tool --db temporal setup-schema -v 0.0 || true
+        temporal-sql-tool --db temporal update-schema -d $$T/temporal/versioned
+        temporal-sql-tool --db temporal_visibility setup-schema -v 0.0 || true
+        temporal-sql-tool --db temporal_visibility update-schema -d $$T/visibility/versioned
+
+  temporal:
+    <<: *restart
+    image: temporalio/server:1.31.4
+    mem_limit: 512m
+    depends_on:
+      temporal-schema: {condition: service_completed_successfully}
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      NUM_HISTORY_SHARDS: "4"
+      GOMEMLIMIT: 400MiB
+      BIND_ON_IP: 0.0.0.0
+    ports: ["127.0.0.1:${TEMPORAL_PORT:-7233}:7233"]
+    volumes:
+      - ./temporal-dynamicconfig.yaml:/etc/temporal/config/dynamicconfig/docker.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z $$(hostname -i) 7233"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # One-shot: ensure the `default` namespace exists (idempotent).
+  temporal-namespace:
+    image: temporalio/admin-tools:1.31.4
+    mem_limit: 128m
+    depends_on:
+      temporal: {condition: service_healthy}
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        temporal operator namespace describe --address temporal:7233 -n default >/dev/null 2>&1 \
+        || temporal operator namespace create --address temporal:7233 -n default --retention 72h
+
+  temporal-ui:
+    <<: *restart
+    image: temporalio/ui:2.57.0
+    mem_limit: 128m
+    depends_on:
+      temporal: {condition: service_healthy}
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    ports: ["127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080"]
+
+  seaweedfs:
+    <<: *restart
+    image: chrislusf/seaweedfs:4.48
+    mem_limit: 512m
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set in deploy/compose/.env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set in deploy/compose/.env}
+      GOMEMLIMIT: 400MiB
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/s3.json <<EOF
+        {"identities":[{"name":"hwflow","credentials":[{"accessKey":"$$S3_ACCESS_KEY","secretKey":"$$S3_SECRET_KEY"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+        EOF
+        exec weed server -dir=/data -master.volumeSizeLimitMB=256 -volume.max=20 \
+          -s3 -s3.port=8333 -s3.config=/tmp/s3.json -ip.bind=0.0.0.0
+    ports: ["127.0.0.1:${S3_PORT:-8333}:8333"]
+    volumes: [seaweed-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9333/cluster/status >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # One-shot: create the artifact bucket (idempotent).
+  seaweedfs-bucket:
+    image: amazon/aws-cli:2.34.0
+    mem_limit: 256m
+    depends_on:
+      seaweedfs: {condition: service_healthy}
+    restart: "no"
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-hwflow-artifacts}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        aws --endpoint-url http://seaweedfs:8333 s3api head-bucket --bucket "$$S3_BUCKET" 2>/dev/null \
+        || aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket "$$S3_BUCKET"
+
+  nats:
+    <<: *restart
+    image: nats:2.14.8-alpine
+    mem_limit: 128m
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    environment:
+      GOMEMLIMIT: 96MiB
+    ports: ["127.0.0.1:${NATS_PORT:-4222}:4222", "127.0.0.1:${NATS_MON_PORT:-8222}:8222"]
+    volumes: [nats-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://127.0.0.1:8222/healthz?js-enabled-only=true' >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pg-data:
+  seaweed-data:
+  nats-data:

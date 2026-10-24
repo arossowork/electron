@@ -45,9 +45,10 @@ RUN curl -fsSL -o /opt/tools/freerouting.jar \
 
 # Python deps first (cached unless pyproject/uv.lock change), then the router binary built against that venv.
 WORKDIR /app
-# The workspace member harness/ needs its pyproject.toml here for the lock file to resolve.
+# The workspace members harness/ and services/platform need their pyproject.toml here for the lock file to resolve.
 COPY --chown=hw:hw pyproject.toml uv.lock .python-version ./
 COPY --chown=hw:hw harness/pyproject.toml harness/pyproject.toml
+COPY --chown=hw:hw services/platform/pyproject.toml services/platform/pyproject.toml
 RUN uv sync --frozen --no-install-workspace --group dev \
  && cd $KRT_DIR && /opt/venv/bin/python build_router.py
 

@@ -17,7 +17,9 @@ dependencies = [
 hwflow = "hwflow.cli:main"
 
 [tool.uv.workspace]
-members = ["harness"]
+# harness/ is the eval/run harness; services/platform is the hosted platform (epic #21).
+# `uv run hwflow` and `uv run pytest` stay engine-only.
+members = ["harness", "services/platform"]
 
 [tool.uv.sources]
 hwharness = { workspace = true }

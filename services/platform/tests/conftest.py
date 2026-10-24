@@ -1,0 +1,202 @@
+"""Fixtures. Integration tests need a Postgres prepared like deploy/compose/postgres-init.sh does:
+an owner role (runs the migrations) and a non-owner app role (the API's connection).
+
+  HWPLATFORM_TEST_OWNER_URL  default postgresql://hwflow:change-me-hwflow@127.0.0.1:15432/hwflow
+  HWPLATFORM_TEST_APP_URL    default postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow
+
+If the database does not answer, every test marked `integration` is skipped. The schema is reset
+(downgrade base, upgrade head) once per session, so do not point these at a database you care about.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import os
+import uuid
+
+import asyncpg
+import pytest
+
+OWNER_URL = os.environ.get(
+    "HWPLATFORM_TEST_OWNER_URL", "postgresql://hwflow:change-me-hwflow@127.0.0.1:15432/hwflow"
+)
+APP_URL = os.environ.get(
+    "HWPLATFORM_TEST_APP_URL", "postgresql://hwflow_app:change-me-app@127.0.0.1:15432/hwflow"
+)
+JWT_SECRET = "test-secret-" + "x" * 40
+LOOSE_LIMITS = dict(
+    rate_login_email_max=10_000,
+    rate_login_ip_max=10_000,
+    rate_refresh_ip_max=10_000,
+    rate_signup_email_max=10_000,
+    rate_signup_ip_max=10_000,
+    lockout_threshold=10_000,
+    lockout_ip_threshold=10_000,
+)
+MASTER_KEY = base64.b64encode(b"m" * 32).decode()
+
+
+def sa_url(url: str) -> str:
+    return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+
+async def _reachable(url: str) -> str | None:
+    try:
+        conn = await asyncpg.connect(url, timeout=3)
+    except Exception as e:  # any failure means "no DB here"
+        return f"{type(e).__name__}: {e}"
+    await conn.close()
+    return None
+
+
+@pytest.fixture(scope="session")
+def db_ready():
+    why = asyncio.run(_reachable(OWNER_URL)) or asyncio.run(_reachable(APP_URL))
+    if why:
+        pytest.skip(f"no test Postgres reachable ({why}); see services/platform/README.md")
+    from alembic import command
+
+    from hwplatform.main import alembic_config
+
+    cfg = alembic_config(sa_url(OWNER_URL), app_role="hwflow_app")
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "head")
+    return True
+
+
+@pytest.fixture(scope="session")
+def settings(db_ready):
+    from hwplatform.settings import Settings
+
+    return Settings(
+        database_url=sa_url(APP_URL),
+        migration_database_url=sa_url(OWNER_URL),
+        jwt_secret=JWT_SECRET,
+        master_key=MASTER_KEY,
+        db_pool_size=2,
+        dev_auto_verify=True,  # most tests only need an account; the verification flow has its own tests
+        **LOOSE_LIMITS,  # all test clients share one IP, so the general suite must not trip the limiter
+    )
+
+
+class FakeValidator:
+    """Stands in for the Anthropic API: keys containing 'rejected' are refused, 'down' = unreachable."""
+
+    def __init__(self):
+        self.seen: list[str] = []
+
+    async def __call__(self, api_key: str) -> None:
+        from hwplatform.llm_keys import KeyRejected, ValidatorUnavailable
+
+        self.seen.append(api_key)
+        if "rejected" in api_key:
+            raise KeyRejected("the Anthropic API rejected this key")
+        if "down" in api_key:
+            raise ValidatorUnavailable("cannot reach the Anthropic API")
+
+
+@pytest.fixture(scope="session")
+def validator():
+    return FakeValidator()
+
+
+@pytest.fixture(scope="session")
+def mailbox():
+    from hwplatform.mail import InMemoryEmailSender
+
+    return InMemoryEmailSender()
+
+
+@pytest.fixture(scope="session")
+def client(settings, validator, mailbox):
+    from fastapi.testclient import TestClient
+
+    from hwplatform.api.app import create_app
+
+    with TestClient(create_app(settings, key_validator=validator, email_sender=mailbox)) as c:
+        yield c
+
+
+def random_ip() -> str:
+    n = uuid.uuid4().int
+    return f"10.{n % 250}.{(n >> 8) % 250}.{(n >> 16) % 250}"
+
+
+@pytest.fixture
+def make_client(settings, validator):
+    """A separate app with changed settings (tight limits, no auto-verify) and its own client IP."""
+    from fastapi.testclient import TestClient
+
+    from hwplatform.api.app import create_app
+    from hwplatform.mail import InMemoryEmailSender
+    from hwplatform.settings import Settings
+
+    opened = []
+
+    def make(ip: str | None = None, **overrides):
+        s = Settings(**{**dict(settings), **overrides})
+        box = InMemoryEmailSender()
+        c = TestClient(
+            create_app(s, key_validator=validator, email_sender=box), client=(ip or random_ip(), 5000)
+        )
+        c.__enter__()
+        opened.append(c)
+        c.mailbox = box
+        return c
+
+    yield make
+    for c in opened:
+        c.__exit__(None, None, None)
+
+
+def unique_email(tag: str) -> str:
+    return f"{tag}-{uuid.uuid4().hex[:10]}@example.com"
+
+
+class Account:
+    """A signed-up user with its own tenant."""
+
+    def __init__(self, client, tag: str, password: str = "a-long-password-123"):
+        self.client = client
+        self.email = unique_email(tag)
+        self.password = password
+        r = client.post(
+            "/api/v1/auth/signup",
+            json={"email": self.email, "password": password, "tenant_name": f"Tenant {tag}"},
+        )
+        assert r.status_code == 202, r.text  # dev_auto_verify: the account exists now
+        r = client.post("/api/v1/auth/login", json={"email": self.email, "password": password})
+        assert r.status_code == 200, r.text
+        self.tokens = r.json()
+        self.tenant_id = self.tokens["tenant_id"]
+        self.user_id = self.tokens["user_id"]
+
+    @property
+    def h(self) -> dict:
+        return {"Authorization": f"Bearer {self.tokens['access_token']}"}
+
+    def join(self, owner: Account, role: str = "member") -> dict:
+        """`owner` invites this account by e-mail, this account accepts; returns a login in owner's tenant."""
+        c = self.client
+        r = c.post("/api/v1/tenant/members", json={"email": self.email, "role": role}, headers=owner.h)
+        assert r.status_code == 202, r.text
+        token = c.app.state.mailer.last(self.email, "invite").token
+        r = c.post("/api/v1/auth/accept-invite", json={"token": token}, headers=self.h)
+        assert r.status_code == 200, r.text
+        r = c.post(
+            "/api/v1/auth/login",
+            json={"email": self.email, "password": self.password, "tenant_id": owner.tenant_id},
+        )
+        assert r.status_code == 200, r.text
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+    def project(self, name: str) -> dict:
+        r = self.client.post("/api/v1/projects", json={"name": name}, headers=self.h)
+        assert r.status_code == 201, r.text
+        return r.json()
+
+
+@pytest.fixture
+def account(client):
+    return lambda tag: Account(client, tag)
