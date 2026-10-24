@@ -1,0 +1,17 @@
+{
+  "date_utc": "2026-10-24T15:11:32.413040+00:00",
+  "verdict": "PASS",
+  "source_sha256": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "schematic_sha256": "1550cde054ca7193a7f07b1d1b4b03a8b6ec3896dae01629aff41512391d21b5",
+  "exported_netlist_sha256": "5f785fc15a80929060145c16e69361f33643bd7a154d2f08151f4f48276828c5",
+  "source_components": 238,
+  "source_assigned_unique_nets": 133,
+  "source_assigned_pins": 703,
+  "matching_assigned_pins": 703,
+  "netlist_nets": 171,
+  "netlist_nodes": 741,
+  "mismatches_or_missing": [],
+  "conflicting_duplicate_nodes": [],
+  "method": "Independent S-expression parse of KiCad export compared against every exact source ref/pin/net. NC pins excluded from assigned count.",
+  "export_command": "kicad-cli sch export netlist --format kicadsexpr --output projects/desktop-dac-hd6xx/build/connectivity.net projects/desktop-dac-hd6xx/build/desktop_dac_hd6xx.kicad_sch"
+}

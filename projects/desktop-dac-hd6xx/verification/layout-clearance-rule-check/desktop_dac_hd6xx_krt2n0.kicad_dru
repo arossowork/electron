@@ -1,0 +1,3 @@
+(version 1)
+(rule "U204 internal pad clearance" (condition "A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U204') && B.memberOfFootprint('U204')") (constraint clearance (min 0.15mm)))
+(rule "U336 internal pad clearance" (condition "A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U336') && B.memberOfFootprint('U336')") (constraint clearance (min 0.15mm)))

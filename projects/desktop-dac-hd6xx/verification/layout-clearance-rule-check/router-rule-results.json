@@ -1,0 +1,55 @@
+{
+  "unsupported_rules": [],
+  "parse_notes": [],
+  "cases": [
+    {
+      "case": "U204 internal pads",
+      "expected_mm": 0.15,
+      "observed_min_mm": 0.15,
+      "source": "rule \"U204 internal pad clearance\"",
+      "pass": true
+    },
+    {
+      "case": "U336 internal pads",
+      "expected_mm": 0.15,
+      "observed_min_mm": 0.15,
+      "source": "rule \"U336 internal pad clearance\"",
+      "pass": true
+    },
+    {
+      "case": "U204 to U336 pads",
+      "expected_mm": 0.2,
+      "observed_min_mm": 0.2,
+      "source": "netclass Default",
+      "pass": true
+    },
+    {
+      "case": "Other footprint internal pads",
+      "expected_mm": 0.2,
+      "observed_min_mm": 0.2,
+      "source": "netclass Default",
+      "pass": true
+    },
+    {
+      "case": "U204 pad to track",
+      "expected_mm": 0.2,
+      "observed_min_mm": 0.2,
+      "source": "netclass Default",
+      "pass": true
+    },
+    {
+      "case": "U336 pad to via",
+      "expected_mm": 0.2,
+      "observed_min_mm": 0.2,
+      "source": "netclass Default",
+      "pass": true
+    },
+    {
+      "case": "Tracks",
+      "expected_mm": 0.2,
+      "observed_min_mm": 0.2,
+      "source": "netclass Default",
+      "pass": true
+    }
+  ]
+}

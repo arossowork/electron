@@ -1,0 +1,43 @@
+Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+# desktop_dac_hd6xx: floorplan check
+
+Verdict: PASS (87.9 s)
+
+Construction: single; board 140 x 80 mm; 4 layers; fill limit 85%; 239 parts (238 real, 1 placeholders).
+
+## Area
+
+| where | load mm2 | area mm2 | fill |
+|---|---|---|---|
+| board front face | 5137 | 8384 | 61% |
+| region power (other) front | | 3267 | 47% |
+| region power (other) back | | 3267 | 0% |
+| region dac (other) front | | 1330 | 43% |
+| region dac (other) back | | 1330 | 0% |
+| region analog (other) front | | 1995 | 41% |
+| region analog (other) back | | 1995 | 0% |
+
+## Depth
+
+| item | mm | source |
+|---|---|---|
+| front face: power_stage | 22 | notes/power-circuit.md: maximum seated C340 height; all parts use real courtyards. |
+| board | 1.6 | board.thickness_mm |
+| bottom_standoffs | 4 | Provisional assembly allowance. |
+| top_clearance | 2 | Provisional assembly allowance. |
+| **total** | **29.6** | limit 32.0 |
+
+## Region isolation
+
+- power to dac: 8.00 mm (need 5) ok
+- power to analog: 8.00 mm (need 5) ok
+
+## Quick placement
+
+Seed 2, 20000 moves, 0 violations. Congestion (RUDY, 1 mm cells): wire 2067 mm on 31239 mm capacity (7%), overflow 0.0%, peak 0.8 x, 0 cells over.
+Nets with pads in more than one region: 18 (analog / dac: 9; dac / power: 4; analog / power: 3; analog / dac / power: 2)
+
+Picture: build/floorplan.svg (front and back face, red cells over capacity).
+
+Thresholds: fill <= limit per region and face; depth <= limit; region distance >= isolation_mm; routability fails above 20% of the track capacity, is at risk above 10% or a peak above 2 x.
+

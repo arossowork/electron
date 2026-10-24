@@ -53,7 +53,8 @@ def summarize_attempt(r: dict) -> dict:
         return {"ok": False, "error": str(a["error"])[:300], "fixed_all": bool(a.get("fixed_all")), "k": a.get("k")}
     s = {"ok": bool(r.get("ok")), "drc_errors": r.get("drc_errors", 0), "unrouted": r.get("unrouted", 0),
          "vias": r.get("vias"), "board_mm": r.get("board_mm"), "fixed_parts_only": bool(r.get("fixed_parts_only")),
-         "fixed_all": bool(a.get("fixed_all")), "k": a.get("k")}
+         "fixed_all": bool(a.get("fixed_all")), "k": a.get("k"),
+         "budget_exhausted": bool(r.get("budget_exhausted"))}
     if a.get("line"):
         s["line"] = str(a["line"])[:1000]
     if r.get("blocked"):

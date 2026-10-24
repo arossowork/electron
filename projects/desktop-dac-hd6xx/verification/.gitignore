@@ -1,0 +1,18 @@
+# Reproducible raw output; compact source-bound results are versioned.
+/audio-chain-run/
+/integrated-probe/
+/protection-passive.dat
+/power-waveforms.csv
+/protection-candidate-results.json
+# Integration scratch and pre-run snapshot; design.yaml is authoritative.
+/power-patch.json
+/protection-patch.json
+/protection-final-delta.json
+/layout-source-before.yaml
+# Regenerable scratch copies; the compact candidate archive and evidence remain versioned.
+/layout-cold-preserved/
+/layout-clearance-rule-check/*.kicad_pcb
+/layout-clearance-rule-check/*.kicad_pro
+/layout-clearance-rule-check/design.yaml
+/layout-corrected-source-before.yaml
+/layout-repair-followup-input/

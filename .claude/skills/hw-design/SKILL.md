@@ -77,6 +77,6 @@ requirements:
     text: "Runs 7 days on a 1000 mAh Li-ion cell"
     acceptance: "average current <= 5.9 mA at 3.7 V"
     verification: simulation        # simulation | layout | datasheet | analysis | inspection | test
-    evidence: ""                    # required when verification is not simulation
+    evidence: {status: not_checked}  # manual pass/fail needs artifact + current design_hash; see docs/design-yaml.md
     source: "PM round 1, q2"
 ```

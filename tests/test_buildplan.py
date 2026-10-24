@@ -128,3 +128,33 @@ def test_decisions_do_not_depend_on_result_order():
     one = bp.plan(AUTO, {**base, **att}, LAY, 1, 0)
     two = bp.plan(AUTO, {**base, **dict(reversed(list(att.items())))}, LAY, 1, 0)
     assert one == two
+
+
+@pytest.mark.parametrize("attempts", [1, 4])
+@pytest.mark.parametrize("fixed_only", [False, True])
+def test_partial_first_attempt_is_kept_without_final_or_hopeless_verdict(attempts, fixed_only):
+    partial = {"ok": False, "drc_errors": 100, "unrouted": 20,
+               "fixed_parts_only": fixed_only, "budget_exhausted": True}
+    options = {**AUTO, "attempts": attempts}
+    search = bp.layout_search(options, {1: partial}, LAY, 1, 0)
+    assert search.over and search.used == (1,) and search.wanted == ()
+    assert search.cutoff is None and not search.hopeless
+    assert search.n == attempts
+    results = {k: OK for k in ("check", "sch", "sim")}
+    results["layout_attempt.1"] = {"verdict": "fail", "summary": partial}
+    (selection,) = bp.plan(options, results, LAY, 1, 0)
+    assert selection.key == "layout_select" and selection.params["over"]
+    assert selection.params["used"] == [1] and not selection.params["hopeless"]
+
+
+def test_partial_attempt_cannot_be_final_even_if_other_flags_look_clean():
+    assert not bp._final({"ok": True, "fixed_parts_only": True, "budget_exhausted": True})
+
+
+def test_both_layout_paths_keep_partial_flag_in_planner_summary():
+    from hwflow.pipeline import layout, stages
+    result = {"ok": False, "drc_errors": 10, "budget_exhausted": True, "attempt": {"k": 1}}
+    for summary in (stages.attempt_summary({"r": result}), layout.summarize_attempt(result)):
+        assert summary["budget_exhausted"]
+        search = bp.layout_search(AUTO, {1: summary}, LAY, 1, 0)
+        assert search.over and search.wanted == () and not search.hopeless

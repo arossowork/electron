@@ -49,8 +49,12 @@ WORKDIR /app
 COPY --chown=hw:hw pyproject.toml uv.lock .python-version ./
 COPY --chown=hw:hw harness/pyproject.toml harness/pyproject.toml
 COPY --chown=hw:hw services/platform/pyproject.toml services/platform/pyproject.toml
+ARG KRT_RELEASE_TAG=v0.23.1
 RUN uv sync --frozen --no-install-workspace --group dev \
- && cd $KRT_DIR && /opt/venv/bin/python build_router.py
+ && cd "$KRT_DIR" \
+ && crate_version="$(awk -F '"' '/^\[package\]/{in_package=1; next} /^\[/{in_package=0} in_package && /^version[[:space:]]*=/ {print $2; exit}' rust_router/Cargo.toml)" \
+ && test "$KRT_RELEASE_TAG" = "v$crate_version" \
+ && /opt/venv/bin/python build_router.py --tag "$KRT_RELEASE_TAG"
 
 COPY --chown=hw:hw . .
 RUN uv sync --frozen --group dev && hwflow --help >/dev/null

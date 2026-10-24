@@ -1,0 +1,186 @@
+[
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt0.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:44:36.587593+00:00",
+    "unconnected_count": 567,
+    "footprints": 238,
+    "track_segments": 8,
+    "vias": 0
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:44:48.997069+00:00",
+    "unconnected_count": 443,
+    "footprints": 238,
+    "track_segments": 692,
+    "vias": 68
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt1_r1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:45:01.681986+00:00",
+    "unconnected_count": 443,
+    "footprints": 238,
+    "track_segments": 682,
+    "vias": 67
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt1_r2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:45:14.044174+00:00",
+    "unconnected_count": 443,
+    "footprints": 238,
+    "track_segments": 702,
+    "vias": 67
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt1_r3.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:45:26.816829+00:00",
+    "unconnected_count": 443,
+    "footprints": 238,
+    "track_segments": 690,
+    "vias": 68
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt1w.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:46:06.838219+00:00",
+    "unconnected_count": 440,
+    "footprints": 238,
+    "track_segments": 700,
+    "vias": 69
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:47:26.627250+00:00",
+    "unconnected_count": 181,
+    "footprints": 238,
+    "track_segments": 1643,
+    "vias": 246
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2_r1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:48:50.097082+00:00",
+    "unconnected_count": 179,
+    "footprints": 238,
+    "track_segments": 1624,
+    "vias": 239
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2_r2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:50:08.433147+00:00",
+    "unconnected_count": 182,
+    "footprints": 238,
+    "track_segments": 1627,
+    "vias": 243
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2_r3.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:51:33.995018+00:00",
+    "unconnected_count": 181,
+    "footprints": 238,
+    "track_segments": 1616,
+    "vias": 243
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2n0.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:52:54.253637+00:00",
+    "unconnected_count": 174,
+    "footprints": 238,
+    "track_segments": 1679,
+    "vias": 242
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2n0_r1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:52:07.825348+00:00",
+    "unconnected_count": 174,
+    "footprints": 238,
+    "track_segments": 1662,
+    "vias": 242
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2n0_r2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:52:22.422141+00:00",
+    "unconnected_count": 174,
+    "footprints": 238,
+    "track_segments": 1662,
+    "vias": 242
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2n0_r3.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:52:38.185302+00:00",
+    "unconnected_count": 174,
+    "footprints": 238,
+    "track_segments": 1642,
+    "vias": 242
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2p.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:53:03.131005+00:00",
+    "unconnected_count": 430,
+    "footprints": 238,
+    "track_segments": 765,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2p_r1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:53:13.669549+00:00",
+    "unconnected_count": 430,
+    "footprints": 238,
+    "track_segments": 765,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2p_r2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:53:24.235479+00:00",
+    "unconnected_count": 430,
+    "footprints": 238,
+    "track_segments": 765,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2p_r3.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:53:35.019024+00:00",
+    "unconnected_count": 430,
+    "footprints": 238,
+    "track_segments": 759,
+    "vias": 83
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2pn0.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:54:16.490325+00:00",
+    "unconnected_count": 426,
+    "footprints": 238,
+    "track_segments": 812,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2pn0_r1.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:53:52.506069+00:00",
+    "unconnected_count": 426,
+    "footprints": 238,
+    "track_segments": 790,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2pn0_r2.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:54:01.348947+00:00",
+    "unconnected_count": 426,
+    "footprints": 238,
+    "track_segments": 790,
+    "vias": 82
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_krt2pn0_r3.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:54:10.101581+00:00",
+    "unconnected_count": 426,
+    "footprints": 238,
+    "track_segments": 786,
+    "vias": 83
+  },
+  {
+    "file": "projects/desktop-dac-hd6xx/build/auto/a1/desktop_dac_hd6xx_unrouted.kicad_pcb",
+    "mtime_utc": "2026-10-24T14:44:31.048804+00:00",
+    "unconnected_count": 570,
+    "footprints": 238,
+    "track_segments": 0,
+    "vias": 0
+  }
+]

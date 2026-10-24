@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-24",
+  "kind": "real_footprint_floorplan",
+  "verdict": "PASS",
+  "source_sha256": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "command": "docker run --rm -i --name dac-layout-corrected-floorplan-20261024 --network=none --userns=keep-id --mount type=bind,src=/home/luca/.codex/worktrees/desktop-dac-headphone-amp/hwflow,dst=/workspace -w /workspace -e PYTHONPATH=/workspace/src -e HWFLOW_LAYOUT_BUDGET_S=600 hwflow-audio:ca10fa8e timeout 180 python -u -m hwflow.cli floorplan projects/desktop-dac-hd6xx",
+  "engine_elapsed_s": 58.9,
+  "process_exit_code": 0,
+  "real_parts": 238,
+  "placeholder_parts": 1,
+  "movable_real_parts": 234,
+  "board_mm": [
+    140,
+    80
+  ],
+  "copper_layers": 4,
+  "front_fill_percent": 61,
+  "front_load_mm2": 5137,
+  "front_available_mm2": 8384,
+  "region_front_fill_percent": {
+    "power": 45,
+    "dac": 42,
+    "analog": 41
+  },
+  "region_back_fill_percent": {
+    "power": 0,
+    "dac": 0,
+    "analog": 0
+  },
+  "depth_mm": 29.6,
+  "depth_limit_mm": 32,
+  "power_to_dac_mm": 8,
+  "power_to_analog_mm": 8,
+  "required_isolation_mm": 5,
+  "quick_placement": {
+    "seed": 2,
+    "moves": 20000,
+    "violations": 0,
+    "rudy_wire_mm": 2150,
+    "rudy_capacity_mm": 31239,
+    "rudy_percent": 7,
+    "overflow_percent": 0,
+    "peak_capacity_multiple": 0.7,
+    "overflow_cells": 0,
+    "fixed_rule_violations": 0
+  },
+  "fixed_anchors": {
+    "J100": [
+      42,
+      48,
+      0
+    ],
+    "J200": [
+      58,
+      76,
+      90
+    ],
+    "J201": [
+      123,
+      76,
+      90
+    ],
+    "J300": [
+      124,
+      15,
+      180
+    ]
+  },
+  "generated_picture": "build/floorplan.svg",
+  "visual_inspection": "Rendered the corrected native floorplan SVG. All real parts are on front; regions, fixed connectors, module reserve, and 8 mm separation remain intact. This is packing evidence, not routed copper or functional sign-off.",
+  "source_sha256_after": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "wall_elapsed_s": 59.687,
+  "process_record": "verification/layout-corrected-floorplan-process.json",
+  "log": "verification/layout-corrected-floorplan.log",
+  "historical_record": "verification/layout-floorplan-historical.json"
+}

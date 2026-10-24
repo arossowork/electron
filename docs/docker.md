@@ -14,6 +14,13 @@ repository with its venv in `/opt/venv`. Every tool path is set by environment v
 `FREEROUTING`, `JAVA`, `KRT_DIR`), so no code change is needed. Commands run under `xvfb-run`, so
 `kicad-cli pcb render` works headless.
 
+The router checkout is pinned by `KRT_COMMIT`; its prebuilt Rust extension is pinned separately by
+`KRT_RELEASE_TAG` (`v0.23.1`). The Docker build checks that this tag's version matches the checkout's
+`rust_router/Cargo.toml` before asking `build_router.py` to fetch it. Keep both pins aligned when changing the
+router checkout: the matching v0.23.1 release's Rust source is identical to the Rust crate at the current commit.
+This avoids the script's default of fetching the newest release, which may not match the pinned checkout and can
+fall back to a source build requiring Rust/Cargo.
+
 ## Build and check
 
 ```

@@ -96,7 +96,8 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - approximate models (built-in, datasheet fit, behavioral or no `spice.source`): "
                      f"{', '.join(c['generic_models'])}; justify each in notes/models.md or use a vendor model")
         hot = sorted(c["derating"], key=lambda r: -r.get("p_w", 0))[:3]
-        L.append("- derating: " + ("OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
+        L.append("- derating: " + ("FAILED" if c.get("derating_status") == "failed" else
+                                 "OK" if not c["derating_issues"] else f"{len(c['derating_issues'])} issues") +
                  "; top dissipation " + ", ".join(f"{r['ref']} {r['p_w'] * 1e3:.1f} mW" for r in hot))
         for i in c["derating_issues"][:8]:
             L.append(f"  - {i}")
@@ -209,6 +210,8 @@ def write_report(d: Design, history: bool = False) -> str:
         for r in t["rows"]:
             if r["status"] in ("FAIL", "UNVERIFIED"):
                 L.append(f"  - {r['id']} {r['status']}: {r['text'][:90]}")
+                if r.get("evidence_reason"):
+                    L.append(f"    - {r['evidence_reason']}")
         for r in t["rows"]:
             if r.get("evidence_missing"):
                 L.append(f"  - {r['id']} evidence file missing or empty: {', '.join(r['evidence_missing'])}")

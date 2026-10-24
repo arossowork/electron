@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-24",
+  "kind": "real_footprint_floorplan",
+  "verdict": "PASS",
+  "source_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "command": "docker run --rm -i --name dac-floorplan-final-20261024-layout --network=none --userns=keep-id --mount type=bind,src=/home/luca/.codex/worktrees/desktop-dac-headphone-amp/hwflow,dst=/workspace -w /workspace -e PYTHONPATH=/workspace/src -e HWFLOW_LAYOUT_BUDGET_S=600 hwflow-audio:ca10fa8e timeout 180 python -m hwflow.cli floorplan projects/desktop-dac-hd6xx",
+  "engine_elapsed_s": 87.9,
+  "process_exit_code": 0,
+  "real_parts": 238,
+  "placeholder_parts": 1,
+  "movable_real_parts": 234,
+  "board_mm": [
+    140,
+    80
+  ],
+  "copper_layers": 4,
+  "front_fill_percent": 61,
+  "front_load_mm2": 5137,
+  "front_available_mm2": 8384,
+  "region_front_fill_percent": {
+    "power": 47,
+    "dac": 43,
+    "analog": 41
+  },
+  "region_back_fill_percent": {
+    "power": 0,
+    "dac": 0,
+    "analog": 0
+  },
+  "depth_mm": 29.6,
+  "depth_limit_mm": 32,
+  "power_to_dac_mm": 8,
+  "power_to_analog_mm": 8,
+  "required_isolation_mm": 5,
+  "quick_placement": {
+    "seed": 2,
+    "moves": 20000,
+    "violations": 0,
+    "rudy_wire_mm": 2067,
+    "rudy_capacity_mm": 31239,
+    "rudy_percent": 7,
+    "overflow_percent": 0,
+    "peak_capacity_multiple": 0.8,
+    "overflow_cells": 0
+  },
+  "fixed_anchors": {
+    "J100": [
+      42,
+      48,
+      0
+    ],
+    "J200": [
+      58,
+      76,
+      90
+    ],
+    "J201": [
+      123,
+      76,
+      90
+    ],
+    "J300": [
+      124,
+      15,
+      180
+    ]
+  },
+  "generated_picture": "build/floorplan.svg",
+  "visual_inspection": "All real parts are on front. Regions and module reserve are preserved. No overlap or red congestion is shown. This is coarse packing evidence, not routed copper or DRC.",
+  "source_sha256_after": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "wall_elapsed_s": 88.911,
+  "process_record": "verification/layout-floorplan-final-process.json",
+  "log": "verification/layout-floorplan-final.log"
+}

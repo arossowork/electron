@@ -77,14 +77,17 @@ def cmd_nets(d: Design, a) -> int:
 
 def cmd_trace(d: Design) -> int:
     t = trace(d)
+    print(f"evidence design hash: {t['evidence_hash']}")
     for r in t["rows"]:
         print(f"{r['id']:<5} {r['status']:<10} {r['priority']:<6} {r['text'][:70]}"
               + (f"  [{', '.join(r['measures'])}]" if r["measures"] else ""))
+        if r.get("evidence_reason"):
+            print(f"      {r['evidence_reason']}")
     for r in t["rows"]:
         if r.get("evidence_missing"):
             print(f"{r['id']:<5} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
     if t["evidence_only"]:
-        print(f"layout requirements verified by evidence text only, no board check (layout?): "
+        print(f"layout requirements without a current board check remain unverified: "
               f"{', '.join(t['evidence_only'])}; tie them to a check with `req:` (nets, board.isolation, budgets)")
     print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified"
           + (f"; evidence files missing for {len(t['evidence_missing'])} ({', '.join(t['evidence_missing'])})"

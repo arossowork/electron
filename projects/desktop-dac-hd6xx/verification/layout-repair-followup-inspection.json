@@ -1,0 +1,1393 @@
+{
+  "findings": [
+    {
+      "sev": "error",
+      "code": "unrouted",
+      "msg": "net DAC_L_P is split in 2 copper islands"
+    },
+    {
+      "sev": "error",
+      "code": "unrouted",
+      "msg": "net I2S_BCLK is split in 2 copper islands"
+    },
+    {
+      "sev": "error",
+      "code": "unrouted",
+      "msg": "net I2S_LRCLK is split in 2 copper islands"
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C100 is 5.9 mm of copper from U100 on 3V3_D (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C100": [
+          70.95,
+          63.8
+        ],
+        "U100": [
+          72.2,
+          56.55
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C101 is 6.0 mm of copper from U100 on 3V3_C (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C101": [
+          72.95,
+          49.2
+        ],
+        "U100": [
+          72.2,
+          56.55
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C102 -> U100 on 3V3_A: 3.8 mm",
+      "referenced_footprint_locations_mm": {
+        "C102": [
+          72.3,
+          51.85
+        ],
+        "U100": [
+          72.2,
+          56.55
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C103 -> U100 on 3V3_A: 2.8 mm",
+      "referenced_footprint_locations_mm": {
+        "C103": [
+          66.2,
+          56.45
+        ],
+        "U100": [
+          72.2,
+          56.55
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C104 -> U100 on DAC_DVDD: 2.8 mm",
+      "referenced_footprint_locations_mm": {
+        "U100": [
+          72.2,
+          56.55
+        ],
+        "C104": [
+          69.5,
+          61.25
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C106 is 20.1 mm of copper from U101 on 3V3_D (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C106": [
+          58.8475,
+          47.2836
+        ],
+        "U101": [
+          52.7833,
+          50.1468
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C107 -> U102 on 3V3_D: 3.1 mm",
+      "referenced_footprint_locations_mm": {
+        "C107": [
+          62.7911,
+          47.2894
+        ],
+        "U102": [
+          61.1412,
+          51.524
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C108 -> U103 on 3V3_D: 2.3 mm",
+      "referenced_footprint_locations_mm": {
+        "U103": [
+          54.057,
+          59.0306
+        ],
+        "C108": [
+          60.15,
+          56.75
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C210 -> U200 on VPOS: 2.0 mm",
+      "referenced_footprint_locations_mm": {
+        "C210": [
+          85.7,
+          49.05
+        ],
+        "U200": [
+          84.8,
+          53.15
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C211 -> U200 on VNEG: 2.0 mm",
+      "referenced_footprint_locations_mm": {
+        "C211": [
+          82.9,
+          57.1
+        ],
+        "U200": [
+          84.8,
+          53.15
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C212 -> U201 on VPOS: 2.1 mm",
+      "referenced_footprint_locations_mm": {
+        "C212": [
+          82.6364,
+          69.837
+        ],
+        "U201": [
+          83.9469,
+          65.8729
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C213 -> U201 on VNEG: 3.0 mm",
+      "referenced_footprint_locations_mm": {
+        "C213": [
+          86.3416,
+          61.9077
+        ],
+        "U201": [
+          83.9469,
+          65.8729
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C245 is 4.3 mm of copper from U203 on VPOS (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C245": [
+          102.85,
+          60.15
+        ],
+        "U203": [
+          108.55,
+          62.1
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C246 is 4.5 mm of copper from U204 on 3V3_D (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "U204": [
+          102.4,
+          54.9
+        ],
+        "C246": [
+          102.35,
+          57.4
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C247 is 5.4 mm of copper from U205 on 3V3_D (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C247": [
+          98.8,
+          57.55
+        ],
+        "U205": [
+          98.65,
+          60.5
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C248 -> U206 on 3V3_D: 0.0 mm",
+      "referenced_footprint_locations_mm": {
+        "U206": [
+          99.0,
+          44.95
+        ],
+        "C248": [
+          103.1,
+          44.65
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C249 -> U207 on 3V3_D: 2.7 mm",
+      "referenced_footprint_locations_mm": {
+        "U207": [
+          102.65,
+          49.75
+        ],
+        "C249": [
+          103.25,
+          46.8
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C250 -> U208 on 3V3_D: 2.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C250": [
+          107.5,
+          48.6
+        ],
+        "U208": [
+          107.3,
+          51.55
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C251 -> U209 on 3V3_D: 1.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C251": [
+          113.6507,
+          44.8797
+        ],
+        "U209": [
+          109.6,
+          45.5
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C345 -> U334 on V5_HOLD: 2.0 mm",
+      "referenced_footprint_locations_mm": {
+        "U334": [
+          103.9147,
+          25.4946
+        ],
+        "C345": [
+          104.2,
+          28.45
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C313 -> U310 on V5_SYS: 1.4 mm",
+      "referenced_footprint_locations_mm": {
+        "U310": [
+          70.237,
+          12.5396
+        ],
+        "C313": [
+          70.35,
+          16.85
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C314 -> U310 on V5_SYS: 2.5 mm",
+      "referenced_footprint_locations_mm": {
+        "C314": [
+          65.6,
+          13.55
+        ],
+        "U310": [
+          70.237,
+          12.5396
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C320 -> U311 on P10V5_RAW: 3.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C320": [
+          70.05,
+          20.35
+        ],
+        "U311": [
+          71.2251,
+          24.1804
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C321 -> U311 on N10V_RAW: 3.1 mm",
+      "referenced_footprint_locations_mm": {
+        "U311": [
+          71.2251,
+          24.1804
+        ],
+        "C321": [
+          69.75,
+          28.0
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C322 is 6.9 mm of copper from U311 on VPOS (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C322": [
+          75.25,
+          20.35
+        ],
+        "U311": [
+          71.2251,
+          24.1804
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C323 -> U311 on VNEG: 1.1 mm",
+      "referenced_footprint_locations_mm": {
+        "U311": [
+          71.2251,
+          24.1804
+        ],
+        "C323": [
+          76.25,
+          26.2
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C324 -> U320 on 3V3_D: 1.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C324": [
+          101.95,
+          20.9
+        ],
+        "U320": [
+          97.05,
+          19.9
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C326 -> U321 on 3V3_C: 2.4 mm",
+      "referenced_footprint_locations_mm": {
+        "U321": [
+          81.2285,
+          20.5938
+        ],
+        "C326": [
+          86.1,
+          20.1
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C328 -> U322 on 3V3_A: 2.1 mm",
+      "referenced_footprint_locations_mm": {
+        "C328": [
+          89.2702,
+          30.5724
+        ],
+        "U322": [
+          84.4135,
+          30.2321
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C325 -> U320 on V5_HOLD: 2.5 mm",
+      "referenced_footprint_locations_mm": {
+        "C325": [
+          96.2,
+          16.9
+        ],
+        "U320": [
+          97.05,
+          19.9
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C327 -> U321 on V5_HOLD: 1.5 mm",
+      "referenced_footprint_locations_mm": {
+        "U321": [
+          81.2285,
+          20.5938
+        ],
+        "C327": [
+          80.05,
+          17.65
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C329 -> U322 on V5_HOLD: 2.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C329": [
+          83.55,
+          27.3
+        ],
+        "U322": [
+          84.4135,
+          30.2321
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C333 -> U330 on 3V3_D: 2.8 mm",
+      "referenced_footprint_locations_mm": {
+        "C333": [
+          98.35,
+          23.95
+        ],
+        "U330": [
+          96.45,
+          29.85
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C346 -> U333 on V5_HOLD: 2.3 mm",
+      "referenced_footprint_locations_mm": {
+        "U333": [
+          90.5106,
+          13.785
+        ],
+        "C346": [
+          92.75,
+          7.95
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C334 -> U331 on 3V3_D: 1.7 mm",
+      "referenced_footprint_locations_mm": {
+        "U331": [
+          53.05,
+          22.7
+        ],
+        "C334": [
+          54.0,
+          18.75
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C337 -> U332 on 3V3_D: 1.1 mm",
+      "referenced_footprint_locations_mm": {
+        "C337": [
+          61.6472,
+          27.7843
+        ],
+        "U332": [
+          60.4386,
+          31.7142
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C214 -> U202 on VPOS: 1.4 mm",
+      "referenced_footprint_locations_mm": {
+        "C214": [
+          90.0,
+          70.1
+        ],
+        "U202": [
+          94.25,
+          70.9
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C215 is 5.7 mm of copper from U202 on VNEG (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C215": [
+          90.0709,
+          72.0649
+        ],
+        "U202": [
+          94.25,
+          70.9
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C252 -> U210 on 3V3_D: 2.4 mm",
+      "referenced_footprint_locations_mm": {
+        "U210": [
+          112.45,
+          49.85
+        ],
+        "C252": [
+          113.7,
+          46.85
+        ]
+      }
+    },
+    {
+      "sev": "info",
+      "code": "decap-distance",
+      "msg": "C347 -> U335 on V5_HOLD: 0.7 mm",
+      "referenced_footprint_locations_mm": {
+        "U335": [
+          110.2,
+          30.0
+        ],
+        "C347": [
+          112.3,
+          24.15
+        ]
+      }
+    },
+    {
+      "sev": "warn",
+      "code": "decap-distance",
+      "msg": "C348 is 4.0 mm of copper from U336 on 3V3_D (limit 4.0 mm)",
+      "referenced_footprint_locations_mm": {
+        "C348": [
+          90.7,
+          24.9
+        ],
+        "U336": [
+          86.4,
+          24.5
+        ]
+      }
+    }
+  ],
+  "by_severity": {
+    "error": 3,
+    "warn": 9,
+    "info": 32
+  },
+  "by_code": {
+    "unrouted": 3,
+    "decap-distance": 41
+  },
+  "decoupling_paths": [
+    {
+      "cap": "C100",
+      "ic": "U100",
+      "net": "3V3_D",
+      "mm": 5.87,
+      "limit": 4.0,
+      "cap_at_mm": [
+        70.95,
+        63.8
+      ],
+      "ic_at_mm": [
+        72.2,
+        56.55
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C101",
+      "ic": "U100",
+      "net": "3V3_C",
+      "mm": 6.02,
+      "limit": 4.0,
+      "cap_at_mm": [
+        72.95,
+        49.2
+      ],
+      "ic_at_mm": [
+        72.2,
+        56.55
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C102",
+      "ic": "U100",
+      "net": "3V3_A",
+      "mm": 3.8,
+      "limit": 4.0,
+      "cap_at_mm": [
+        72.3,
+        51.85
+      ],
+      "ic_at_mm": [
+        72.2,
+        56.55
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C103",
+      "ic": "U100",
+      "net": "3V3_A",
+      "mm": 2.8,
+      "limit": 4.0,
+      "cap_at_mm": [
+        66.2,
+        56.45
+      ],
+      "ic_at_mm": [
+        72.2,
+        56.55
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C104",
+      "ic": "U100",
+      "net": "DAC_DVDD",
+      "mm": 2.83,
+      "limit": 4.0,
+      "cap_at_mm": [
+        69.5,
+        61.25
+      ],
+      "ic_at_mm": [
+        72.2,
+        56.55
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C106",
+      "ic": "U101",
+      "net": "3V3_D",
+      "mm": 20.12,
+      "limit": 4.0,
+      "cap_at_mm": [
+        58.8475,
+        47.2836
+      ],
+      "ic_at_mm": [
+        52.7833,
+        50.1468
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C107",
+      "ic": "U102",
+      "net": "3V3_D",
+      "mm": 3.12,
+      "limit": 4.0,
+      "cap_at_mm": [
+        62.7911,
+        47.2894
+      ],
+      "ic_at_mm": [
+        61.1412,
+        51.524
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C108",
+      "ic": "U103",
+      "net": "3V3_D",
+      "mm": 2.28,
+      "limit": 4.0,
+      "cap_at_mm": [
+        60.15,
+        56.75
+      ],
+      "ic_at_mm": [
+        54.057,
+        59.0306
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C210",
+      "ic": "U200",
+      "net": "VPOS",
+      "mm": 1.98,
+      "limit": 4.0,
+      "cap_at_mm": [
+        85.7,
+        49.05
+      ],
+      "ic_at_mm": [
+        84.8,
+        53.15
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C211",
+      "ic": "U200",
+      "net": "VNEG",
+      "mm": 1.98,
+      "limit": 4.0,
+      "cap_at_mm": [
+        82.9,
+        57.1
+      ],
+      "ic_at_mm": [
+        84.8,
+        53.15
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C212",
+      "ic": "U201",
+      "net": "VPOS",
+      "mm": 2.13,
+      "limit": 4.0,
+      "cap_at_mm": [
+        82.6364,
+        69.837
+      ],
+      "ic_at_mm": [
+        83.9469,
+        65.8729
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C213",
+      "ic": "U201",
+      "net": "VNEG",
+      "mm": 2.97,
+      "limit": 4.0,
+      "cap_at_mm": [
+        86.3416,
+        61.9077
+      ],
+      "ic_at_mm": [
+        83.9469,
+        65.8729
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C245",
+      "ic": "U203",
+      "net": "VPOS",
+      "mm": 4.27,
+      "limit": 4.0,
+      "cap_at_mm": [
+        102.85,
+        60.15
+      ],
+      "ic_at_mm": [
+        108.55,
+        62.1
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C246",
+      "ic": "U204",
+      "net": "3V3_D",
+      "mm": 4.47,
+      "limit": 4.0,
+      "cap_at_mm": [
+        102.35,
+        57.4
+      ],
+      "ic_at_mm": [
+        102.4,
+        54.9
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C247",
+      "ic": "U205",
+      "net": "3V3_D",
+      "mm": 5.41,
+      "limit": 4.0,
+      "cap_at_mm": [
+        98.8,
+        57.55
+      ],
+      "ic_at_mm": [
+        98.65,
+        60.5
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C248",
+      "ic": "U206",
+      "net": "3V3_D",
+      "mm": 0.0,
+      "limit": 4.0,
+      "cap_at_mm": [
+        103.1,
+        44.65
+      ],
+      "ic_at_mm": [
+        99.0,
+        44.95
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C249",
+      "ic": "U207",
+      "net": "3V3_D",
+      "mm": 2.69,
+      "limit": 4.0,
+      "cap_at_mm": [
+        103.25,
+        46.8
+      ],
+      "ic_at_mm": [
+        102.65,
+        49.75
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C250",
+      "ic": "U208",
+      "net": "3V3_D",
+      "mm": 2.4,
+      "limit": 4.0,
+      "cap_at_mm": [
+        107.5,
+        48.6
+      ],
+      "ic_at_mm": [
+        107.3,
+        51.55
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C251",
+      "ic": "U209",
+      "net": "3V3_D",
+      "mm": 1.41,
+      "limit": 4.0,
+      "cap_at_mm": [
+        113.6507,
+        44.8797
+      ],
+      "ic_at_mm": [
+        109.6,
+        45.5
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C345",
+      "ic": "U334",
+      "net": "V5_HOLD",
+      "mm": 1.96,
+      "limit": 4.0,
+      "cap_at_mm": [
+        104.2,
+        28.45
+      ],
+      "ic_at_mm": [
+        103.9147,
+        25.4946
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C313",
+      "ic": "U310",
+      "net": "V5_SYS",
+      "mm": 1.36,
+      "limit": 4.0,
+      "cap_at_mm": [
+        70.35,
+        16.85
+      ],
+      "ic_at_mm": [
+        70.237,
+        12.5396
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C314",
+      "ic": "U310",
+      "net": "V5_SYS",
+      "mm": 2.55,
+      "limit": 4.0,
+      "cap_at_mm": [
+        65.6,
+        13.55
+      ],
+      "ic_at_mm": [
+        70.237,
+        12.5396
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C320",
+      "ic": "U311",
+      "net": "P10V5_RAW",
+      "mm": 3.4,
+      "limit": 4.0,
+      "cap_at_mm": [
+        70.05,
+        20.35
+      ],
+      "ic_at_mm": [
+        71.2251,
+        24.1804
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C321",
+      "ic": "U311",
+      "net": "N10V_RAW",
+      "mm": 3.11,
+      "limit": 4.0,
+      "cap_at_mm": [
+        69.75,
+        28.0
+      ],
+      "ic_at_mm": [
+        71.2251,
+        24.1804
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C322",
+      "ic": "U311",
+      "net": "VPOS",
+      "mm": 6.86,
+      "limit": 4.0,
+      "cap_at_mm": [
+        75.25,
+        20.35
+      ],
+      "ic_at_mm": [
+        71.2251,
+        24.1804
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C323",
+      "ic": "U311",
+      "net": "VNEG",
+      "mm": 1.12,
+      "limit": 4.0,
+      "cap_at_mm": [
+        76.25,
+        26.2
+      ],
+      "ic_at_mm": [
+        71.2251,
+        24.1804
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C324",
+      "ic": "U320",
+      "net": "3V3_D",
+      "mm": 1.41,
+      "limit": 4.0,
+      "cap_at_mm": [
+        101.95,
+        20.9
+      ],
+      "ic_at_mm": [
+        97.05,
+        19.9
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C326",
+      "ic": "U321",
+      "net": "3V3_C",
+      "mm": 2.43,
+      "limit": 4.0,
+      "cap_at_mm": [
+        86.1,
+        20.1
+      ],
+      "ic_at_mm": [
+        81.2285,
+        20.5938
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C328",
+      "ic": "U322",
+      "net": "3V3_A",
+      "mm": 2.15,
+      "limit": 4.0,
+      "cap_at_mm": [
+        89.2702,
+        30.5724
+      ],
+      "ic_at_mm": [
+        84.4135,
+        30.2321
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C325",
+      "ic": "U320",
+      "net": "V5_HOLD",
+      "mm": 2.51,
+      "limit": 4.0,
+      "cap_at_mm": [
+        96.2,
+        16.9
+      ],
+      "ic_at_mm": [
+        97.05,
+        19.9
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C327",
+      "ic": "U321",
+      "net": "V5_HOLD",
+      "mm": 1.52,
+      "limit": 4.0,
+      "cap_at_mm": [
+        80.05,
+        17.65
+      ],
+      "ic_at_mm": [
+        81.2285,
+        20.5938
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C329",
+      "ic": "U322",
+      "net": "V5_HOLD",
+      "mm": 2.4,
+      "limit": 4.0,
+      "cap_at_mm": [
+        83.55,
+        27.3
+      ],
+      "ic_at_mm": [
+        84.4135,
+        30.2321
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C333",
+      "ic": "U330",
+      "net": "3V3_D",
+      "mm": 2.83,
+      "limit": 4.0,
+      "cap_at_mm": [
+        98.35,
+        23.95
+      ],
+      "ic_at_mm": [
+        96.45,
+        29.85
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C346",
+      "ic": "U333",
+      "net": "V5_HOLD",
+      "mm": 2.26,
+      "limit": 4.0,
+      "cap_at_mm": [
+        92.75,
+        7.95
+      ],
+      "ic_at_mm": [
+        90.5106,
+        13.785
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C334",
+      "ic": "U331",
+      "net": "3V3_D",
+      "mm": 1.7,
+      "limit": 4.0,
+      "cap_at_mm": [
+        54.0,
+        18.75
+      ],
+      "ic_at_mm": [
+        53.05,
+        22.7
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C337",
+      "ic": "U332",
+      "net": "3V3_D",
+      "mm": 1.1,
+      "limit": 4.0,
+      "cap_at_mm": [
+        61.6472,
+        27.7843
+      ],
+      "ic_at_mm": [
+        60.4386,
+        31.7142
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C214",
+      "ic": "U202",
+      "net": "VPOS",
+      "mm": 1.39,
+      "limit": 4.0,
+      "cap_at_mm": [
+        90.0,
+        70.1
+      ],
+      "ic_at_mm": [
+        94.25,
+        70.9
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C215",
+      "ic": "U202",
+      "net": "VNEG",
+      "mm": 5.68,
+      "limit": 4.0,
+      "cap_at_mm": [
+        90.0709,
+        72.0649
+      ],
+      "ic_at_mm": [
+        94.25,
+        70.9
+      ],
+      "over_limit": true
+    },
+    {
+      "cap": "C252",
+      "ic": "U210",
+      "net": "3V3_D",
+      "mm": 2.42,
+      "limit": 4.0,
+      "cap_at_mm": [
+        113.7,
+        46.85
+      ],
+      "ic_at_mm": [
+        112.45,
+        49.85
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C347",
+      "ic": "U335",
+      "net": "V5_HOLD",
+      "mm": 0.7,
+      "limit": 4.0,
+      "cap_at_mm": [
+        112.3,
+        24.15
+      ],
+      "ic_at_mm": [
+        110.2,
+        30.0
+      ],
+      "over_limit": false
+    },
+    {
+      "cap": "C348",
+      "ic": "U336",
+      "net": "3V3_D",
+      "mm": 4.02,
+      "limit": 4.0,
+      "cap_at_mm": [
+        90.7,
+        24.9
+      ],
+      "ic_at_mm": [
+        86.4,
+        24.5
+      ],
+      "over_limit": true
+    }
+  ],
+  "current_capacity": [
+    {
+      "net": "3V3_A",
+      "current_a": 0.05,
+      "required_width_mm": 0.004821047594874456,
+      "thin_segments": []
+    },
+    {
+      "net": "3V3_C",
+      "current_a": 0.02,
+      "required_width_mm": 0.001362255745924156,
+      "thin_segments": []
+    },
+    {
+      "net": "3V3_D",
+      "current_a": 0.04,
+      "required_width_mm": 0.0035438263706859584,
+      "thin_segments": []
+    },
+    {
+      "net": "ADAPTER_5V",
+      "current_a": 1.5,
+      "required_width_mm": 0.525472564777347,
+      "thin_segments": []
+    },
+    {
+      "net": "ADAPTER_FUSED",
+      "current_a": 1.5,
+      "required_width_mm": 0.525472564777347,
+      "thin_segments": []
+    },
+    {
+      "net": "N10V_RAW",
+      "current_a": 0.15,
+      "required_width_mm": 0.021940155503578192,
+      "thin_segments": []
+    },
+    {
+      "net": "N_SW",
+      "current_a": 0.5,
+      "required_width_mm": 0.11546537325950963,
+      "thin_segments": []
+    },
+    {
+      "net": "P10V5_RAW",
+      "current_a": 0.15,
+      "required_width_mm": 0.021940155503578192,
+      "thin_segments": []
+    },
+    {
+      "net": "P_SW",
+      "current_a": 0.5,
+      "required_width_mm": 0.11546537325950963,
+      "thin_segments": []
+    },
+    {
+      "net": "V5_HOLD",
+      "current_a": 0.15,
+      "required_width_mm": 0.021940155503578192,
+      "thin_segments": []
+    },
+    {
+      "net": "V5_SYS",
+      "current_a": 0.035,
+      "required_width_mm": 0.002947701776359032,
+      "thin_segments": []
+    },
+    {
+      "net": "VNEG",
+      "current_a": 0.15,
+      "required_width_mm": 0.021940155503578192,
+      "thin_segments": []
+    },
+    {
+      "net": "VPOS",
+      "current_a": 0.15,
+      "required_width_mm": 0.021940155503578192,
+      "thin_segments": []
+    }
+  ],
+  "region_excursions": [],
+  "si_screen": [],
+  "coverage": {
+    "spice_or_ir_drop": "not_run",
+    "declared_edge_rate_nets": [],
+    "declared_edge_rate_parts": [],
+    "return_path_and_si": "not_checked_no_edge_rates",
+    "two_layer_return_path_check": "not_applicable_four_layer_board",
+    "region_net_containment": "not_checked_no_regions_with_nets",
+    "current_nets_screened": 13,
+    "functional_layout_signoff": false
+  }
+}

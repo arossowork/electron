@@ -1,0 +1,981 @@
+{
+  "records": [
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 5,
+      "seconds": 0.15,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.49,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 5,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 4,
+      "seconds": 0.12,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 0,
+      "multipoint_pads_connected": 0,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.39,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 4,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 5,
+      "seconds": 0.12,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.37,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 5,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 8,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.48,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 8,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.36,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.37,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.37,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 12,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 4,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.48,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 12,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 4,
+      "seconds": 0.12,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 0,
+      "multipoint_pads_connected": 0,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.39,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 4,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 5,
+      "seconds": 0.14,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.38,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 5,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 8,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 5,
+      "multipoint_pads_connected": 5,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.54,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 8,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 4,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 0,
+      "multipoint_pads_connected": 0,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 14,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.45000000000000007,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 4,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 4
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.14,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.42,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.14,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.4,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 12,
+      "seconds": 0.14,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 4,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.56,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 12,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    },
+    {
+      "record": "JSON_REGRADE",
+      "board": "file",
+      "graded_nets": 9,
+      "seconds": 0.13,
+      "routed_single": [],
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "open_single": [],
+      "failed_multipoint": [],
+      "multipoint_pads_total": 31,
+      "multipoint_pads_connected": 31,
+      "successful": 0,
+      "failed": 3,
+      "unowned_broken": [],
+      "recovered": [],
+      "broken_by_run": []
+    },
+    {
+      "record": "JSON_IMPROVEMENT_GATE",
+      "lost": [],
+      "gained": [],
+      "worsened": [],
+      "disconnected_pads_before": 11,
+      "disconnected_pads_after": 11,
+      "nets_compared": 133,
+      "verdict": "accept"
+    },
+    {
+      "record": "JSON_SUMMARY_MIN",
+      "escalations": 0,
+      "failed": 3,
+      "failed_single": [
+        "DAC_L_P",
+        "I2S_BCLK",
+        "I2S_LRCLK"
+      ],
+      "finalize_excluded_nets": [
+        "GND"
+      ],
+      "main_loop_time_s": 0.38,
+      "min_clearance_used": 0.2,
+      "multipoint_deficit": 0,
+      "open_single": [],
+      "pad_pairs_open": {
+        "count": 3,
+        "nets": [
+          "DAC_L_P",
+          "I2S_BCLK",
+          "I2S_LRCLK"
+        ]
+      },
+      "regraded_nets": 9,
+      "routed": 0,
+      "scope": "merged",
+      "terminal_restores_broken": [],
+      "vias": 0
+    }
+  ],
+  "note": "Only written-board regrade/merged summary/acceptance records; transient reconciliation subset summaries excluded."
+}

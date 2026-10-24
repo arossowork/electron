@@ -115,7 +115,7 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from ..board import pcb as board_pcb
     from ..place import pinaccess
     from ..board import routing
-    for m in (board_pcb, routing, sys.modules[__name__], pinaccess):
+    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess):
         h.update(Path(m.__file__).read_bytes())
     from ..place import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
@@ -133,7 +133,8 @@ def _own(path: Path, nets: set, skip: set) -> tuple[list, list]:
             [dict(v) for v in rb["vias"] if v["net"] in nets and (round(v["x"], 2), round(v["y"], 2)) not in skip])
 
 
-def _route_one(design, libs, parts, workdir: Path, g: dict, i, tracks, vias, keep: bool, skip: set, timeout) -> dict:
+def _route_one(design, libs, parts, workdir: Path, g: dict, i, tracks, vias, keep: bool, skip: set, timeout,
+               deadline: float | None = None, keep_partial: bool = False) -> dict:
     """One group job on the board with `tracks` and `vias`; returns the cache entry."""
     t1 = time.time()
     src = workdir / f"{design.name}_unrouted.kicad_pcb"
@@ -142,11 +143,12 @@ def _route_one(design, libs, parts, workdir: Path, g: dict, i, tracks, vias, kee
         pcb.write_board(src, pcb.build_board(design, libs, parts, tracks, vias))
     nets = set(g["nets"])
     cur, last, notes, npass = krt.krt_route(design, src, workdir, f"{design.name}_krt_g{i}_", nets=nets,
-                                            keep_first=bool(keep or tracks or vias), timeout=timeout)
+                                            keep_first=bool(keep or tracks or vias), timeout=timeout, deadline=deadline, keep_partial=keep_partial)
     tr, vi = _own(cur, nets, skip)
     opened = sorted({n for v in last.values() for n in krt.krt_open_nets(v)} & nets)
     return {"tracks": tr, "vias": vi, "unrouted": sum(krt.krt_unrouted(v) for v in last.values()), "open": opened,
-            "passes": npass, "notes": notes, "seconds": round(time.time() - t1, 1)}
+            "passes": npass, "notes": notes, "seconds": round(time.time() - t1, 1),
+            "budget_exhausted": any(v.get("budget_exhausted") for v in last.values())}
 
 
 def _save(cache: Path, key: str, data: dict):
@@ -156,7 +158,7 @@ def _save(cache: Path, key: str, data: dict):
     os.replace(tmp, cache / f"{key}.json")  # atomic: parallel attempts may write the same key
 
 
-def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
+def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800, deadline: float | None = None):
     """Route the board group by group (module docstring). Returns (tracks, vias, summary, unrouted, rows), rows
     [{name, kind, nets, key, cache (hit, miss), seconds, unrouted, open}] in routing order, or None when the nets
     form fewer than two groups (krt.run_krt routes the board as one job)."""
@@ -199,8 +201,16 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800):
             vias += entries[r["key"]]["vias"]
     for i, r in enumerate(rows):
         if r["cache"] == "miss":
-            e = _route_one(design, libs, parts, workdir, r, i, tracks, vias, keep, skip, timeout)
-            _save(gdir, r["key"], e)
+            if deadline is not None and (time.time() >= deadline or getattr(design, "route_budget_exhausted", False)):
+                e = {"tracks": [], "vias": [], "unrouted": len(r["nets"]), "open": r["nets"], "passes": 0,
+                     "notes": ["stopped at layout wall-time budget"], "seconds": 0.0, "budget_exhausted": True}
+            else:
+                e = _route_one(design, libs, parts, workdir, r, i, tracks, vias, keep, skip, timeout,
+                               deadline=deadline, keep_partial=deadline is not None)
+            if e.get("budget_exhausted"):
+                design.route_budget_exhausted = True
+            else:
+                _save(gdir, r["key"], e)
             entries[r["key"]] = e
             tracks += e["tracks"]
             vias += e["vias"]
@@ -239,7 +249,7 @@ def stale(rows: list[dict], drc: list[dict]) -> list[tuple[dict, int]]:
 
 
 def validate(design, libs, parts, workdir: Path, cache: Path, tracks: list, vias: list, drc: list[dict], rows: list[dict],
-             check, timeout: int = 1800) -> tuple[list, list, list]:
+             check, timeout: int = 1800, deadline: float | None = None) -> tuple[list, list, list]:
     """The joined board's DRC on reused copper: every reused group a DRC error names (stale) loses its cache entry and
     routes again on the board with all other copper; `check(tracks, vias)` then gives the new DRC. Returns
     (tracks, vias, drc)."""
@@ -256,11 +266,19 @@ def validate(design, libs, parts, workdir: Path, cache: Path, tracks: list, vias
         keep = any(blocks.copper(design, parts))
     for r, n in bad:
         (gdir / f"{r['key']}.json").unlink(missing_ok=True)
+        if deadline is not None and (time.time() >= deadline or getattr(design, "route_budget_exhausted", False)):
+            design.route_budget_exhausted = True
+            r["cache"] = f"hit invalid ({n} DRC errors); budget exhausted before reroute"
+            continue
         nets = set(r["nets"])
         tracks = [t for t in tracks if t["net"] not in nets]
         vias = [v for v in vias if v["net"] not in nets]
-        e = _route_one(design, libs, parts, workdir, r, f"v{rows.index(r)}", tracks, vias, keep, skip, timeout)
-        _save(gdir, r["key"], e)
+        e = _route_one(design, libs, parts, workdir, r, f"v{rows.index(r)}", tracks, vias, keep, skip, timeout,
+                       deadline=deadline, keep_partial=deadline is not None)
+        if e.get("budget_exhausted"):
+            design.route_budget_exhausted = True
+        else:
+            _save(gdir, r["key"], e)
         tracks, vias = tracks + e["tracks"], vias + e["vias"]
         r.update(cache=f"hit dropped ({n} DRC errors on its copper), re-routed", seconds=e["seconds"],
                  unrouted=e["unrouted"], open=e["open"])

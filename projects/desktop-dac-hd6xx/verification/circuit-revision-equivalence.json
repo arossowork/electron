@@ -1,0 +1,55 @@
+{
+  "electrical_validation_commit": "3c002e1",
+  "validated_source_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "layout_source_sha256": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "date_utc": "2026-10-24T15:06:52.977235+00:00",
+  "method": "Parse committed and current YAML; require exact equality after normalizing only power/dac region rectangles and removing exactly the two validated board.drc_rules. All other board, floorplan, electrical, component, model, and fixed-anchor inputs must be identical.",
+  "allowed_changes": [
+    {
+      "region": "power",
+      "before_rect_mm": [
+        38,
+        2,
+        137,
+        35
+      ],
+      "after_rect_mm": [
+        38,
+        0.7,
+        137,
+        35
+      ]
+    },
+    {
+      "region": "dac",
+      "before_rect_mm": [
+        38,
+        43,
+        76,
+        78
+      ],
+      "after_rect_mm": [
+        37.6,
+        43,
+        76,
+        78
+      ]
+    },
+    {
+      "field": "board.drc_rules",
+      "before": [],
+      "after": [
+        "(rule \"U204 internal pad clearance\" (condition \"A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U204') && B.memberOfFootprint('U204')\") (constraint clearance (min 0.15mm)))",
+        "(rule \"U336 internal pad clearance\" (condition \"A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U336') && B.memberOfFootprint('U336')\") (constraint clearance (min 0.15mm)))"
+      ]
+    }
+  ],
+  "all_other_parsed_inputs_identical": true,
+  "electrical_model_inputs_unchanged": true,
+  "fixed_anchors_unchanged": true,
+  "board_outline_layers_unchanged": true,
+  "general_clearance_unchanged": true,
+  "component_count": 238,
+  "assigned_pin_count": 703,
+  "interpretation": "Existing electrical results apply to identical circuit/model inputs. This is an exact input-equivalence check, not a new simulation run. Rule exception applies only to pad pairs within U204 or within U336."
+}

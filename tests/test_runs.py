@@ -140,10 +140,15 @@ def test_two_concurrent_builds_of_one_project_do_not_mix(tmp_path):
     assert all(p.returncode == 0 for p in procs), outs
     rs = FileRunStore(proj / "build" / "runs")
     runs = rs.list("sensor_preamp")
-    assert len(runs) == 2 and all(r.status == RunStatus.succeeded and r.verdict == "PASS" for r in runs)
+    # Until sim leaves R7's board requirement unverified: its prose cannot substitute for a layout check.
+    assert len(runs) == 2 and all(r.status == RunStatus.succeeded and r.verdict == "FAIL" for r in runs)
+    cas = LocalCAS(settings_mod.get_settings().paths.cas_dir)
     for r in runs:
         assert [s.key for s in r.stages] == ["check", "sch", "sim"]
-        assert all(s.status == StageStatus.succeeded for s in r.stages)
+        assert all(s.status == StageStatus.succeeded and s.verdict == "pass" for s in r.stages)
+        with cas.open(r.artifacts["REPORT.md"].sha256) as fh:
+            report = fh.read().decode()
+        assert "R7 UNVERIFIED" in report and "no current layout check names this requirement" in report
         jsonschema.validate(json.loads((rs.run_dir(r.run_id) / "manifest.json").read_text()), SCHEMA)
     latest = rs.get(rs.latest())
     assert latest.run_id == max(r.run_id for r in runs)

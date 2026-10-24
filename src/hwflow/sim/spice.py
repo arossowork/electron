@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import random
 import re
 import shutil
@@ -277,7 +278,15 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
         blocks = [b for b in blocks if b.eid in mod.keep or b.eid == "~extra"]
     sim = design.raw.get("sim") or {}
     title = mod.title if mod is not None and mod.title else analysis.get("name", "op")
-    lines = [f"* {design.name} :: {title}", f".include {MODELS}"]
+    mode = sim.get("ngbehavior", "native")
+    if mode not in ("native", "ps"):
+        raise ValueError(f"sim.ngbehavior must be native or ps, got {mode!r}")
+    lines = [f"* {design.name} :: {title}"]
+    if mode == "ps":
+        # Parse-time compatibility cannot be enabled later inside .control.
+        # Keep it in the deck so cache keys, scoped runs, and post-layout agree.
+        lines.append("* hwflow: ngbehavior=ps")
+    lines.append(f".include {MODELS}")
     lines += [f".include {lib}" for lib in sorted(libs)]
     includes = [str((design.dir / inc).resolve()) for inc in sim.get("includes") or []]
     lines += [f".include {inc}" for inc in includes]
@@ -354,8 +363,15 @@ def run_ngspice(netlist: str, workdir: Path | None = None, name: str = "sim",
     cir = workdir / f"{name}.cir"
     cir.write_text(netlist)
 
+    compatibility = ["-n", "-D", "ngbehavior=ps"] if re.search(
+        r"^\* hwflow: ngbehavior=ps$", netlist, re.M) else []
+
     def once(path):
-        p = subprocess.run([get_settings().tools.ngspice, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        try:
+            p = subprocess.run([get_settings().tools.ngspice, *compatibility, "-b", str(path)], capture_output=True, text=True, timeout=timeout, cwd=workdir)
+        except subprocess.TimeoutExpired as e:
+            (workdir / f"{name}.log").write_text(_timeout_output(e, timeout))
+            raise
         return p.stdout + "\n" + p.stderr, p.returncode
 
     out, rc = once(cir)
@@ -444,6 +460,14 @@ def netlist_cache_key(netlist: str) -> str:
     return h.hexdigest()
 
 
+def _timeout_output(error: subprocess.TimeoutExpired, timeout: float) -> str:
+    # TimeoutExpired may contain bytes even when subprocess.run(text=True).
+    def decode(value):
+        return value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+    partial = "\n".join(filter(None, (decode(error.stdout), decode(error.stderr))))
+    return partial + f"\nError: ngspice timed out after {timeout:g} s (simulation aborted)\n"
+
+
 def run_cached(netlist: str, workdir: Path, name: str, cache: Path | None = None,
                timeout: float = DEFAULT_TIMEOUT_S) -> tuple[str, int, bool, bool]:
     """Run a netlist through the result cache: (ngspice output, return code, cache hit, timed out).
@@ -464,8 +488,10 @@ def run_cached(netlist: str, workdir: Path, name: str, cache: Path | None = None
     timed_out = False
     try:
         out, rc = run_ngspice(netlist, workdir, name, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        out, rc, timed_out = f"Error: ngspice timed out after {timeout:g} s (simulation aborted)", -1, True
+    except subprocess.TimeoutExpired as e:
+        out, rc, timed_out = _timeout_output(e, timeout), -1, True
+        workdir.mkdir(parents=True, exist_ok=True)
+        (workdir / f"{name}.log").write_text(out)
     if cfile and not timed_out and not out.startswith(FLAKY_MARK) and not crashed(rc, out):
         try:
             cache.mkdir(parents=True, exist_ok=True)
@@ -692,6 +718,10 @@ def _pkg_power(fp: str) -> float | None:
     return None
 
 
+class DeratingTimeoutError(RuntimeError):
+    """The operating-point audit ran out of time; this tool failure must not enter stage caches."""
+
+
 def derating_audit(design: Design, workdir: Path) -> list[dict]:
     """Operating point with an ammeter on every pin: power per part, voltage across caps."""
     sim = design.raw.get("sim") or {}
@@ -699,10 +729,22 @@ def derating_audit(design: Design, workdir: Path) -> list[dict]:
           "control": ["print all"]}
     nm = NodeMap(design)
     net, _ = build_netlist(design, op, nm, ammeters=True)
-    out, _ = run_ngspice(net, workdir, "derating")
+    timeout = float(sim.get("derating_timeout_s", DEFAULT_TIMEOUT_S))
+    out, rc, _, timed_out = run_cached(net, workdir, "derating", timeout=timeout)
+    if timed_out:
+        raise DeratingTimeoutError(f"derating: ngspice timed out after {timeout:g} s; see sim/derating.log")
+    if rc or ABORT_RE.search(out) or re.search(r"^\s*error:", out, re.I | re.M):
+        raise RuntimeError(f"derating: no valid operating point (ngspice exit {rc}); see sim/derating.log")
     vals = {}
     for m in re.finditer(rf"^\s*(\S+)\s*=\s*({NUM_PATTERN})\s*$", out, re.M):
         vals[m.group(1).lower()] = float(m.group(2))
+    ammeters = re.findall(r"^(Vam_\S+)\s+\S+\s+(\S+)\s", net, re.M)
+    expected = {key.lower() for name, node in ammeters for key in (f"{name}#branch", node)}
+    missing = expected - vals.keys()
+    if missing:
+        raise RuntimeError(f"derating: missing {len(missing)} pin-current/voltage results; see sim/derating.log")
+    if any(not math.isfinite(vals[key]) for key in expected):
+        raise RuntimeError("derating: nonfinite pin-current/voltage results; see sim/derating.log")
     ta = float(sim.get("ambient_c", 25))
     rows = []
     for c in design.components.values():

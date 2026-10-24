@@ -57,8 +57,21 @@ class Design:
         import io
 
         from ruamel.yaml import YAML
+        from ruamel.yaml.emitter import RoundTripEmitter
+
+        class CompatibleEmitter(RoundTripEmitter):
+            def analyze_scalar(self, scalar):
+                analysis = super().analyze_scalar(scalar)
+                # PyYAML's loader treats '?' as an indicator inside flow values,
+                # unlike ruamel's default YAML 1.2 emitter. Keep block style and
+                # existing quotes, but quote these scalars in flow collections.
+                if "?" in scalar:
+                    analysis.allow_flow_plain = False
+                return analysis
+
         self.raw["components"] = {r: c.data for r, c in self.components.items() if not c.get("from_block")}
         rt = YAML()
+        rt.Emitter = CompatibleEmitter
         rt.preserve_quotes = True
         rt.width = 120
         doc = rt.load(self.path.read_text())

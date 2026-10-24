@@ -1,0 +1,13 @@
+# Simulation model provenance and limits
+
+The amplifier integration is repaired. `opa1622_ti.lib` and `opa161x_ti.lib` now contain unchanged TI PSpice models, with source hashes and reproducible tests in [model-repair.md](model-repair.md). `design.yaml` explicitly selects `sim.ngbehavior: ps`; hwflow starts ngspice with PSpice compatibility before parsing, without changing a global initialization file. The old hand translation is retained only as a failing regression fixture.
+
+The package wrappers map two manufacturer single-channel models onto each dual amplifier. OPA1622 enable, GND-pin behavior, exposed-pad thermal behavior and package coupling remain unmodeled. The LM339 wrapper is a behavioral threshold approximation; its ideal results do not establish real offset, common-mode range, output saturation or delay. Generic diode/transistor models likewise do not qualify protection. USB, DAC, supply converters and digital logic marked `spice: false` have no functional model in the full netlist.
+
+The main project bench tests the headphone amplifier with ideal ±9 V rails, ideal 3.3 V detector bias, two ideal 2 Vrms sources at the volume-wiper nets, and two 300 Ω loads before the relay. It checks 0/25/60 °C model temperatures, audio-band AC gain and DC output. Fifty resistor/capacitor tolerance trials exercise this same boundary. These are amplifier-stage results, not a complete-product, physical power or jack measurement. DAC full scale and analog performance remain bench requirements.
+
+The separate source-derived analog-chain runner generates the selected circuit and package wrappers from `design.yaml`. Its ideal DAC currents ramp from zero because the original OPA161x model can fail a cold operating point at nonzero common current. This limitation is preserved in a failing fixture, rather than hidden by idealizing the amplifier or altering solver tolerances.
+
+Protection uses a separate circuit-derived passive matrix and actual logic topology, checked against ngspice in the linear region. [protection-validation.md](protection-validation.md) records comparator/input leakage, capacitor, logic-threshold and relay assumptions. [power-validation.md](power-validation.md) records the conditional power-enable and reservoir bounds. Neither replaces physical relay timing, regulator waveforms, or dummy-load fault testing. No simulation alone marks a product test requirement verified.
+
+Each configured analysis and the separate derating operating point has a 30 s limit. Failed or incomplete audits now fail the stage and preserve simulator logs. The derating table covers only simulated parts under these ideal-source conditions; switching-regulator, PCB and fault-temperature stresses require separate verification.

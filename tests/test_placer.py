@@ -290,6 +290,55 @@ def _two(tmp_path, a, b, nets, board_extra=None, status=None, weights=None):
     return d, parts, placer.Placer(d, parts, W, H, seed=2, weights=weights)
 
 
+@pytest.mark.parametrize("anchor_fixed", [True, False])
+def test_finish_grid_snap_preserves_pad_clearance(tmp_path, anchor_fixed):
+    """Rounding a legal placement must not consume its net-class copper clearance."""
+    _, parts, pl = _two(tmp_path, {}, {}, {"P0": {"class": "mains", "clearance_mm": 2.0}})
+    anchor, moving = parts["R0"], parts["R1"]
+    anchor.fixed = anchor_fixed
+    anchor.y = 15.021
+    moving.x = anchor.x
+    moving.y = anchor.y + anchor.pad_size["1"][1] + 2.101
+    assert pl.violations() == []
+    assert pl._iso_short(("R0", "1"), ("R1", "1")) == 0
+
+    result = pl._finish(pl._movable())
+
+    assert pl._iso_short(("R0", "1"), ("R1", "1")) <= 1e-9
+    assert pl.violations() == []
+    assert result == pytest.approx(pl.cost_full())
+    if anchor_fixed:
+        assert anchor.y == 15.021
+    else:
+        assert anchor.y == pytest.approx(15.0)
+        assert moving.y == pytest.approx(round(moving.y / 0.05) * 0.05)
+
+
+def test_finish_restores_placement_when_final_legalization_adds_rule_violation(tmp_path, monkeypatch):
+    _, parts, pl = _two(tmp_path, {}, {}, {"P0": {"class": "mains", "clearance_mm": 2.0}})
+    anchor, moving = parts["R0"], parts["R1"]
+    moving.x, moving.y = anchor.x, 20.021
+    pl.cost()
+    assert pl._rule_violations()[0] == []
+    original = pl._state()
+    calls = []
+
+    def legalize():
+        calls.append(1)
+        if len(calls) == 2:
+            moving.y = anchor.y + 1.0
+            pl.cost()
+            assert pl._rule_violations()[0]
+
+    monkeypatch.setattr(pl, "legalize", legalize)
+    result = pl._finish(pl._movable())
+
+    assert len(calls) == 2
+    assert pl._state() == original
+    assert pl._rule_violations()[0] == []
+    assert result == pytest.approx(pl.cost_full())
+
+
 def _box_gap(parts):
     A, B = parts["R0"].box(), parts["R1"].box()
     return math.hypot(max(0.0, A[0] - B[2], B[0] - A[2]), max(0.0, A[1] - B[3], B[1] - A[3]))

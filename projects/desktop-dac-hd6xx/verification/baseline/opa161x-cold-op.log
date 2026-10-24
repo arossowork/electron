@@ -1,0 +1,230 @@
+Using SPARSE 1.3 as Direct Linear Solver
+Note: Starting dynamic gmin stepping
+Warning: Dynamic gmin stepping failed
+Note: Starting true gmin stepping
+Warning: True gmin stepping failed
+Note: Starting source stepping
+Warning: singular matrix:  check node xu.x_u1.8
+
+Warning: source stepping failed
+Note: Transient op started
+Warning: singular matrix:  check node xu.x_u1.8
+
+Warning: singular matrix:  check node xu.x_u1.8
+
+Warning: singular matrix:  check node xu.x_u1.8
+
+Warning: singular matrix:  check node xu.x_u1.8
+
+Warning: singular matrix:  check node xu.x_u1.8
+
+Error: Transient op failed, timestep too small
+
+
+Error: The operating point could not be simulated successfully.
+    Any of the following steps may fail.!
+
+
+Note: Compatibility modes selected: ps
+
+
+Circuit: * opa1622 validation: opa161x_op_-2.82843
+
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+
+DC solution failed -
+
+Last Node Voltages
+------------------
+
+Node                                   Last Voltage        Previous Iter
+----                                   ------------        -------------
+vpos                                              9                    9
+vneg                                             -9                   -9
+in                                         -2.82843             -2.82843
+out                                            -nan                 -nan
+fb                                             -nan                 -nan
+xu.n24458                                      -nan                 -nan
+xu.n24659                                      -nan                 -nan
+xu.n37029                                      -nan                 -nan
+xu.n37037                                      -nan                 -nan
+xu.mid                                         -nan                 -nan
+xu.n39473                                      -nan                 -nan
+xu.n39884                                      -nan                 -nan
+xu.n39892                                      -nan                 -nan
+xu.n2392253                                    -nan                 -nan
+xu.n2392113                                    -nan                 -nan
+xu.n2392293                                    -nan                 -nan
+xu.n56849                                      -nan                 -nan
+xu.n57325                                      -nan                 -nan
+xu.n59747                                      -nan                 -nan
+xu.n59865                                      -nan                 -nan
+xu.n25921                                      -nan                 -nan
+xu.n25929                                      -nan                 -nan
+xu.n65579                                      -nan                 -nan
+xu.n65697                                      -nan                 -nan
+xu.n68774                                      -nan                 -nan
+xu.n72398                                      -nan                 -nan
+xu.n72391                                      -nan                 -nan
+xu.n81574                                      -nan                 -nan
+xu.n81664                                      -nan                 -nan
+xu.sw_ol_opa161x                               -nan                 -nan
+xu.vclp                                        -nan                 -nan
+xu.vimon                                       -nan                 -nan
+xu.n27785                                      -nan                 -nan
+xu.n27793                                      -nan                 -nan
+xu.vout_s                                      -nan                 -nan
+xu.n2402147                                    -nan                 -nan
+xu.n2402155                                    -nan                 -nan
+xu.n2419074                                    -nan                 -nan
+xu.n2423000                                    -nan                 -nan
+xu.n36262                                      -nan                 -nan
+xu.n32347                                      -nan                 -nan
+xu.clamp                                       -nan                 -nan
+xu.n34005                                      -nan                 -nan
+xu.n34013                                      -nan                 -nan
+xu.esdp                                        -nan                 -nan
+xu.esdn                                        -nan                 -nan
+xu.n158495                                     -nan                 -nan
+xu.cl_clamp                                    -nan                 -nan
+xu.n161937                                     -nan                 -nan
+xu.claw_clamp                                  -nan                 -nan
+xu.n45999                                      -nan                 -nan
+xu.n39124                                      -nan                 -nan
+xu.n39417                                      -nan                 -nan
+xu.vcc_b                                       -nan                 -nan
+xu.vee_b                                       -nan                 -nan
+xu.n25415                                      -nan                 -nan
+xu.n25397                                      -nan                 -nan
+xu.n25248                                      -nan                 -nan
+xu.vcc_clp                                     -nan                 -nan
+xu.vee_clp                                     -nan                 -nan
+xu.n1356345                                    -nan                 -nan
+xu.n1356333                                    -nan                 -nan
+xu.n1356409                                    -nan                 -nan
+xu.n1356429                                    -nan                 -nan
+xu.vsense                                      -nan                 -nan
+xu.n28678                                      -nan                 -nan
+xu.n28438                                      -nan                 -nan
+xu.n24207                                      -nan                 -nan
+xu.n31303                                      -nan                 -nan
+xu.n31389                                      -nan                 -nan
+xu.n31737                                      -nan                 -nan
+xu.n32236                                      -nan                 -nan
+xu.n32510                                      -nan                 -nan
+xu.n46041                                      -nan                 -nan
+xu.n55560                                      -nan                 -nan
+xu.n57321                                      -nan                 -nan
+xu.n59739                                      -nan                 -nan
+xu.n59743                                      -nan                 -nan
+xu.n59881                                      -nan                 -nan
+xu.n59905                                      -nan                 -nan
+xu.n65567                                      -nan                 -nan
+xu.n65575                                      -nan                 -nan
+xu.n65713                                      -nan                 -nan
+xu.n65737                                      -nan                 -nan
+xu.n72064                                      -nan                 -nan
+xu.n72073                                      -nan                 -nan
+xu.v11                                         -nan                 -nan
+xu.v12                                         -nan                 -nan
+xu.n81756                                      -nan                 -nan
+xu.n161737                                     -nan                 -nan
+xu.n1356115                                    -nan                 -nan
+xu.n1356061                                    -nan                 -nan
+xu.x_u1.7                                      -nan                 -nan
+xu.x_u1.8                                      -nan                 -nan
+xu.x_u1.3                                      -nan                 -nan
+xu.x_u1.6                                      -nan                 -nan
+xu.x_u1.4                                      -nan                 -nan
+xu.x_u1.5                                         0                    0
+xu.x_u10.gvo+_int1                             -nan                 -nan
+xu.x_u10.gvo-_int1                             -nan                 -nan
+xu.x_u11.gvo+_int1                             -nan                 -nan
+xu.x_u11.gvo-_int1                             -nan                 -nan
+xu.x_u12.gvo+_int1                             -nan                 -nan
+xu.x_u12.gvo-_int1                             -nan                 -nan
+xu.x_u16.gsw+_int1                             -nan                 -nan
+xu.x_u18.g1_int1                               -nan                 -nan
+xu.x_u18.g1_int2                               -nan                 -nan
+xu.x_u19.g1_int1                               -nan                 -nan
+xu.x_u19.g1_int2                               -nan                 -nan
+xu.x_u22.g1_int1                               -nan                 -nan
+xu.x_u23.g1_int1                               -nan                 -nan
+xu.x_u26.g1_int1                               -nan                 -nan
+xu.x_u27.g1_int1                               -nan                 -nan
+xu.x_u30.g1_int1                               -nan                 -nan
+xu.x_u31.g1_int1                               -nan                 -nan
+xu.x_u32.g1_int1                               -nan                 -nan
+xu.x_u35.g1_int1                               -nan                 -nan
+xu.x_u36.7                                     -nan                 -nan
+xu.x_u36.8                                     -nan                 -nan
+xu.x_u36.3                                     -nan                 -nan
+xu.x_u36.6                                     -nan                 -nan
+xu.x_u36.4                                     -nan                 -nan
+xu.x_u36.5                                        0                    0
+xu.x_u37.7                                     -nan                 -nan
+xu.x_u37.8                                     -nan                 -nan
+xu.x_u37.3                                     -nan                 -nan
+xu.x_u37.6                                     -nan                 -nan
+xu.x_u37.4                                     -nan                 -nan
+xu.x_u37.5                                        0                    0
+xu.x_u4.e1_int1                           9.729e-05            9.729e-05
+xu.x_u6.g1_int1                                -nan                 -nan
+b.xu.x_u6.bg1#branch                              0                    0
+b.xu.x_u4.be1#branch                              0                    0
+b.xu.x_u35.bg1#branch                             0                    0
+b.xu.x_u32.bg1#branch                             0                    0
+b.xu.x_u31.bg1#branch                             0                    0
+b.xu.x_u30.bg1#branch                             0                    0
+b.xu.x_u27.bg1#branch                             0                    0
+b.xu.x_u26.bg1#branch                             0                    0
+b.xu.x_u23.bg1#branch                             0                    0
+b.xu.x_u22.bg1#branch                             0                    0
+b.xu.x_u19.bg1#branch                             0                    0
+b.xu.x_u18.bg1#branch                             0                    0
+b.xu.x_u16.bgsw+#branch                           0                    0
+b.xu.x_u12.bgvo-#branch                           0                    0
+b.xu.x_u12.bgvo+#branch                           0                    0
+b.xu.x_u11.bgvo-#branch                           0                    0
+b.xu.x_u11.bgvo+#branch                           0                    0
+b.xu.x_u10.bgvo-#branch                           0                    0
+b.xu.x_u10.bgvo+#branch                           0                    0
+h.xu.x_h3.h_h3#branch                          -nan                 -nan
+v.xu.x_h3.vh_h3#branch                         -nan                 -nan
+h.xu.x_h2.h_h2#branch                          -nan                 -nan
+v.xu.x_h2.vh_h2#branch                         -nan                 -nan
+h.xu.x_h1.h_h1#branch                          -nan                 -nan
+v.xu.x_h1.vh_h1#branch                         -nan                 -nan
+e.xu.x_u4.e1#branch                            -nan                 -nan
+e.xu.x_u37.e2#branch                           -nan                 -nan
+e.xu.x_u37.e1#branch                           -nan                 -nan
+e.xu.x_u36.e2#branch                           -nan                 -nan
+e.xu.x_u36.e1#branch                           -nan                 -nan
+e.xu.x_u1.e3#branch                            -nan                 -nan
+e.xu.x_u1.e2#branch                            -nan         doAnalyses: OP:  Timestep too small; trouble with xu.x_u1:dvn-instance d.xu.x_u1.d1
+
+
+op simulation(s) aborted
+Error: no such vector v(out)
+        -nan
+e.xu.x_u1.e1#branch                            -nan                 -nan
+e.xu.e_e3#branch                               -nan                 -nan
+e.xu.e_e2#branch                               -nan                 -nan
+e.xu.e_e1#branch                               -nan                 -nan
+v.xu.v_v_orp#branch                               0                    0
+v.xu.v_v_orn#branch                               0                    0
+v.xu.v_v_iscp#branch                           -nan                 -nan
+v.xu.v_v_iscn#branch                           -nan                 -nan
+v.xu.v_v_grp#branch                            -nan                 -nan
+v.xu.v_v_grn#branch                            -nan                 -nan
+v.xu.v_vcm_min#branch                          -nan                 -nan
+v.xu.v_vcm_max#branch                          -nan                 -nan
+vin#branch                                     -nan                 -nan
+vneg#branch                                    -nan                 -nan
+vpos#branch                                    -nan                 -nan
+a.xu.x_u19.ag1#branch_1_0                         0                    0
+a.xu.x_u18.ag1#branch_1_0                         0                    0
+
+ngspice-42 done

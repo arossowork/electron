@@ -1,0 +1,73 @@
+{
+  "passed": 14,
+  "total": 14,
+  "fails": [],
+  "derating_status": "ok",
+  "derating_issues": [],
+  "errors": [],
+  "warnings": [],
+  "monte_carlo": [
+    {
+      "analysis": "4vrms_two_channel",
+      "runs": 50,
+      "yield": 1.0,
+      "stats": {
+        "left_vrms": {
+          "min": 3.97664,
+          "max": 4.02369,
+          "p50": 4.0023
+        },
+        "right_vrms": {
+          "min": 3.98299,
+          "max": 4.02015,
+          "p50": 4.00121
+        }
+      }
+    }
+  ],
+  "mc_runs": 50,
+  "ok": true,
+  "inputs_hash": "b74c62f889ed",
+  "design_hash": "c5c67971a03c",
+  "at": 1792855015.2111745,
+  "source_sha256": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "engine_commit": "5422f97",
+  "command": "python -u -m hwflow.cli sim projects/desktop-dac-hd6xx --mc 50",
+  "inner_timeout_s": 240,
+  "exit_code": 0,
+  "reported_stage_s": 14.0,
+  "analyses": [
+    {
+      "name": "4vrms_two_channel @ 0C",
+      "status": "ok",
+      "cached": true,
+      "seconds": 0.0
+    },
+    {
+      "name": "4vrms_two_channel @ 25C",
+      "status": "ok",
+      "cached": true,
+      "seconds": 0.0
+    },
+    {
+      "name": "4vrms_two_channel @ 60C",
+      "status": "ok",
+      "cached": true,
+      "seconds": 0.0
+    },
+    {
+      "name": "audio_band_gain",
+      "status": "ok",
+      "cached": true,
+      "seconds": 0.0
+    },
+    {
+      "name": "amplifier_dc",
+      "status": "ok",
+      "cached": true,
+      "seconds": 0.0
+    }
+  ],
+  "qualification": "Amplifier-stage model checks only; protection and power have separate qualified evidence. All ten whole-product requirements remain unverified.",
+  "log": "verification/project-sim-final.log"
+}

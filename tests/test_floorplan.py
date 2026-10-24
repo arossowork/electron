@@ -215,3 +215,70 @@ def test_fixed_mains_pad_keeps_isolation_from_a_conductive_keepout():
     assert floorplan.fixed_pad_isolation(design, {"F1": far}, fp) == []
     design.components["F1"] = SimpleNamespace(pins={"1": "GND", "2": "SIG"})  # not a mains net: not checked
     assert floorplan.fixed_pad_isolation(design, {"F1": near}, fp) == []
+
+
+def test_fixed_part_outside_region_fails_floorplan(tmp_path):
+    """A fixed source position cannot be repaired by a longer quick anneal."""
+    d = make(tmp_path, {
+        "construction": "single",
+        "regions": [{"name": "left", "kind": "other", "rect": [2, 2, 10, 18], "items": ["R1"]}],
+        "items": [{"name": "resistor", "refs": ["R1"], "height_mm": 1}],
+    }, board={"width_mm": 30, "height_mm": 20}, comps={
+        "R1": {"value": "1k", "footprint": RS, "pins": {"1": "A", "2": "B"},
+               "placement": {"x": 25, "y": 10, "fixed": True}},
+    })
+
+    result = floorplan.check(d, Libs(design=d), iters=10, seeds=1)
+
+    assert result["verdict"] == "FAIL"
+    assert any("R1 outside floorplan region 'left'" in c["msg"] and c["ok"] is False
+               for c in result["checks"])
+    assert result["placement"]["fixed_violations"]
+
+
+@pytest.mark.parametrize("region_top, permitted", [(0, True), (2, False)])
+def test_fixed_connector_overhang_only_exempts_body_outside_board(tmp_path, region_top, permitted):
+    """A connector body may overhang the board, but not cross an on-board region edge."""
+    d = make(tmp_path, {
+        "construction": "single",
+        "regions": [{"name": "power", "kind": "other", "rect": [0, region_top, 30, 20], "items": ["J1"]}],
+        "items": [{"name": "connector", "refs": ["J1"], "height_mm": 9}],
+    }, board={"width_mm": 30, "height_mm": 20}, comps={
+        "J1": {"footprint": "Connector_BarrelJack:BarrelJack_CUI_PJ-102AH_Horizontal",
+               "pins": {"1": "VIN", "2": "GND"},
+               "placement": {"x": 15, "y": 13, "rot": 180, "fixed": True}},
+    })
+    libs = Libs(design=d)
+    part = placer.build_parts(d, libs)["J1"]
+    assert floorplan._side_box(part, "front", placer.COURTYARD_MARGIN)[1] < 0
+    assert all(part.pad(n)[1] > 0 for n in part.pads)
+
+    result = floorplan.check(d, libs, iters=10, seeds=1)
+
+    assert result["ok"] is permitted
+    if not permitted:
+        assert any("J1 outside floorplan region 'power'" in c["msg"] and c["ok"] is False
+                   for c in result["checks"])
+
+
+def test_fixed_connector_overhang_exemption_keeps_copper_edge_checks(tmp_path):
+    d = make(tmp_path, {
+        "construction": "single",
+        "regions": [{"name": "power", "kind": "other", "rect": [0, 0, 30, 20], "items": ["J1"],
+                     "nets": ["VIN"]}],
+    }, board={"width_mm": 30, "height_mm": 20}, comps={
+        "J1": {"footprint": "Connector_BarrelJack:BarrelJack_CUI_PJ-102AH_Horizontal",
+               "pins": {"1": "VIN", "2": "GND"},
+               "placement": {"x": 15, "y": 13, "rot": 180, "fixed": True}},
+    })
+    parts = placer.build_parts(d, Libs(design=d))
+    pl = placer.Placer(d, parts, 30, 20)
+    before = pl.cost()
+    assert any("J1 outside floorplan region 'power'" in v for v in pl.fixed_violations())
+    assert pl.fixed_violations({"power": (0, 0, 30, 20)}) == []
+    assert pl.cost() == before  # the reporting exemption does not change placement costs
+
+    parts["J1"].y = 0  # move copper, not just the courtyard, beyond the board edge
+    assert any("copper closer" in v for v in pl.violations())
+    assert any("has pads of its nets outside" in v
+               for v in pl.fixed_violations({"power": (0, 0, 30, 20)}))

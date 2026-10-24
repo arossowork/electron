@@ -1,0 +1,142 @@
+{
+  "status": "INCOMPLETE_OUTER_TIMEOUT",
+  "candidate_source_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "source_unchanged_during_run": true,
+  "wall_elapsed_s": 750.401,
+  "exit_code": 124,
+  "configured_internal_budget_s": 600,
+  "outer_timeout_s": 750,
+  "configured_placement_attempts": 2,
+  "observed_placement_attempts": 1,
+  "workers": 2,
+  "candidate": "verification/layout-cold-preserved/desktop_dac_hd6xx_krt2n0.kicad_pcb",
+  "candidate_selection": "Lowest native unconnected count among completed artifacts; no final engine-selected result was produced.",
+  "candidate_sha256": "de6d75a13b382899a3d9f2174a472d69d375cd0b34f45289457206c84eff81b8",
+  "footprints": 238,
+  "track_segments": 1679,
+  "vias": 242,
+  "native_unconnected_before_zone_fill": 174,
+  "independent_drc_after_in_memory_zone_fill": {
+    "errors_excluding_unconnected": 10,
+    "warnings": 605,
+    "unconnected_items": 6,
+    "types": {
+      "clearance": 10,
+      "silk_overlap": 199,
+      "silk_over_copper": 199,
+      "lib_footprint_issues": 199,
+      "via_dangling": 7,
+      "track_dangling": 1
+    },
+    "unconnected_signal_nets": [
+      "DAC_L_P",
+      "I2S_BCLK",
+      "I2S_LRCLK"
+    ],
+    "ground_island_items": 3,
+    "intrinsic_clearance_conflicts": {
+      "U336": 6,
+      "U204": 4
+    },
+    "pad_gap_mm": 0.15,
+    "required_clearance_mm": 0.2
+  },
+  "artifact_write_offsets": [
+    {
+      "artifact": "desktop_dac_hd6xx_unrouted.kicad_pcb",
+      "written_after_start_s": 105.73
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt0.kicad_pcb",
+      "written_after_start_s": 111.269
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt1.kicad_pcb",
+      "written_after_start_s": 123.679
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt1_r1.kicad_pcb",
+      "written_after_start_s": 136.364
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt1_r2.kicad_pcb",
+      "written_after_start_s": 148.726
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt1_r3.kicad_pcb",
+      "written_after_start_s": 161.498
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt1w.kicad_pcb",
+      "written_after_start_s": 201.52
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2.kicad_pcb",
+      "written_after_start_s": 281.309
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2_r1.kicad_pcb",
+      "written_after_start_s": 364.779
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2_r2.kicad_pcb",
+      "written_after_start_s": 443.115
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2_r3.kicad_pcb",
+      "written_after_start_s": 528.677
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2n0_r1.kicad_pcb",
+      "written_after_start_s": 562.507
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2n0_r2.kicad_pcb",
+      "written_after_start_s": 577.104
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2n0_r3.kicad_pcb",
+      "written_after_start_s": 592.867
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2n0.kicad_pcb",
+      "written_after_start_s": 608.935
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2p.kicad_pcb",
+      "written_after_start_s": 617.813
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2p_r1.kicad_pcb",
+      "written_after_start_s": 628.351
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2p_r2.kicad_pcb",
+      "written_after_start_s": 638.917
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2p_r3.kicad_pcb",
+      "written_after_start_s": 649.701
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2pn0_r1.kicad_pcb",
+      "written_after_start_s": 667.188
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2pn0_r2.kicad_pcb",
+      "written_after_start_s": 676.03
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2pn0_r3.kicad_pcb",
+      "written_after_start_s": 684.783
+    },
+    {
+      "artifact": "desktop_dac_hd6xx_krt2pn0.kicad_pcb",
+      "written_after_start_s": 691.172
+    }
+  ],
+  "timing_caveat": "Artifact write offsets are observed filesystem milestones, not measured stage or router CPU durations. Brief mode and interruption produced no completed stage timing report.",
+  "warm_reuse": "NOT RUN: clean routed board prerequisite not met.",
+  "container_cleanup": "Cold routing container absent after timeout; no associated jobs remain.",
+  "all_candidates_archive": "verification/layout-cold-candidates.zip"
+}

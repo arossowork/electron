@@ -98,7 +98,7 @@ def attempts_of(results: Mapping[str, Mapping[str, Any]]) -> dict[int, dict]:
 
 def _final(s: Mapping[str, Any]) -> bool:
     """An attempt after which more attempts cannot help: it is clean, or its errors are on fixed parts."""
-    return not s.get("error") and bool(s.get("ok") or s.get("fixed_parts_only"))
+    return not s.get("error") and not s.get("budget_exhausted") and bool(s.get("ok") or s.get("fixed_parts_only"))
 
 
 def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str, Any]],
@@ -115,7 +115,7 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
     if fixed_all:
         n = 1  # no movable part: another seed gives the same placement
     errs = int(a1.get("drc_errors") or 0) + int(a1.get("unrouted") or 0)
-    hopeless = (not _final(a1) and not a1.get("error") and "drc_errors" in a1
+    hopeless = (not _final(a1) and not a1.get("error") and not a1.get("budget_exhausted") and "drc_errors" in a1
                 and errs > int(settings_layout.get("auto_max_errors", 40)))
     if hopeless:
         n = 1  # far from routable: other seeds of the same placer and router do not close the gap
@@ -123,9 +123,11 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
     cutoff = finals[0] if finals else None
     need = range(1, (cutoff if cutoff is not None else n) + 1)
     complete = all(k in attempts for k in need)
-    in_time = deadline is None or now < deadline
+    # A truncated first attempt is retained even for n=1, without treating its errors as hopeless.
+    exhausted = bool(a1.get("budget_exhausted"))
+    in_time = not exhausted and (deadline is None or now < deadline)
     wanted = tuple(k for k in need if k not in attempts) if (in_time and not complete) else ()
-    over = not complete and not wanted
+    over = exhausted or (not complete and not wanted)
     used = tuple(sorted(k for k in attempts if cutoff is None or k <= cutoff))
     return LayoutSearch(auto, n, cutoff, hopeless, fixed_all, deadline, budget, wanted, complete, over, used)
 

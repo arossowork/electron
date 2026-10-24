@@ -55,7 +55,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 | budget_max_track_mm | 3.0 | widest track a `budgets:` entry may ask for; past it, the layout stage says the budget needs the parts closer |
 
-Route cache: the layout stage stores the routed and repaired copper in `build/routecache/<key>.json`; the key hashes the unrouted board (placement, footprints, nets, outline), the rules files, the `board:` settings, the router version and the repair code. The same key skips the router and the repair (the full DRC still runs), so `layout --reuse` and a repeated build give the same copper. Delete `build/routecache/` to force a new route. `layout --auto` runs its attempts in parallel (`--workers N`, default cpu count - 1) and stops when the remaining errors are on parts with `fixed: true`. It prints one progress line per attempt and keeps to a wall-time budget (`HWFLOW_LAYOUT_BUDGET_S`, default 3000 s): past it no attempt starts, running ones are stopped, the repair stops its rounds, and the best attempt done is kept, diagnosed and written to `status.json` and `REPORT.md`. The repair is skipped when every DRC error is on fixed parts (courtyards, keep-outs: routing cannot change them) and stops after one round without improvement when some are (`HWFLOW_REPAIR_MAX_STALL`, default 2 rounds otherwise). The route cache key also hashes the `floorplan:` field. Route groups: when the floorplan regions that hold nets (`nets:`) and the `board.isolation` groups split the nets into more than one group, the router routes each group as a job of its own (a region group: nets with every pad in its region; `rest`; then the `interface` nets with pads in several regions), smallest region group first, each with the copper of the groups before it as obstacles. Each group's copper is cached in `build/routecache/groups/` under a key of its own pads, its nets' classes and layers, the rules and the router code, so a change in one group re-routes that group only; the joined board's DRC judges reused copper, and a DRC error on it drops that group's cache and routes it again. `REPORT.md` lists the groups (nets, seconds, unrouted, cache hit or miss).
+Route cache: the layout stage stores the routed and repaired copper in `build/routecache/<key>.json`; the key hashes the unrouted board (placement, footprints, nets, outline), the rules files, the `board:` settings, the router version and the repair code. The same key skips the router and the repair (the full DRC still runs), so `layout --reuse` and a repeated build give the same copper. Delete `build/routecache/` to force a new route. `layout --auto` runs its attempts in parallel (`--workers N`, default cpu count - 1) and stops when the remaining errors are on parts with `fixed: true`. It prints one progress line per attempt. `HWFLOW_LAYOUT_BUDGET_S` (default 3000 s) is a routing/search deadline, including the initial route, region groups, net-order retries, area search and repair rounds. After it, no new attempt or router call starts; running router calls time out and the best completed candidate is retained. A completed variant from an interrupted pass is kept as a partial result with `budget_exhausted: true`; unfinished subprocess output is never imported, and partial boards or groups are not cached. Area search prefers an earlier complete size, otherwise retaining the interrupted size and its accepted copper. Final DRC, cleanup, diagnosis and writing `status.json` / `REPORT.md` may continue after the search deadline under their own command limits. This is not a strict whole-layout wall-time limit; use an outer process timeout when a hard cap is required. The repair is skipped when every DRC error is on fixed parts (courtyards, keep-outs: routing cannot change them) and stops after one round without improvement when some are (`HWFLOW_REPAIR_MAX_STALL`, default 2 rounds otherwise). The route cache key also hashes the `floorplan:` field. Route groups: when the floorplan regions that hold nets (`nets:`) and the `board.isolation` groups split the nets into more than one group, the router routes each group as a job of its own (a region group: nets with every pad in its region; `rest`; then the `interface` nets with pads in several regions), smallest region group first, each with the copper of the groups before it as obstacles. Each group's copper is cached in `build/routecache/groups/` under a key of its own pads, its nets' classes and layers, the rules and the router code, so a change in one group re-routes that group only; the joined board's DRC judges reused copper, and a DRC error on it drops that group's cache and routes it again. `REPORT.md` lists the groups (nets, seconds, unrouted, cache hit or miss).
 
 ## nets
 
@@ -74,7 +74,7 @@ nets:
 
 `min_width_mm` is the narrowest copper the net may have: the router does not neck the net under it (no pad-entry or neck-down pass at a smaller width, no corridor-proof narrow-first pass or seed route when it is above the 0.15 mm neck floor), so a net that does not fit at that width stays open. A track of the net narrower than it is a layout failure (`too_narrow` in the layout status). Use it where a neck is a safety problem, for example a mains track that must carry the fuse's let-through I²t.
 
-`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no check names (no `req:` on a net, a `board.isolation` group or a budget) shows as `layout?` in `hwflow trace`: verified by its evidence text only. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
+`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no current board check names (no `req:` on a net, a `board.isolation` group or a budget) stays `UNVERIFIED` in `hwflow trace`; evidence prose does not verify routed copper. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
 
 `layers` lists the copper layers the router may use for the net (KiCad names; globs such as `In*.Cu` match the board's layers). KiCadRoutingTools routes those nets in passes of their own, with every other layer forbidden (`--layers <all> --layer-costs`, -1 on the others: an obstacle that through vias may cross, no track on it); repair reroutes keep the same passes. The Freerouting path writes the net class with `(circuit (use_layer ...))`. `hwflow check` fails on a name that matches no copper layer of the board, and on an SMD pad of the net that sits only on layers outside the list (through-hole pads reach every layer). A track of the net on another layer is a layout failure (`off_layer` in the layout status) and a post-layout error (`net-layer`), so the build cannot pass with it. The net's layers win over a `board.drc_rules` `disallow` rule on a named rule area (`A.intersectsArea('Z')`, for example a mains-off-the-inner-layers rule): when the list shares a copper layer with area Z and the rule names the net (NetName, its class or its isolation class) or no net at all, hwflow writes the rule with `&& A.NetName != '<net>'`, for KiCad DRC and the router alike, and `hwflow check` warns about the overlap.
 
@@ -140,6 +140,8 @@ The built-in models are in `src/hwflow/models/generic.lib`. You set their parame
 ```yaml
 sim:
   ambient_c: 40
+  ngbehavior: ps                         # optional PSpice parser; default native
+  derating_timeout_s: 60                  # separate operating-point audit (default 600)
   includes: [models/vendor.lib]          # optional extra model files
   sources:                               # testbench only, not in the BOM
     - {name: VIN, p: J1.1, n: J1.2, value: "DC 5 AC 0 PULSE(4.5 5.25 1m 10u 10u 2m 4m)"}
@@ -161,6 +163,8 @@ sim:
       measures:
         - {name: noise_uv, plot: noise2, expr: "onoise_total*1e6", max: 50, unit: uVrms, req: R6}
 ```
+
+`ngbehavior: ps` runs ngspice with `-n -D ngbehavior=ps`, before it parses the circuit. Use original PSpice model files with this explicit mode instead of translating their switches or mathematical functions by hand. The generated netlist records the mode and includes it in the simulation cache key; the setting does not modify a global `.spiceinit` or affect other designs. Only `native` and `ps` are supported.
 
 Each analysis that stresses the design (a hot-plug, reverse polarity, a surge, a brown-out) carries a `realism:` note, free text that `hwflow` ignores: `realism: "who: user, one cell reversed; how often: once per battery change; timing: >= 5 s between removal and insertion; limit: Q1 Idmax 2 A DC, 8 A for 10 us (datasheet p.3)"`. If no user or fault can produce the scenario, write `realism: "stress case: <why unreachable>"`. A stress case does not block the verdict and does not justify a hardware change without a product decision.
 
@@ -206,6 +210,8 @@ A scoped analysis simulates one block instead of the whole board, so that a bloc
 The validation gate is mandatory: at every temperature where the full board converges (with a plausible fallback counted), the full and the scoped analysis both run, and every non-debug measure of the scoped run must be within `max(tol x |full|, atol)` of the full one. Passed: the scoped values are the result at every temperature, including those where the full board does not converge. Failed, or no temperature where the full board converges: the scope is rejected; where the full board converged its own result stands, elsewhere every measure fails with `n/a: scope not validated (...)`. The report lists the gate (`scope <analysis>: VALIDATED at ...` or `REJECTED (...)`, full vs scoped per measure and temperature, the boundary models and run times) and `status.json` holds it under `sim.scopes`. Every run goes through the simulation cache, so an unchanged netlist does not rerun the full-board validation. A scope applies to the schematic-level simulation only: post-layout and Monte Carlo runs simulate the full board.
 
 When a full-board analysis does not converge, the report names the nets of ngspice's `check node` messages and suggests a scope.
+
+The separate derating operating-point audit accepts `sim.derating_timeout_s` (default 600 seconds). A timeout, simulator error, or incomplete set of pin-current results fails the simulation stage; it never reports a clean derating audit. Timed-out analyses preserve partial simulator diagnostics in their `.log` files.
 
 ## blocks
 
@@ -359,3 +365,25 @@ A flagged change is an **error** (the build stops at check) unless the product p
 - a question in `inbox/questions*.json` with `"change": "layers"`; the warning says whether `inbox/answers.md` already holds the answer of that round.
 
 After the answer, run `hwflow approve <proj>` so the new state becomes the baseline and the warning goes. Without `build/approved.json` check only prints an info line. `build/approved.json` is written by hwflow only; the design agents run `approve` only after an answered question.
+
+
+## Requirement verification evidence
+
+`requirements.yaml` selects what proves each requirement with `verification`. A `simulation` requirement needs current tagged simulation measures; `layout` needs current tagged board checks. Failing linked checks still fail a requirement, but passing simulation alone cannot complete a `test` (bench), `inspection`, `datasheet`, or `analysis` requirement.
+
+For those four manual methods, record a completed result explicitly:
+
+```yaml
+requirements:
+  - id: R1
+    text: Both channels meet the output target at the headphone jack.
+    verification: test
+    evidence:
+      status: pass                  # pass | fail | not_checked
+      artifact: notes/output-test.md
+      design_hash: 0123456789abcdef  # copy the evidence design hash printed by hwflow trace
+```
+
+The artifact must be a nonempty file inside the project, and `design_hash` must match the current parsed design and all requirement fields except evidence itself, including written targets in `text`. Edits to component values, connectivity, requirement wording or provenance invalidate it; YAML comments, whitespace, key order and evidence edits do not. This is deliberately stricter than the build-cache hash, which ignores requirement prose. This hash is a design-version check, not an artifact-content signature or a complete hash of external models and tools. Revalidate manually when those dependencies change.
+
+A record is an explicit attestation by its author: hwflow checks the state, design version and file existence, not whether a written measurement is truthful or sufficient. `fail` contributes to the failing count; `not_checked`, missing/invalid records, absent/empty files and stale hashes stay unverified with a reason. Legacy prose evidence remains visible in the source and its missing-file diagnostics, but no longer counts as verification. Migrate it only after reviewing the actual result; do not automatically label every old note `pass`. The verified count excludes failures, so verified + failing + unverified equals total.

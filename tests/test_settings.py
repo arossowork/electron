@@ -39,6 +39,9 @@ def test_env_read_at_call_time(monkeypatch):
 
 
 def test_root_moves_data_dirs(monkeypatch, tmp_path):
+    # Explicit paths take precedence over the root, including the test image's KRT_DIR.
+    for key in ("HWFLOW_BLOCKS_DIR", "HWFLOW_TOOLS_DIR", "KRT_DIR"):
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("HWFLOW_ROOT", str(tmp_path))
     p = get_settings().paths
     assert p.blocks_dir == str(tmp_path / "blocks") and p.krt_dir == str(tmp_path / "tools" / "KiCadRoutingTools")

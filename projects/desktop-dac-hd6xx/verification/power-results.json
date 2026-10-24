@@ -1,0 +1,299 @@
+{
+  "source_sha256": "556b89df64223c63651a788429b29bce4f98e7e82559a325971bd939ba9d63c1",
+  "model_sha256": "f939470cb13ad7e5cb6ace80afa485b77d352aeeb9f7edcbf876843801081c17",
+  "analysis": "Qualified analytical RC bounds + representative event model. No vendor powerICsimulation.",
+  "assumptions": {
+    "resistor_tolerance": 0.01,
+    "timing_cap_tolerance": 0.1,
+    "reservoir_cap_tolerance": 0.2,
+    "ldo_cap_tolerance": 0.2,
+    "adapter_max_v": 5.25,
+    "supervisor_nominal_trip_v": 4.65,
+    "supervisor_trip_tolerance": 0.02,
+    "supervisor_assertion_s": 2e-05,
+    "supervisor_release_min_s": 0.18,
+    "supervisor_release_max_s": 0.42,
+    "hold_diode_drop_max_v": 0.5,
+    "buffer_voh_loss_assumption_v": 0.5,
+    "charge_diode_drop_assumption_v": 0.4,
+    "charge_diode_reverse_leak_assumption_a": 2e-06,
+    "schmitt_input_leak_a": 1e-06,
+    "hcs_vtp_fraction_min": 0.49833333333333335,
+    "hcs_vtp_fraction_max": 0.685,
+    "hcs_vtm_fraction_min": 0.26,
+    "hcs_vtm_fraction_max": 0.355,
+    "ldo_enable_off_max_v": 0.3,
+    "ldo_enable_on_min_v": 0.9,
+    "ldo_enable_leak_a": 2.5e-07,
+    "lvc_ioff_a": 1e-05,
+    "ldo_full_regulation_input_v": 3.6,
+    "ldo_dropout_95percent_proxy_v": 3.445,
+    "load_D_a": 0.04,
+    "load_C_a": 0.02,
+    "load_A_a": 0.05,
+    "hold_overhead_assumption_a": 0.005,
+    "ldo_ramp_assumption_s": 0.00115,
+    "ldo_discharge_typical_ohm": 150
+  },
+  "source_values": {
+    "R354": "2.2",
+    "C340": "4700uF",
+    "R352": "10k",
+    "R365": "1k",
+    "R360": "100k",
+    "R361": "100k",
+    "R362": "100k",
+    "C342": "2.2nF",
+    "C343": "10nF",
+    "C344": "47nF",
+    "R330": "100k",
+    "C330": "22nF",
+    "R331": "100k",
+    "C331": "22nF",
+    "R332": "100k",
+    "C332": "22nF",
+    "R118": "2.2k"
+  },
+  "source_rail_capacitance_f": {
+    "3V3_A": 1.1999999999999999e-05,
+    "3V3_C": 1.1e-05,
+    "3V3_D": 1.2400000000000003e-05
+  },
+  "checks": {
+    "topology_matches_model": true,
+    "charged_RCs_reach_HCS_rising_threshold": true,
+    "conditional_enable_A_before_C": true,
+    "conditional_enable_C_before_D": true,
+    "conditional_reservoir_above_full_regulation_input": true,
+    "supervisor_sink_below_1mA": true,
+    "ldo_disabled_powered_logic": true,
+    "ldo_disabled_unpowered_logic": true,
+    "DAC_off_before_earliest_analog_disable": true,
+    "adapter_buffer_sink_below_4mA": true,
+    "conditional_startup_AVDD_delay_over_200us": true,
+    "hold_RCs_settle_before_C_can_start": true,
+    "brownout_release_exceeds_latest_shutdown": true,
+    "interrupted_startup_hold_RCs_charged_before_C": true,
+    "interrupted_startup_maintains_reverse_enable_order": true,
+    "AUDIO_READY_requires_all_6_qualifiers": true,
+    "brownout_reset_release_blocks_early_restart": true
+  },
+  "low_hold_shutdown": {
+    "initial_hold_v": 3.80147,
+    "charged_rc_min_v": 2.812364598647457,
+    "charge_threshold_margin_v": 0.20835764864745654,
+    "timing": {
+      "A": {
+        "earliest_s": 0.00012462036243062494,
+        "latest_s": 0.0003568145339683261
+      },
+      "C": {
+        "earliest_s": 0.000566456192866477,
+        "latest_s": 0.001621884245310573
+      },
+      "D": {
+        "earliest_s": 0.0026623441064724416,
+        "latest_s": 0.007622855952959694
+      }
+    },
+    "hold_charge_c": 0.00039560692948781403,
+    "end_hold_v": 3.6962553910936666,
+    "regulation_margin_v": 0.09625539109366654,
+    "A_before_C_margin_s": 0.00020964165889815093,
+    "C_before_D_margin_s": 0.0010404598611618687
+  },
+  "sweep": {
+    "initial_hold_range_v": [
+      3.80147,
+      5.25
+    ],
+    "points": 101,
+    "minimum_charge_threshold_margin_v": 0.20835764864745654,
+    "minimum_regulation_margin_v": 0.09625539109366654,
+    "minimum_A_before_C_margin_s": 0.00020964165889815093,
+    "minimum_C_before_D_margin_s": 0.0010404598611618687
+  },
+  "buffer_sink_peak_bound_a": 0.002214545454545454,
+  "startup_RC_delays": [
+    {
+      "stage": "AVDD_to_VCCA",
+      "earliest_s": 0.0012954606757998954,
+      "latest_s": 0.0030001821159890718,
+      "meaning": "RC delay after an ideal rail step; actual LDO ramp must be measured"
+    },
+    {
+      "stage": "VCCA_to_AVCC",
+      "earliest_s": 0.0012434563872585627,
+      "latest_s": 0.003186721901998903,
+      "meaning": "RC delay after an ideal rail step; actual LDO ramp must be measured"
+    },
+    {
+      "stage": "AVCC_to_DAC_EN",
+      "earliest_s": 0.0012434563872585627,
+      "latest_s": 0.003186721901998903,
+      "meaning": "RC delay after an ideal rail step; actual LDO ramp must be measured"
+    }
+  ],
+  "hold_RC_99_9percent_charge_bound_s": 0.00045433135400498997,
+  "interrupted_startup": {
+    "charge_tau_upper_bound_s": 6.57712e-05,
+    "fraction_charged_before_earliest_C": 0.9999999972079037,
+    "earliest_C_possible_s": 0.0012954606757998954,
+    "earliest_A_possible_s": 0.002538917063058458,
+    "low_hold_cutpoints": {
+      "initial_hold_v": 3.80147,
+      "latest_D_enable_s": 0.00017117118142019234,
+      "cuts": [
+        {
+          "cut_after_supervisor_release_s": 8.558559071009617e-05,
+          "rc_voltage_lower_bound_v": 2.0468728123338926,
+          "possible_enabled_rails": [
+            "D"
+          ]
+        },
+        {
+          "cut_after_supervisor_release_s": 0.00017117118142019234,
+          "rc_voltage_lower_bound_v": 2.6040069500000005,
+          "possible_enabled_rails": [
+            "D"
+          ]
+        },
+        {
+          "cut_after_supervisor_release_s": 0.0006477303378999477,
+          "rc_voltage_lower_bound_v": 2.8122159924853216,
+          "possible_enabled_rails": [
+            "D"
+          ]
+        },
+        {
+          "cut_after_supervisor_release_s": 0.0012954606757998954,
+          "rc_voltage_lower_bound_v": 2.812364590795064,
+          "possible_enabled_rails": [
+            "D",
+            "C"
+          ]
+        },
+        {
+          "cut_after_supervisor_release_s": 0.002538917063058458,
+          "rc_voltage_lower_bound_v": 2.812364598647457,
+          "possible_enabled_rails": [
+            "D",
+            "C",
+            "A"
+          ]
+        }
+      ],
+      "A_before_C_margin_s": 0.000208835400675647,
+      "C_before_D_margin_s": 0.0010366704475161003
+    },
+    "number_of_supply_corners": 101,
+    "minimum_A_before_C_margin_s": 0.000208835400675647,
+    "minimum_C_before_D_margin_s": 0.0010366704475161003,
+    "limitations": "Valid logic and qualified driver/diode envelope; IC behavior below minimum supply is not modeled."
+  },
+  "hardware_status": "not checked",
+  "not_proven": [
+    "Mode 8 actual maximum load",
+    "HCS timing between published supply points",
+    "HCS loaded VOH/VOL at falling reservoir voltage",
+    "BAT54 cold forward and hot reverse leakage",
+    "B340 forward drop at temperature",
+    "Capacitor effective value and aging leakage",
+    "Real LDO startup/discharge and output rail order",
+    "Fast dips below 20 us; invalid logic supply during startup",
+    "Converter dynamics/ripple",
+    "Hot-plug inrush and resistor pulse",
+    "USB back-power",
+    "Hard shorts"
+  ],
+  "rejected_alternative": "LM3880 completes interrupted startup then waits about 120 ms before power down; a 4700 uF reservoir cannot cover 110 mA for 120 ms.",
+  "waveform": {
+    "events": [
+      {
+        "time_s": 0.3000524888108679,
+        "signal": "D",
+        "high": true
+      },
+      {
+        "time_s": 0.3029537803390575,
+        "signal": "C",
+        "high": true
+      },
+      {
+        "time_s": 0.30585507186724714,
+        "signal": "A",
+        "high": true
+      },
+      {
+        "time_s": 0.3087563633954368,
+        "signal": "DAC",
+        "high": true
+      },
+      {
+        "time_s": 0.40002000000000004,
+        "signal": "DAC",
+        "high": false
+      },
+      {
+        "time_s": 0.4002706153425474,
+        "signal": "A",
+        "high": false
+      },
+      {
+        "time_s": 0.4011591606479425,
+        "signal": "C",
+        "high": false
+      },
+      {
+        "time_s": 0.4053740550453295,
+        "signal": "D",
+        "high": false
+      },
+      {
+        "time_s": 0.7050524888108678,
+        "signal": "D",
+        "high": true
+      },
+      {
+        "time_s": 0.7079537803390574,
+        "signal": "C",
+        "high": true
+      },
+      {
+        "time_s": 0.7108550718672471,
+        "signal": "A",
+        "high": true
+      },
+      {
+        "time_s": 0.7137563633954367,
+        "signal": "DAC",
+        "high": true
+      },
+      {
+        "time_s": 0.8000200000000001,
+        "signal": "DAC",
+        "high": false
+      },
+      {
+        "time_s": 0.8002706153425474,
+        "signal": "A",
+        "high": false
+      },
+      {
+        "time_s": 0.8011591606479425,
+        "signal": "C",
+        "high": false
+      },
+      {
+        "time_s": 0.8053740550453296,
+        "signal": "D",
+        "high": false
+      }
+    ],
+    "brownout_duration_s": 0.005,
+    "brownout_restart_at_s": 0.705,
+    "brownout_no_reenable_during_release_delay": true,
+    "scope": "Representative event trace; linear LDO ramp and typical discharge are assumptions."
+  },
+  "qualified_checks_passed": true
+}

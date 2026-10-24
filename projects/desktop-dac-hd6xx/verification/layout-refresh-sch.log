@@ -1,0 +1,48 @@
+Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+[check] OK (15.3s)
+[sch] OK (3.0s)
+# desktop_dac_hd6xx: build report
+Updated 2026-10-24 15:07:43. Source: design.yaml.
+Verdict: FAIL: requirements not all verified; stale: sim
+
+
+- stale (older design.yaml; last results kept below and marked (stale), not evidence for this design; rerun to refresh): sim
+- check: OK (0 errors, 5 warnings)
+  - warn: net N10V_RAW feeds power_in pins but no power_out pin drives it (set nets.N10V_RAW.external_supply: true if it comes from a connector)
+  - warn: net P10V5_RAW feeds power_in pins but no power_out pin drives it (set nets.P10V5_RAW.external_supply: true if it comes from a connector)
+  - warn: net V5_HOLD feeds power_in pins but no power_out pin drives it (set nets.V5_HOLD.external_supply: true if it comes from a connector)
+  - warn: net V5_SYS feeds power_in pins but no power_out pin drives it (set nets.V5_SYS.external_supply: true if it comes from a connector)
+  - warn: 8 nodes have no DC path to ground in the SPICE netlist (I2S_BCLK+I2S_BCLK_BUF, I2S_DATA+I2S_DATA_BUF, I2S_LRCLK+I2S_LRCLK_BUF, I2S_MCLK+I2S_MCLK_BUF, DAC_DVDD, N_COMP, P_COMP, PM_NR) (only capacitors, MOSFET gates, unsimulated parts or high-impedance model inputs): the simulation adds a noiseless 1e+09 ohm leak to ground there (sim.leaks: false turns it off); give the node a real DC path (bias resistor) if the circuit needs one
+  - info: no approved baseline (build/approved.json); run `hwflow approve <proj>` after the product person accepts layers, board size and cost
+- ERC: OK (0 errors, 4 warnings)
+  - warning pin_to_pin: Pins of type Bidirectional and Power output are connected ['Symbol U100 Pin 16 [MOSI/SDA/HW0, Bidirectional, Line]', 'Symbol #FLG01 Pin 1 [Power output, Line]']
+  - warning pin_to_pin: Pins of type Bidirectional and Power output are connected ['Symbol U100 Pin 25 [GPIO5, Bidirectional, Line]', 'Symbol #FLG01 Pin 1 [Power output, Line]']
+  - warning pin_to_pin: Pins of type Bidirectional and Power output are connected ['Symbol U100 Pin 26 [GPIO6, Bidirectional, Line]', 'Symbol #FLG01 Pin 1 [Power output, Line]']
+  - warning pin_to_pin: Pins of type Bidirectional and Power output are connected ['Symbol U100 Pin 27 [GPIO7, Bidirectional, Line]', 'Symbol #FLG01 Pin 1 [Power output, Line]']
+- SPICE (stale): 14/14 measures pass
+  - leaks: 8 nodes with no DC path to ground got a noiseless 1e+09 ohm to ground (fix the circuit; `hwflow check` lists them): I2S_BCLK 0 V, 0 A, corner n/a Hz, I2S_DATA 0 V, 0 A, corner n/a Hz, I2S_LRCLK 0 V, 0 A, corner n/a Hz, I2S_MCLK 0 V, 0 A, corner n/a Hz, DAC_DVDD 0 V, 0 A, corner 0.0001592 Hz, N_COMP 0 V, 0 A, corner 0.03386 Hz and 2 more
+  - approximate models (built-in, datasheet fit, behavioral or no `spice.source`): D200, D201, D202, D203, D205, D301, D310, D311, D330, D331, D340, D341, D342, D347, D348, D349, Q200, U203; justify each in notes/models.md or use a vendor model
+- derating: OK; top dissipation U200 129.6 mW, U201 129.6 mW, U202 94.2 mW
+- requirements: 0/10 verified, 0 failing, 10 unverified
+  - R1 UNVERIFIED: Stereo USB audio from a computer to the user's HD6XX headphones.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R2 UNVERIFIED: Use an external low-voltage desktop adapter for the analog power supply.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R3 UNVERIFIED: Target EUR 150-250 for one working prototype including PCB, parts, assembly, enclosure and
+    - no explicit evidence record (status, artifact, design_hash)
+  - R4 UNVERIFIED: Use the project to test improvements to the code-to-PCB compiler.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R5 UNVERIFIED: USB-C input; stereo PCM host formats of 16, 24 and 32 bits up to 384 kHz.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R6 UNVERIFIED: Desktop enclosure about 160 x 100 x 40 mm, with a 140 x 80 mm four-layer PCB.
+    - no current layout check names this requirement
+  - R7 UNVERIFIED: Physical stereo volume knob and 6.35 mm single-ended headphone output on the front.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R8 UNVERIFIED: Clean maximum output of 4.0 Vrms per channel into 300 ohms with both channels loaded.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R9 UNVERIFIED: Controlled startup, shutdown, format changes and sustained output DC fault response.
+    - no explicit evidence record (status, artifact, design_hash)
+  - R10 UNVERIFIED: Separate switching power and sensitive analog placement while retaining a continuous groun
+    - no current layout check names this requirement
+- BOM cost: $0.00 per board (no price for C100,C101,C105, C102,C103,C104, C106,C107,C108, C200,C201,C205,C206, C202,C207, C203,C204,C208,C209, C210,C211,C212,C213,C214,C215, C240, C241,C242, C243, C244, C245, C246,C247,C248,C249,C250,C251,C252, C300, C301,C314,C333,C334,C337,C341,C345,C346,C347,C348, C310, C311,C319, C312, C313,C315,C316,C317,C318,C320,C321,C322,C323,C324,C326,C328, C325,C327,C329, C330,C331,C332, C335, C336, C340, C342, C343, C344, D100,D330,D331,D340,D341,D342,D347,D348,D349, D200, D201, D202, D203,D205, D300, D301, D310,D311, F300, J100, J200, J201, J300, K200, L310,L311, M100, M300, Q200, R100,R101,R102,R107, R103,R104,R105,R112,R113,R114,R115,R116,R117,R300,R330,R331,R332,R333,R335,R337,R340,R345,R346,R349,R350,R353,R360,R361,R362, R106, R108,R109,R110,R111, R118, R200,R201,R202,R203,R208,R209,R210,R211, R204,R205,R212,R213, R206,R207,R214,R215, R240,R241,R242,R243,R244,R245,R246,R255,R259,R265,R267,R366,R367, R247,R248,R249,R250,R252,R254,R257, R251, R253, R256, R258,R365, R260,R261, R262,R263, R264,R266, R310,R312, R311, R313, R314,R315, R316, R317,R319,R334,R342,R343,R352, R318, R336, R338, R339, R341, R344,R348, R347,R351, R354, U100, U101, U102, U103, U200, U201, U202, U203, U204, U205, U206, U207, U208, U209, U210, U310, U311, U320,U321,U322, U330,U333,U335, U331,U332, U334, U336)
+

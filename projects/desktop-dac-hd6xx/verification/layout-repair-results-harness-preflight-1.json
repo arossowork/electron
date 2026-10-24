@@ -1,0 +1,12 @@
+{
+  "kind": "selective_repair_diagnostic",
+  "cli_layout_acceptance": "not_run",
+  "route_cache_written": false,
+  "repair_budget_s": 300,
+  "hard_outer_timeout_s": 450,
+  "source_sha256_before": "8d99069b290cd461d95c22192f326537330d9ada447b19f2e4fa2150d384b96f",
+  "harness_sha256": "4aa8e49088465587ee74288c2e42de2fbe53fb5f77a22d2544ef9939bbafd17d",
+  "status": "failed_prerequisite_or_harness",
+  "exception": "Traceback (most recent call last):\n  File \"/workspace/projects/desktop-dac-hd6xx/verification/layout_repair_candidate.py\", line 232, in <module>\n    main()\n  File \"/workspace/projects/desktop-dac-hd6xx/verification/layout_repair_candidate.py\", line 165, in main\n    report['engine_head'] = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/tools/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py\", line 466, in check_output\n    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/tools/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['git', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\n",
+  "elapsed_s": 0.013
+}

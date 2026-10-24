@@ -44,7 +44,8 @@ def freerouting_jar() -> str:
     return get_settings().paths.freerouting
 
 
-def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout: int = 1800) -> tuple[list, list, str, int]:
+def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout: int = 1800,
+            deadline: float | None = None) -> tuple[list, list, str, int]:
     """Route with KiCadRoutingTools: one pass per track-width class (widest first), keeping earlier copper.
 
     Power-tap mode is not used, because it places vias inside same-net SMD pads.
@@ -65,22 +66,25 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
         nets = set(design.nets()) - closed if closed else None
         keep = any(blocks.copper(design, parts))
     cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", nets=nets, keep_first=keep,
-                                            timeout=timeout, libs=libs)
+                                            timeout=timeout, libs=libs, deadline=deadline, keep_partial=deadline is not None)
+    design.route_budget_exhausted = any(v.get("budget_exhausted") for v in last.values())
     routed = pcb.read_board(cur)
     tracks = [dict(s) for s in routed["segments"] if s["net"]]
     vias = [dict(v) for v in routed["vias"] if v["net"]]
     unrouted = sum(krt_unrouted(v) for v in last.values())
     extra = f"; retried in another net order ({'; '.join(retried)})" if retried else ""
-    return tracks, vias, f"{unrouted} unrouted, krt {ngroups} pass(es){extra}", unrouted
+    return tracks, vias, f"{unrouted} unrouted, krt {ngroups} completed pass(es){extra}", unrouted
 
 
 def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, keep_first: bool = False,
               variants: list | None = None, timeout: int = 1800, libs=None,
-              deadline: float | None = None) -> tuple[Path, dict, list, int]:
+              deadline: float | None = None, keep_partial: bool = False) -> tuple[Path, dict, list, int]:
     """The router invocation: one KiCadRoutingTools pass per track-width class (widest first) on the board `src`.
     `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
     in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS). `deadline` (time.time())
     bounds every router call: a call past it raises subprocess.TimeoutExpired (the repair rejects that round).
+    `keep_partial` is for initial routing: a timeout keeps only completed, accepted candidates, marks remaining
+    nets open and sets last["budget"]["budget_exhausted"]. It never reads a timed-out subprocess output board.
     The rules files `<name>.kicad_pro` and `.kicad_dru` in `workdir` are copied next to every pass input.
 
     With `board.isolation` groups, the member nets route first, and every pass input gets the isolation keep-outs
@@ -94,7 +98,8 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     passes route around it.
     A net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the neck-down off. Nets
     with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
-    Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], number of passes)."""
+    Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], fully completed width passes).
+    An interrupted width pass can contribute accepted copper without counting as fully completed."""
     from ...core import floorplan
     from ..board import keepout
     from ..board import routing
@@ -145,19 +150,33 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
               "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
               "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
     cur, log, last, retried = src, [], {}, []
+    budget_exhausted = False
+    completed = 0
     retries = int(b.get("router_retries", 3))
     route_py = krt_dir() / "py_router" / "route.py"
     if not route_py.exists():
         raise FileNotFoundError(f"KiCadRoutingTools not found at {krt_dir()}; run scripts/setup.sh or set KRT_DIR")
 
     def run(args):
+        nonlocal budget_exhausted
         t = timeout
-        if deadline is not None:
-            t = min(t, deadline - time.time())
-            if t <= 0:
+        try:
+            if keep_partial and budget_exhausted:
                 raise subprocess.TimeoutExpired(args, 0)
-        p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=krt_dir(), env=env)
-        return p.stdout + p.stderr, p.returncode
+            if deadline is not None:
+                t = min(t, deadline - time.time())
+                if t <= 0:
+                    raise subprocess.TimeoutExpired(args, 0)
+            p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=krt_dir(), env=env)
+            return p.stdout + p.stderr, p.returncode
+        except subprocess.TimeoutExpired as exc:
+            if keep_partial:
+                budget_exhausted = True
+                for text in (exc.stdout, exc.stderr):
+                    if text:
+                        log.append(text.decode(errors="replace") if isinstance(text, bytes) else text)
+                log.append("stopped at layout wall-time budget; keeping completed accepted copper")
+            raise
 
     cond = floorplan.conductive_needs(design)
 
@@ -186,7 +205,8 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:
             base.append("--keep-input-copper")
-        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants)
+        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants,
+                                        **({"keep_partial": True} if keep_partial else {}))
         log.extend(logs)
         if best is None:
             with (workdir / "krt.log").open("a") as f:
@@ -220,7 +240,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         largs = layer_args(copper, lays)
 
         def run_pass(cur, tag, pnets, args, i):
-            return run_pass0(cur, tag, pnets, args + largs, i)
+            try:
+                return run_pass0(cur, tag, pnets, args + largs, i)
+            except subprocess.TimeoutExpired:
+                if not keep_partial:
+                    raise
+                return None, []
         notes = []
         if widths and set(pnets) <= set(necked):
             # every net open at the start: the board as it is, its summary listing them as failed
@@ -230,15 +255,17 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                          + ", ".join(f"{n} {necked[n]['plain_mm']:g} mm without a neck" for n in pnets) + ")")
         else:
             best, tried = run_pass(cur, tag, pnets, ["--track-width", str(w)], i)
+            if best is None:  # no completed candidate in this group; retain its input copper
+                return (cur, {"failed_single": list(pnets), "failed": len(pnets)}, len(pnets)), notes
             notes += [f"{w} mm: " + ", ".join(f"{v} {n}" for v, n in tried)] if len(tried) > 1 else []
         # neck-down, only for the nets left open (a board that routes at full width keeps that copper): first the
         # router's own pad-entry neck (power nets, at most 2 mm narrow), then the nets at the track width (then at
         # the board's minimum width), back to their width wherever it fits
-        open_nets = neckable(sorted(set(krt_open_nets(best[1])) & set(pnets)), neck) if wide and best[2] else []
+        open_nets = neckable(sorted(set(krt_open_nets(best[1])) & set(pnets)), neck) if wide and best[2] and not budget_exhausted else []
         if open_nets:
             pb, _ = run_pass(best[0], f"{tag}w", open_nets, ["--track-width", str(neck), "--power-nets", *open_nets,
                                                            "--power-nets-widths", *[str(w)] * len(open_nets)], 1)
-            if pb[2] < best[2]:
+            if pb is not None and pb[2] < best[2]:
                 ok, text = fit(pb[0], open_nets, w)
                 if ok:
                     best = pb
@@ -246,10 +273,14 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 else:
                     notes.append(f"{w} mm: router pad-entry neck-down rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         for k, nw in enumerate(widths):
+            if budget_exhausted:
+                break
             open_nets = neckable(sorted(set(krt_open_nets(best[1])) & set(pnets)), nw) if best[2] else []
             if not open_nets:
                 break
             nb, _ = run_pass(best[0], f"{tag}n{k}", open_nets, ["--track-width", str(nw)], 1)
+            if nb is None:
+                break
             if nb[2] >= best[2]:
                 notes.append(f"{w} mm: neck-down to {nw:g} mm: {', '.join(open_nets)} still open")
                 continue
@@ -260,7 +291,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             else:  # a long narrow stretch is a thinner net, not a neck: leave the net open and say so
                 notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         # a constrained net still open: a seed route through the corridor proof's free space (seedroute)
-        open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets) & seedable) if best[2] else []
+        open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets) & seedable) if best[2] and not budget_exhausted else []
         if open_nets:
             best, text = seed_open(best, f"{tag}s", open_nets)
             notes += [f"{w} mm: {t}" for t in text]
@@ -285,7 +316,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         best, notes = route_group(cur, i, gnets, w, i, lays)
         got = {f"{i}: {w} mm" + (f" on {' '.join(lays)}" if lays else ""): best[1]}
         open_nets = sorted(set(krt_open_nets(best[1])) & set(gnets)) if best[2] else []
-        if open_nets and len(open_nets) < len(gnets):
+        if open_nets and len(open_nets) < len(gnets) and not budget_exhausted:
             # a net walled in by the others of its pass (a pin between two pins of a wider net): route it first
             first, n1 = route_group(cur, f"{i}p", open_nets, w, i, lays)
             rest, n2 = route_group(first[0], f"{i}q", [n for n in gnets if n not in open_nets], w, 1, lays)
@@ -296,9 +327,15 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         cur = best[0]
         last.update(got)
         retried += notes
+        if budget_exhausted:
+            remaining = sorted({n for _, ns, _ in passes[i + 1:] for n in ns})
+            last["budget"] = {"budget_exhausted": True, "failed_single": remaining, "failed": len(remaining)}
+            retried.append("stopped at layout wall-time budget; retained completed accepted copper")
+            break
+        completed += 1
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
-    return cur, last, retried, len(passes)
+    return cur, last, retried, completed
 
 
 def seeded(summary: dict, nets) -> dict:
@@ -398,7 +435,8 @@ def krt_unrouted(summary: dict) -> int:
     return int(summary.get("failed", 0)) + int(summary.get("multipoint_deficit", 0)) + len(summary.get("open_single") or [])
 
 
-def route_class(base: list, stem: Path, retries: int, run, variants: list | None = None) -> tuple:
+def route_class(base: list, stem: Path, retries: int, run, variants: list | None = None,
+                keep_partial: bool = False) -> tuple:
     """Route one width class; while nets stay unrouted, retry in another net order (up to `retries` times).
     Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
     import json as _json
@@ -407,7 +445,13 @@ def route_class(base: list, stem: Path, retries: int, run, variants: list | None
         out = stem.with_name(stem.name + (f"_r{j}" if j else "") + ".kicad_pcb")
         args = [str(out) if a is None else a for a in base] + extra  # None marks the output board
         out.unlink(missing_ok=True)
-        text, rc = run(args)
+        try:
+            text, rc = run(args)
+        except subprocess.TimeoutExpired:
+            if not keep_partial or best is None:
+                raise
+            tried.append(("budget", "stopped; kept completed variant"))
+            break
         logs.append(text)
         summ = {}
         for ln in text.splitlines():

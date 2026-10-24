@@ -1,0 +1,14 @@
+Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+fatal: not a git repository: /home/luca/projects/hwflow/.git/worktrees/hwflow
+Traceback (most recent call last):
+  File "/workspace/projects/desktop-dac-hd6xx/verification/layout_repair_candidate.py", line 232, in <module>
+    main()
+  File "/workspace/projects/desktop-dac-hd6xx/verification/layout_repair_candidate.py", line 165, in main
+    report['engine_head'] = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/tools/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/tools/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'rev-parse', 'HEAD']' returned non-zero exit status 128.

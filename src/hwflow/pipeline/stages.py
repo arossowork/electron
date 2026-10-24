@@ -57,16 +57,27 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
     res = spice.run_all(d, w, cache=_out(d) / "simcache")
     allrows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
     rows = [r for r in allrows if not r.get("debug")]  # dbg_* probes never count (backlog 19)
-    der = spice.derating_audit(d, w)
+    audit_errors = []
+    audit_timeout = None
+    try:
+        der = spice.derating_audit(d, w)
+    except RuntimeError as e:
+        der = []
+        audit_errors.append(str(e))
+        if isinstance(e, spice.DeratingTimeoutError):
+            audit_timeout = str(e)
     out = {"analyses": res, "passed": sum(r["pass"] for r in rows), "total": len(rows),
            "fails": [r for r in rows if not r["pass"]], "derating": der,
+           "derating_status": "failed" if audit_errors else "ok",
            "debug": [r for r in allrows if r.get("debug")],
            "runs": _run_summary(res),
            "derating_issues": [f"{r['ref']}: {i}" for r in der for i in r["issues"]],
            "unmodeled": sorted({u for a in res for u in a["unmodeled"]}),
            "generic_models": sorted(c.ref for c in d.components.values() if spice.uses_generic_model(c)),
-           "errors": [f"{a['name']}: {e}" for a in res for e in a["errors"]],
+           "errors": audit_errors + [f"{a['name']}: {e}" for a in res for e in a["errors"]],
            "warnings": [f"{a['name']}: {e}" for a in res for e in a.get("warnings", [])]}
+    if audit_timeout:
+        out["exception"] = audit_timeout  # execution errors are never reused from the stage cache
     out.update(simrobust.sim_summary(d, res, w, _out(d) / "simcache"))
     prev = _status(d).get("sim") or {}
     cur = current_inputs(d)
@@ -90,25 +101,40 @@ def _run_summary(res: list[dict]) -> list[dict]:
             for a in res if a.get("status", "ok") != "ok" or a.get("flaky")]
 
 
-def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None) -> tuple[list, list, str, int]:
+def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None,
+                deadline: float | None = None) -> tuple[list, list, str, int]:
     """Route the board. With `d.route_groups` a list (the layout stage sets it), the nets route group by group
     (regionroute) when they form more than one group, each group's copper cached in build/routecache/groups/; the
     group rows are appended to that list."""
     out = out or _out(d)
     name = d.name
     groups = getattr(d, "route_groups", None)
+    if deadline is not None and time.time() >= deadline:
+        d.route_budget_exhausted = True
+        return [], [], "stopped at layout wall-time budget before routing", len(pcb.net_classes(d))
     if d.board.get("router", "krt") == "krt":
         if (krt.krt_dir() / "py_router" / "route.py").exists():
             if groups is not None:
                 from ..layout.route import regionroute
-                res = regionroute.route(d, libs, parts, out, _out(d) / "routecache")
+                res = regionroute.route(d, libs, parts, out, _out(d) / "routecache", deadline=deadline)
                 if res is not None:
                     groups += res[4]
                     return res[:4]
-            return krt.run_krt(d, libs, parts, out)
+            return krt.run_krt(d, libs, parts, out, deadline=deadline)
         print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
-    log = krt.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes)
+    try:
+        log = krt.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes,
+                                 **({"timeout": max(0.001, min(900, deadline - time.time()))} if deadline is not None else {}))
+    except RuntimeError:
+        if deadline is None or time.time() < deadline:
+            raise
+        d.route_budget_exhausted = True
+        return [], [], "stopped at layout wall-time budget; no completed Freerouting candidate", len(pcb.net_classes(d))
+    if "TIMEOUT after" in log:
+        d.route_budget_exhausted = True
+        # A killed process may leave a partial session, not a completed checkpoint.
+        return [], [], "stopped at router timeout; no completed Freerouting candidate", len(pcb.net_classes(d))
     tracks, vias = krt.import_ses(out / f"{name}.ses", d)
     import re as _re
     done = [ln for ln in log.splitlines() if "Auto-routing stage completed" in ln]
@@ -119,8 +145,9 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
 
 
 def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, weights, seed0: int = 1,
-                   out: Path | None = None):
-    """Shrink the board (keeping the requested aspect ratio) until placement or routing fails."""
+                   out: Path | None = None, deadline: float | None = None):
+    """Shrink until placement or routing fails. Keep the last complete size, or the first partial size
+    if its routing budget expires before any complete result. The selected size owns its budget flag."""
     b = d.raw.setdefault("board", {})
     W0, H0 = float(d.board["width_mm"]), float(d.board["height_mm"])
     probe = placer.build_parts(d, libs)
@@ -128,6 +155,8 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
     m = d.board["margin_mm"]
     best, tried = None, []
     for factor in (3.0, 2.4, 2.0, 1.7, 1.5, 1.35, 1.25):
+        if deadline is not None and time.time() >= deadline:
+            break
         area = parts_area * factor
         W = math.ceil(math.sqrt(area * W0 / H0) + 2 * m)
         H = math.ceil(area / max(W - 2 * m, 1) + 2 * m)
@@ -139,16 +168,22 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
             tried.append(f"{W}x{H}: placement fails")
             break
         d.budget_widths = budgets.widths(d, parts)[0]  # requirement budgets: track widths on this placement
-        tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes, out)
-        if unrouted:
-            tried.append(f"{W}x{H}: {unrouted} unrouted")
+        d.route_budget_exhausted = False
+        tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes, out,
+                                                     **({"deadline": deadline} if deadline is not None else {}))
+        candidate = (W, H, parts, cost, viol, tracks, vias, summary, unrouted, d.route_budget_exhausted)
+        if unrouted or d.route_budget_exhausted:
+            tried.append(f"{W}x{H}: {unrouted} unrouted" + ("; routing budget exhausted" if d.route_budget_exhausted else ""))
+            if d.route_budget_exhausted and best is None:
+                best = candidate  # preserve completed variants of this interrupted size, including their outline
             break
         tried.append(f"{W}x{H}: ok")
-        best = (W, H, parts, cost, viol, tracks, vias, summary)
+        best = candidate
     if best is None:
         b["width_mm"], b["height_mm"] = W0, H0
         return None, tried
     b["width_mm"], b["height_mm"] = best[0], best[1]
+    d.route_budget_exhausted = best[-1]  # a later timeout must not mark an earlier complete result as truncated
     return best, tried
 
 
@@ -163,7 +198,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         h.update(f.read_bytes() if f.exists() else b"-")
     h.update(json.dumps([d.board, passes, krt.KRT_VARIANTS, krt.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
-    h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
+    h.update(Path(pcb.__file__).read_bytes())  # board generation used by the router
+    h.update(Path(krt.__file__).read_bytes())  # router driver (passes, arguments, deadlines, env defaults)
     h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
     h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
     from ..layout.place import asicflow
@@ -215,7 +251,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                  passes: int = 30, seed0: int = 1, workdir: Path | None = None, deadline: float | None = None) -> dict:
     """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
     (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
-    `deadline` (time.time()) stops the repair rounds when the layout wall-time budget is used up."""
+    `deadline` (time.time()) bounds routing search, including the first pass and retries, and repair rounds.
+    Final DRC, candidate preservation and diagnosis may continue afterwards; this is a search budget, not a
+    hard whole-command timeout. A truncated candidate is checked and kept, but never saved to the board cache."""
     out = workdir or _out(d)
     cache = _out(d) / "routecache"
     pj = out / "placement.json"
@@ -224,10 +262,11 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
     pre = None
+    d.route_budget_exhausted = False
     if d.board.get("optimize_area") and not reuse:
-        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out)
+        pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out, deadline=deadline)
     if pre:
-        _, _, parts, cost, viol, tracks, vias, summary = pre
+        _, _, parts, cost, viol, tracks, vias, summary, _, d.route_budget_exhausted = pre
     elif reuse and pj.exists() and _saved_board(pj) in (None, declared):
         _apply_saved_size(d, pj)
         parts = placer.build_parts(d, libs)
@@ -278,6 +317,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     hit = json.loads((cache / f"{key}.json").read_text()) if (cache / f"{key}.json").exists() else None
     rep, island, groups = None, 0, []
     if hit:
+        d.route_budget_exhausted = False  # the cached complete route replaces any partial area-search result
         tracks, vias, summary, island, rep = hit["tracks"], hit["vias"], hit["summary"] + " (route cache)", hit["island"], hit["rep"]
         seeds = hit.get("seeds") or {}
         groups = [dict(g, cache="board cache", seconds=0.0) for g in hit.get("groups") or []]
@@ -288,7 +328,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             d.route_groups = groups  # regionroute: the group rows land in this list
             t = time.time()
             try:
-                tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out)
+                tracks, vias, summary, _ = _route_once(d, libs, parts, passes, out,
+                                                            **({"deadline": deadline} if deadline is not None else {}))
             finally:
                 d.route_groups = None
                 tm["route_s"] = round(time.time() - t, 1)
@@ -297,9 +338,10 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         if any(g["cache"] == "hit" for g in groups):  # reused group copper: the joined board's DRC judges it
             from ..layout.route import regionroute
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
-                                                     groups, route_check)
+                                                     groups, route_check, deadline=deadline)
         rounds = int(d.board.get("repair_rounds", 3))
-        if (any(x["sev"] == "error" for x in drc) and rounds > 0 and d.board.get("router", "krt") == "krt"
+        if (not d.route_budget_exhausted and any(x["sev"] == "error" for x in drc) and rounds > 0
+                and d.board.get("router", "krt") == "krt"
                 and (krt.krt_dir() / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
             t = time.time()
@@ -318,8 +360,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             rep["after"] = len([x for x in drc if x["sev"] == "error"])
             rep["text"] = repair.summary(rep)
             print(f"[layout] {rep['text']}")
-        _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep,
-                                 "seeds": seeds, "groups": groups})
+        if not d.route_budget_exhausted:
+            _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep,
+                                     "seeds": seeds, "groups": groups})
     if seeds:  # the final DRC judges the seed copper: an error that touches it removes it
         tr, vi, dropped = seedroute.drop_on_drc(seeds, tracks, vias, drc)
         if dropped:
@@ -350,8 +393,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
     from ..layout import diagnose
     failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
-    return {"failing": failing, "ok": not errs and not viol and not off_layer and not too_narrow and not conductive
-            and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
+    return {"failing": failing, "budget_exhausted": d.route_budget_exhausted,
+            "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
+            and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
             "nets": nstats,
             "budget_widths": bud_w, "budgets": bud,
@@ -440,7 +484,7 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
     try:  # per-attempt numbers for the placer experiments (docs/asic-ideas.md); build/auto/attempt<k>.metrics.json
         keep = ("ok", "placement_cost", "placement_violations", "router", "segments", "vias", "drc_errors", "unrouted",
-                "repair", "timing", "seconds", "route_groups", "post_warnings")
+                "repair", "timing", "seconds", "route_groups", "post_warnings", "budget_exhausted")
         m = {key: r.get(key) for key in keep}
         m["track_mm"] = round(sum(v.get("length_mm", 0) for v in (r.get("nets") or {}).values()), 1)
         m["drc_types"] = sorted(x["type"] for x in r.get("drc") or [] if x["sev"] == "error")
@@ -452,6 +496,7 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
             + (", route cache" if r.get("route_cache") else "")
+            + (", routing budget exhausted; partial candidate retained" if r.get("budget_exhausted") else "")
             + "".join(f", group {g['name']} {g['cache'] if len(g['cache']) < 12 else 're-routed'}" for g in r.get("route_groups") or [])
             + "".join(f", budget {b['name']} {b['value']}/{b['limit']:g} {b['unit']}" + ("" if b["ok"] else " FAIL")
                       for b in r.get("budgets") or []))
@@ -464,7 +509,8 @@ def attempt_summary(res: dict, fixed_all: bool = False) -> dict:
         return {"error": res["error"], "fixed_all": fixed_all}
     r = res["r"]
     return {"ok": bool(r.get("ok")), "drc_errors": r.get("drc_errors", 0), "unrouted": r.get("unrouted", 0),
-            "fixed_parts_only": bool(r.get("fixed_parts_only")), "fixed_all": fixed_all}
+            "fixed_parts_only": bool(r.get("fixed_parts_only")), "fixed_all": fixed_all,
+            "budget_exhausted": bool(r.get("budget_exhausted"))}
 
 
 def all_fixed(d: Design, libs: Libs) -> bool:
@@ -494,7 +540,9 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     attempts up to the first final one, or of all of them. Later attempts are not waited for. Each attempt's board
     is kept in build/auto/. A wall-time budget (_layout_budget, HWFLOW_LAYOUT_BUDGET_S) bounds the search: past it no
     attempt starts, running ones are stopped, the repair stops its rounds, and the best attempt done is kept and
-    diagnosed. One progress line per attempt is printed as it ends."""
+    diagnosed. The first attempt uses the same deadline as later attempts. Final DRC/cleanup may run beyond
+    the search budget; callers can additionally impose a hard outer timeout. One progress line per attempt
+    is printed as it ends."""
     import concurrent.futures as cf
     import shutil
 

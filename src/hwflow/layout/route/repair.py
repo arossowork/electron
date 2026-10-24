@@ -45,7 +45,8 @@ def parse_item(desc: str, at) -> dict:
 
 def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> dict:
     """What to repair: nets to rip up and re-route, pour nets with a split pour, stitching vias to remove.
-    `radius` (mm) adds the nets whose copper lies that close to a track or via named by an error."""
+    `radius` (mm) adds nets whose copper lies that close to a non-pour unconnected endpoint
+    or to a track or via named by another error."""
     pour = set(d.ground_nets()) if d.board["gnd_pour"] else set()
     rip, islands, drop, centers, left = [], [], [], [], 0
     for x in errors(drc):
@@ -57,6 +58,7 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
                 islands += zones
             else:
                 rip += [i["net"] for i in items if i["net"] and i["net"] not in pour]
+                centers += [i["at"] for i in items if i["net"] and i["net"] not in pour and i["at"]]
         else:
             for i in items:
                 if i["kind"] not in ("Track", "Via") or not i["net"]:

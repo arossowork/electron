@@ -1,0 +1,4 @@
+Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+Found 615 violations
+Found 6 unconnected items
+Saved DRC Report to projects/desktop-dac-hd6xx/verification/layout-cold-drc.json
