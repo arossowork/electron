@@ -1,0 +1,120 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /* Ingress model: deny everything into the release's pods, then allow per component. Reachable from outside
+       the namespace (host nginx, Traefik): only api, web and the optional Temporal UI. Databases and queues: only
+       from the platform pods that use them. Worker pods carry the label hwflow.io/role=worker in every mode. */ -}}
+{{- $sel := dict "app.kubernetes.io/name" "hwflow-platform" "app.kubernetes.io/instance" .Release.Name }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-default-deny-ingress
+spec:
+  podSelector:
+    matchLabels: {{- toYaml $sel | nindent 6 }}
+  policyTypes: [Ingress]
+{{- $rules := list
+  (dict "to" "api" "port" 8080 "all" true)
+  (dict "to" "web" "port" .Values.web.containerPort "all" true)
+  (dict "to" "temporal-ui" "port" 8080 "all" true)
+  (dict "to" "postgres" "port" 5432 "from" (list "api" "migrate" "purge" "backup" "temporal" "agent") "worker" true)
+  (dict "to" "temporal" "port" 7233 "from" (list "api" "migrate" "temporal-ui" "agent") "worker" true)
+  (dict "to" "seaweedfs" "port" 8333 "from" (list "api" "bucket" "backup" "migrate" "agent") "worker" true)
+  (dict "to" "nats" "port" 4222 "from" (list "api" "migrate") "worker" true)
+  (dict "to" "nats" "port" 8222 "from" (list "api" "migrate"))
+}}
+{{- range $r := $rules }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-allow-{{ $r.to }}-{{ $r.port }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      app.kubernetes.io/component: {{ $r.to }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{port: {{ $r.port }}, protocol: TCP}]
+      {{- if not $r.all }}
+      from:
+        - podSelector:
+            matchLabels: {{- toYaml $sel | nindent 14 }}
+            matchExpressions:
+              - {key: app.kubernetes.io/component, operator: In, values: {{ toJson $r.from }}}
+        {{- if $r.worker }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml $sel | nindent 14 }}
+              hwflow.io/role: worker
+        {{- end }}
+      {{- end }}
+{{- end }}
+{{- if .Values.worker.enabled }}
+---
+# Worker egress: platform pods, DNS, and the internet minus cluster/private ranges (ADR 0001 section 7: the agent
+# runs in the worker pod and must reach the Anthropic API but not the cluster).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-worker-egress
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      hwflow.io/role: worker
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {{- toYaml $sel | nindent 14 }}
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: {{ toJson .Values.networkPolicy.workerEgressExceptCidrs }}
+{{- end }}
+{{- if .Values.agent.enabled }}
+---
+# Agent egress (#15, services/platform/README.md "Agent sandbox"): DNS, the three platform services agent_stage
+# uses (Postgres, Temporal, S3; not NATS, not the workers or the API), and HTTPS (443 only) to public addresses:
+# the Anthropic API. A plain NetworkPolicy cannot name a host; networkPolicy.agentEgressCidrs narrows the HTTPS
+# rule to Anthropic's published API ranges, or the cluster's egress proxy, where the operator knows them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-agent-egress
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $sel | nindent 6 }}
+      app.kubernetes.io/component: agent
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $sel | nindent 14 }}
+            matchExpressions:
+              - {key: app.kubernetes.io/component, operator: In, values: [postgres, temporal, seaweedfs]}
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        {{- if .Values.networkPolicy.agentEgressCidrs }}
+        {{- range .Values.networkPolicy.agentEgressCidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- else }}
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: {{ toJson .Values.networkPolicy.workerEgressExceptCidrs }}
+        {{- end }}
+      ports: [{port: 443, protocol: TCP}]
+{{- end }}
+{{- end }}

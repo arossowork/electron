@@ -1,0 +1,4 @@
+# Temporal dynamic config for the small single-node stack.
+limit.maxIDLength:
+  - value: 255
+    constraints: {}

@@ -5,9 +5,10 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from hwflow import budgets
-from hwflow.design import Design, check
-from hwflow.postlayout import RHO_CU, Extraction
+from hwflow.sim import budgets
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
+from hwflow.verify.postlayout import RHO_CU, Extraction
 
 GUARD = {"name": "guard", "req": "R4", "kind": "copper_r", "path": ["J1.1 -> Q1.3, Q2.3", "Q1.2, Q2.2 -> C1.1"],
          "current_a": 0.7, "max_mohm": 20, "source": "R4 50 mV - 36 mV pre-layout at 0.7 A = 20 mOhm"}
@@ -62,7 +63,7 @@ def test_width_from_budget_length_and_copper(tmp_path):
     w, (row,) = budgets.widths(d, parts)
     assert not row["ok"] and row["need_mm"] is None and w["VP"] == budgets.MAX_WIDTH_MM
     # net_classes keeps the wider of the net's own width and the budget's, never narrower
-    from hwflow.pcb import net_classes
+    from hwflow.layout.board.pcb import net_classes
     d.raw["nets"] = {"VIN": {"width_mm": 4.0}}
     d.budget_widths = {"VIN": 1.0, "VP": 1.0}
     nc = net_classes(d)
@@ -117,7 +118,7 @@ def test_path_resistance_on_routed_copper(tmp_path):
     assert r2["drop_mv"] == pytest.approx(r2["value"] * 0.7, rel=1e-3)
     assert "VIN F.Cu 1.00 mm wide" in r2["worst"] and r2["msg"].endswith("FAIL")
     # the layout check of the post stage reports the same budgets
-    from hwflow.postlayout import layout_checks
+    from hwflow.verify.postlayout import layout_checks
     got = [x for x in layout_checks(d, ex) if x["code"] == "budget"]
     assert [x["sev"] for x in got] == ["info", "error"]
     # copper length of a leg (kind copper_len): the shortest path, J1.1 -> Q1.3 is 50 mm
@@ -132,7 +133,7 @@ def test_path_resistance_on_routed_copper(tmp_path):
 
 
 def test_budget_with_req_verifies_the_requirement_in_trace(tmp_path):
-    from hwflow.cli import _design_hash, trace
+    from hwflow.pipeline import _design_hash, trace
     d = _design(tmp_path, [GUARD])
     (tmp_path / "requirements.yaml").write_text(yaml.safe_dump({"requirements": [
         {"id": "R4", "text": "guard drop", "verification": "layout"}]}))

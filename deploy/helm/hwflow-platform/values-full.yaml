@@ -1,0 +1,91 @@
+# Full profile (M2, issue #20): placeholders for the split described in ADR 0001 section 8. The image names and
+# the queue env var are not final until #9, #10 and #20 land; this file shows the shape and renders with
+# `helm template`. It does not claim the M2 stack is ready: Keycloak, CloudNativePG and split Temporal services are
+# separate charts/operators and are not part of this chart.
+
+global:
+  priorityClassName: apps-high
+
+api:
+  replicas: 2          # the relay is leader-elected by a Postgres advisory lock, so two replicas are safe
+  resources:
+    requests: {cpu: 200m, memory: 256Mi}
+    limits: {cpu: "2", memory: 512Mi}
+
+web:
+  enabled: true
+  replicas: 2
+
+worker:
+  enabled: true
+  replicas: 1
+  perQueue:
+    enabled: true
+    queues:
+      hwflow-engine:
+        image: {repository: hwflow-engine, tag: dev}
+        replicas: 1
+        resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: "2", memory: 1Gi}}
+      hwflow-sim:
+        image: {repository: hwflow-sim, tag: dev}
+        replicas: 1
+        resources: {requests: {cpu: 500m, memory: 1Gi}, limits: {cpu: "4", memory: 4Gi}}
+      hwflow-layout:
+        image: {repository: hwflow-layout, tag: dev}
+        replicas: 1
+        resources: {requests: {cpu: "1", memory: 2Gi}, limits: {cpu: "4", memory: 8Gi}}
+      hwflow-verify:
+        image: {repository: hwflow-verify, tag: dev}
+        replicas: 1
+        resources: {requests: {cpu: 500m, memory: 1Gi}, limits: {cpu: "4", memory: 4Gi}}
+  keda:
+    enabled: false      # needs the KEDA operator and its Temporal scaler; then minReplicas default to 0
+    maxReplicaCount: 8
+
+# the agent worker is its own Deployment (templates/agent.yaml), not a perQueue entry: its own sandbox and egress
+agent:
+  enabled: true
+  replicas: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+
+postgres:
+  persistence: {size: 100Gi}
+  config:
+    shared_buffers: 1GB
+    effective_cache_size: 3GB
+    work_mem: 16MB
+    maintenance_work_mem: 256MB
+    max_connections: "200"
+    max_wal_size: 2GB
+  resources:
+    requests: {cpu: 500m, memory: 2Gi}
+    limits: {cpu: "4", memory: 4Gi}
+
+temporal:
+  numHistoryShards: 512   # fixed at first install: it cannot be changed later
+  goMemLimit: 1800MiB
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "4", memory: 2Gi}
+  ui: {enabled: true}
+
+seaweedfs:
+  persistence: {size: 200Gi}
+  goMemLimit: 1500MiB
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+
+nats:
+  persistence: {size: 10Gi}
+
+backup:
+  retentionDays: 30
+  # Point at an external S3 for disaster recovery:
+  # target: {endpoint: https://s3.example.com, secretName: hwflow-backup-target}
+
+ingress:
+  enabled: true
+  tls: {enabled: true, secretName: hwflow-platform-tls}

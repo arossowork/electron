@@ -7,10 +7,15 @@ import pytest
 import yaml
 from shapely.geometry import LineString, Point, box
 
-from hwflow import corridor, pcb, routing, seedroute, sexpr
-from hwflow.design import Design
+from hwflow.layout.place import corridor
+from hwflow.layout.board import routing
+from hwflow.layout.route import seedroute
+from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
+from hwflow.core import sexpr
+from hwflow.core.design import Design
 
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 F = ("F.Cu",)
 BETWEEN = 1.0
 GAP = 2 * BETWEEN + routing.NECK_FLOOR + 0.06  # the proof's corridor fits a 0.21 mm track; with ISO_SLACK the router's 0.01 mm
@@ -137,11 +142,11 @@ def test_router_leaves_the_slit_open_and_the_seed_route_closes_it(tmp_path, monk
     d, libs, src, out = _board(tmp_path, walls)
     d.raw["board"]["router_retries"] = 0
     monkeypatch.setenv("HWFLOW_SEEDROUTE", "0")
-    _, last, notes, _ = pcb.krt_route(d, src, out, "y_", nets={"AC_ROOM"}, libs=libs)
-    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 1, notes
+    _, last, notes, _ = krt.krt_route(d, src, out, "y_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(krt.krt_unrouted(v) for v in last.values()) == 1, notes
     monkeypatch.delenv("HWFLOW_SEEDROUTE")
-    cur, last, notes, _ = pcb.krt_route(d, src, out, "x_", nets={"AC_ROOM"}, libs=libs)
-    assert sum(pcb.krt_unrouted(v) for v in last.values()) == 0, notes
+    cur, last, notes, _ = krt.krt_route(d, src, out, "x_", nets={"AC_ROOM"}, libs=libs)
+    assert sum(krt.krt_unrouted(v) for v in last.values()) == 0, notes
     assert any("seed route AC_ROOM: " in n and "longest neck" in n for n in notes), notes
     _check_copper(d, cur, walls, [(5, 10), (25, 10)])
     assert "AC_ROOM" in seedroute.load(out)

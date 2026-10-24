@@ -1,0 +1,94 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *"   # nightly: slow tier
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check src harness tests evals ui scripts
+      - run: uv run --all-packages lint-imports
+
+  test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      # Same KiCad major as docker/Dockerfile. No 3D models. The Freerouting jar and the KiCadRoutingTools Rust binary
+      # (tools/, gitignored) are not installed here: tests that need them skip.
+      - name: System tools (KiCad, ngspice)
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
+      - run: uv sync --frozen
+      - run: uv run pytest -q -m "not slow"
+
+  slow:
+    # Slow tier: nightly, on demand, and on pull requests that touch the engine (src/hwflow, tests, examples,
+    # library, blocks, uv.lock). The runner has no KiCadRoutingTools (a Rust build), so the layout stage routes
+    # with Freerouting (same jar version as the images), which is enough for tests/test_cold_equals_cached.py
+    # (cold == cached full build of examples/sensor_preamp, a few minutes). Tests that need KRT still skip.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      FREEROUTING_VERSION: "2.5.0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Does this run need the slow tier?
+        id: need
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(src/hwflow/|tests/|examples/|library/|blocks/|uv.lock|pyproject.toml|.github/workflows/ci.yml)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No engine change: slow tier skipped."
+          fi
+      - if: steps.need.outputs.run == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - if: steps.need.outputs.run == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"  # the 2.5.0 jar is class version 69 (Java 25); JRE 21 cannot load it
+      - name: System tools (KiCad, ngspice, Freerouting)
+        if: steps.need.outputs.run == 'true'
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
+          mkdir -p "$HOME/tools"
+          curl -fsSL -o "$HOME/tools/freerouting.jar" \
+            "https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar"
+          echo "FREEROUTING=$HOME/tools/freerouting.jar" >> "$GITHUB_ENV"
+          echo "JAVA=$JAVA_HOME/bin/java" >> "$GITHUB_ENV"
+      - if: steps.need.outputs.run == 'true'
+        run: uv sync --frozen
+      # exit code 5 means no slow test could run (all skipped or deselected): not a failure here
+      - if: steps.need.outputs.run == 'true'
+        run: uv run pytest -q -m slow || [ $? -eq 5 ]

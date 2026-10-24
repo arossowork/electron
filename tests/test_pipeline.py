@@ -1,12 +1,19 @@
 """End-to-end build of the reference design: zero ERC/DRC errors and full routing."""
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 
+from hwflow.layout.route import krt
 from hwflow.cli import main
 
+needs_a_router = pytest.mark.skipif(
+    not ((krt.krt_dir() / "py_router" / "route.py").exists() or Path(krt.freerouting_jar()).exists()),
+    reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
+
+@needs_a_router
 @pytest.mark.slow
 def test_full_build(tmp_path):
     proj = tmp_path / "sensor_preamp"
@@ -23,8 +30,8 @@ def test_full_build(tmp_path):
 @pytest.mark.slow
 def test_full_build_krt(tmp_path):
     """Same reference design routed with KiCadRoutingTools: clean DRC, full routing, no vias in pads."""
-    from hwflow.pcb import KRT_DIR
-    if not (KRT_DIR / "py_router" / "route.py").exists():
+    from hwflow.layout.route.krt import krt_dir
+    if not (krt_dir() / "py_router" / "route.py").exists():
         pytest.skip("KiCadRoutingTools not installed")
     proj = tmp_path / "sensor_preamp"
     shutil.copytree("examples/sensor_preamp", proj, ignore=shutil.ignore_patterns("build"))
@@ -44,7 +51,7 @@ def test_fab_positions_put_mirrored_back_footprints_on_the_bottom(tmp_path):
     pcbnew's Flip), the board X/Y unchanged; cpl.csv carries the JLCPCB columns, and THT parts are listed."""
     import csv
 
-    from hwflow import kicad
+    from hwflow.layout.board import kicad
     pcb = tmp_path / "b.kicad_pcb"
     pcb.write_text('''(kicad_pcb (version 20241229)
  (footprint "x:Relay_back" (layer "F.Cu") (at 12.5 5.6 90) (property "Reference" "K1" (at 0 0 0) (layer "B.SilkS"))

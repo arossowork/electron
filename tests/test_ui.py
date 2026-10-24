@@ -1,6 +1,5 @@
 """Server logic of the web UI, without a browser or a claude process."""
 
-import gzip
 import json
 import subprocess
 import sys

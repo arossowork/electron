@@ -1,0 +1,72 @@
+name: web
+
+# The web UI (web/, issue #16): generated API types up to date, typecheck, unit tests, production build, and the
+# nginx image. The Playwright smoke test needs the whole compose stack and a browser, so it runs locally
+# (docs/web.md).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - services/platform/openapi.json
+      - deploy/compose/platform.yaml
+      - deploy/compose/api.Dockerfile
+      - .github/workflows/web.yml
+  pull_request:
+    paths:
+      - web/**
+      - services/platform/openapi.json
+      - deploy/compose/platform.yaml
+      - deploy/compose/api.Dockerfile
+      - .github/workflows/web.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Generated API types are up to date
+        run: npm run check:api
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Bundle size
+        run: du -sk dist | awk '{print "dist KiB=" $1}'
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web image
+        run: docker build -f web/Dockerfile -t hwflow-web:ci .
+      - name: Serve it and check headers and the SPA fallback
+        run: |
+          docker run -d --name web --add-host api:127.0.0.1 -p 8080:8080 hwflow-web:ci
+          for i in $(seq 1 20); do curl -sf http://127.0.0.1:8080/healthz && break || sleep 1; done
+          curl -sI http://127.0.0.1:8080/projects/x | tee /dev/stderr | grep -i "content-security-policy.*frame-ancestors 'none'"
+          curl -sI http://127.0.0.1:8080/projects/x | grep -i "referrer-policy: no-referrer"
+          curl -s http://127.0.0.1:8080/projects/x | grep -q '<div id="root">'
+          docker image ls hwflow-web:ci --format 'image size: {{.Size}}'
+      - name: The compose file with the web profile is valid
+        run: |
+          cp deploy/compose/.env.example deploy/compose/.env
+          docker compose -f deploy/compose/platform.yaml --env-file deploy/compose/.env --profile web config -q

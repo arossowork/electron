@@ -1,0 +1,88 @@
+[project]
+name = "hwplatform"
+version = "0.1.0"
+description = "Hosted multi-tenant hwflow platform: API, tenancy, auth (epic #21)."
+requires-python = ">=3.11"
+dependencies = [
+    "hwflow",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "email-validator>=2.1",
+    "argon2-cffi>=23.1",
+    "pyjwt>=2.8",
+    "cryptography>=43",
+    "httpx>=0.27",
+    "boto3>=1.43.118",
+    "nats-py>=2.16.0",
+    "temporalio>=1.8",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6",
+    "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+# The agent worker (#15, queue hwflow-agent): the Claude Agent SDK with its bundled Claude Code CLI (about 125 MB).
+# Only deploy/images/agent.Dockerfile and CI install it; the API and engine worker images do not.
+agent = ["claude-agent-sdk>=0.2.174", "hwharness"]
+# The evaluation activities of the engine worker (#19: scoring, report) use the scorer of hwharness (stdlib only).
+evals = ["hwharness"]
+
+[project.scripts]
+hwplatform-api = "hwplatform.main:run"
+hwplatform-migrate = "hwplatform.main:migrate"
+hwplatform-relay = "hwplatform.main:relay"
+hwplatform-rotate-master = "hwplatform.main:rotate_master"
+hwplatform-purge = "hwplatform.main:purge"
+hwplatform-worker = "hwplatform.workers.main:main"
+
+[project.entry-points."hwflow.executors"]
+remote = "hwplatform.client:RemoteExecutor"
+
+[tool.uv.sources]
+hwflow = { workspace = true }
+hwharness = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs the compose Postgres, SeaweedFS (S3) and NATS; skipped when they do not answer",
+    "anthropic_smoke: calls the real Anthropic API (tests/test_agent_smoke.py); collected only with `-m anthropic_smoke` and ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN set",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC"]
+ignore = ["B008"]  # FastAPI Depends() in defaults
+
+[tool.ruff.lint.isort]
+known-first-party = ["hwplatform"]
+known-local-folder = ["conftest"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S603", "S105", "S106", "S107", "S608", "E501"]
+# Identifiers in DDL come from code or a validated setting, never from a request.
+"src/hwplatform/migrations/*" = ["S608", "E501"]
+# Raw SQL strings (ADR 3.4 DDL and queries) are kept readable on one line each.
+"src/hwplatform/runs.py" = ["E501", "S608"]
+# SQL and docstrings of the API layer (#12) are kept readable on one line each; the interpolated parts are
+# module constants (column lists, filter fragments), never request data.
+"src/hwplatform/api/*.py" = ["E501", "S608"]
+"src/hwplatform/events/sse.py" = ["E501", "S608"]
+"src/hwplatform/observability/*.py" = ["E501"]
+"src/hwplatform/questions.py" = ["E501"]
+"src/hwplatform/run_options.py" = ["E501"]

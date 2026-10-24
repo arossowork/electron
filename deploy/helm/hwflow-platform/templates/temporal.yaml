@@ -1,0 +1,155 @@
+{{- $c := dict "root" . "c" "temporal" }}
+{{- $name := include "hwp.name" $c }}
+{{- $pg := include "hwp.name" (dict "root" . "c" "postgres") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-dynamicconfig
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+data:
+  dynamicconfig.yaml: |
+    # Temporal dynamic config for the small single-node stack (deploy/compose/temporal-dynamicconfig.yaml).
+    limit.maxIDLength:
+      - value: 255
+        constraints: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  selector: {{- include "hwp.selector" $c | nindent 4 }}
+  ports: [{name: grpc, port: 7233, targetPort: grpc}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "hwp.labels" $c | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "hwp.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $c | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.temporal) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 1000
+        runAsGroup: 1000
+      initContainers:
+        # Create/upgrade the Temporal schemas in Postgres (idempotent). An init container rather than a Helm hook:
+        # Postgres is part of this release, so the schema step has to run after it and before the server on every
+        # install order, with or without `helm --wait`.
+        - name: schema
+          image: {{ include "hwp.image" .Values.images.temporalAdminTools }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              T=/etc/temporal/schema/postgresql/v12
+              until nc -z "$SQL_HOST" "$SQL_PORT"; do echo "waiting for postgres"; sleep 2; done
+              temporal-sql-tool --db temporal setup-schema -v 0.0 || true
+              temporal-sql-tool --db temporal update-schema -d $T/temporal/versioned
+              temporal-sql-tool --db temporal_visibility setup-schema -v 0.0 || true
+              temporal-sql-tool --db temporal_visibility update-schema -d $T/visibility/versioned
+          env:
+            - {name: SQL_PLUGIN, value: postgres12}
+            - {name: SQL_HOST, value: {{ $pg }}}
+            - {name: SQL_PORT, value: "5432"}
+            - {name: SQL_USER, value: temporal}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "SQL_PASSWORD" "key" "temporal-db-password") | nindent 12 }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.hookResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: temporal
+          image: {{ include "hwp.image" .Values.images.temporal }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - {name: DB, value: postgres12}
+            - {name: DB_PORT, value: "5432"}
+            - {name: POSTGRES_SEEDS, value: {{ $pg }}}
+            - {name: POSTGRES_USER, value: temporal}
+            - {name: DBNAME, value: temporal}
+            - {name: VISIBILITY_DBNAME, value: temporal_visibility}
+            - {name: SQL_MAX_CONNS, value: {{ .Values.temporal.sqlMaxConns | quote }}}
+            - {name: SQL_MAX_IDLE_CONNS, value: {{ .Values.temporal.sqlMaxIdleConns | quote }}}
+            - {name: NUM_HISTORY_SHARDS, value: {{ .Values.temporal.numHistoryShards | quote }}}
+            - {name: GOMEMLIMIT, value: {{ .Values.temporal.goMemLimit | quote }}}
+            - {name: BIND_ON_IP, value: 0.0.0.0}
+            - {name: TEMPORAL_BROADCAST_ADDRESS, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            {{- include "hwp.secretEnv" (dict "root" . "name" "POSTGRES_PWD" "key" "temporal-db-password") | nindent 12 }}
+          ports: [{name: grpc, containerPort: 7233}]
+          readinessProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 10
+            failureThreshold: 20
+          livenessProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 20
+            initialDelaySeconds: 60
+          # Not read-only: the image renders /etc/temporal/config/docker.yaml from a template at start.
+          securityContext:
+            {{- toYaml (omit .Values.containerSecurityContext "readOnlyRootFilesystem") | nindent 12 }}
+            readOnlyRootFilesystem: false
+          resources: {{- toYaml .Values.temporal.resources | nindent 12 }}
+          volumeMounts:
+            - {name: dynamicconfig, mountPath: /etc/temporal/config/dynamicconfig/docker.yaml, subPath: dynamicconfig.yaml, readOnly: true}
+      volumes:
+        - {name: dynamicconfig, configMap: {name: {{ $name }}-dynamicconfig}}
+        - {name: tmp, emptyDir: {sizeLimit: 16Mi}}
+{{- if .Values.temporal.ui.enabled }}
+{{- $u := dict "root" . "c" "temporal-ui" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hwp.name" $u }}
+  labels: {{- include "hwp.labels" $u | nindent 4 }}
+spec:
+  selector: {{- include "hwp.selector" $u | nindent 4 }}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hwp.name" $u }}
+  labels: {{- include "hwp.labels" $u | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "hwp.selector" $u | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hwp.labels" $u | nindent 8 }}
+    spec:
+      {{- include "hwp.priority" (dict "root" . "v" .Values.temporal) | nindent 6 }}
+      {{- include "hwp.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: ui
+          image: {{ include "hwp.image" .Values.images.temporalUi }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - {name: TEMPORAL_ADDRESS, value: "{{ $name }}:7233"}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            tcpSocket: {port: http}
+            periodSeconds: 10
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.temporal.ui.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 16Mi}}
+{{- end }}

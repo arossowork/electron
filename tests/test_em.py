@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from hwflow import em
+from hwflow.verify import em
 
 
 def test_cpwg_tends_to_microstrip_for_wide_gap():

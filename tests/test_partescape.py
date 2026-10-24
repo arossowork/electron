@@ -5,9 +5,10 @@ from types import SimpleNamespace
 
 import yaml
 
-from hwflow import design as design_mod
-from hwflow import diagnose, feasibility, partescape
-from hwflow.design import Design
+from hwflow.verify import checks
+from hwflow.layout import diagnose, feasibility
+from hwflow.layout.place import partescape
+from hwflow.core.design import Design
 
 
 def _pad(n, x, y, w, h, shape="rect", kind="smd"):
@@ -147,8 +148,8 @@ def test_hwflow_check_reports_escape_findings_as_errors(tmp_path, monkeypatch):
     libs = _libs({"SOT563": _sot563(), "C": C_PADS})
     errs = [e for e in feasibility.check(d, libs) if e["code"] == "escape"]  # the other checks need the full libs
     assert [(e["sev"], e["code"]) for e in errs] == [("error", "escape")] and errs[0]["msg"].startswith("U2 ")
-    assert ("escape", "hwflow.partescape") in feasibility.FEASIBILITY_CHECKS
+    assert ("escape", "hwflow.layout.place.partescape") in feasibility.FEASIBILITY_CHECKS
     monkeypatch.setattr(feasibility, "FEASIBILITY_CHECKS", [x for x in feasibility.FEASIBILITY_CHECKS if x[0] == "escape"])
     assert [f["code"] for f in feasibility.findings(d, libs)] == ["escape"]
-    assert any(f["code"] == "escape" for f in design_mod.check(d, libs=SimpleNamespace(
+    assert any(f["code"] == "escape" for f in checks.check(d, libs=SimpleNamespace(
         footprint=libs.footprint, symbol=lambda s: (_ for _ in ()).throw(KeyError(s)))))

@@ -6,12 +6,18 @@ import pytest
 import yaml
 from shapely.geometry import LineString, box
 
-from hwflow import diagnose, floorplan, pcb, placer, postlayout, sexpr
-from hwflow.design import Design, check
-from hwflow.libs import Libs
+from hwflow.layout import diagnose
+from hwflow.layout.place import floorplan, placer
+from hwflow.verify import postlayout
+from hwflow.layout.board import pcb
+from hwflow.layout.route import krt
+from hwflow.core import sexpr
+from hwflow.core.design import Design
+from hwflow.verify.checks import check
+from hwflow.core.libs import Libs
 
 EX = "examples/sensor_preamp"
-needs_router = pytest.mark.skipif(not (pcb.KRT_DIR / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
+needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py").exists(), reason="KiCadRoutingTools not installed")
 
 
 def make(tmp_path, regions=None, board=None, nets=None):
@@ -103,7 +109,7 @@ def test_cut_is_a_keepout_for_the_placer_and_the_area(tmp_path):
     front = next(s for s in res["sides"] if s["side"] == "front")
     assert front["usable_mm2"] == pytest.approx(38 * 28 - 40)
     # a part placed in the cut is a violation, and the placer moves parts out of it
-    from hwflow.design import Component
+    from hwflow.core.design import Component
     for i in range(4):
         d.components[f"R{i}"] = Component(f"R{i}", {"footprint": "Resistor_SMD:R_0603_1608Metric",
                                                     "pins": {"1": f"N{i}", "2": f"N{i + 1}"}})
@@ -138,7 +144,7 @@ def test_cut_pad_warning_and_structure_key(tmp_path):
     d.components["R1"].data["placement"] = {"x": 6.5, "y": 3, "fixed": True}
     f = [x for x in check(d, Libs(design=d)) if x["code"] == "cut-pad"]
     assert f and all(x["sev"] == "warn" and "slot" in x["msg"] for x in f)
-    from hwflow import floorplan, placer
+    from hwflow.layout.place import floorplan, placer
     parts = placer.build_parts(d, Libs(design=d))
     parts["R1"].nocu = frozenset(parts["R1"].pads)            # a keep-out marker's dummy pads have no copper
     assert floorplan.cut_pad_findings(d, parts, 0.3) == []
@@ -178,8 +184,8 @@ def test_dsn_class_uses_only_the_net_layers(tmp_path):
 
 def test_layer_args():
     cu = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
-    assert pcb.layer_args(cu, ()) == [] and pcb.layer_args(cu, tuple(cu)) == []
-    assert pcb.layer_args(cu, ("In2.Cu", "B.Cu")) == ["--layers", *cu, "--layer-costs", "-1", "-1", "3.0", "3.0"]
+    assert krt.layer_args(cu, ()) == [] and krt.layer_args(cu, tuple(cu)) == []
+    assert krt.layer_args(cu, ("In2.Cu", "B.Cu")) == ["--layers", *cu, "--layer-costs", "-1", "-1", "3.0", "3.0"]
 
 
 @needs_router
@@ -198,8 +204,8 @@ def test_restricted_nets_route_in_their_own_pass(tmp_path, monkeypatch):
         seen.append((nets, base))
         return (Path(base[2]), {}, 0), [("default order", "0 unrouted")], [""]
 
-    monkeypatch.setattr(pcb, "route_class", fake)
-    pcb.krt_route(d, src, tmp_path / "out", "x_")
+    monkeypatch.setattr(krt, "route_class", fake)
+    krt.krt_route(d, src, tmp_path / "out", "x_")
     own = [b for n, b in seen if "AMP_OUT" in n]
     assert len(own) == 1 and [n for n, b in seen if "AMP_OUT" in n] == [["AMP_OUT"]]
     b = own[0]
@@ -223,7 +229,7 @@ def test_post_layout_error_for_a_track_off_its_layers(tmp_path):
 @needs_router
 @pytest.mark.slow
 def test_route_keeps_out_of_cuts_and_on_the_net_layers(tmp_path):
-    from hwflow.cli import stage_layout
+    from hwflow.pipeline import stage_layout
     d = preamp(tmp_path, nets={"SENS_IN": {"layers": ["F.Cu"]}, "+3V3": {"layers": ["F.Cu"]}},
                regions=[{"name": "slot", "cut": True, "rect": [18, 0, 22, 18]},
                         {"name": "notch", "cut": True, "circle": [40, 30, 5]}])

@@ -3,12 +3,17 @@ from pathlib import Path
 
 import pytest
 
-from hwflow import sexpr
-from hwflow.design import Design, check, parse_value, snap_e
-from hwflow.pcb import ipc2221_width_mm
-from hwflow.postlayout import microstrip
+from hwflow.core import sexpr
+from hwflow.core.design import Design, parse_value, snap_e
+from hwflow.verify.checks import check
+from hwflow.layout.route import krt
+from hwflow.layout.board.pcb import ipc2221_width_mm
+from hwflow.verify.postlayout import microstrip
 
 EX = "examples/sensor_preamp"
+needs_a_router = pytest.mark.skipif(
+    not ((krt.krt_dir() / "py_router" / "route.py").exists() or Path(krt.freerouting_jar()).exists()),
+    reason="neither KiCadRoutingTools nor the Freerouting jar is installed")
 
 
 @pytest.mark.parametrize("s,v", [("4k7", 4700), ("100n", 1e-7), ("2.2meg", 2.2e6), ("1M", 1e6), ("10", 10),
@@ -39,13 +44,13 @@ def test_microstrip_50_ohm():
 
 
 def test_design_check_clean():
-    from hwflow.libs import Libs
+    from hwflow.core.libs import Libs
     d = Design.load(EX)
     assert [f for f in check(d, Libs()) if f["sev"] == "error"] == []
 
 
 def test_spice_ldo_and_gain(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     res = {r["name"]: r for a in spice.run_all(d, tmp_path) for r in a["rows"]}
     assert abs(res["v3v3"]["value"] - 3.30) < 0.01
@@ -57,7 +62,7 @@ def test_optimizer_keeps_constraints(tmp_path):
 
     import yaml
 
-    from hwflow import optimize
+    from hwflow.sim import optimize
     proj = tmp_path / "p"
     shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
     d = yaml.safe_load((proj / "design.yaml").read_text())
@@ -74,7 +79,7 @@ def test_optimizer_keeps_constraints(tmp_path):
 
 def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
     """A transient that stops before its stop time must not pass on the truncated waveform."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     fake = "doAnalyses: TRAN:  Timestep too small\nHWF __tend 0.001\n" + "".join(
@@ -93,14 +98,14 @@ def test_aborted_transient_fails_measures(tmp_path, monkeypatch):
 
 def test_cpwg_matches_openems_reference():
     """Trace 0.25 mm wide, 0.2 mm from a same-layer pour on 1.6 mm FR-4: openEMS TDR gave 86.5 ohm."""
-    from hwflow.postlayout import cpwg_z0, microstrip
+    from hwflow.verify.postlayout import cpwg_z0, microstrip
     z, _ = cpwg_z0(0.25, 0.2, 1.6, 4.3)
     assert abs(z - 86.5) / 86.5 < 0.05
     assert microstrip(0.25, 1.6, 0.035, 4.3)[0] > 120  # the pour-free formula overestimates here
 
 
 def test_monte_carlo_parallel_is_deterministic(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = spice.monte_carlo(d, tmp_path / "a", runs=12, workers=1)
     b = spice.monte_carlo(d, tmp_path / "b", runs=12, workers=6)
@@ -109,8 +114,8 @@ def test_monte_carlo_parallel_is_deterministic(tmp_path):
 
 def test_custom_pad_exports_full_outline():
     """SOT-89 tab is a custom pad: the router must see the whole tab, not just the anchor rectangle."""
-    from hwflow.libs import Libs
-    from hwflow.pcb import _padstack
+    from hwflow.core.libs import Libs
+    from hwflow.layout.board.pcb import _padstack
     pad = next(p for p in Libs().footprint("Package_TO_SOT_SMD:SOT-89-3")["pads"] if p["number"] == "2")
     _, ps = _padstack(pad, ["F.Cu", "B.Cu"])
     shape = ps[2][1]
@@ -119,12 +124,13 @@ def test_custom_pad_exports_full_outline():
     assert max(xs) - min(xs) > 4000  # um: anchor 1.475 mm plus the 3.1 mm tab
 
 
+@needs_a_router
 @pytest.mark.slow
 def test_post_layout_inductors_are_damped(tmp_path):
     import json
     import shutil
     from hwflow.cli import main
-    from hwflow import postlayout
+    from hwflow.verify import postlayout
     proj = tmp_path / "p"
     shutil.copytree(EX, proj, ignore=shutil.ignore_patterns("build"))
     main(["build", str(proj), "--until", "layout"])
@@ -135,7 +141,7 @@ def test_post_layout_inductors_are_damped(tmp_path):
     lines = postlayout.PostLayoutNodeMap(d, ex).extra()
     assert sum(ln.startswith("Lpx") for ln in lines) == sum(ln.startswith("Rdx") for ln in lines) > 0
     # backlog 47 (a): the lumped transient network gives the same measures as the full R and C network
-    from hwflow import spice
+    from hwflow.sim import spice
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     lumped = spice.run_analysis(d, a, tmp_path / "l", postlayout.PostLayoutNodeMap(d, ex, lump=True))
     full = spice.run_analysis(d, a, tmp_path / "f", postlayout.PostLayoutNodeMap(d, ex, lump=False))
@@ -145,7 +151,7 @@ def test_post_layout_inductors_are_damped(tmp_path):
 
 
 def test_run_all_parallel_matches_serial(tmp_path):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = spice.run_all(d, tmp_path / "a", workers=1)
     b = spice.run_all(d, tmp_path / "b", workers=6)
@@ -154,9 +160,9 @@ def test_run_all_parallel_matches_serial(tmp_path):
 
 
 def test_thermal_vias_land_inside_their_pad():
-    from hwflow.libs import Libs
-    from hwflow.pcb import thermal_vias
-    from hwflow.placer import build_parts
+    from hwflow.core.libs import Libs
+    from hwflow.layout.board.pcb import thermal_vias
+    from hwflow.layout.place.placer import build_parts
     d = Design.load(EX)
     d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
     d.components["U1"].data["pins"] = {"1": "GND", "2": "VBUS", "3": "+3V3"}
@@ -185,7 +191,7 @@ def test_save_keeps_comments(tmp_path):
 
 
 def test_recoverable_singular_matrix_warning_is_not_an_abort(tmp_path, monkeypatch):
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     out = "Warning: singular matrix: check node x\nNote: Starting dynamic gmin stepping\n" + "".join(
@@ -203,8 +209,8 @@ def _fake_out(a, extra=""):
 
 def test_measure_out_of_interval_is_a_warning_when_rows_pass(tmp_path, monkeypatch):
     """Backlog 20: 'Error: measure ... out of interval' with every measure passing is not a FAIL."""
-    from hwflow import spice
-    from hwflow.cli import _sim_verdict
+    from hwflow.sim import spice
+    from hwflow.pipeline.report import _sim_verdict
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     msg = "Error: measure  probe  find(AT) : out of interval\n"
@@ -233,7 +239,7 @@ def test_debug_measures_do_not_count(tmp_path):
     """Backlog 19: a failing dbg_* probe is listed apart and leaves pass/total, verdict and trace alone."""
     import yaml
 
-    from hwflow.cli import stage_sim, trace, _save_status
+    from hwflow.pipeline import stage_sim, trace, _save_status
     proj = _copy_example(tmp_path)
     y = yaml.safe_load((proj / "design.yaml").read_text())
     a = next(x for x in y["sim"]["analyses"] if x["name"] == "dc_op")
@@ -250,7 +256,7 @@ def test_debug_measures_do_not_count(tmp_path):
 
 def test_analysis_timeout_is_reported(tmp_path):
     """Backlog 22/42: per-analysis timeout_s; the analysis is marked timeout and its rows say why they are n/a."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient"), timeout_s=0.001)
     r = spice.run_analysis(d, a, tmp_path)
@@ -264,7 +270,7 @@ def test_ngspice_crash_is_retried_once(tmp_path, monkeypatch):
     """Backlog 41: a signal exit is retried once and the run is marked flaky, not reported as a design result."""
     import subprocess
     from types import SimpleNamespace
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     calls = []
@@ -286,7 +292,7 @@ def test_ngspice_crash_is_retried_once(tmp_path, monkeypatch):
 
 
 def test_report_names_the_analysis_that_timed_out(tmp_path):
-    from hwflow.cli import _save_status, stage_sim, write_report
+    from hwflow.pipeline import _save_status, stage_sim, write_report
     import yaml
     proj = _copy_example(tmp_path)
     y = yaml.safe_load((proj / "design.yaml").read_text())
@@ -301,7 +307,7 @@ def test_report_names_the_analysis_that_timed_out(tmp_path):
 def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
     """Backlog 55: a failing run is saved with seed, values and log; an aborted run is not in the spread."""
     import json
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     real = spice.run_analysis
 
@@ -325,7 +331,7 @@ def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
 
 def test_design_hash_ignores_comments_and_prose(tmp_path):
     """Backlog 58: comments, whitespace and requirement prose do not make results stale; values do."""
-    from hwflow.cli import _design_hash
+    from hwflow.pipeline import _design_hash
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").write_text("requirements:\n  - {id: R1, text: a, evidence: x, verification: simulation}\n")
     d = Design.load(proj)
@@ -347,21 +353,22 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
     Backlog 18: every build appends to build/history.jsonl and keeps the report in build/history/."""
     import json
 
-    from hwflow import cli
-    from hwflow.libs import Libs
+    from hwflow.pipeline import report as pl_report, stages as pl_stages, status as pl_status
+    from hwharness.evals.scorer import score
+    from hwflow.core.libs import Libs
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").unlink(missing_ok=True)
     d = Design.load(proj)
-    cli._save_status(d, "check", cli.stage_check(d, Libs()))
-    text = cli.write_report(d, history=True)
+    pl_status._save_status(d, "check", pl_stages.stage_check(d, Libs()))
+    text = pl_report.write_report(d, history=True)
     assert "Verdict: PASS" in text and "(stale)" not in text
     y = proj / "design.yaml"
     y.write_text(y.read_text().replace("value: 10k", "value: 12k", 1))
     d = Design.load(proj)
-    monkeypatch.setattr(cli, "HISTORY_KEEP", 1)
-    text = cli.write_report(d, history=True)
+    monkeypatch.setattr(pl_report, "HISTORY_KEEP", 1)
+    text = pl_report.write_report(d, history=True)
     assert "- check (stale): OK" in text and "Verdict: FAIL: stale: check" in text
-    assert cli.score(d)["check_errors"] is None                      # score stays fresh-only
+    assert score(d)["check_errors"] is None                      # score stays fresh-only
     lines = [json.loads(x) for x in (proj / "build" / "history.jsonl").read_text().splitlines()]
     assert [x["verdict"] for x in lines] == ["PASS", "FAIL: stale: check"]
     kept = list((proj / "build" / "history").glob("*.md"))
@@ -370,7 +377,7 @@ def test_stale_results_stay_in_report_and_history_is_kept(tmp_path, monkeypatch)
 
 def test_trace_flags_missing_evidence_files(tmp_path):
     """Backlog 54: file paths cited in evidence must exist and not be empty; URLs and words are ignored."""
-    from hwflow.cli import missing_evidence, trace
+    from hwflow.pipeline import missing_evidence, trace
     (tmp_path / "notes").mkdir()
     (tmp_path / "notes" / "calc.py").write_text("x = 1\n")
     (tmp_path / "SUMMARY.md").write_text("")
@@ -404,8 +411,8 @@ def test_check_fails_on_mos_model_under_q_reference(tmp_path):
 
 def test_check_compares_package_with_footprint():
     """Backlog 56: a SOD-882 part on a chip 0402 land pattern is flagged; pad count and pitch are compared."""
-    from hwflow.design import Component, package_findings
-    from hwflow.libs import Libs
+    from hwflow.core.design import Component, package_findings
+    from hwflow.core.libs import Libs
     libs = Libs()
     chip = libs.footprint("Diode_SMD:D_0402_1005Metric")
     c = Component("D4", {"footprint": "Diode_SMD:D_0402_1005Metric", "package": "SOD-882", "package_pads": 2,
@@ -420,7 +427,7 @@ def test_check_compares_package_with_footprint():
 
 def test_measure_on_missing_node_says_so(tmp_path):
     """Backlog 46: a measure on a node that is not in the netlist fails with the ngspice reason, not a silent n/a."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = dict(next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op"))
     a["measures"] = a["measures"] + [{"name": "ghost", "expr": "v(x_bt1_2,x_bt1_1)"}]
@@ -463,7 +470,7 @@ def test_monte_carlo_runs_once_per_design(tmp_path, capsys):
 def test_router_retries_a_class_in_another_net_order(tmp_path):
     """Backlog 40: a width class that leaves a net unrouted is routed again in another order; the best is kept."""
     import json
-    from hwflow.pcb import route_class
+    from hwflow.layout.route.krt import route_class
     calls = []
 
     def run(args):
@@ -483,7 +490,7 @@ def test_router_retries_a_class_in_another_net_order(tmp_path):
 
 def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monkeypatch):
     """Backlog 23/25: one call places, routes, checks DRC and retries with new placer seeds until the board is clean."""
-    from hwflow import cli
+    from hwflow.pipeline import stages as pl_stages, status as pl_status
     proj = _copy_example(tmp_path)
     d = Design.load(proj)
     seen = []
@@ -497,84 +504,41 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
         return {"ok": not bad, "board_mm": [50, 40], "unrouted": 0, "drc_errors": 2 if bad else 0, "drc_warnings": 0,
                 "placement_violations": [], "vias": 10, "segments": 5, "router": "", "drc": []}
 
-    monkeypatch.setattr(cli, "stage_layout", fake)
-    (cli._out(d) / "placement.json").write_text("{}")
-    r = cli.layout_auto(d, None, reuse=True, attempts=4, seeds=4, workers=1)  # in this process, one at a time
+    monkeypatch.setattr(pl_stages, "stage_layout", fake)
+    (pl_status._out(d) / "placement.json").write_text("{}")
+    r = pl_stages.layout_auto(d, None, reuse=True, attempts=4, seeds=4, workers=1)  # in this process, one at a time
     assert seen == [(True, 1), (False, 5), (False, 9)]
     assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
-    assert (cli._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
-    assert "kept attempt 3 of 3" in cli._auto_summary(r)
+    assert (pl_status._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
+    assert "kept attempt 3 of 3" in pl_stages._auto_summary(r)
 
 
 def test_post_is_stale_when_layout_ran_after_it(tmp_path):
     """Backlog 43: a post-layout result from an older board is marked stale even if design.yaml did not change."""
     import time
 
-    from hwflow import cli
+    from hwflow.pipeline import report as pl_report, status as pl_status
+    from hwharness.evals.scorer import score
     proj = _copy_example(tmp_path)
     (proj / "requirements.yaml").unlink(missing_ok=True)
     d = Design.load(proj)
     post = {"ok": True, "checks": [], "ir_drop": [], "deltas": [], "regressions": [],
             "metrics": {"area_mm2": 1, "layers": 2, "track_len_mm": 1, "vias": 0}}
-    cli._save_status(d, "post", post)
-    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == []
+    pl_status._save_status(d, "post", post)
+    assert pl_status._stale_stages(pl_status._status(d), pl_status._design_hash(d)) == []
     time.sleep(0.01)
-    cli._save_status(d, "layout", {"ok": True, "board_mm": [50, 40], "router": "", "segments": 0, "vias": 0,
+    pl_status._save_status(d, "layout", {"ok": True, "board_mm": [50, 40], "router": "", "segments": 0, "vias": 0,
                                    "drc_errors": 0, "drc_warnings": 0, "unrouted": 0, "drc": [],
                                    "placement_violations": []})
-    assert cli._stale_stages(cli._status(d), cli._design_hash(d)) == ["post"]
-    text = cli.write_report(d)
-    assert "- post-layout (stale)" in text and "stale: post" in text and "post_pass_ratio" in cli.score(d)
-    assert cli.score(d)["post_pass_ratio"] is None
-
-
-@pytest.mark.slow
-def test_cost_changes_need_the_product_person(tmp_path, capsys):
-    """Backlog 44: after `hwflow approve`, a change of layers, board size or BOM cost is a check error until
-    conflicts.md or an inbox question records it (then a warning), and `approve` takes the new baseline."""
-    import json
-
-    import yaml
-
-    from hwflow.cli import approval_findings, main
-    proj = _copy_example(tmp_path)
-    raw = yaml.safe_load((proj / "design.yaml").read_text())
-    ref = next(r for r, c in raw["components"].items() if not c.get("virtual"))
-    raw["components"][ref]["price_usd"] = 1.0
-    (proj / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False))
-    d = Design.load(proj)
-    assert [x["sev"] for x in approval_findings(d)] == ["info"]           # no baseline yet
-    assert main(["approve", str(proj), "--note", "round 1 q2"]) == 0
-    a = json.loads((proj / "build" / "approved.json").read_text())
-    assert a["note"] == "round 1 q2" and a["layers"] == d.board["layers"]
-    assert approval_findings(Design.load(proj)) == []
-    raw = yaml.safe_load((proj / "design.yaml").read_text())
-    raw["board"]["layers"] = 4
-    raw["board"]["width_mm"] = d.board["width_mm"] + 0.4                     # inside the 0.5 mm size tolerance
-    raw["components"][ref]["price_usd"] = 1.06                              # +6 %, above the 5 % default
-    (proj / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False))
-    f = approval_findings(Design.load(proj))
-    assert [(x["sev"], x["msg"].split(" ")[0]) for x in f] == [("error", "board.layers"), ("error", "BOM")]
-    assert main(["check", str(proj)]) == 1
-    (proj / "conflicts.md").write_text("## C9: 4 layers for the decap loop\nchange: layers\n")
-    inbox = proj / "inbox"
-    inbox.mkdir()
-    (inbox / "questions_round2.json").write_text(json.dumps(
-        {"round": 2, "questions": [{"id": "q1", "text": "+$ for the relay?", "change": "cost"}]}))
-    f = approval_findings(Design.load(proj))
-    assert [x["sev"] for x in f] == ["warn", "warn"] and "not answered yet" in f[1]["msg"]
-    (inbox / "answers.md").write_text("## Round 2\nq1: yes, take the better relay\n")
-    f = approval_findings(Design.load(proj))
-    assert "answered in round 2 q1" in f[1]["msg"]
-    capsys.readouterr()
-    assert main(["check", str(proj)]) == 0
-    main(["approve", str(proj)])
-    assert approval_findings(Design.load(proj)) == []
+    assert pl_status._stale_stages(pl_status._status(d), pl_status._design_hash(d)) == ["post"]
+    text = pl_report.write_report(d)
+    assert "- post-layout (stale)" in text and "stale: post" in text and "post_pass_ratio" in score(d)
+    assert score(d)["post_pass_ratio"] is None
 
 
 def test_analysis_cache_runs_ngspice_once_per_netlist(tmp_path, monkeypatch):
     """L6: an unchanged netlist is not simulated again; a changed one re-runs only its own analysis."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "line_transient")
     b = next(x for x in d.raw["sim"]["analyses"] if x["name"] != "line_transient")
@@ -605,7 +569,7 @@ def test_recovered_bsource_overflow_is_a_warning_when_rows_pass(tmp_path, monkey
     """home-thermostat-3 burst_vbat20_corner post-layout @ 0 and 45 C: `Error: 1.3e+238, 2 out of range for ^` from a
     B source on one Newton iteration that ngspice rejected; the run reached its stop time with every measure valid,
     yet the analysis was reported as an error. It is a warning when every measure passes."""
-    from hwflow import spice
+    from hwflow.sim import spice
     d = Design.load(EX)
     a = next(x for x in d.raw["sim"]["analyses"] if x["name"] == "dc_op")
     msg = "Error: 1.30235e+238, 2 out of range for ^\n    in line b.xu2.bio\n"

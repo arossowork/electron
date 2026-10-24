@@ -25,7 +25,8 @@ from pathlib import Path
 
 import yaml
 
-from .design import Design, parse_value
+from ..core.settings import get_settings
+from ..core.design import Design, parse_value
 
 # ------------------------------------------------------------------ MCU families
 # GPIO number from the symbol pin name; ADC channel per GPIO; GPIOs that can wake the chip from deep sleep; strapping
@@ -541,7 +542,9 @@ def generate(d: Design, libs, contract_path: Path | None = None) -> tuple[dict[s
     return files, c.findings
 
 
-REPO = Path(__file__).resolve().parents[2]
+def repo_root() -> Path:
+    return Path(get_settings().paths.root)
+
 
 
 def scaffold(d: Design, fw_dir: Path) -> list[Path]:
@@ -549,10 +552,10 @@ def scaffold(d: Design, fw_dir: Path) -> list[Path]:
     raw = yaml.safe_load((d.dir / "interface.yaml").read_text()) or {}
     modules = raw.get("modules") or {}
     try:
-        depth = len(fw_dir.resolve().relative_to(REPO).parts)
+        depth = len(fw_dir.resolve().relative_to(repo_root()).parts)
         root = "$(FW)/" + "/".join([".."] * depth)
     except ValueError:
-        root = str(REPO)
+        root = str(repo_root())
     files: dict[Path, str] = {}
     for m, x in modules.items():
         x = x or {}

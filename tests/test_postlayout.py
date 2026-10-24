@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hwflow.postlayout import UF, PostLayoutNodeMap
+from hwflow.verify.postlayout import UF, PostLayoutNodeMap
 
 
 def _stub(elements, pads):
@@ -44,7 +44,7 @@ def test_lumped_skips_islands_without_pads():
 
 def test_group_clearance_reports_the_closest_copper():
     """Backlog 39: the clearance between a net group and every other net is reported as a number with its limit."""
-    from hwflow.postlayout import _seg_dist, group_clearances
+    from hwflow.verify.postlayout import _seg_dist, group_clearances
     import numpy as np
     assert _seg_dist(np.array([[0, 0, 1, 1.0]]), np.array([[0, 1, 1, 0.0]]))[0, 0] == 0          # crossing
     assert _seg_dist(np.array([[0, 0, 1, 0.0]]), np.array([[2, 3, 2, 5.0]]))[0, 0] == pytest.approx(10 ** 0.5)
@@ -114,9 +114,9 @@ def test_isolation_rules_come_from_design_data(tmp_path):
 
     import yaml
 
-    from hwflow.cli import _design_hash, isolation_distances, trace
-    from hwflow.design import Design
-    from hwflow.pcb import isolation_groups, write_project
+    from hwflow.pipeline import _design_hash, isolation_distances, trace
+    from hwflow.core.design import Design
+    from hwflow.layout.board.pcb import isolation_groups, write_project
     raw = {"project": "iso", "board": {"layers": 2, "isolation": [
         {"name": "mains", "class": "mains", "nets": "HV_*", "clearance_mm": 4.0, "creepage_mm": 6.0, "req": "R8"}]},
         "nets": {"AC_L": {"class": "mains"}, "AC_N": {"class": "mains"}},
@@ -138,7 +138,7 @@ def test_isolation_rules_come_from_design_data(tmp_path):
             {"net": "AC_N", "layer": "F.Cu", "x1": 0, "y1": 2, "x2": 10, "y2": 2, "w": 1.0},
             {"net": "VCC", "layer": "F.Cu", "x1": 0, "y1": 5, "x2": 10, "y2": 5, "w": 0.5}]
     ex = SimpleNamespace(d=d, path=None, board={"segments": segs, "vias": [], "footprints": {}})
-    import hwflow.postlayout as pl
+    import hwflow.verify.postlayout as pl
     orig, pl.Extraction = pl.Extraction, lambda design, board: ex
     try:
         drc = [{"sev": "error", "type": "creepage", "msg": "Creepage violation", "items": ["Track [AC_N] on F.Cu"]},
@@ -168,8 +168,8 @@ def test_si_screen_flags_long_lines_plane_gaps_and_decap_loops():
 
     import numpy as np
 
-    from hwflow.design import Component, Design
-    from hwflow.postlayout import si_screen
+    from hwflow.core.design import Component, Design
+    from hwflow.verify.postlayout import si_screen
     raw = {"board": {"layers": 4}, "nets": {"CLK": {"edge_ns": 0.5}, "GND": {"class": "ground"}},
            "components": {"U1": {"pins": {"1": "CLK", "2": "VCC", "3": "GND"}}, "R1": {"pins": {"1": "CLK"}},
                           "J1": {"pins": {"1": "CLK"}}, "C1": {"pins": {"1": "VCC", "2": "GND"}, "decouples": "U1"}}}
@@ -220,7 +220,7 @@ def test_split_tjunctions_is_bounded():
     """Overlapping same-net tracks (a router leaves them where it fails) put many endpoints inside other segments;
     the extraction used to restart its scan after every split (minutes for 1400 segments on a real board)."""
     import time
-    from hwflow.postlayout import _split_tjunctions
+    from hwflow.verify.postlayout import _split_tjunctions
     segs = [{"net": "N", "layer": "F.Cu", "w": 0.25, "x1": i * 0.4, "y1": 0.0, "x2": i * 0.4 + 30.0, "y2": 0.0}
             for i in range(150)]
     segs += [{"net": "M", "layer": "F.Cu", "w": 0.25, "x1": 5.0, "y1": 1.0, "x2": 25.0, "y2": 1.0}]
@@ -257,7 +257,7 @@ def _seg(x1, y1, x2, y2, w, layer="F.Cu", net=1):
 def _board(tmp_path, comps, fps, copper, nets=None, extra=None):
     import yaml
 
-    from hwflow.design import Design
+    from hwflow.core.design import Design
     raw = {"project": "pl", "board": {"layers": 2, "gnd_pour": False, "width_mm": 40, "height_mm": 30},
            "components": comps, **({"nets": nets} if nets else {}), **(extra or {})}
     (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
@@ -269,8 +269,7 @@ def test_track_over_a_pad_connects_it_like_kicad(tmp_path):
     """home-thermostat-3: the AC_L track J1.1 -> K1.1 (1.4 mm wide) runs over the through-hole pad F1.2 without an end
     on it. KiCad counts the overlap as connected; the extraction used to see two islands. The R network gets a node
     where the track crosses the pad, and two tracks of one net that cross in an X are joined too."""
-    from hwflow.postlayout import RHO_CU, Extraction
-    from hwflow.budgets import _leg_r
+    from hwflow.verify.postlayout import RHO_CU, Extraction
     comps = {"J1": {"pins": {"1": "AC_L"}}, "K1": {"pins": {"1": "AC_L"}}, "F1": {"pins": {"2": "AC_L"}},
              "P1": {"pins": {"1": "AC_L"}}, "P2": {"pins": {"1": "AC_L"}}}
     fps = [_fp("J1", 6.1, 10.3, _smd("1", "AC_L", 1)), _fp("K1", 13.1, 17.3, _smd("1", "AC_L", 1)),
@@ -280,7 +279,8 @@ def test_track_over_a_pad_connects_it_like_kicad(tmp_path):
     ex = Extraction(d, f)
     assert ex.islands()["AC_L"] == 3  # P1, P2 have no copper yet; J1, K1 and F1 are one island
     # R network: J1 -> F1.2 is the track up to the point closest to the pad centre, not the whole track
-    r, _, _ = _leg_r(ex, {"text": "x", "net": "AC_L", "a": [("J1", "1")], "b": [("F1", "2")]}, d)
+    from hwflow.sim.budgets import leg_r
+    r, _, _ = leg_r(ex, {"text": "x", "net": "AC_L", "a": [("J1", "1")], "b": [("F1", "2")]}, d)
     L = math.hypot(8.92 - 6.1, 13.26 - 10.3) * math.cos(math.atan2(13.26 - 10.3, 8.92 - 6.1) - math.pi / 4)
     assert r == pytest.approx(RHO_CU * L * 1e-3 / (1.4e-3 * 0.035e-3), rel=0.02)
     # the crossing track P1 -> P2 meets the first one in its middle, on no end
@@ -298,7 +298,7 @@ def test_ir_drop_uses_the_net_current(tmp_path):
     """The operating point of a sleeping board puts micro-amps on the rails, so every pad read the same voltage
     (0.00 mV on VBAT_RAW while its R4 budget measured 5.9 mV at 0.7 A). A net with current_a gets that current
     through the worst pad pair of its routed copper."""
-    from hwflow.postlayout import RHO_CU, Extraction, ir_drop
+    from hwflow.verify.postlayout import RHO_CU, Extraction, ir_drop
     comps = {"J1": {"pins": {"1": "VIN"}}, "U1": {"pins": {"1": "VIN"}}, "C1": {"pins": {"1": "VIN"}}}
     fps = [_fp("J1", 0, 0, _smd("1", "VIN", 2)), _fp("U1", 30, 0, _smd("1", "VIN", 2)),
            _fp("C1", 10, 0, _smd("1", "VIN", 2))]
@@ -314,7 +314,7 @@ def test_ir_drop_uses_the_net_current(tmp_path):
 def test_region_net_copper_outside_the_region_is_a_warning(tmp_path):
     """A region's `nets` held the pads inside (placer), not the tracks: AC_ROOM1 F.Cu reached x 21.1 with the
     mains region at x <= 20. Post-layout warns with the largest excursion."""
-    from hwflow.postlayout import Extraction, layout_checks, region_excursions
+    from hwflow.verify.postlayout import Extraction, layout_checks, region_excursions
     comps = {"J1": {"pins": {"1": "AC_L"}}, "K1": {"pins": {"1": "AC_L"}}}
     fps = [_fp("J1", 5, 5, _smd("1", "AC_L", 1)), _fp("K1", 5, 25, _smd("1", "AC_L", 1))]
     fp = {"regions": [{"name": "mains", "kind": "mains", "rect": [0, 0, 20, 30], "nets": ["AC_*"]}]}

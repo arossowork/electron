@@ -2,9 +2,9 @@
 import yaml
 from shapely.geometry import LineString
 
-from hwflow import cutcap, placer
-from hwflow.design import Design
-from hwflow.libs import Libs
+from hwflow.layout.place import cutcap, placer
+from hwflow.core.design import Design
+from hwflow.core.libs import Libs
 
 R0402 = "Resistor_SMD:R_0402_1005Metric"
 
@@ -124,7 +124,7 @@ def test_bound_quantities(tmp_path):
     comps, board = _strip(n=1)
     board["drc_rules"] = ['(rule fp (condition "A.memberOfFootprint(\'R1\')") (constraint clearance (min 0.1mm)))']
     d, libs = _load(tmp_path, comps, board, nets={"N0": {"width_mm": 0.8}})
-    from hwflow import pcb
+    from hwflow.layout.board import pcb
     assert cutcap.min_width(d) == 0.15  # a neck may be anywhere: the DRC minimum
     assert cutcap.min_clearance(d, pcb.net_classes(d)) == 0.2  # a footprint-only rule applies to pads, not tracks
     d.raw["board"]["drc_rules"] = ['(rule x (condition "A.NetClass == \'a\'") (constraint clearance (min 0.1mm)))']

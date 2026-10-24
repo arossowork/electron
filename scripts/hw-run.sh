@@ -8,7 +8,7 @@ P="$1"; MODEL="${2:-opus}"; EXTRA="${3:-}"
 DIR="projects/$P"; mkdir -p "$DIR"
 unset ANTHROPIC_API_KEY CLAUDE_EFFORT CLAUDE_CODE_EFFORT_LEVEL  # an inherited effort overrides the agents' `effort:`
 export HWFLOW_HEADLESS=1
-# Same lean context and 400k auto-compact window as evals/harness.py (designer_args, headless_env).
+# Same lean context and 400k auto-compact window as hwharness.agent (designer_args, headless_env).
 export CLAUDE_CODE_AUTO_COMPACT_WINDOW="${HWFLOW_AUTOCOMPACT_WINDOW:-400000}"
 export CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL="${CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL:-1h}"
 ARGS=(--model "$MODEL" --setting-sources project,local --strict-mcp-config
@@ -33,7 +33,7 @@ for i in $(seq 1 "${MAX_ROUNDS:-8}"); do
   fi
   echo "$OUT" >> "$LOG"
   # Subscription usage window exhausted: wait for the reset, then retry the same round.
-  WAIT=$(echo "$OUT" | uv run python -c "import json,sys; sys.path.insert(0,'evals'); import harness as h
+  WAIT=$(echo "$OUT" | uv run python -c "import json,sys; from hwharness import agent as h
 d=json.loads(sys.stdin.read() or '{}'); t=str(d.get('result',''))
 print(h._limit_wait_seconds(t) if d.get('is_error') and h.LIMIT_RE.search(t) else 0)")
   if [ "$WAIT" -gt 0 ]; then
