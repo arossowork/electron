@@ -10,6 +10,9 @@ global:
   priorityClassName: apps-high
   # Public URL of the platform as users reach it (used in e-mailed links).
   publicUrl: http://127.0.0.1:8080
+  # Origins of the web UI, for the CORS rule on the artifact bucket (HWPLATFORM_WEB_ORIGINS, set by hwplatform-migrate;
+  # direct browser uploads/downloads need it). Empty = the origin (scheme://host) of publicUrl.
+  webOrigins: []
 
 secrets:
   # Name of the Secret you create before the install. Keys:
@@ -61,6 +64,9 @@ web:
   replicas: 1
   priorityClassName: ""
   containerPort: 8080
+  # Extra connect-src origins of the web CSP (CSP_CONNECT_EXTRA): the public S3 URL when seaweedfs.publicUrl is set
+  # (browsers then talk to the bucket directly with presigned URLs). Empty = seaweedfs.publicUrl, else same-origin only.
+  cspConnectExtra: ""
   # The SPA container is expected to run as non-root and serve on containerPort; the chart gives it /tmp.
   readOnlyRootFilesystem: true
   resources:
@@ -113,8 +119,12 @@ temporal:
   goMemLimit: 400MiB
   namespace: default
   namespaceRetention: 72h
-  # Keyword search attributes registered once (ADR 0001 section 4.4).
-  searchAttributes: [HwTenantId, HwProjectId, HwRunId, HwRunKind]
+  # Postgres pool of EACH Temporal service (frontend, history, matching, worker; default and visibility stores):
+  # SQL_MAX_CONNS / SQL_MAX_IDLE_CONNS. The image default is 20, which let Temporal alone hold 45 of 60
+  # connections. Worst case here is 4 services x 2 stores x sqlMaxConns = 32 (reached only under load; idle pools
+  # shrink to sqlMaxIdleConns). The search attributes are registered by `hwplatform-migrate`, not by a Job.
+  sqlMaxConns: 4
+  sqlMaxIdleConns: 2
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: "1", memory: 512Mi}
@@ -127,6 +137,8 @@ temporal:
 seaweedfs:
   priorityClassName: ""
   bucket: hwflow-artifacts
+  # Public URL of the S3 endpoint when browsers must reach it (HWPLATFORM_S3_PUBLIC_URL). Empty = through the API.
+  publicUrl: ""
   goMemLimit: 300MiB
   persistence: {size: 20Gi, storageClassName: ""}
   resources:

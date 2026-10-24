@@ -16,7 +16,7 @@ spec:
   (dict "to" "web" "port" .Values.web.containerPort "all" true)
   (dict "to" "temporal-ui" "port" 8080 "all" true)
   (dict "to" "postgres" "port" 5432 "from" (list "api" "migrate" "purge" "backup" "temporal") "worker" true)
-  (dict "to" "temporal" "port" 7233 "from" (list "api" "temporal-setup" "temporal-ui") "worker" true)
+  (dict "to" "temporal" "port" 7233 "from" (list "api" "migrate" "temporal-ui") "worker" true)
   (dict "to" "seaweedfs" "port" 8333 "from" (list "api" "bucket" "backup" "migrate") "worker" true)
   (dict "to" "nats" "port" 4222 "from" (list "api" "migrate") "worker" true)
   (dict "to" "nats" "port" 8222 "from" (list "api" "migrate"))

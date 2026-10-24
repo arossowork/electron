@@ -11,12 +11,11 @@ Chart: `deploy/helm/hwflow-platform` (issue #17). One chart, two profiles: `valu
 | `worker` | Deployment | one process polling all queues (reduced) or one Deployment per queue (`worker.perQueue`, full); `worker.command` and `worker.queuesEnvVar` are placeholders until #9; image from #10 |
 | `postgres` | StatefulSet | PG 17, init ConfigMap creates the same roles and databases as `deploy/compose/postgres-init.sh` (`hwflow`, `hwflow_app`, `hwflow_relay`, `temporal`; databases `hwflow`, `temporal`, `temporal_visibility`) |
 | `temporal` | Deployment | single process, PG persistence and visibility. The schema step is an init container (idempotent, runs before the server) |
-| `temporal-setup` | hook Job | post-install/post-upgrade: namespace `default` (72h retention) and the Keyword search attributes `HwTenantId HwProjectId HwRunId HwRunKind` |
 | `temporal-ui` | Deployment | `temporal.ui.enabled`, off in reduced |
 | `seaweedfs` | StatefulSet | single node, S3 on 8333 |
 | `bucket` | hook Job | post-install/post-upgrade: creates `hwflow-artifacts` (and `hwflow-backups` for an in-cluster target) |
 | `nats` | StatefulSet | JetStream, file storage on a PVC |
-| `migrate` | hook Job | `hwplatform-migrate` (Alembic + JetStream stream), **post-install and pre-upgrade** |
+| `migrate` | hook Job | `hwplatform-migrate` (Alembic, JetStream stream, bucket CORS rule for `HWPLATFORM_WEB_ORIGINS`, Temporal search attributes), **post-install and pre-upgrade**, hook weight 5 (after `bucket`). An init container creates the Temporal namespace (`default`, 72h retention) first. There is no separate search-attribute Job |
 | `purge` | CronJob | `hwplatform-purge`, nightly |
 | `backup` | CronJob | `pg_dump` of the three databases and the roles, uploaded to the object store, retention in days |
 
@@ -86,7 +85,7 @@ For a cluster with Traefik, `--set ingress.enabled=true --set ingress.host=... -
 helm upgrade hwp deploy/helm/hwflow-platform -n hwflow-platform -f deploy/helm/hwflow-platform/values-reduced.yaml --set images.api.tag=<new> --wait
 ```
 
-Order: the `migrate` Job runs first (pre-upgrade), then the Deployments roll (the API uses `RollingUpdate`; Temporal and workers `Recreate`). The post-upgrade hooks re-assert the bucket, namespace and search attributes. A failed migration stops the upgrade with the old pods still serving. Database schema changes are forward-only: roll back the image with `helm rollback` only when the migration was compatible, otherwise restore a backup.
+Order: the `migrate` Job runs first (pre-upgrade), then the Deployments roll (the API uses `RollingUpdate`; Temporal and workers `Recreate`). The migrate Job re-asserts the namespace, the bucket CORS rule and the search attributes; the bucket Job re-asserts the bucket. A failed migration stops the upgrade with the old pods still serving. Database schema changes are forward-only: roll back the image with `helm rollback` only when the migration was compatible, otherwise restore a backup.
 
 ## Backup and restore
 
@@ -135,7 +134,7 @@ Web adds a request of 16 MiB and the worker 384 MiB (limit 1.5 GiB while a build
 - Own namespace (`hwflow-platform`), own Services; the existing `hwflow` UI and `singing` apps are untouched. The only shared pieces are the PriorityClasses and the host nginx (one more file in `apps.d/`).
 - Platform core and workers use `apps-high` (`global.priorityClassName`, `worker.priorityClassName`): under memory pressure the kubelet evicts pods above their requests, lowest priority first, so `apps-low` apps go first. The requests are deliberately above the idle use, so the platform is rarely the one above its request. Set `worker.priorityClassName: apps-low` to let the interactive apps win over a long build.
 - k3s ships Traefik, which this setup does not use (the host nginx does); the chart's Ingress is off by default.
-- Disk: PVCs are 8 + 10 + 1 GiB in reduced (`local-path`). The VPS has about 8 GB free, so lower `postgres.persistence.size` and `seaweedfs.persistence.size` or prune images first (the issue's disk item): `sudo k3s crictl rmi --prune`, and cap container logs in `/etc/rancher/k3s/config.yaml` (`kubelet-arg: ["container-log-max-size=10Mi", "container-log-max-files=3"]`).
+- Disk: PVCs are 2 + 2 + 0.5 GiB in reduced (`local-path`) plus 1 GiB worker scratch, 5.5 GiB in all, to fit a VPS with about 8 GB free. Raise `postgres.persistence.size` and `seaweedfs.persistence.size` when there is room, and prune images first: `sudo k3s crictl rmi --prune`, and cap container logs in `/etc/rancher/k3s/config.yaml` (`kubelet-arg: ["container-log-max-size=10Mi", "container-log-max-files=3"]`).
 
 ## Local check
 
@@ -146,3 +145,9 @@ k3d cluster create hwflow-test --servers 1 --agents 0   # then follow Install wi
 ```
 
 `.github/workflows/helm.yml` runs lint, `helm template` and kubeconform for both profiles and an install smoke test on k3d.
+
+## Settings added for the web UI and Temporal (issue #17, aligned with #39)
+
+- `global.webOrigins` (default: the origin of `global.publicUrl`) becomes `HWPLATFORM_WEB_ORIGINS` for api, worker and the migrate Job; `hwplatform-migrate` writes the bucket CORS rule from it (the SeaweedFS identity has Admin, so PutBucketCors is allowed).
+- `seaweedfs.publicUrl` (optional) becomes `HWPLATFORM_S3_PUBLIC_URL`; the web container gets `CSP_CONNECT_EXTRA` from `web.cspConnectExtra` (default `seaweedfs.publicUrl`) and `API_UPSTREAM` pointing to the api Service.
+- `temporal.sqlMaxConns` (4) and `temporal.sqlMaxIdleConns` (2) set `SQL_MAX_CONNS` / `SQL_MAX_IDLE_CONNS`, the Postgres pool of each Temporal service. Temporal holds at most 4 services x 2 stores x 4 = 32 connections, instead of 45 of 60 at the default of 20, so Temporal, api (pool 5 + relay), migrate and backup fit `max_connections=60` with headroom. The compose stack uses the same values.

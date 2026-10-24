@@ -76,9 +76,23 @@ priorityClassName: {{ $p }}
 - {name: HWPLATFORM_TEMPORAL_ADDRESS, value: "{{ $tmp }}:7233"}
 - {name: HWPLATFORM_TEMPORAL_NAMESPACE, value: {{ .root.Values.temporal.namespace | quote }}}
 - {name: HWPLATFORM_PUBLIC_URL, value: {{ .root.Values.global.publicUrl | quote }}}
+- {name: HWPLATFORM_WEB_ORIGINS, value: {{ include "hwp.webOrigins" .root | quote }}}
+{{- with .root.Values.seaweedfs.publicUrl }}
+- {name: HWPLATFORM_S3_PUBLIC_URL, value: {{ . | quote }}}
+{{- end }}
 {{- end -}}
 
 {{/* wait until TCP host:port accepts connections, using only the python in the app image */}}
 {{- define "hwp.waitTcp" -}}
 until python -c "import socket,sys; socket.create_connection((sys.argv[1], int(sys.argv[2])), 2)" {{ .host }} {{ .port }}; do echo "waiting for {{ .host }}:{{ .port }}"; sleep 2; done
+{{- end -}}
+
+{{/* Web origins for the bucket CORS rule: global.webOrigins, else the origin of global.publicUrl (no path). */}}
+{{- define "hwp.webOrigins" -}}
+{{- if .Values.global.webOrigins -}}
+{{- join "," .Values.global.webOrigins -}}
+{{- else -}}
+{{- $u := urlParse .Values.global.publicUrl -}}
+{{- printf "%s://%s" $u.scheme $u.host -}}
+{{- end -}}
 {{- end -}}

@@ -79,6 +79,8 @@ spec:
             - {name: POSTGRES_USER, value: temporal}
             - {name: DBNAME, value: temporal}
             - {name: VISIBILITY_DBNAME, value: temporal_visibility}
+            - {name: SQL_MAX_CONNS, value: {{ .Values.temporal.sqlMaxConns | quote }}}
+            - {name: SQL_MAX_IDLE_CONNS, value: {{ .Values.temporal.sqlMaxIdleConns | quote }}}
             - {name: NUM_HISTORY_SHARDS, value: {{ .Values.temporal.numHistoryShards | quote }}}
             - {name: GOMEMLIMIT, value: {{ .Values.temporal.goMemLimit | quote }}}
             - {name: BIND_ON_IP, value: 0.0.0.0}

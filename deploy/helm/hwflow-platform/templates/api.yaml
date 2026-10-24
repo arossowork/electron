@@ -87,6 +87,9 @@ spec:
         - name: web
           image: {{ include "hwp.image" .Values.images.web }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - {name: API_UPSTREAM, value: "http://{{ include "hwp.name" (dict "root" . "c" "api") }}:8080"}
+            - {name: CSP_CONNECT_EXTRA, value: {{ default .Values.seaweedfs.publicUrl .Values.web.cspConnectExtra | quote }}}
           ports: [{name: http, containerPort: {{ .Values.web.containerPort }}}]
           readinessProbe:
             tcpSocket: {port: http}

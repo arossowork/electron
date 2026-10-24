@@ -79,6 +79,10 @@ services:
       DBNAME: temporal
       VISIBILITY_DBNAME: temporal_visibility
       NUM_HISTORY_SHARDS: "4"
+      # Postgres pool of each Temporal service (default 20 let Temporal alone hold 45 of max_connections=60).
+      # Worst case 4 services x 2 stores x 4 = 32; api (pool 5) + relay + migrate fit in the rest.
+      SQL_MAX_CONNS: "4"
+      SQL_MAX_IDLE_CONNS: "2"
       GOMEMLIMIT: 400MiB
       BIND_ON_IP: 0.0.0.0
     ports: ["127.0.0.1:${TEMPORAL_PORT:-7233}:7233"]

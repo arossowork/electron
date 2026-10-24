@@ -14,7 +14,8 @@ metadata:
   annotations:
     # post-install: the database is part of this release, so it does not exist yet at pre-install.
     "helm.sh/hook": post-install,pre-upgrade
-    "helm.sh/hook-weight": "0"
+    # After the bucket Job (weight 0): hwplatform-migrate sets the bucket CORS rule, so the bucket has to exist.
+    "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 4
@@ -28,6 +29,25 @@ spec:
       {{- include "hwp.priority" (dict "root" . "v" .Values.api) | nindent 6 }}
       {{- include "hwp.pullSecrets" . | nindent 6 }}
       securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        # The Temporal namespace must exist before hwplatform-migrate registers the search attributes in it.
+        - name: temporal-namespace
+          image: {{ include "hwp.image" .Values.images.temporalAdminTools }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              A="--address {{ $tmp }}:7233"
+              NS={{ .Values.temporal.namespace | quote }}
+              until temporal operator namespace describe $A -n "$NS" >/dev/null 2>&1 \
+                 || temporal operator namespace create $A -n "$NS" --retention {{ .Values.temporal.namespaceRetention | quote }}; do
+                echo "waiting for temporal"; sleep 3; done
+          env:
+            - {name: HOME, value: /tmp}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml .Values.hookResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
       containers:
         - name: migrate
           image: {{ include "hwp.image" .Values.images.api }}
@@ -38,6 +58,8 @@ spec:
               set -e
               {{ include "hwp.waitTcp" (dict "host" $pg "port" 5432) }}
               {{ include "hwp.waitTcp" (dict "host" $nats "port" 4222) }}
+              {{ include "hwp.waitTcp" (dict "host" $s3 "port" 8333) }}
+              {{ include "hwp.waitTcp" (dict "host" $tmp "port" 7233) }}
               exec hwplatform-migrate
           env:
             {{- include "hwp.appEnv" $m | nindent 12 }}
@@ -93,58 +115,6 @@ spec:
             - {name: BACKUP_BUCKET, value: {{ .Values.backup.bucket | quote }}}
             {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_ACCESS_KEY_ID" "key" "s3-access-key") | nindent 12 }}
             {{- include "hwp.secretEnv" (dict "root" . "name" "AWS_SECRET_ACCESS_KEY" "key" "s3-secret-key") | nindent 12 }}
-          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
-          resources: {{- toYaml .Values.hookResources | nindent 12 }}
-          volumeMounts:
-            - {name: tmp, mountPath: /tmp}
-      volumes:
-        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
----
-{{- $n := dict "root" . "c" "temporal-setup" }}
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ include "hwp.name" $n }}-{{ .Release.Revision }}
-  labels: {{- include "hwp.labels" $n | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
-spec:
-  backoffLimit: 6
-  activeDeadlineSeconds: 900
-  ttlSecondsAfterFinished: 3600
-  template:
-    metadata:
-      labels: {{- include "hwp.labels" $n | nindent 8 }}
-    spec:
-      restartPolicy: OnFailure
-      {{- include "hwp.priority" (dict "root" . "v" .Values.temporal) | nindent 6 }}
-      {{- include "hwp.pullSecrets" . | nindent 6 }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
-        runAsUser: 1000
-        runAsGroup: 1000
-      containers:
-        - name: setup
-          image: {{ include "hwp.image" .Values.images.temporalAdminTools }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          command: [/bin/sh, -ec]
-          args:
-            - |
-              A="--address {{ $tmp }}:7233"
-              NS={{ .Values.temporal.namespace | quote }}
-              until temporal operator namespace describe $A -n "$NS" >/dev/null 2>&1 \
-                 || temporal operator namespace create $A -n "$NS" --retention {{ .Values.temporal.namespaceRetention | quote }}; do
-                echo "waiting for temporal"; sleep 3; done
-              # Search attributes (Keyword). `create` fails when one exists, so check the list first.
-              have=$(temporal operator search-attribute list $A -n "$NS" 2>/dev/null || true)
-              for sa in {{ join " " .Values.temporal.searchAttributes }}; do
-                echo "$have" | grep -qw "$sa" || temporal operator search-attribute create $A -n "$NS" --name "$sa" --type Keyword
-              done
-              temporal operator search-attribute list $A -n "$NS"
-          env:
-            - {name: HOME, value: /tmp}
           securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           resources: {{- toYaml .Values.hookResources | nindent 12 }}
           volumeMounts:

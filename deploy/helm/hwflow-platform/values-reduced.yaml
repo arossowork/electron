@@ -4,6 +4,12 @@
 # Requests of the components running at rest (worker not counted) add up to about 0.9 GiB; with the worker 1.3 GiB.
 # Limits are caps, not reservations: they may add up to more than the node, the kernel and kubelet arbitrate
 # (priority classes: platform core = apps-high, evicted after the apps-low apps).
+#
+# Disk budget (VPS with about 8 GB free): PVCs 2 + 2 + 0.5 = 4.5 GiB (postgres, seaweedfs, nats) plus 1 GiB worker
+# scratch (emptyDir on the node disk) = 5.5 GiB, leaving about 2.5 GB for images and logs. The earlier 8 + 10 + 1 GiB
+# did not fit. local-path does not enforce the size, so watch `df`; raise postgres/seaweedfs when the VPS has room.
+# Postgres connections: max_connections=60 is shared by Temporal (<= 32, values.yaml temporal.sqlMaxConns), api
+# (pool 5 + relay), migrate and backup, which leaves headroom for admin sessions and the backup.
 
 global:
   priorityClassName: apps-high
@@ -25,7 +31,7 @@ worker:
   # Workers run long builds: apps-high by default so they are evicted last; set apps-low to let singing win.
   priorityClassName: apps-high
   replicas: 1
-  scratchSize: 2Gi
+  scratchSize: 1Gi
   resources:
     requests: {cpu: 250m, memory: 384Mi}
     limits: {cpu: "2", memory: 1536Mi}
@@ -33,7 +39,7 @@ worker:
   keda: {enabled: false}
 
 postgres:
-  persistence: {size: 8Gi}
+  persistence: {size: 2Gi}
   resources:
     requests: {cpu: 50m, memory: 256Mi}
     limits: {cpu: "1", memory: 384Mi}
@@ -46,13 +52,13 @@ temporal:
   ui: {enabled: false}   # enable and port-forward when you need it: +32 MiB
 
 seaweedfs:
-  persistence: {size: 10Gi}
+  persistence: {size: 2Gi}
   resources:
     requests: {cpu: 30m, memory: 192Mi}
     limits: {cpu: "1", memory: 384Mi}
 
 nats:
-  persistence: {size: 1Gi}
+  persistence: {size: 512Mi}
   resources:
     requests: {cpu: 10m, memory: 32Mi}
     limits: {cpu: 200m, memory: 128Mi}
