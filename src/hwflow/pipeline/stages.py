@@ -403,11 +403,18 @@ def _post_warnings(d: Design, w: Path) -> int:
 def _auto_attempt(k: int) -> dict:
     """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/. Runs in a worker process,
     so the design it mutates (board size) is that worker's own copy."""
-    import shutil
     c = _AUTO
-    d, libs, out = c["d"], c["libs"], c["out"]
+    return run_attempt(c["d"], c["libs"], c["out"], k, size0=c["size0"], seeds=c["seeds"], iters=c["iters"],
+                       passes=c["passes"], reuse=c["reuse"], deadline=c.get("deadline"))
+
+
+def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, iters: int, passes: int,
+                reuse: bool, deadline: float | None = None) -> dict:
+    """Attempt `k` (0-based) of the layout search in build/auto/a<k+1>/: placer seeds `seed0 + k*seeds`, the saved
+    placement for attempt 1 with `reuse`. Returns {"k", "r", "line"}, or {"k", "error"} when the attempt crashed."""
+    import shutil
     b = d.raw.setdefault("board", {})
-    for key, v in zip(("width_mm", "height_mm"), c["size0"]):  # every attempt starts from the requested outline
+    for key, v in zip(("width_mm", "height_mm"), size0):  # every attempt starts from the requested outline
         if v is None:
             b.pop(key, None)
         else:
@@ -421,14 +428,13 @@ def _auto_attempt(k: int) -> dict:
         for f in ("fp-lib-table", "sym-lib-table"):
             if (out / f).exists():
                 shutil.copy(out / f, w / f)
-    seeds = c["seeds"]
     seed0 = get_settings().layout.seed0 + k * seeds  # HWFLOW_SEED0: first placer seed (A/B spread runs)
-    use_saved = c["reuse"] and k == 0 and (out / "placement.json").exists()
+    use_saved = reuse and k == 0 and (out / "placement.json").exists()
     if use_saved:
         shutil.copy(out / "placement.json", w / "placement.json")
     try:
-        r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=c["iters"], passes=c["passes"], seed0=seed0,
-                         workdir=w, deadline=c.get("deadline"))
+        r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=iters, passes=passes, seed0=seed0,
+                         workdir=w, deadline=deadline)
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
@@ -452,10 +458,18 @@ def _auto_attempt(k: int) -> dict:
     return {"k": k + 1, "r": r, "line": line}
 
 
-def _auto_final(res: dict) -> bool:
-    """An attempt after which more attempts cannot help: it is clean, or its errors are on fixed parts."""
-    r = res.get("r")
-    return bool(r and (r["ok"] or r.get("fixed_parts_only")))
+def attempt_summary(res: dict, fixed_all: bool = False) -> dict:
+    """What the planner reads of an attempt (hwflow.buildplan.layout_search)."""
+    if "error" in res:
+        return {"error": res["error"], "fixed_all": fixed_all}
+    r = res["r"]
+    return {"ok": bool(r.get("ok")), "drc_errors": r.get("drc_errors", 0), "unrouted": r.get("unrouted", 0),
+            "fixed_parts_only": bool(r.get("fixed_parts_only")), "fixed_all": fixed_all}
+
+
+def all_fixed(d: Design, libs: Libs) -> bool:
+    """No movable part: another placer seed gives the same placement."""
+    return libs is not None and all(p.fixed for p in placer.build_parts(d, libs).values())
 
 
 def _auto_pool(n: int):
@@ -468,7 +482,9 @@ def _auto_pool(n: int):
 
 def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, seeds: int = 4, iters: int = 30000,
                 passes: int = 30, workers: int | None = None) -> dict:
-    """Placement, routing (with net-order retries), area search and DRC in one call (backlog 23, 25, 40).
+    """Placement, routing (with net-order retries), area search and DRC in one call (backlog 23, 25, 40), in this
+    process: the library form of the layout search. `hwflow build` runs the same search as `layout_attempt` and
+    `layout_select` stages; hwflow.buildplan.layout_search makes the decisions for both.
 
     Attempt 1 keeps the saved placement when `reuse` is set; every later attempt places again with new placer
     seeds. The attempts run in a process pool (`workers`, default cpu count - 1, at most `attempts`), each in its own
@@ -481,6 +497,8 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     diagnosed. One progress line per attempt is printed as it ends."""
     import concurrent.futures as cf
     import shutil
+
+    from .. import buildplan
     try:
         sys.stdout.reconfigure(line_buffering=True)  # progress lines reach a pipe (`timeout ... | tee`) as they come
     except (AttributeError, ValueError):
@@ -499,35 +517,34 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     _AUTO.clear()
     _AUTO.update(d=d, libs=libs, out=out, size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=reuse,
                  deadline=deadline)
+    opts = {"auto": True, "attempts": n}
+    lay = {"budget_s": budget, "auto_max_errors": _hopeless_limit()}
     results: dict[int, dict] = {}
+    summaries: dict[int, dict] = {}
     pending: dict = {}
 
     def progress(res):
         print(f"[layout --auto] {res.get('line') or res.get('error')} ({time.time() - t0:.0f} s of {budget:.0f} s)",
               flush=True)
-    fixed_all = libs is not None and all(p.fixed for p in placer.build_parts(d, libs).values())
-    if fixed_all:
-        n = 1  # no movable part: another seed gives the same placement
+    fixed_all = all_fixed(d, libs)
     results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
+    summaries[1] = attempt_summary(results[0], fixed_all)
     progress(results[0])
-    cutoff = 0 if _auto_final(results[0]) else None
-    r0 = results[0].get("r") or {}
-    hopeless = cutoff is None and r0 and r0["drc_errors"] + r0["unrouted"] > _hopeless_limit()
-    if hopeless:
-        n = 1  # far from routable: other seeds of the same placer and router do not close the gap (thermostat 3: 121)
-    over = n > 1 and cutoff is None and time.time() >= deadline  # the budget is used up: the attempts left are skipped
-    nxt = 1
-    workers = max(1, min(workers, n - 1))
-    pool = _auto_pool(workers) if n > 1 and cutoff is None and not over else None
+    s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
+    workers = max(1, min(workers, s.n - 1))
+    pool = _auto_pool(workers) if s.wanted else None
     try:
         while pool is not None:
-            while nxt < n and len(pending) < workers and (cutoff is None or nxt <= cutoff) and time.time() < deadline:
-                pending[pool.submit(_auto_attempt, nxt)] = nxt
-                nxt += 1
-            if all(k in results for k in range(n if cutoff is None else cutoff + 1)):
-                break
-            if not pending:  # nothing running and nothing may start: the budget is used up
-                over = True
+            s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
+            if not s.wanted:
+                break  # every attempt up to the cutoff is done, or the budget is used up
+            running = set(pending.values())
+            for k in s.wanted:
+                if len(pending) >= workers:
+                    break
+                if k - 1 not in running:
+                    pending[pool.submit(_auto_attempt, k - 1)] = k - 1
+            if not pending:
                 break
             done, _ = cf.wait(pending, timeout=max(0.0, deadline - time.time()), return_when=cf.FIRST_COMPLETED)
             for f in done:
@@ -536,12 +553,8 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
                     results[k] = f.result()
                 except Exception as e:  # noqa: BLE001 - a crashed worker ends this attempt
                     results[k] = {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
+                summaries[k + 1] = attempt_summary(results[k])
                 progress(results[k])
-            finals = [k for k, res in results.items() if _auto_final(res)]
-            cutoff = min(finals) if finals else None
-            if not done and time.time() >= deadline:  # the running attempts are stopped (finally below)
-                over = True
-                break
     finally:
         left = [f for f in pending if not f.done()]  # attempts after the first final one, or past the budget
         for f in left:
@@ -551,7 +564,22 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
                 proc.terminate()
         if pool is not None:
             pool.shutdown(wait=not left, cancel_futures=True)
-    used = sorted(k for k in results if cutoff is None or k <= cutoff)
+    s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
+    return auto_select(d, libs, results, s, workers=workers, t0=t0)
+
+
+def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, t0: float) -> dict:
+    """The end of the layout search: rank the attempts the search used (`s`: a buildplan.LayoutSearch), keep the best
+    board in build/ and the used boards in build/auto/, say why the search stopped, and diagnose a failed board.
+    `results`: 0-based attempt index -> {"k", "r", "line"} or {"k", "error"}; the boards are in build/auto/a<k>/."""
+    import shutil
+    out = _out(d)
+    adir = out / "auto"
+    adir.mkdir(exist_ok=True)
+    n, budget, over, hopeless = s.n, s.budget, s.over, s.hopeless
+    cutoff = None if s.cutoff is None else s.cutoff - 1
+    r0 = (results.get(0) or {}).get("r") or {}
+    used = [k - 1 for k in s.used]
     log, best = [], None
     for k in used:
         res = results[k]
@@ -589,7 +617,7 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
         stopped = (f"stopped: attempt 1 has {r0['drc_errors'] + r0['unrouted']} errors (limit {_hopeless_limit()}); "
                    "more attempts will not fix it: a structural change is needed (more layers, fewer or smaller "
                    "parts, a larger board), which is a product decision")
-    elif fixed_all and not r["ok"]:
+    elif s.fixed_all and not r["ok"]:
         stopped = "all parts fixed: one attempt"
     if over:
         skipped = n - len(used)

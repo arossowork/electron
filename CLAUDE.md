@@ -35,6 +35,8 @@ uv run hwflow lib pads <lib:fp>        # pads of a footprint
 uv run hwflow parts <category> k=v --text "<words>"   # JLCPCB in-stock search
 uv run hwflow check <proj>             # static and library checks
 uv run hwflow build <proj> [--until sim] [--mc 50] [--reuse]
+uv run hwflow build <proj> ... --detach   # in the background; then:
+uv run hwflow run wait <proj> [run_id]    # 0 PASS, 1 FAIL/failed, 2 still running (call again)
 uv run hwflow build <proj> --retry-layout   # only when the product person overrides a blocked layout (docs/layout-diagnosis.md)
 uv run hwflow optimize <proj> [--apply]
 uv run hwflow trace <proj>             # requirement verification matrix

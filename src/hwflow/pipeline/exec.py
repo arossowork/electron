@@ -6,9 +6,11 @@ each other through it); compute the cache key from the declared inputs and retur
 the stage under the run's settings, store the declared outputs and the result JSON, write the cache, and delete the
 scratch dir (an `error` keeps a `logs` output first).
 
-`python -m hwflow.pipeline.exec in.json out.json` runs one stage in a child process (the platform worker's entry
-point): `in.json` = {"spec", "input", "cas_dir", "scratch_root", "tool_cache_dir", "rebuild"}, `out.json` = the
-StageResult as JSON.
+`python -m hwflow.pipeline.exec in.json out.json` runs one stage in a child process on LocalCAS (the CLI's parallel
+layout attempts): `in.json` = {"spec", "input", "cas_dir", "scratch_root", "tool_cache_dir", "rebuild",
+"reuse_verdicts"}, `out.json` = the StageResult as JSON, or {"error": {...}} when execute_stage raised. `run_child` is
+the same entry point with another store: the platform worker's child (hwplatform.activities.child) passes its S3 store
+and Postgres stage cache, because the engine knows neither.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import Any
 
-from ..artifacts import TREE_MEDIA_TYPE, ArtifactRef, ArtifactStore, LocalCAS, get_tree, put_tree, ref_from_dict
+from ..artifacts import TREE_MEDIA_TYPE, ArtifactRef, ArtifactStore, LocalCAS, get_tree, put_tree, ref_from_dict, ref_to_dict
 from ..core import settings as settings_mod
 from .spec import (CACHEABLE, JSON_MEDIA_TYPE, STATE_PATHS, StageCache, StageContext, StageInput, StageResult, StageSpec, cache_key,
                    canonical_json, inputs_id)
@@ -35,6 +37,10 @@ TOOL_CACHE_DIRS = ("routecache", "simcache")
 STATUS_KEY = {"layout_select": "layout"}  # upstream stage -> its key in the synthesized status.json
 
 
+class DesignInvalid(ValueError):
+    """design.yaml does not parse or does not load, before any tool runs (not retryable; ADR 4.5)."""
+
+
 def verdict_of(r: dict) -> str:
     if "exception" in r:
         return "error"
@@ -43,8 +49,9 @@ def verdict_of(r: dict) -> str:
     return "pass" if r.get("ok") else "fail"
 
 
-def output_path(spec: StageSpec, name: str, design_name: str) -> str:
-    return spec.outputs[name].format(name=design_name)
+def output_path(spec: StageSpec, name: str, design_name: str, params: dict | None = None) -> str:
+    from .spec import output_rel
+    return output_rel(spec, name, design_name, params)
 
 
 def read_json(store: ArtifactStore, ref: ArtifactRef) -> Any:
@@ -63,25 +70,31 @@ def _get(store: ArtifactStore, ref: ArtifactRef, dest: Path):
 
 
 def materialize(spec: StageSpec, inp: StageInput, store: ArtifactStore, work: Path, design_name: str,
-                tool_cache_dir: Path | None) -> Path:
+                tool_cache_dir: Path | None, loaded: dict[str, dict] | None = None) -> Path:
     """The project tree, upstream outputs, state files and the synthesized status.json under `work`. Returns the
     project dir, named like the project's own folder (the tree ref's name): a design without `project:` takes its
-    name from it."""
-    from .spec import STAGE_SPECS
+    name from it. `loaded` receives the upstream result dicts by key. Keyed upstreams (`layout_attempt.<k>`) put their
+    files where that attempt wrote them (build/auto/a<k>/ for --auto, after the stage's own `auto` param) and stay
+    out of status.json."""
+    from .spec import STAGE_SPECS, output_rel, upstream_keys
     proj = work / (inp.project.name or "project")
     get_tree(store, inp.project, proj)
     build = proj / "build"
     build.mkdir(exist_ok=True)
     status: dict[str, Any] = {}
-    for st in spec.upstream:
-        r = inp.upstream.get(st)
-        if r is None:
-            continue
+    for key in upstream_keys(spec, inp.upstream):
+        r = inp.upstream[key]
+        st, _, k = key.partition(".")
         up = STAGE_SPECS.get(st)
+        uparams = {"k": int(k), "auto": bool(inp.params.get("auto"))} if k.isdigit() else {}
         for name, ref in r.outputs.items():
-            rel = up.outputs[name].format(name=design_name) if up and name in up.outputs else name
+            rel = output_rel(up, name, design_name, uparams) if up and name in up.outputs else name
             _get(store, ref, build / rel)
         res = read_json(store, r.result)
+        if loaded is not None:
+            loaded[key] = json.loads(json.dumps(res))
+        if k:
+            continue
         res["inputs_hash"] = r.cache_key[:12]
         status[STATUS_KEY.get(st, st)] = res
     for name, ref in inp.state.items():
@@ -103,10 +116,11 @@ def materialize(spec: StageSpec, inp: StageInput, store: ArtifactStore, work: Pa
     return proj
 
 
-def collect(spec: StageSpec, store: ArtifactStore, build: Path, design_name: str) -> dict[str, ArtifactRef]:
+def collect(spec: StageSpec, store: ArtifactStore, build: Path, design_name: str,
+            params: dict | None = None) -> dict[str, ArtifactRef]:
     out = {}
     for name in spec.outputs:
-        p = build / output_path(spec, name, design_name)
+        p = build / output_path(spec, name, design_name, params)
         if p.is_dir():
             out[name] = put_tree(store, p, name=name)
         elif p.is_file():
@@ -175,9 +189,16 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
     try:
         with store.open(inp.design.sha256):  # the design ref must exist (it is the tree's design.yaml)
             pass
-        design_name = _design_name(store, inp)
-        proj = materialize(spec, inp, store, work, design_name, tool_cache_dir)
-        d = Design.load(proj / "design.yaml")
+        try:
+            design_name = _design_name(store, inp)
+        except Exception as e:  # noqa: BLE001 - design.yaml does not parse
+            raise DesignInvalid(f"design.yaml: {type(e).__name__}: {e}") from e
+        loaded: dict[str, dict] = {}
+        proj = materialize(spec, inp, store, work, design_name, tool_cache_dir, loaded)
+        try:
+            d = Design.load(proj / "design.yaml")
+        except Exception as e:  # noqa: BLE001 - not a design the engine can load
+            raise DesignInvalid(f"design.yaml: {type(e).__name__}: {e}") from e
         key = cache_key(spec, inp, tool_versions=tools, design=d)
         iid = inputs_id(spec, inp, tool_versions=tools, design=d)
         if not rebuild:
@@ -191,7 +212,7 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
         try:
             with settings_mod.use(snap):
                 libs = Libs(design=d)
-                r = spec.run(StageContext(d, libs, proj / "build", dict(inp.params), progress))
+                r = spec.run(StageContext(d, libs, proj / "build", dict(inp.params), progress, loaded))
         except Exception as e:  # noqa: BLE001 - a stage that raises gives verdict error (StageException)
             r = {"ok": False, "exception": f"{type(e).__name__}: {e}"}
             err_tb = traceback.format_exc()
@@ -204,7 +225,7 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
         build = proj / "build"
         result_ref = store.put_bytes(json.dumps(r, sort_keys=True, default=str).encode(), media_type=JSON,
                                      name=f"{spec.name}.result.json")
-        outputs = collect(spec, store, build, design_name) if verdict != "error" else {}
+        outputs = collect(spec, store, build, design_name, dict(inp.params)) if verdict != "error" else {}
         error = None
         if verdict == "error":
             logs = _logs(store, build, tee.lines + (err_tb or "").splitlines())
@@ -247,25 +268,81 @@ def _replace(r: StageResult, **kw) -> StageResult:
 
 # ------------------------------------------------------------------ child process entry point
 
-def _main(argv: list[str]) -> int:
-    from .spec import STAGE_SPECS, LocalStageCache
+def input_to_json(inp: StageInput) -> dict:
+    return {"run_id": inp.run_id, "stage": inp.stage, "design": ref_to_dict(inp.design),
+            "project": ref_to_dict(inp.project), "upstream": {k: v.to_json() for k, v in inp.upstream.items()},
+            "state": {k: (ref_to_dict(v) if v else None) for k, v in inp.state.items()},
+            "settings": dict(inp.settings), "params": dict(inp.params)}
+
+
+def input_from_json(i: dict) -> StageInput:
+    return StageInput(run_id=i["run_id"], stage=i["stage"], design=ref_from_dict(i["design"]),
+                      project=ref_from_dict(i["project"]),
+                      upstream={k: StageResult.from_json(v) for k, v in (i.get("upstream") or {}).items()},
+                      state={k: (ref_from_dict(v) if v else None) for k, v in (i.get("state") or {}).items()},
+                      settings=i.get("settings") or {}, params=i.get("params") or {})
+
+
+def write_json_atomic(dst: Path, doc: dict):
+    tmp = dst.with_name(dst.name + f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(doc, indent=1))
+    os.replace(tmp, dst)
+
+
+def watch_parent(interval: float = 2.0):
+    """In a stage child with its own process group: kill the group (the tools it started too) when the parent that
+    started it is gone, so a killed CLI or worker leaves no orphaned router or simulator behind."""
+    import signal
+    import threading
+    parent = os.getppid()
+
+    def loop():
+        while True:
+            time.sleep(interval)
+            if os.getppid() != parent:
+                try:
+                    os.killpg(os.getpgrp(), signal.SIGKILL)
+                finally:
+                    os._exit(137)
+    threading.Thread(target=loop, name="watch-parent", daemon=True).start()
+
+
+def run_child(argv: list[str], make_store: Callable[[dict], tuple[ArtifactStore, Any]]) -> int:
+    """`<entry> in.json out.json`: one stage from the JSON input to the JSON StageResult, or {"error": {type,
+    message}} with exit code 3 when execute_stage itself raised (DesignInvalid, a store error). `make_store(job)`
+    gives the artifact store and the stage cache (LocalCAS here; the platform's child passes S3 and Postgres)."""
+    from .spec import STAGE_SPECS
     src, dst = Path(argv[0]), Path(argv[1])
     j = json.loads(src.read_text())
-    spec = STAGE_SPECS[j["spec"]]
-    i = j["input"]
-    inp = StageInput(run_id=i["run_id"], stage=i["stage"], design=ref_from_dict(i["design"]),
-                     project=ref_from_dict(i["project"]),
-                     upstream={k: StageResult.from_json(v) for k, v in (i.get("upstream") or {}).items()},
-                     state={k: (ref_from_dict(v) if v else None) for k, v in (i.get("state") or {}).items()},
-                     settings=i.get("settings") or {}, params=i.get("params") or {})
-    cas = LocalCAS(j.get("cas_dir") or settings_mod.get_settings().paths.cas_dir)
-    res = execute_stage(spec, inp, cas, LocalStageCache(cas.root), Path(j["scratch_root"]),
-                        tool_cache_dir=Path(j["tool_cache_dir"]) if j.get("tool_cache_dir") else None,
-                        rebuild=bool(j.get("rebuild")))
-    tmp = dst.with_name(dst.name + f".{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(res.to_json(), indent=1))
-    os.replace(tmp, dst)
+    if j.get("watch_parent", True):
+        watch_parent()
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):
+        pass
+    try:
+        spec = STAGE_SPECS[j["spec"]]
+        store, cache = make_store(j)
+        res = execute_stage(spec, input_from_json(j["input"]), store, cache, Path(j["scratch_root"]),
+                            tool_cache_dir=Path(j["tool_cache_dir"]) if j.get("tool_cache_dir") else None,
+                            rebuild=bool(j.get("rebuild")),
+                            reuse_verdicts=tuple(j.get("reuse_verdicts") or CACHEABLE))
+    except Exception as e:  # noqa: BLE001 - reported to the parent, which classifies it
+        write_json_atomic(dst, {"error": {"type": type(e).__name__, "message": str(e)[:2000],
+                                          "traceback": traceback.format_exc()[-4000:]}})
+        return 3
+    write_json_atomic(dst, res.to_json())
     return 0
+
+
+def _local_store(j: dict):
+    from .spec import LocalStageCache
+    cas = LocalCAS(j.get("cas_dir") or settings_mod.get_settings().paths.cas_dir)
+    return cas, LocalStageCache(cas.root)
+
+
+def _main(argv: list[str]) -> int:
+    return run_child(argv, _local_store)
 
 
 if __name__ == "__main__":

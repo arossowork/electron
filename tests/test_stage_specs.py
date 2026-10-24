@@ -37,15 +37,20 @@ HAVE_NGSPICE = shutil.which(settings_mod.get_settings().tools.ngspice) is not No
 HAVE_ROUTER = (krt.krt_dir() / "py_router" / "route.py").exists() or Path(krt.freerouting_jar()).exists()
 
 
+SPECS = ["check", "sch", "sim", "layout_attempt", "layout_select", "post", "fab"]
+
+
 def test_registry_covers_the_stages():
-    assert list(STAGE_SPECS) == STAGES
+    """The user stages, with layout as its two steps (ADR 2.3: layout_attempt, layout_select)."""
+    assert list(STAGE_SPECS) == SPECS
+    assert [s if s != "layout" else "layout_attempt" for s in STAGES] == [s for s in SPECS if s != "layout_select"]
     for s in STAGE_SPECS.values():
-        assert set(s.state_out) <= set(s.state_in) | {"monte_carlo"}
+        assert set(s.state_out) <= set(s.state_in) | {"monte_carlo", "placement"}
         assert set(s.unkeyed_state) <= set(s.state_in)
-        assert set(s.upstream) <= set(STAGES[:STAGES.index(s.name)])
+        assert set(s.upstream) <= set(SPECS[:SPECS.index(s.name)])
 
 
-@pytest.mark.parametrize("stage", STAGES)
+@pytest.mark.parametrize("stage", SPECS)
 def test_code_modules_cover_the_stage_imports(stage):
     """grimp: the hwflow modules the stage function reaches (module-level and lazy imports) are all hashed."""
     spec = STAGE_SPECS[stage]
@@ -71,7 +76,7 @@ def _copy_src(tmp_path, monkeypatch) -> Path:
 def test_editing_fw_keeps_the_layout_key_editing_layout_changes_it(tmp_path, monkeypatch):
     """#6 done-when: an edit to a firmware module no longer invalidates layout; an edit to a layout module does."""
     src = _copy_src(tmp_path, monkeypatch)
-    lay = STAGE_SPECS["layout"]
+    lay = STAGE_SPECS["layout_attempt"]
     h0 = specmod.code_hash(lay.code_modules)
     with open(src / "fw" / "__init__.py", "a") as fh:
         fh.write("\n# edited\n")
@@ -224,9 +229,12 @@ class Guard:
 
 def _upstream_paths(spec, inp, build: Path, name: str) -> set[str]:
     out = set()
-    for st, r in inp.upstream.items():
-        for k in r.outputs:
-            rel = STAGE_SPECS[st].outputs.get(k, k).format(name=name)
+    for key, r in inp.upstream.items():
+        st, _, k = key.partition(".")
+        up = STAGE_SPECS[st]
+        uparams = {"k": int(k), "auto": bool(inp.params.get("auto"))} if k else {}
+        for o in r.outputs:
+            rel = specmod.output_rel(up, o, name, uparams) if o in up.outputs else o
             out.add(os.path.abspath(build / rel))
     for s in inp.state:
         if s in specmod.STATE_PATHS:
@@ -289,7 +297,8 @@ def _guard_stages(guard_env, monkeypatch, stages: list[str], params: dict | None
     results, report = {}, {}
     orig = settings_mod.Settings.from_snapshot.__func__
     for st in stages:
-        spec = STAGE_SPECS[st] if wrap is None else wrap(STAGE_SPECS[st])
+        stage, _, k = st.partition(".")
+        spec = STAGE_SPECS[stage] if wrap is None else wrap(STAGE_SPECS[stage])
         probe = Probe()
         monkeypatch.setattr(settings_mod.Settings, "from_snapshot",
                             classmethod(lambda cls, s: RecordingSettings(orig(cls, s), probe.settings)))
@@ -300,9 +309,10 @@ def _guard_stages(guard_env, monkeypatch, stages: list[str], params: dict | None
             with _probe:
                 return _spec.run(ctx)
         p = {"mc": 0, "reuse": False, "auto": False, "attempts": 1, "layout_search": False, "seeds": 4,
-             "iters": 30000, "passes": 30, "retry_layout": False, **(params or {})}
-        inp = StageInput(run_id=f"guard-{st}", stage=st, design=design_ref, project=project_ref,
-                         upstream={u: results[u] for u in spec.upstream if u in results},
+             "iters": 30000, "passes": 30, "retry_layout": False, "k": int(k or 1), "used": [1], "n": 1,
+             "cutoff": None, "hopeless": False, "fixed_all": False, "over": False, "budget": 0.0, **(params or {})}
+        inp = StageInput(run_id=f"guard-{st}", stage=stage, design=design_ref, project=project_ref,
+                         upstream={u: results[u] for u in specmod.upstream_keys(spec, results)},
                          state={s: None for s in spec.state_in}, settings=snap,
                          params={k: p[k] for k in spec.params})
         scratch = proj.parent / "scratch"
@@ -364,7 +374,8 @@ def test_declared_inputs_cover_what_check_sch_sim_read(guard_env, monkeypatch, c
 @pytest.mark.slow
 @pytest.mark.skipif(not (HAVE_KICAD and HAVE_NGSPICE and HAVE_ROUTER), reason="needs KiCad, ngspice and a router")
 def test_declared_inputs_cover_what_layout_post_fab_read(guard_env, monkeypatch, capsys):
-    rep = _guard_stages(guard_env, monkeypatch, ["check", "sch", "sim", "layout", "post", "fab"])
+    rep = _guard_stages(guard_env, monkeypatch, ["check", "sch", "sim", "layout_attempt.1", "layout_select", "post",
+                                                  "fab"])
     with capsys.disabled():
         print("\nguard:", rep)
 

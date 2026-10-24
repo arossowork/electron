@@ -8,8 +8,9 @@ changes always gives a new key. `tests/test_stage_specs.py` checks the declarati
 function (grimp) and against what a real stage run reads (an audit hook on file opens, stats and subprocesses, and a
 recording settings object).
 
-Until #9 splits it into `layout_attempt` and `layout_select`, `layout` is one stage (today's layout stage with
-`--auto`); its outputs are the ones ADR 2.3 gives `layout_select`.
+The user stage `layout` is two stage specs (ADR 2.3, #9): `layout_attempt` (one candidate board, key
+`layout_attempt.<k>`) and `layout_select` (ranks the finished attempts; its outputs are today's layout outputs and its
+result is status.json's `layout`). hwflow.buildplan decides which attempts run.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import json
 import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from dataclasses import replace as dataclasses_replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -42,12 +44,13 @@ def canonical_json(x: Any) -> str:
 @dataclass(frozen=True)
 class StageContext:
     """What `StageSpec.run` gets: the design loaded from the stage's scratch copy of the project, its libraries, the
-    scratch build dir, the declared params and a progress callback."""
+    scratch build dir, the params (keyed and hints), a progress callback and the upstream result dicts by key."""
     design: Any
     libs: Any
     workdir: Path
     params: Mapping[str, Any]
     progress: Callable[[str], None] = print
+    upstream: Mapping[str, dict] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -147,21 +150,23 @@ def _run_sim(c: StageContext) -> dict:
     return stage_sim(c.design, int(c.params.get("mc") or 0))
 
 
-def _run_layout(c: StageContext) -> dict:
-    """Today's layout stage: `--auto` search or one attempt, the diagnosis of a failed layout, and the history entry.
-    The `blocked` pre-check runs in the runner, on the project's own history, before the stage is scheduled."""
-    from .stages import _record_layout, layout_auto, layout_diagnosis, stage_layout
-    p, d, libs = c.params, c.design, c.libs
-    kw = {"seeds": p["seeds"], "iters": p["iters"], "passes": p["passes"]} if p.get("layout_search") else {}
-    if p.get("auto"):
-        r = layout_auto(d, libs, reuse=p.get("reuse", False), attempts=p.get("attempts", 4), workers=p.get("workers"),
-                        **kw)
-    else:
-        r = stage_layout(d, libs, reuse=p.get("reuse", False), **kw)
-        if not r["ok"]:
-            r["diagnosis"] = layout_diagnosis(d, libs, [r])
-    _record_layout(d, r, bool(p.get("retry_layout")))
-    return r
+def _run_attempt(c: StageContext) -> dict:
+    """One layout attempt (hwflow.pipeline.layout.attempt). The `blocked` pre-check runs in the driver, on the
+    project's own history, before the layout is scheduled."""
+    from .layout import attempt
+    return attempt(c.design, c.libs, c.params)
+
+
+def _run_select(c: StageContext) -> dict:
+    """Rank the finished attempts (upstream `layout_attempt.<k>`), keep the best board, diagnose and record it."""
+    from .layout import select
+    att = {int(k.rsplit(".", 1)[1]): r for k, r in c.upstream.items() if k.startswith("layout_attempt.")}
+    return select(c.design, c.libs, att, c.params)
+
+
+def _summarize_attempt(r: dict) -> dict:
+    from .layout import summarize_attempt
+    return summarize_attempt(r)
 
 
 def _run_post(c: StageContext) -> dict:
@@ -178,20 +183,49 @@ def _run_fab(c: StageContext) -> dict:
 # Packages count whole (every .py and .lib file); hwflow.models is the SPICE model data. hwflow.fw is in no list.
 _BASE = ("hwflow.pipeline.spec", "hwflow.pipeline.stages", "hwflow.pipeline.status", "hwflow.pipeline.hooks",
          "hwflow.core")
+_LAYOUT = _BASE + ("hwflow.pipeline.layout", "hwflow.buildplan", "hwflow.sim", "hwflow.layout", "hwflow.verify",
+                   "hwflow.schematic",
+                   "hwflow.models")
 CODE = {
     "check": _BASE + ("hwflow.sim", "hwflow.layout", "hwflow.verify", "hwflow.models"),
     "sch": _BASE + ("hwflow.layout", "hwflow.schematic"),
     "sim": _BASE + ("hwflow.sim", "hwflow.models"),
-    "layout": _BASE + ("hwflow.sim", "hwflow.layout", "hwflow.verify", "hwflow.models"),
+    "layout_attempt": _LAYOUT,
+    "layout_select": _LAYOUT,
     "post": _BASE + ("hwflow.sim", "hwflow.layout", "hwflow.verify", "hwflow.models"),
     "fab": _BASE + ("hwflow.layout",),
 }
+# An attempt's files: in build/ for a plain layout, in build/auto/a<k>/ for --auto ({dir}, see output_rel).
+ATTEMPT_OUTPUTS = {"board": "{dir}{name}.kicad_pcb", "drc": "{dir}{name}.drc.json", "placement": "{dir}placement.json",
+                   "dru": "{dir}{name}.kicad_dru", "project": "{dir}{name}.kicad_pro", "krt_log": "{dir}krt.log",
+                   "metrics": "auto/attempt{k}.metrics.json"}
+LAYOUT_OUTPUTS = {"board": "{name}.kicad_pcb", "drc": "{name}.drc.json", "placement": "placement.json",
+                  "dru": "{name}.kicad_dru", "project": "{name}.kicad_pro", "krt_log": "krt.log", "auto": "auto"}
+
+
+def output_rel(spec: StageSpec, name: str, design_name: str, params: Mapping[str, Any] | None = None) -> str:
+    """Build-relative path of output `name`; `params` of the stage run (an attempt's k and auto place its files)."""
+    p = params or {}
+    k = int(p.get("k") or 1)
+    from .layout import attempt_dir
+    return spec.outputs[name].format(name=design_name, k=k, dir=attempt_dir(k, bool(p.get("auto"))))
+
+
+def upstream_keys(spec: StageSpec, upstream: Mapping[str, Any]) -> list[str]:
+    """The keys of `upstream` that a declared upstream stage stands for: the stage itself, or every `<stage>.<k>`
+    (layout_select reads every finished layout_attempt.<k>), in key order."""
+    out = []
+    for st in spec.upstream:
+        if st in upstream:
+            out.append(st)
+        else:
+            out += sorted((k for k in upstream if k.startswith(st + ".")), key=lambda k: (len(k), k))
+    return out
 
 
 def _specs() -> dict[str, StageSpec]:
-    lay_out = {"board": "{name}.kicad_pcb", "drc": "{name}.drc.json", "placement": "placement.json",
-               "dru": "{name}.kicad_dru", "project": "{name}.kicad_pro", "krt_log": "krt.log", "auto": "auto"}
     common = dict(version=1, design_sections=("*",), requirements=True, shared_files=_shared)
+    from ..buildplan import ATTEMPT_PARAMS, SELECT_PARAMS
     return {s.name: s for s in [
         StageSpec(name="check", queue="hwflow-engine", project_files=_check_inputs, upstream=(), state_in=(),
                   settings_groups=("layout", "repair", "router"), params=(), code_modules=CODE["check"],
@@ -206,18 +240,24 @@ def _specs() -> dict[str, StageSpec]:
                   state_in=("monte_carlo",), state_out=("monte_carlo",), settings_groups=(), params=("mc",),
                   code_modules=CODE["sim"], tools=("ngspice", "kicad-libs"), outputs={"sim": "sim"}, run=_run_sim,
                   summarize=_summary(("passed", "total", "mc_runs")), **common),
-        StageSpec(name="layout", queue="hwflow-layout", project_files=_rel_inputs, upstream=("sch", "sim"),
-                  state_in=("placement", "layout_history"), state_out=("placement", "layout_history"),
-                  unkeyed_state=("layout_history",), cache_verdicts=("pass",),
-                  settings_groups=("layout", "repair", "router"),
-                  params=("reuse", "auto", "attempts", "layout_search", "seeds", "iters", "passes", "retry_layout"),
-                  code_modules=CODE["layout"], tools=("krt", "freerouting", "kicad-cli", "kicad-libs"), outputs=lay_out,
-                  run=_run_layout, summarize=_summary(("drc_errors", "unrouted", "vias", "segments", "board_mm")),
+        StageSpec(name="layout_attempt", queue="hwflow-layout", project_files=_rel_inputs, upstream=("sch", "sim"),
+                  state_in=("placement",), cache_verdicts=("pass",), settings_groups=("layout", "repair", "router"),
+                  params=ATTEMPT_PARAMS, code_modules=CODE["layout_attempt"],
+                  tools=("krt", "freerouting", "kicad-cli", "kicad-libs"), outputs=ATTEMPT_OUTPUTS, run=_run_attempt,
+                  summarize=_summarize_attempt, **common),
+        # upstream order matters: the attempts' files (their own .kicad_pro, .kicad_dru) land over sch's
+        StageSpec(name="layout_select", queue="hwflow-layout", project_files=_rel_inputs,
+                  upstream=("sch", "sim", "layout_attempt"), state_in=("layout_history",),
+                  state_out=("placement", "layout_history"), unkeyed_state=("layout_history",),
+                  cache_verdicts=("pass",), settings_groups=("layout", "repair", "router"), params=SELECT_PARAMS,
+                  code_modules=CODE["layout_select"], tools=("kicad-cli", "kicad-libs"), outputs=LAYOUT_OUTPUTS,
+                  run=_run_select, summarize=_summary(("drc_errors", "unrouted", "vias", "segments", "board_mm")),
                   **common),
-        StageSpec(name="post", queue="hwflow-sim", project_files=_rel_inputs, upstream=("layout", "sim"), state_in=(),
-                  settings_groups=(), params=(), code_modules=CODE["post"], tools=("ngspice", "kicad-libs"),
-                  outputs={"post": "post"}, run=_run_post, summarize=_summary(()), **common),
-        StageSpec(name="fab", queue="hwflow-verify", project_files=_rel_inputs, upstream=("layout", "sch"),
+        StageSpec(name="post", queue="hwflow-sim", project_files=_rel_inputs, upstream=("layout_select", "sim"),
+                  state_in=(), settings_groups=(), params=(), code_modules=CODE["post"],
+                  tools=("ngspice", "kicad-libs"), outputs={"post": "post"}, run=_run_post, summarize=_summary(()),
+                  **common),
+        StageSpec(name="fab", queue="hwflow-verify", project_files=_rel_inputs, upstream=("layout_select", "sch"),
                   state_in=(), settings_groups=(), params=(), code_modules=CODE["fab"], tools=("kicad-cli",),
                   outputs={"fab": "fab"}, run=_run_fab, summarize=_summary(("steps",)), **common),
     ]}
@@ -390,9 +430,10 @@ def key_doc(spec: StageSpec, inp: StageInput, *, tool_versions: Mapping[str, str
         files[shared_key(p)] = _hash_entry(p.parent, p.name + "/") if p.is_dir() else file_sha(p)
     up = {}
     for st in spec.upstream:
-        r = inp.upstream.get(st)
-        up[st] = None if r is None else {**{k: v.sha256 for k, v in sorted(r.outputs.items())},
-                                         "result": r.result.sha256}
+        for key in upstream_keys(dataclasses_replace(spec, upstream=(st,)), inp.upstream) or [st]:
+            r = inp.upstream.get(key)
+            up[key] = None if r is None else {**{k: v.sha256 for k, v in sorted(r.outputs.items())},
+                                              "result": r.result.sha256}
     snap = inp.settings or {}
     return {
         "schema": KEY_SCHEMA, "stage": spec.name, "version": spec.version,

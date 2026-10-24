@@ -169,6 +169,16 @@ def main(argv=None):
     p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--retry-layout", action="store_true", help=retry)
     p.add_argument("--brief", action="store_true", help=brief)
+    p.add_argument("--inline", action="store_true", help="run the stages in this process (the default)")
+    p.add_argument("--remote", action="store_true",
+                   help="run on the hosted platform (the `remote` executor plug-in, or HWFLOW_EXECUTOR=remote)")
+    p.add_argument("--detach", action="store_true",
+                   help="start the build in the background and print its run id; wait with `hwflow run wait`")
+    p = sub.add_parser("run", help="status of a build run, or wait for it to finish (replaces watching a PID)")
+    p.add_argument("what", choices=["status", "wait"]); p.add_argument("project")
+    p.add_argument("run_id", nargs="?", help="default: the newest run of the project")
+    p.add_argument("--timeout", type=float, default=580, help="wait: give up after this many seconds (exit 2)")
+    p.add_argument("--remote", action="store_true", help="a run on the hosted platform")
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
@@ -210,6 +220,15 @@ def main(argv=None):
         return cmd_block(a)
     if a.cmd == "parts":
         return cmd_parts(a)
+    if a.cmd == "run":
+        from .commands.run import cmd_run
+        return cmd_run(a)
+    if a.cmd == "build":
+        from .commands import run as runcmd
+        if not a.inline and runcmd.wants_remote(a):  # the platform executor (ADR 4.9): never imported by the engine
+            return runcmd.remote_build(a, runcmd.remote_options(build_options(a)))
+        if a.detach:
+            return runcmd.detach(a.project, list(sys.argv[1:] if argv is None else argv))
 
     d = _load(a.project)
     if a.cmd == "netlist":
