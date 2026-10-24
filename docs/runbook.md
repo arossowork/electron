@@ -111,3 +111,22 @@ VictoriaMetrics (single node, 7 days, 1 GiB PVC) scrapes the API and every worke
 ## Tracing (off)
 
 `HWPLATFORM_OTEL_ENABLED=true` adds the Temporal SDK's `TracingInterceptor` to the worker and puts `trace_id`/`span_id` in the log lines whenever a span is active. It needs `opentelemetry-sdk` and an exporter configured in the image; no collector is deployed in M1, so leave it off.
+
+## On the VPS
+
+The VPS release is `hwp` in namespace **`hwflow`** (next to the operator's Secret, `docs/platform-k8s.md` "Deploy on
+the VPS"), so replace `-n hwflow-platform` with `-n hwflow` in the commands above. `kubectl` there is `k3s kubectl`.
+
+| Symptom | What it means | What to do |
+|---|---|---|
+| Every app, not only the platform, answers 403 with `ERR_NGROK_725` | The tunnel account in front of the host nginx reached its monthly bandwidth limit | Nothing in the cluster is wrong (`curl 127.0.0.1/platform/healthz` on the VPS answers 200). Use `ssh -L 18080:127.0.0.1:80 <vps>` until the limit resets, or change the tunnel plan |
+| `singing` (or another apps-low pod) restarted with `Preempted` in its events | A platform pod could not be placed within the node's memory **requests** and preempted a lower-priority pod | `kubectl describe node` "Allocated resources": keep memory requests below about 90%. Lower the platform requests in `values-vps.yaml`, and scale `hwp-worker`/`hwp-agent` to 0 before an upgrade that adds pods |
+| `helm install --wait` times out on a new release, worker and agent `0/1`, logs "Namespace default is not found" | The Temporal namespace is made by the post-install hook, which waits for the pods | Uninstall the failed release (PVCs stay) and install without `--wait` |
+| Disk above 85% (`df -h /`) | The kubelet's image GC removes unused images down to 80%; eviction starts at 5% free | `k3s crictl images`; the images of running pods are kept. Imported images that no pod uses yet can be collected: install right after importing |
+
+Restore test without touching the live database (done once on the VPS, 2026-10-24): run the backup now
+(`kubectl -n hwflow create job --from=cronjob/hwp-backup backup-now`), fetch the newest `hwflow.dump` with a pod
+labelled `app.kubernetes.io/component: backup` (the NetworkPolicy admits it to SeaweedFS), `CREATE DATABASE
+hwflow_restored OWNER hwflow`, `pg_restore` into it as `postgres`, compare `alembic_version` and the row counts of
+`tenants`, `users`, `projects`, `design_versions`, `runs`, `outbox` with the live database, compare
+`aws s3 ls --recursive` of `hwflow-artifacts` with `hwflow-backups/artifacts/`, then drop the scratch database.

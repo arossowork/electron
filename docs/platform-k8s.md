@@ -91,7 +91,7 @@ Order: the `migrate` Job runs first (pre-upgrade), then the Deployments roll (th
 
 `backup.schedule` (default 02:37 UTC): an init container dumps `hwflow`, `temporal`, `temporal_visibility` (custom format) and the roles (`globals.sql`) as the Postgres superuser (the tables use FORCE ROW LEVEL SECURITY, so even the owner role cannot dump them); a second container uploads to `s3://<backup.bucket>/postgres/<UTC timestamp>/` and deletes timestamps older than `backup.retentionDays`.
 
-By default the target is the in-cluster SeaweedFS: it protects from mistakes and bad migrations, not from losing the disk. For disaster recovery set `backup.target.endpoint` (any S3) and `backup.target.secretName` (keys `access-key`, `secret-key`). The artifact bucket itself is **not** copied by the chart: SeaweedFS volumes live on a PVC, so copy the PVC directory (`/var/lib/rancher/k3s/storage/...`) or `aws s3 sync` the bucket to the same external target (open item for #17 on the VPS).
+By default the target is the in-cluster SeaweedFS: it protects from mistakes and bad migrations, not from losing the disk. For disaster recovery set `backup.target.endpoint` (any S3) and `backup.target.secretName` (keys `access-key`, `secret-key`). With the in-cluster target the same container also mirrors the artifact bucket to `s3://<backup.bucket>/artifacts/` (`aws s3 sync`, server-side, no `--delete`: an artifact removed by mistake stays in the copy). With an external target the artifact bucket is **not** copied (it needs a second credential): copy the SeaweedFS PVC directory (`/var/lib/rancher/k3s/storage/...`) or `aws s3 sync` the bucket there yourself.
 
 Run one now: `kubectl -n hwflow-platform create job --from=cronjob/hwp-backup backup-now`.
 
@@ -172,6 +172,56 @@ Always on, no extra pods: the API, the relay and the worker log one JSON object 
 Optional, `--set observability.enabled=true` (off in both profiles): a VictoriaMetrics single-node StatefulSet (`<release>-victoriametrics`, 1 GiB PVC, 7 days) that scrapes the API and every worker pod through two headless Services, and a Grafana Deployment with the data source and the dashboard `hwflow platform` (`dashboards/hwflow-platform.json`) provisioned from ConfigMaps. Grafana has no Ingress: `kubectl -n hwflow-platform port-forward svc/hwp-grafana 3000:3000`. `observability.grafana.enabled=false` keeps only the store (query it with `port-forward svc/hwp-victoriametrics 8428`); `observability.temporalSdkMetrics=true` also exposes the Temporal SDK metrics of the worker on port 9464 and scrapes them. NetworkPolicies are added for the scrape (VictoriaMetrics to the worker ports) and the queries (Grafana to VictoriaMetrics). The Grafana admin password is the optional Secret key `grafana-admin-password`.
 
 Measured on k3d (k3s v1.31, reduced profile without web and worker, observability on, two idle minutes after the first scrapes, `kubectl top`): VictoriaMetrics 26 MiB, Grafana 103 MiB, so 129 MiB together (requests 64 + 96 = 160 MiB, limits 160 + 256 MiB). The rest of the stack in the same run: api 99, postgres 71, temporal 82, seaweedfs 32, nats 9 MiB. Do not enable it on the shared VPS unless there are 200 MiB to spare; the logs and `/metrics` need none of it.
+
+## Deploy on the VPS (done for #17)
+
+What runs there and how it was installed. No host names, addresses or secrets here; the VPS keeps them in
+`/root/hwflow-platform/values-local.yaml` (mode 600: `global.publicUrl`, `agent.subscriptionTenantIds`).
+
+- **Namespace `hwflow`**, release `hwp`. The operator's Claude subscription token is the Secret `hwflow-claude`
+  (key `token`) in that namespace, and a pod can only mount a Secret of its own namespace; installing next to it
+  means the token is never read or copied (the copy in the `values-reduced.yaml` comment is not needed). The chart's
+  NetworkPolicies select only the release's pods, so the old `hwflow` UI Deployment in the same namespace is not
+  affected. `deploy/helm/nginx-platform.conf` names `hwflow-platform`: install it with
+  `sed 's/\.hwflow-platform\.svc/.hwflow.svc/' deploy/helm/nginx-platform.conf > /etc/nginx/apps.d/hwplatform.conf`.
+- **Values:** `values-reduced.yaml`, then `values-vps.yaml` (image tags, worker probes, operator credential, lower
+  memory requests), then the VPS-only file.
+- **Images:** there is no registry; build locally and import, as `docker/k8s/deploy.sh` does:
+  `docker save hwplatform-<c>:<tag> | zstd -T0 -3 | ssh <vps> 'zstd -dq | k3s ctr -n k8s.io images import -'`.
+  The web image is built with `--build-arg WEB_BASE=/platform/` (the SPA is served under that prefix). Measured on the
+  node (unpacked snapshot + compressed content): worker about 3.1 GB, agent 0.7 GB, api 0.4 GB, web 20 MB; Temporal,
+  Postgres, SeaweedFS, NATS and aws-cli are pulled from their registries.
+- **Helm** is not installed on the VPS by k3s; a static binary lives in `/root/hwflow-platform/bin/helm`
+  (`KUBECONFIG=/etc/rancher/k3s/k3s.yaml`), the chart is copied to `/root/hwflow-platform/chart`.
+- **Secrets:** `hwflow-platform-secrets` was created on the VPS with the commands of `gen-secrets.sh` (namespace
+  `hwflow`), run there so no value left the machine. **Back up the `master-key` outside the cluster.** The operator
+  login (e-mail and a generated password) is in the Secret `hwflow-operator-login`.
+- **First install without `--wait`.** The Temporal namespace is created by the post-install `migrate` hook, and
+  helm runs post-install hooks only after every resource is ready, while the worker and agent probes stay unready
+  until that namespace exists: `helm install --wait` times out and leaves a failed release whose hooks never ran
+  (uninstall it; the PVCs stay). Without `--wait` the hooks run at once and wait for their own dependencies.
+  Upgrades use `--wait` (migrate is pre-upgrade there).
+- **Memory requests, not use, are the limit.** The node has about 3.7 GiB allocatable, and the old `hwflow` UI alone
+  requests 1.5 GiB (it uses about 40 MiB). With the reduced requests the node reached 99% of allocatable, and the
+  scheduler preempted the apps-low `singing` pod once to place an apps-high platform pod. `values-vps.yaml` sets the
+  platform requests near the measured idle use (api 128, postgres 160, temporal 128, seaweedfs 128, agent 192,
+  worker 256 MiB; limits unchanged), which leaves about 0.6 GiB of requests for the hook Jobs, the backup and an API
+  surge pod (84% allocated). Before an upgrade that changes requests, scale `hwp-worker` and `hwp-agent` to 0 so no
+  hook pod has to preempt anything; helm scales them back.
+- **Disk:** about 8 GB were free. Importing the worker image took usage to 89%, over the kubelet's image GC
+  threshold (85%), and the kubelet removed unused images on its own (old untagged versions of another app, about
+  7.75 GB that no running pod used); 11 GB were free afterwards. The old all-in-one `hwflow` image (2.9 GB) is still
+  used by the `hwflow` UI Deployment and was kept. Kubelet settings on the node: eviction at 5% free, image GC
+  85%/80%, container logs already capped at 10 MiB x 5.
+- **Access:** the host nginx serves `/platform/` (SPA) and `/platform/api/` (API, SSE); public HTTPS comes from the
+  tunnel in front of it. For an operator shell without the tunnel: `ssh -L 18080:127.0.0.1:80 <vps>` and open
+  `http://127.0.0.1:18080/platform/`.
+
+Measured on the VPS (k3s v1.34, 2 vCPU, 3.7 GiB, shared with the other apps), `kubectl top`, working set after the
+end-to-end build: api 117, worker 411 (after the build; 69 idle), agent 100, seaweedfs 135, temporal 98, postgres 64,
+nats 7, web 3 MiB, about 0.95 GiB for the release; node 1.9 GiB used, about 1.8 GiB available.
+`examples/sensor_preamp` through the API: 315 s to PASS (layout 250 s), 20 SSE events, 16 artifacts. The worker image
+is the one of #59 (JRE 25).
 
 ## Coexisting with the other apps on the VPS
 
