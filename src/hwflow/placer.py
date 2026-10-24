@@ -832,7 +832,7 @@ class Placer:
     def _in_region(b, g) -> float:
         return _overlap(b, g["rect"]) if g["rect"] else _poly_overlap(b, g["poly"])
 
-    def _region_cost(self, p, g) -> tuple[float, float, float]:
+    def _region_cost(self, p, g, board_rect=None) -> tuple[float, float, float]:
         """(courtyard area of a member outside its region, courtyard area of another part inside an exclusive region on
         its sides, REGION_PAD_W x pad area of the region's nets outside it). Courtyards without the placer margin."""
         m = COURTYARD_MARGIN
@@ -841,6 +841,13 @@ class Placer:
             for b in (p.side_box("front"), p.side_box("back")):
                 if b:
                     b = (b[0] + m, b[1] + m, b[2] - m, b[3] - m)
+                    if board_rect is not None:
+                        # Floorplan checks permit fixed connector bodies to overhang
+                        # their board. Copper and on-board region limits still apply.
+                        b = (max(b[0], board_rect[0]), max(b[1], board_rect[1]),
+                             min(b[2], board_rect[2]), min(b[3], board_rect[3]))
+                        if b[2] <= b[0] or b[3] <= b[1]:
+                            continue
                     out += (b[2] - b[0]) * (b[3] - b[1]) - self._in_region(b, g)
         elif g["excl"] and p.ref not in g["allow"]:
             for s in g["sides"]:
@@ -1566,7 +1573,7 @@ class Placer:
         mv, fx = self._rule_violations()
         return out + mv + self.corridor_blocks()
 
-    def _rule_violations(self):
+    def _rule_violations(self, region_board_rects=None):
         """(movable, fixed-only) keep-out and isolation violations of the current placement. A violation that involves
         only fixed parts cannot be repaired by the placer: it is listed apart and never makes placement fail."""
         P = self.parts
@@ -1583,7 +1590,8 @@ class Placer:
                 if names:  # the box test is a bound: a round area overlaps its bounding box at the corners only
                     (fx if P[r].fixed else mv).append(f"{r} courtyard or pad in keep-out '{names[0]}'")
                 for g in self.regions:
-                    out, inside, pads = self._region_cost(P[r], g)
+                    board_rect = (region_board_rects or {}).get(g["name"]) if P[r].fixed else None
+                    out, inside, pads = self._region_cost(P[r], g, board_rect)
                     for v, what in ((out, "outside"), (inside, "inside"), (pads, "has pads of its nets outside")):
                         if v > 0.01:
                             (fx if P[r].fixed else mv).append(f"{r} {what} floorplan region '{g['name']}' ({v:.1f} mm2)")
@@ -1599,9 +1607,10 @@ class Placer:
                                                       f"({self._iso_rule(a, b)})")
         return mv, fx
 
-    def fixed_violations(self) -> list[str]:
-        """Keep-out and isolation violations caused only by fixed parts (not moved, not counted as failures)."""
-        return self._rule_violations()[1]
+    def fixed_violations(self, region_board_rects=None) -> list[str]:
+        """Fixed-part rule findings. Optional region board bounds exempt off-board
+        courtyard overhang only; placement costs and copper checks are unchanged."""
+        return self._rule_violations(region_board_rects)[1]
 
     def _state(self):
         return {r: (p.x, p.y, p.r) for r, p in self.parts.items()}

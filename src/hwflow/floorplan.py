@@ -888,6 +888,8 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
     place_out = None
     if place and parts:
         place_out = _quick_place(design, d2, parts, fp, iters, seeds)
+        for msg in place_out["fixed_violations"]:
+            add("fixed-placement", False, msg)
         v = place_out["violations"]
         if v:  # an estimate: a short anneal leaves overlaps that the stage-7 placer (more seeds and moves) removes
             add("placement", None, f"quick placement left {len(v)} violations: {'; '.join(v[:5])}"
@@ -999,6 +1001,13 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
     pl._restore(state)
     pl.cost()
     cong = _congestion(d2, pl, fp)
+    # A fixed source position cannot be repaired by annealing. Exempt only
+    # courtyard overhang beyond its own board, as the static fit check does.
+    boards = {b["name"]: b["rect"].bounds for b in fp["boards"]}
+    region_boards = {r["name"]: boards[r["board"]] for r in fp["regions"]}
+    if fp["construction"] == "stacked":
+        region_boards.update({f"board {name}": rect for name, rect in boards.items()})
+    fixed_viol = pl.fixed_violations(region_boards)
     # nets with pads in more than one region (after the quick placement, by position)
     regs = [(r["name"], r["poly"], r["sides"]) for r in fp["regions"] if r["kind"] != "keepout" and not r["poly"].is_empty]
     cross: dict = {}
@@ -1011,7 +1020,7 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
         if len(where) > 1:
             k = " / ".join(sorted(where))
             cross[k] = cross.get(k, 0) + 1
-    return {"seed": seed, "iters": iters, "cost": round(cost, 1), "violations": viol, "congestion": cong,
+    return {"seed": seed, "iters": iters, "cost": round(cost, 1), "violations": viol, "fixed_violations": fixed_viol, "congestion": cong,
             "crossing": dict(sorted(cross.items(), key=lambda kv: -kv[1])), "crossing_nets": sum(cross.values()),
             "positions": {r: [round(p.x, 2), round(p.y, 2), p.r] for r, p in parts.items()}, "W": W, "H": H,
             "cell": pl.cell}
@@ -1136,7 +1145,8 @@ def report(design, res: dict) -> str:
     if p:
         c = p["congestion"]
         L += ["", "## Quick placement", "",
-              f"Seed {p['seed']}, {p['iters']} moves, {len(p['violations'])} violations. Congestion (RUDY, "
+              f"Seed {p['seed']}, {p['iters']} moves, {len(p['violations'])} placement violations, "
+              f"{len(p.get('fixed_violations', []))} fixed-rule violations. Congestion (RUDY, "
               f"{p['cell']:g} mm cells): wire {c['demand_mm']:.0f} mm on {c['capacity_mm']:.0f} mm capacity "
               f"({c['util']:.0%}), overflow {c['overflow']:.1%}, peak {c['peak']:.1f} x, {len(c['hot'])} cells over.",
               f"Nets with pads in more than one region: {p['crossing_nets']}"
