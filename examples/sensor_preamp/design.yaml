@@ -62,6 +62,7 @@ sim:
         - {name: f3db, meas: "when vdb(AMP_OUT)=17 fall=1", min: 900, max: 1500, unit: Hz, req: R4}
     - name: noise
       cmd: noise v(AMP_OUT) VSIG dec 20 1 100k
+      scope: {nets: [AMP_OUT], boundary: [+3V3]}   # the amplifier alone; validated against the full board
       measures:
         - {name: out_noise_uv, plot: noise2, expr: "onoise_total*1e6", max: 60, unit: uVrms, req: R6}
       monte_carlo: false

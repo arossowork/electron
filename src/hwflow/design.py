@@ -404,4 +404,6 @@ def check(design: Design, libs=None) -> list[dict]:
     if design.raw.get("blocks"):
         from . import blocks
         f += blocks.findings(design, libs)
+    from .simrobust import check_findings
+    f += check_findings(design)
     return f
