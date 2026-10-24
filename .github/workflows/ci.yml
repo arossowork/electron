@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"   # nightly: slow tier
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests evals ui scripts
+      - run: uv run lint-imports
+
+  test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      # Same KiCad major as docker/Dockerfile. No 3D models. The Freerouting jar and the KiCadRoutingTools Rust binary
+      # (tools/, gitignored) are not installed here: tests that need them skip.
+      - name: System tools (KiCad, ngspice)
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
+      - run: uv sync --frozen
+      - run: uv run pytest -q -m "not slow"
+
+  slow:
+    # Nightly slow tier. Needs the router and Freerouting, which the runner does not have: those tests skip, so this
+    # job may run few or no tests. It still catches the slow tests that need only KiCad and ngspice.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: System tools (KiCad, ngspice)
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
+      - run: uv sync --frozen
+      # exit code 5 means no slow test could run (all skipped or deselected): not a failure here
+      - run: uv run pytest -q -m slow || [ $? -eq 5 ]
