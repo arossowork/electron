@@ -86,6 +86,20 @@ uv run --package hwplatform ruff check . && uv run --package hwplatform ruff for
 
 Integration tests (marker `integration`) use the compose stack, not testcontainers: Postgres, SeaweedFS (S3) and NATS are already part of the dev stack and CI starts the same images. They read `HWPLATFORM_TEST_OWNER_URL`, `HWPLATFORM_TEST_APP_URL`, `HWPLATFORM_TEST_RELAY_URL` (plain `postgresql://` URLs; defaults match `.env.example` on port 15432), `HWPLATFORM_TEST_S3_ENDPOINT` / `_S3_ACCESS_KEY` / `_S3_SECRET_KEY` / `_S3_BUCKET` and `HWPLATFORM_TEST_NATS_URL` (defaults: the `.env.example` values, ports 8333 and 4222), and skip cleanly when the service does not answer (the bucket is created if missing). They reset the schema (`downgrade base`, `upgrade head`) at session start, so never point them at a database you care about. The root `uv run pytest` does not collect them (root `testpaths = ["tests"]`). CI: `.github/workflows/platform.yml`, which fails if the integration tests were skipped.
 
+## Builds: BuildWorkflow and hwplatform-worker (#9)
+
+`POST /projects/{id}/runs` starts `BuildWorkflow` (`hwplatform.workflows`) on the Temporal queue `hwflow-engine`. The workflow drives the engine's planner (`hwflow.buildplan.plan`, the same one the inline CLI uses). It records each run and stage change through local activities, and each change commits its row and its outbox event in one transaction (`run.*`, `stage.*`). Each stage is `run_stage_activity` on the queue of its tools (`contracts.QUEUE_OF`). That activity runs the engine's `execute_stage` in a child process (`python -m hwplatform.activities.child`, own process group) with the tenant's S3 store and the Postgres stage cache, and heartbeats every 15 s. Layout attempts run in parallel; the planner cancels the ones past the cutoff or the budget. `render_run` writes status.json, REPORT.md and score.json as run artifacts (the same view as the CLI). Retries and timeouts follow ADR 0001 4.5 (`contracts.STAGE_POLICY`). A cancel kills the stage children before the run is marked `cancelled`.
+
+```
+export HWPLATFORM_TEMPORAL_ADDRESS=127.0.0.1:7233        # plus the database and S3 variables above
+uv run --package hwplatform hwplatform-worker            # all queues but hwflow-agent; --queues or HWPLATFORM_WORKER_QUEUES to pick
+curl -s localhost:8081/readyz                            # 200 when connected and polling (HWPLATFORM_WORKER_HEALTH_PORT)
+```
+
+The worker needs the engine's tools (kicad-cli and the KiCad libraries, ngspice, KRT or Freerouting for the layout). A stage whose tools are missing fails with `ToolMissing` and is not retried. From the CLI, `HWPLATFORM_API_URL=... HWPLATFORM_TOKEN=<access token> uv run hwflow build <proj> --remote [--detach]` uploads the folder, follows the run and checks REPORT.md and status.json out into `build/`. `hwflow run wait|status <proj> --remote` read the run.
+
+Tests: `tests/test_workflow_build.py` covers the workflow in the time-skipping test server with fake activities (stage order, hard-failure stop, parallel attempts and select, retry, no retry, cancel). `tests/test_build_e2e.py` runs a real build of `examples/sensor_preamp` through API, Temporal dev server, worker process, S3 and SSE. It checks that the platform's REPORT.md equals the inline one, kills the worker mid-stage and checks the run still completes, and drives the remote executor. It runs up to `sim` by default; `HWPLATFORM_TEST_FULL_BUILD=1` runs the full build with the layout.
+
 ## Tenancy and row-level security
 
 `tenant_id` is on every tenant-scoped row (memberships, projects, refresh_tokens; later runs, artifacts, keys). Users are global identities and join tenants through memberships with a role `owner | admin | member`.

@@ -28,8 +28,12 @@ def test_contracts_module_holds_only_the_wire_dataclasses():
     own = {
         n for n, v in vars(contracts).items() if isinstance(v, type) and v.__module__ == contracts.__name__
     }
-    assert own == {"RunCtx", "BuildInput", "DesignInput", "QuestionAnswer"}
-    assert all(dataclasses.is_dataclass(getattr(contracts, n)) for n in own)
+    # the workflow wire types (ADR 4.3) and the policy record; `errors` is a namespace of names
+    assert {"RunCtx", "BuildInput", "DesignInput", "QuestionAnswer", "StageOut", "StageActivityInput"} <= own
+    assert all(dataclasses.is_dataclass(getattr(contracts, n)) for n in own - {"errors"})
+    # nothing the engine already defines is copied here
+    engine = {n for n in vars(engine_runs) | vars(engine_artifacts) if not n.startswith("_")}
+    assert not own & engine, own & engine
 
 
 def test_pg_transition_set_is_the_engine_table():

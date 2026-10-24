@@ -726,3 +726,48 @@ class PgRunStore:
         )
         await self.set_artifacts(run_id, {"manifest.json": ref})
         return ref
+
+    # -- run metadata ------------------------------------------------------------------------------
+    async def set_run_info(self, run_id: str, *, settings: dict, code: dict, tools: dict) -> None:
+        """The resolved settings snapshot, code and tool versions of a run (resolve_run, ADR 4.4 step 2)."""
+        async with self._tx() as s:
+            await s.execute(
+                text(
+                    "UPDATE runs SET settings = CAST(:s AS jsonb), code = CAST(:c AS jsonb), tools = CAST(:t AS jsonb) "
+                    "WHERE id = :i"
+                ),
+                {"s": _dump(settings), "c": _dump(code), "t": _dump(tools), "i": uuid.UUID(str(run_id))},
+            )
+
+
+class PgStageCache:
+    """The stage cache (ADR 2.4) in table `stage_cache`, per tenant (never shared across tenants). Values are the
+    engine's StageResult as JSON (`StageResult.to_json()`); the stage child adapts them to the engine's StageCache.
+    Only pass/fail/blocked results are put (the engine decides); `get` stamps `last_hit_at`."""
+
+    def __init__(self, db: Database, tenant_id: uuid.UUID | str):
+        self.db = db
+        self.tenant_id = uuid.UUID(str(tenant_id))
+
+    async def get(self, stage: str, key: str) -> dict | None:
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            row = (
+                await s.execute(
+                    text(
+                        "UPDATE stage_cache SET last_hit_at = now() WHERE tenant_id = :t AND stage = :s "
+                        "AND cache_key = :k RETURNING result"
+                    ),
+                    {"t": self.tenant_id, "s": stage, "k": key},
+                )
+            ).first()
+            return _j(row.result) if row else None
+
+    async def put(self, stage: str, key: str, result: dict) -> None:
+        async with self.db.tx(tenant_id=self.tenant_id) as s:
+            await s.execute(
+                text(
+                    "INSERT INTO stage_cache (tenant_id, stage, cache_key, result) VALUES (:t, :s, :k, CAST(:r AS jsonb)) "
+                    "ON CONFLICT (tenant_id, stage, cache_key) DO UPDATE SET result = EXCLUDED.result, created_at = now()"
+                ),
+                {"t": self.tenant_id, "s": stage, "k": key, "r": _dump(result)},
+            )

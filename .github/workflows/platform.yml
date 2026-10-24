@@ -1,17 +1,18 @@
 name: platform
 
-# The hosted platform package (services/platform, issue #13): ruff, unit tests, and integration tests
-# against a real Postgres 17 prepared like deploy/compose/postgres-init.sh (owner role, non-owner app role, relay
-# role), SeaweedFS (S3) and NATS JetStream started like deploy/compose/platform.yaml (#6, #7, #11).
+# The hosted platform package (services/platform, issue #13): ruff, unit tests (BuildWorkflow in the Temporal
+# time-skipping server, #9), and integration tests against a real Postgres 17 prepared like
+# deploy/compose/postgres-init.sh (owner role, non-owner app role, relay role), SeaweedFS (S3) and NATS JetStream
+# started like deploy/compose/platform.yaml (#6, #7, #11), plus the Temporal dev server and a real worker building
+# examples/sensor_preamp up to sim (#9: needs KiCad and ngspice, as the engine CI).
 
 on:
   push:
     branches: [main]
     paths:
       - services/platform/**
-      - src/hwflow/artifacts.py
-      - src/hwflow/runs.py
-      - src/hwflow/ids.py
+      - src/hwflow/**
+      - examples/sensor_preamp/**
       - deploy/compose/postgres-init.sh
       - deploy/compose/platform.yaml
       - pyproject.toml
@@ -20,9 +21,8 @@ on:
   pull_request:
     paths:
       - services/platform/**
-      - src/hwflow/artifacts.py
-      - src/hwflow/runs.py
-      - src/hwflow/ids.py
+      - src/hwflow/**
+      - examples/sensor_preamp/**
       - deploy/compose/postgres-init.sh
       - deploy/compose/platform.yaml
       - pyproject.toml
@@ -39,7 +39,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17.11-alpine
@@ -71,6 +71,12 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: true
+      # Same KiCad major as the engine CI (ci.yml): the end-to-end build runs check, sch and sim for real.
+      - name: System tools (KiCad, ngspice)
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad kicad-symbols kicad-footprints ngspice
       - name: Install
         run: uv sync --package hwplatform --frozen
       - name: Ruff

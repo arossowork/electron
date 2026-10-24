@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     temporal_address: str = "127.0.0.1:7233"
     temporal_namespace: str = "default"
     temporal_engine_queue: str = "hwflow-engine"
+    # Worker (#9): where stage children get their scratch dirs and the engine keeps its tool caches.
+    # Empty: <system temp dir>/hwflow-worker.
+    worker_dir: str = ""
+    # hwplatform-worker: queues (comma separated; `--queues` wins; empty = all but hwflow-agent), the health
+    # server (/livez, /readyz) and the SIGTERM grace for running activities (the pod's grace period is 120 s).
+    worker_queues: str = ""
+    worker_health_host: str = "0.0.0.0"  # noqa: S104 - probed by the kubelet from outside the pod
+    worker_health_port: int = 8081
+    worker_shutdown_grace_s: float = 100.0
 
     # Uploads of design versions (ADR 6)
     max_bundle_bytes: int = 50 * 1024 * 1024  # uncompressed size of all files of one version

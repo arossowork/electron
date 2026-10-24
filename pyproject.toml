@@ -105,9 +105,12 @@ forbidden_modules = ["hwflow.core", "hwflow.sim", "hwflow.schematic", "hwflow.la
                      "hwflow.pipeline", "hwflow.commands", "hwflow.cli", "hwflow.design", "hwflow.settings",
                      "hwflow.libs", "yaml", "pydantic", "pydantic_settings", "ruamel", "numpy"]
 
-# Issue #9: hwplatform (and so the workflow code in it) imports only the stdlib-only contract modules of the engine
-# (hwflow.artifacts, hwflow.runs, hwflow.ids). Every other engine package and every root-level shim is forbidden, direct
-# or indirect, so the platform never pulls the EDA engine (numpy, scipy, ...) into the API or the Temporal sandbox.
+# Issue #9: hwplatform imports only the stdlib-only modules of the engine (hwflow.artifacts, hwflow.runs, hwflow.ids,
+# hwflow.buildplan). Every other engine package and every root-level shim is forbidden, direct or indirect, so the API
+# and the Temporal sandbox never pull in the EDA engine (numpy, scipy, ...). The exception runs the engine on purpose:
+# hwplatform.activities (stage children, resolve/render, used by hwplatform.workers). The next contract keeps the
+# rest of hwplatform from importing it, the worker or the client, so the exception cannot leak into the API or the
+# workflows.
 [[tool.importlinter.contracts]]
 name = "hwplatform imports only hwflow.artifacts, hwflow.runs and hwflow.ids from the engine"
 type = "forbidden"
@@ -123,4 +126,34 @@ forbidden_modules = [
     "hwflow.regionroute", "hwflow.repair", "hwflow.routing", "hwflow.sch",
     "hwflow.seedroute", "hwflow.settings", "hwflow.sexpr", "hwflow.simrobust",
     "hwflow.spice"
+]
+ignore_imports = ["hwplatform.activities.** -> hwflow.**"]
+
+[[tool.importlinter.contracts]]
+name = "only the worker side of hwplatform imports the activities, the worker and the client"
+type = "forbidden"
+source_modules = [
+    "hwplatform.api", "hwplatform.auth", "hwplatform.bootstrap", "hwplatform.contracts", "hwplatform.crypto",
+    "hwplatform.db", "hwplatform.designs", "hwplatform.events", "hwplatform.gateway", "hwplatform.invites",
+    "hwplatform.llm_keys", "hwplatform.logredact", "hwplatform.mail", "hwplatform.main",
+    "hwplatform.models", "hwplatform.purge", "hwplatform.questions", "hwplatform.rotation", "hwplatform.run_options",
+    "hwplatform.runs", "hwplatform.security", "hwplatform.settings", "hwplatform.storage", "hwplatform.tenancy",
+    "hwplatform.workflows",
+]
+forbidden_modules = ["hwplatform.activities", "hwplatform.workers", "hwplatform.client"]
+
+# ADR 0001 4.7: workflow code is deterministic. It imports temporalio, hwplatform.contracts and the stdlib-only engine
+# modules (hwflow.buildplan, and hwflow.artifacts through the contracts), nothing that does I/O.
+[[tool.importlinter.contracts]]
+name = "workflows are deterministic"
+type = "forbidden"
+source_modules = ["hwplatform.workflows"]
+forbidden_modules = [
+    "hwplatform.api", "hwplatform.auth", "hwplatform.bootstrap", "hwplatform.crypto", "hwplatform.db",
+    "hwplatform.designs", "hwplatform.events", "hwplatform.gateway", "hwplatform.invites", "hwplatform.llm_keys",
+    "hwplatform.mail", "hwplatform.main", "hwplatform.models", "hwplatform.purge", "hwplatform.questions",
+    "hwplatform.rotation", "hwplatform.run_options", "hwplatform.runs", "hwplatform.security", "hwplatform.settings",
+    "hwplatform.storage", "hwplatform.tenancy", "hwplatform.activities", "hwplatform.workers", "hwplatform.client",
+    "hwflow.core", "hwflow.pipeline", "hwflow.commands", "sqlalchemy", "asyncpg", "boto3", "botocore", "httpx",
+    "nats", "fastapi", "pydantic", "pydantic_settings", "yaml",
 ]

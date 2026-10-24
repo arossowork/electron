@@ -1,9 +1,9 @@
 """The API's door to Temporal: start, cancel and signal workflows (ADR 0001, sections 4.4, 4.6, 7.3).
 
 The routes depend on the `WorkflowGateway` interface only, so tests inject a fake and the API runs without a
-Temporal server for everything that does not touch a workflow. The workflows themselves (BuildWorkflow,
-DesignWorkflow) are issue #9; this module only names them, with the ADR's workflow IDs, task queue and
-argument dataclasses (`hwplatform.contracts`).
+Temporal server for everything that does not touch a workflow. The workflows live in `hwplatform.workflows`
+(BuildWorkflow, #9; DesignWorkflow is #15) and run in `hwplatform-worker`; the API never imports them: it
+starts them by name with the ADR's workflow IDs, task queue and argument dataclasses (`hwplatform.contracts`).
 """
 
 from __future__ import annotations
@@ -11,12 +11,8 @@ from __future__ import annotations
 import asyncio
 from typing import Protocol
 
-from .contracts import BuildInput, DesignInput, QuestionAnswer
+from .contracts import BUILD_WORKFLOW, DESIGN_WORKFLOW, SIGNAL_ANSWER, BuildInput, DesignInput, QuestionAnswer
 from .settings import Settings
-
-BUILD_WORKFLOW = "BuildWorkflow"
-DESIGN_WORKFLOW = "DesignWorkflow"
-SIGNAL_ANSWER = "answer_question"
 
 
 class GatewayError(Exception):

@@ -647,6 +647,58 @@ entry-point group `hwflow.executors`: it uploads the project as a design version
 for #9**: "`hwflow build` becomes a client" becomes an opt-in remote executor plug-in; the engine never depends on
 the platform.
 
+### 4.10 As implemented in #9 (amendments to 4.1-4.9)
+
+- **Layout stages.** The layout is two stage specs: `layout_attempt` (key `layout_attempt.<k>`, one placement and
+  route; params `k, auto, reuse, seeds, iters, passes` are keyed, `deadline` is a hint) and `layout_select` (ranks the
+  attempts up to the cutoff, copies the chosen one to the canonical paths, diagnosis, layout history; it reads every
+  `layout_attempt.<k>` as a keyed upstream). `plan` also takes option `layout_blocked`: the layout is then not run and
+  `layout_select` with param `blocked` stands for it. The driver computes that flag: inline before the first
+  attempt, the workflow in `resolve_run` (`ResolvedRun.layout_blocked: StageOut | None`, a field the ADR did not
+  have). `post` and `fab` read `layout_select`.
+- **Attempts cached on pass only (CLI).** Each attempt is its own cache entry. A rebuild after "attempt 1 failed,
+  attempt 2 passed" reruns attempt 1, where the old single `layout` entry was reused whole.
+- **Stage children.** The engine child is `python -m hwflow.pipeline.exec in.json out.json`, built on
+  `run_child(argv, make_store)`. The platform child is `python -m hwplatform.activities.child` (the same
+  `run_child` with the tenant's S3 store and `PgStageCache` behind a synchronous adapter). It checks the stage's
+  tools first (`ToolMissing`; `layout_attempt` needs one of KRT and Freerouting). Children kill their process group
+  when their parent dies. A child's result is a StageResult JSON; a failed child writes `{"error": {type,
+  message}}` only, exit code 3.
+- **Extra wire types** in `hwplatform.contracts`: `RecordRun`, `RecordStage`, `RecordedRun` (record_run returns the
+  run status after the call, so a run cancelled while queued ends the workflow at once), `RenderInput`,
+  `RenderOutput`, `StageOut.attempt`. `ArtifactRef` goes over the wire as is (no separate `Ref`). Policies are
+  `contracts.STAGE_POLICY` / `RECORD_POLICY` / `ENGINE_POLICY` with the table's numbers.
+- **Platform cache reuse.** The platform reuses every cacheable verdict (pass, fail, blocked). The CLI reuses
+  passes only, as before.
+- **The manifest** is stored by `record_run` after a terminal transition (from the rows, so it shows the final
+  status), not by `render_run`. `render_run` stores `REPORT.md`, `status.json`, `score.json` (the status `score`
+  card) and the non-attempt stage outputs as run artifacts `<key>/<name>`, and moves the stages' state to the
+  project state.
+- **Failure handling.** A stage activity that fails for good fails the run: the run is recorded `failed` with the
+  error (type, message, retryable), and the workflow ends with a non-retryable `ApplicationError` of the same type.
+  Activities that are still running are cancelled first. A dropped layout attempt (cutoff or budget) is cancelled,
+  waited for, and recorded as `skipped` with that reason. A cancelled workflow records its running stages as
+  `cancelled`.
+- **Worker.** `hwplatform-worker` has `--queues` (or `HWPLATFORM_WORKER_QUEUES`). Its default is every queue but
+  `hwflow-agent`, which is polled from #15 on. It serves `/livez` and `/readyz` on `HWPLATFORM_WORKER_HEALTH_PORT`
+  (default 8081). On SIGTERM it stops polling and gives running activities `HWPLATFORM_WORKER_SHUTDOWN_GRACE_S`
+  (default 100 s, inside the pod's 120 s) before they are cancelled. Stage scratch and tool caches go under
+  `HWPLATFORM_WORKER_DIR`. The sandbox passes through `hwflow.buildplan`, `hwflow.artifacts`, `hwflow.ids`,
+  `hwflow.runs` and `hwplatform.contracts`.
+- **Import contracts.** `hwflow.buildplan` joins the stdlib-only contract. `hwplatform.activities` and
+  `hwplatform.client` may import the engine (`ignore_imports` of the "hwplatform imports only ..." contract). A new
+  contract keeps the rest of hwplatform from importing them or the worker. Another new contract, "workflows are
+  deterministic", forbids I/O modules in `hwplatform.workflows`.
+- **CLI.** `hwflow run wait|status <project> [run_id]` takes the project folder, because local runs live in its
+  `build/runs/`. The run id defaults to the newest. Wait exits 0 for succeeded and PASS, 1 for any other end
+  (including a build process that died), and 2 when `--timeout` (580 s) passes while the run still runs.
+  `hwflow build --detach` starts an inline build in its own session (`build/runs/<run_id>.log`, `.pid`). The
+  remote executor needs `HWPLATFORM_API_URL` and `HWPLATFORM_TOKEN`, and keeps the platform project of a folder
+  in `build/remote.json`.
+- **Not in #9.** There are no `DesignWorkflow` or `EvalWorkflow` skeletons (#15, #19). The replay tests of 4.7
+  (`tests/workflows/test_replay.py`) need stored histories and come with the first change that needs
+  `workflow.patched`.
+
 ## 5. Events (#11)
 
 ### 5.1 Envelope (CloudEvents 1.0, structured JSON)
