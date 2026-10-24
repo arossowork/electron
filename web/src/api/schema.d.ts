@@ -245,7 +245,8 @@ export interface paths {
         get: operations["get_key_status_api_v1_tenant_llm_keys__provider__get"];
         /**
          * Put Key
-         * @description Validate the key with the provider, then store it encrypted (replaces the current one).
+         * @description Validate the key with the provider, then store it encrypted (replaces the current one). Design runs
+         *     waiting for a valid key are signalled `retry`.
          */
         put: operations["put_key_api_v1_tenant_llm_keys__provider__put"];
         post?: never;
