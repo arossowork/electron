@@ -183,7 +183,8 @@ def execute_stage(spec: StageSpec, inp: StageInput, store: ArtifactStore, cache:
     from ..core.libs import Libs
     from .status import CURRENT_INPUTS, _design_hash
     t0 = time.time()
-    work = Path(scratch_root) / inp.run_id / f"{inp.stage}-{secrets.token_hex(4)}"
+    tool_cache_dir = Path(tool_cache_dir).resolve() if tool_cache_dir is not None else None
+    work = Path(scratch_root).resolve() / inp.run_id / f"{inp.stage}-{secrets.token_hex(4)}"
     work.mkdir(parents=True)
     tools = _tool_versions(spec.tools)
     try:

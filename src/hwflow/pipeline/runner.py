@@ -288,7 +288,7 @@ class _Child:
             doc = {"error": {"type": "WorkerLost", "message": f"the attempt process exited with code {rc}"}}
         import shutil
         shutil.rmtree(self.job, ignore_errors=True)
-        if "error" not in doc:
+        if "stage" in doc:  # a StageResult; a failed child writes {"error": {...}} only
             return StageResult.from_json(doc)
         msg = f"{doc['error'].get('type')}: {doc['error'].get('message')}"
         return error_result(store, self.spec, msg)
