@@ -39,7 +39,7 @@ substance: pcb<->placer and postlayout<->budgets are confirmed. corridor/barrier
 Contracts in `pyproject.toml` describe what is true today and pass:
 
 1. `hwflow` imports nothing from `harness`, `ui` or `evals`.
-2. The engine modules (design, pcb, placer, spice, sch, kicad, sexpr) do not import ``hwflow.cli`, `hwflow.pipeline` or `hwflow.commands`.
+2. The engine modules (design, pcb, placer, spice, sch, kicad, sexpr) do not import `hwflow.cli`.
 
 No contract forbids the cycles above yet; tightening comes with the refactors that remove them.
 
