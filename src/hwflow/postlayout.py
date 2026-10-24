@@ -12,7 +12,7 @@ import numpy as np
 from .core import sexpr
 from .sim import spice
 from .core.design import Design
-from .pcb import ipc2221_width_mm, net_classes, net_layers, read_board
+from .layout.board.pcb import ipc2221_width_mm, net_classes, net_layers, read_board
 from .sim.spice import NodeMap
 
 RHO_CU = 1.72e-8
@@ -697,7 +697,7 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         if segs:
             wmin = min(s["w"] for s in segs)
             if wmin + 1e-6 < need:
-                from .routing import NECK_MAX_MM, longest_neck
+                from .layout.route.routing import NECK_MAX_MM, longest_neck
                 thin = [s for s in segs if s["w"] + 1e-6 < need]
                 narrow = sum(s["len"] for s in thin)
                 neck = longest_neck([((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in thin])
@@ -729,7 +729,7 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         else:
             add("info", "decap-distance", f"{r['cap']} -> {r['ic']} on {r['net']}: {r['mm']:.1f} mm")
     # requirement budgets on the routed copper (design.yaml budgets:)
-    from .budgets import findings as budget_findings
+    from .layout.budgets import findings as budget_findings
     f += budget_findings(design, ex)
     # signal integrity without SPICE, for nets with a declared edge rate (backlog 48)
     for r in si_screen(design, ex):
@@ -954,7 +954,7 @@ def clearance_rules(design: Design) -> list[dict]:
         if c and m and m.group(1) == m.group(2):
             n = _RULE_NAME.search(r)
             out.append({"rule": n.group(1) if n else r[:40], "pattern": m.group(1), "min_mm": float(c.group(1))})
-    from .pcb import isolation_groups
+    from .layout.board.pcb import isolation_groups
     if hasattr(design, "nets"):
         for g in isolation_groups(design):
             lim = g["clearance_mm"] if g["clearance_mm"] is not None else g["creepage_mm"]
@@ -1094,7 +1094,7 @@ def ir_drop(design: Design, ex: Extraction, workdir: Path) -> list[dict]:
     way). The operating point of the testbench circuit does not do: a sleeping board draws micro-amps, so its pads all
     read the same voltage. A power net without `current_a`: the voltage spread of its pads at the operating point of
     the circuit on the extracted copper."""
-    from .budgets import _leg_r
+    from .layout.budgets import _leg_r
     rows = []
     split = ex.islands()
     op_nets = []

@@ -316,7 +316,7 @@ def check(design: Design, libs=None) -> list[dict]:
     from ..floorplan import cut_pad_findings, cuts, validate
     for msg in validate(design):
         add("error", "floorplan", msg)
-    from .. import pcb
+    from ..layout.board import pcb
     if libs is not None and cuts(design):  # pads of fixed parts within the copper-to-edge clearance of a cut
         from .. import placer
         try:
@@ -362,7 +362,7 @@ def check(design: Design, libs=None) -> list[dict]:
                                            f"{design.board['layers']}-layer board ({', '.join(copper)})")
         if libs is None or not lays:
             continue
-        from ..routing import pad_layers
+        from ..layout.route.routing import pad_layers
         for ref, pin in nets.get(net, []):
             c = design.components[ref]
             if c.get("virtual"):
@@ -382,10 +382,10 @@ def check(design: Design, libs=None) -> list[dict]:
             add("warn", "net-layers", f"board.drc_rules rule {e['rule']} keeps {e['net']} out of rule area {e['area']}, "
                                       f"but nets.{e['net']}.layers allows {', '.join(e['layers'])} there: the net's "
                                       f"layers win (the rule does not apply to {e['net']})")
-    from ..budgets import check as budget_check
+    from ..layout.budgets import check as budget_check
     f += budget_check(design)
     if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)
-        from ..feasibility import check as feasibility_check
+        from ..layout.feasibility import check as feasibility_check
         f += feasibility_check(design, libs)
     # decoupling heuristic: each IC supply net has a cap to ground
     gnds = design.ground_nets()

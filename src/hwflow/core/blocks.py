@@ -374,7 +374,7 @@ def keepout_zones(design, parts) -> list:
     """Rule areas of the blocks' `keepouts` in board coordinates (KiCad zone nodes)."""
     import uuid
 
-    from ..pcb import cu_layers
+    from ..layout.board.pcb import cu_layers
     from .sexpr import Q
     out, board = [], set(cu_layers(int(design.board["layers"])))
     for bnd in bindings(design):
@@ -475,7 +475,7 @@ def extract(board: Path, refs: list[str], name: str, source: str, roles: dict | 
     that copper grown by `margin`. The block courtyard is the box of the parts and the copper kept."""
     from shapely.geometry import LineString, Point, box
 
-    from .. import pcb
+    from ..layout.board import pcb
     rb = pcb.read_board(Path(board))
     fps = rb["footprints"]
     roles = roles or {r: r for r in refs}
@@ -590,7 +590,8 @@ def write(block: dict, root: Path | None = None) -> Path:
 def verify(name: str, workdir: Path, design=None) -> dict:
     """Place the block alone on a small board (instantiate mode, ports as single nets) and run KiCad DRC on the
     unrouted board, which holds only the block copper. Returns {ok, errors, warnings, drc, board, joined}."""
-    from .. import kicad, pcb, placer, postlayout
+    from ..layout.board import kicad, pcb
+    from .. import placer, postlayout
     from .design import Design
     from .libs import Libs
     b = load(name, design)

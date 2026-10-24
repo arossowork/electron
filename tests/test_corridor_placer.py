@@ -119,7 +119,7 @@ def _header(cols):
 
 def _verdicts(d, libs):
     """(placer, its corridor violations, the corridor proof's widest SIG track with necks, as `hwflow check`)."""
-    from hwflow import corridor
+    from hwflow.layout.route import corridor
     parts = placer.build_parts(d, libs)
     pl = placer.Placer(d, parts, W, H)
     v = [x for x in pl.violations() if x.startswith("corridor ")]

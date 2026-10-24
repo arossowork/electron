@@ -2,7 +2,8 @@
 from hwflow.core.settings import get_settings
 import pytest
 
-from hwflow import kicad, pcb, placer
+from hwflow.layout.board import kicad, pcb
+from hwflow import placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 

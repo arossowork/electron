@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hwflow import pcb, placer
+from hwflow.layout.board import pcb
+from hwflow import placer
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 
@@ -203,7 +204,9 @@ def test_between_mm_rules_for_drc_router_placer_and_checks(tmp_path):
     import sys
     from types import SimpleNamespace
 
-    from hwflow import diagnose, postlayout, routing
+    from hwflow.layout import diagnose
+    from hwflow import postlayout
+    from hwflow.layout.route import routing
     from hwflow.core.design import check
     d = _between_project(tmp_path)
     (g,) = pcb.isolation_groups(d)
@@ -313,7 +316,7 @@ def test_a_net_only_a_neck_passes_routes_narrow_first_and_is_widened(tmp_path, m
     import yaml
     from shapely.geometry import LineString, box
 
-    from hwflow import corridor, routing
+    from hwflow.layout.route import corridor, routing
     F = ("F.Cu",)
     lo, hi = 10 - 2.55 / 2, 10 + 2.55 / 2
     libs = _PadLibs({"A": [("1", "smd", 5, 10, 1, 1, F)], "B": [("1", "smd", 25, 10, 1, 1, F)],

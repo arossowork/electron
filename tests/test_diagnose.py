@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import yaml
 
-from hwflow import diagnose
+from hwflow.layout import diagnose
 from hwflow.core.design import Design
 
 

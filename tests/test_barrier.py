@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import yaml
 
-from hwflow import barrier
+from hwflow.layout.route import barrier
 from hwflow.core import sexpr
 from hwflow.core.design import Design
 

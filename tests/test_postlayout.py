@@ -116,7 +116,7 @@ def test_isolation_rules_come_from_design_data(tmp_path):
 
     from hwflow.pipeline import _design_hash, isolation_distances, trace
     from hwflow.core.design import Design
-    from hwflow.pcb import isolation_groups, write_project
+    from hwflow.layout.board.pcb import isolation_groups, write_project
     raw = {"project": "iso", "board": {"layers": 2, "isolation": [
         {"name": "mains", "class": "mains", "nets": "HV_*", "clearance_mm": 4.0, "creepage_mm": 6.0, "req": "R8"}]},
         "nets": {"AC_L": {"class": "mains"}, "AC_N": {"class": "mains"}},
@@ -270,7 +270,7 @@ def test_track_over_a_pad_connects_it_like_kicad(tmp_path):
     on it. KiCad counts the overlap as connected; the extraction used to see two islands. The R network gets a node
     where the track crosses the pad, and two tracks of one net that cross in an X are joined too."""
     from hwflow.postlayout import RHO_CU, Extraction
-    from hwflow.budgets import _leg_r
+    from hwflow.layout.budgets import _leg_r
     comps = {"J1": {"pins": {"1": "AC_L"}}, "K1": {"pins": {"1": "AC_L"}}, "F1": {"pins": {"2": "AC_L"}},
              "P1": {"pins": {"1": "AC_L"}}, "P2": {"pins": {"1": "AC_L"}}}
     fps = [_fp("J1", 6.1, 10.3, _smd("1", "AC_L", 1)), _fp("K1", 13.1, 17.3, _smd("1", "AC_L", 1)),

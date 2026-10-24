@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from hwflow import budgets
+from hwflow.layout import budgets
 from hwflow.core.design import Design, check
 from hwflow.postlayout import RHO_CU, Extraction
 
@@ -62,7 +62,7 @@ def test_width_from_budget_length_and_copper(tmp_path):
     w, (row,) = budgets.widths(d, parts)
     assert not row["ok"] and row["need_mm"] is None and w["VP"] == budgets.MAX_WIDTH_MM
     # net_classes keeps the wider of the net's own width and the budget's, never narrower
-    from hwflow.pcb import net_classes
+    from hwflow.layout.board.pcb import net_classes
     d.raw["nets"] = {"VIN": {"width_mm": 4.0}}
     d.budget_widths = {"VIN": 1.0, "VP": 1.0}
     nc = net_classes(d)

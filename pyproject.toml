@@ -42,7 +42,7 @@ markers = ["slow: end-to-end builds and router or DRC runs over 15 s (`pytest -m
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["tools", "library", "projects", "examples", "fw", "blocks", "en", "observations"]
+extend-exclude = ["tools", "library", "projects", "examples", "/fw", "blocks", "en", "observations"]
 
 [tool.ruff.lint]
 # Lenient start (no mass reformat): pyflakes + pycodestyle errors/warnings, long lines tolerated.

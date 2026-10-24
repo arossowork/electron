@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
-from hwflow import repair
+from hwflow.layout.route import repair
 
 
 def test_router_call_stops_at_the_repair_budget(monkeypatch, tmp_path):

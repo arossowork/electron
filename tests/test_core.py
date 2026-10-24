@@ -5,8 +5,8 @@ import pytest
 
 from hwflow.core import sexpr
 from hwflow.core.design import Design, check, parse_value, snap_e
-from hwflow import pcb
-from hwflow.pcb import ipc2221_width_mm
+from hwflow.layout.board import pcb
+from hwflow.layout.board.pcb import ipc2221_width_mm
 from hwflow.postlayout import microstrip
 
 EX = "examples/sensor_preamp"
@@ -114,7 +114,7 @@ def test_monte_carlo_parallel_is_deterministic(tmp_path):
 def test_custom_pad_exports_full_outline():
     """SOT-89 tab is a custom pad: the router must see the whole tab, not just the anchor rectangle."""
     from hwflow.core.libs import Libs
-    from hwflow.pcb import _padstack
+    from hwflow.layout.board.pcb import _padstack
     pad = next(p for p in Libs().footprint("Package_TO_SOT_SMD:SOT-89-3")["pads"] if p["number"] == "2")
     _, ps = _padstack(pad, ["F.Cu", "B.Cu"])
     shape = ps[2][1]
@@ -160,7 +160,7 @@ def test_run_all_parallel_matches_serial(tmp_path):
 
 def test_thermal_vias_land_inside_their_pad():
     from hwflow.core.libs import Libs
-    from hwflow.pcb import thermal_vias
+    from hwflow.layout.board.pcb import thermal_vias
     from hwflow.placer import build_parts
     d = Design.load(EX)
     d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
@@ -469,7 +469,7 @@ def test_monte_carlo_runs_once_per_design(tmp_path, capsys):
 def test_router_retries_a_class_in_another_net_order(tmp_path):
     """Backlog 40: a width class that leaves a net unrouted is routed again in another order; the best is kept."""
     import json
-    from hwflow.pcb import route_class
+    from hwflow.layout.board.pcb import route_class
     calls = []
 
     def run(args):

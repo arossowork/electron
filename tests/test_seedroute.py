@@ -7,7 +7,8 @@ import pytest
 import yaml
 from shapely.geometry import LineString, Point, box
 
-from hwflow import corridor, pcb, routing, seedroute
+from hwflow.layout.route import corridor, routing, seedroute
+from hwflow.layout.board import pcb
 from hwflow.core import sexpr
 from hwflow.core.design import Design
 

@@ -6,7 +6,8 @@ import time
 
 import pytest
 
-from hwflow import kicad, pcb, repair
+from hwflow.layout.board import kicad, pcb
+from hwflow.layout.route import repair
 from hwflow.pipeline import stages as pl_stages
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs

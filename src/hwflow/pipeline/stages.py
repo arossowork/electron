@@ -10,8 +10,12 @@ import sys
 import time
 from pathlib import Path
 
-from .. import budgets, kicad, pcb, placer, postlayout, repair, seedroute
+from ..layout import budgets
+from ..layout.board import kicad, pcb
+from .. import placer, postlayout
+from ..layout.route import barrier, corridor, pinaccess, regionroute, repair, routing, seedroute
 from ..sim import simrobust, spice
+from ..core import blocks as core_blocks
 from ..core.design import Design, check
 from ..core.libs import Libs
 from ..core.settings import get_settings
@@ -90,7 +94,7 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
     if d.board.get("router", "krt") == "krt":
         if (pcb.krt_dir() / "py_router" / "route.py").exists():
             if groups is not None:
-                from .. import regionroute
+                from ..layout.route import regionroute
                 res = regionroute.route(d, libs, parts, out, _out(d) / "routecache")
                 if res is not None:
                     groups += res[4]
@@ -154,17 +158,17 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(json.dumps([d.board, passes, pcb.KRT_VARIANTS, pcb.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
     h.update((Path(pcb.__file__)).read_bytes())  # how hwflow drives the router (passes, arguments, env defaults)
-    h.update((Path(pcb.__file__).with_name("routing.py")).read_bytes())  # isolation keep-outs, neck-down widening
-    h.update((Path(pcb.__file__).with_name("seedroute.py")).read_bytes())  # seed routes of nets the router leaves open
-    for f in ("corridor.py", "barrier.py", "pinaccess.py", "asicflow.py"):  # which nets route narrow first
-        h.update((Path(pcb.__file__).with_name(f)).read_bytes())
+    h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
+    h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
     from .. import asicflow
+    for m in (corridor, barrier, pinaccess, asicflow):  # which nets route narrow first
+        h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
-    h.update((Path(pcb.__file__).with_name("regionroute.py")).read_bytes())  # route groups and their cache
+    h.update(Path(regionroute.__file__).read_bytes())  # route groups and their cache
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
-        h.update((Path(pcb.__file__).with_name("blocks.py")).read_bytes())
+        h.update(Path(core_blocks.__file__).read_bytes())
         for f in _block_files(d):
             h.update(f.read_bytes())
     # resolved settings of the layout, repair and router groups (the router environment knobs among them)
@@ -284,7 +288,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         seeds = seedroute.load(out)  # the seed copper of this route (pcb.krt_route)
         drc = route_check(tracks, vias)
         if any(g["cache"] == "hit" for g in groups):  # reused group copper: the joined board's DRC judges it
-            from .. import regionroute
+            from ..layout.route import regionroute
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
                                                      groups, route_check)
         rounds = int(d.board.get("repair_rounds", 3))
@@ -316,7 +320,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             drc = route_check(tracks, vias, island)
             summary += f"; seed route {', '.join(dropped)} removed (a DRC error touches it)"
             print(f"[layout] seed route {', '.join(dropped)}: removed, a DRC error touches it")
-    from ..prune import prune
+    from ..layout.route.prune import prune
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:
         print(f"[layout] removed {pruned} dangling tracks or vias")
@@ -337,7 +341,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         print(f"[layout] conductive isolation: {x['net']} {x['item']} {x['mm']:.2f} mm from {x['keepout']} "
               f"(need {x['need']:g} mm)")
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
-    from .. import diagnose
+    from ..layout import diagnose
     failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
     return {"failing": failing, "ok": not errs and not viol and not off_layer and not too_narrow and not conductive
             and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
@@ -591,7 +595,7 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
 
 def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
     """diagnose.diagnose on the kept board in build/ and the failing parts of every attempt."""
-    from .. import diagnose
+    from ..layout import diagnose
     out = _out(d)
     if libs is None or not (out / f"{d.name}.kicad_pcb").exists():
         return {}  # no board to read (an attempt that crashed): no diagnosis
@@ -605,7 +609,7 @@ def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
 
 def _layout_blocked(d: Design, retry: bool = False) -> dict | None:
     """The layout stage result when the layout diagnosis blocks this build (see diagnose.blocked), else None."""
-    from .. import diagnose
+    from ..layout import diagnose
     e = diagnose.blocked(d, _out(d))
     if e is None or retry:
         return None
@@ -620,7 +624,7 @@ def _layout_blocked(d: Design, retry: bool = False) -> dict | None:
 
 
 def _record_layout(d: Design, r: dict, override: bool):
-    from .. import diagnose
+    from ..layout import diagnose
     g = r.get("diagnosis") or {}
     diagnose.record(_out(d), {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "structure": diagnose.structure_key(d),
                               "ok": bool(r.get("ok")), "unrouted": r.get("unrouted"), "drc_errors": r.get("drc_errors"),

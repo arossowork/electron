@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from hwflow import pcb
+from hwflow.layout.board import pcb
 
 
 def _design(nets):

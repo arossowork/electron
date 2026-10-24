@@ -4,7 +4,9 @@ import pytest
 import yaml
 from shapely.geometry import box
 
-from hwflow import pcb, placer, regionroute
+from hwflow.layout.board import pcb
+from hwflow import placer
+from hwflow.layout.route import regionroute
 from hwflow.core.design import Design
 from hwflow.core.libs import Libs
 

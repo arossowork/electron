@@ -6,7 +6,9 @@ import pytest
 import yaml
 from shapely.geometry import LineString, box
 
-from hwflow import diagnose, floorplan, pcb, placer, postlayout
+from hwflow.layout import diagnose
+from hwflow import floorplan, placer, postlayout
+from hwflow.layout.board import pcb
 from hwflow.core import sexpr
 from hwflow.core.design import Design, check
 from hwflow.core.libs import Libs

@@ -2,7 +2,8 @@
 
 from shapely.geometry import Point, box
 
-from hwflow import pcb, routing
+from hwflow.layout.board import pcb
+from hwflow.layout.route import routing
 from hwflow.core import sexpr
 
 CU = ["F.Cu", "B.Cu"]

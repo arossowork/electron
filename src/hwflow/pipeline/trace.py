@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import pcb
+from ..layout.board import pcb
 from ..core.design import Design
 from .status import _fresh_status
 

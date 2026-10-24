@@ -123,7 +123,7 @@ def write_report(d: Design, history: bool = False) -> str:
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")
         if c.get("route_groups"):
-            from .. import regionroute
+            from ..layout.route import regionroute
             L.append(f"  - route groups: {regionroute.text(c['route_groups'])}")
         if c.get("repair"):
             L.append(f"  - {c['repair']['text']}")
@@ -147,7 +147,7 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - placement: {v}")
         for x in [x for x in c["drc"] if x["sev"] == "error"][:10]:
             L.append(f"  - DRC {x['type']}: {x['msg']} {x['items'][:2]}")
-        from .. import diagnose
+        from ..layout import diagnose
         if c.get("blocked"):
             L.append(f"  - {c['blocked']}")
         if diagnose.summary(c.get("diagnosis")):

@@ -10,7 +10,10 @@ import pytest
 import yaml
 from shapely.geometry import Point, box
 
-from hwflow import diagnose, floorplan, pcb, placer, postlayout, repair, routing
+from hwflow.layout import diagnose
+from hwflow import floorplan, placer, postlayout
+from hwflow.layout.board import pcb
+from hwflow.layout.route import repair, routing
 from hwflow.pipeline import stages as pl_stages
 from hwflow.core.design import Design, check
 from hwflow.core.libs import Libs

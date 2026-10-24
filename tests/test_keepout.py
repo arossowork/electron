@@ -2,7 +2,8 @@
 from hwflow.core.settings import get_settings
 import pytest
 
-from hwflow import kicad, keepout
+from hwflow.layout.board import kicad
+from hwflow import keepout
 
 KO_ZONE = '''(zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (uuid "5b6c1a0e-3d0a-4c7e-9a11-0a1b2c3d4e0a") (name "stack") (hatch edge 0.5)
     (connect_pads (clearance 0)) (min_thickness 0.25)

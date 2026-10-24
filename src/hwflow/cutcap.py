@@ -60,7 +60,8 @@ from shapely.geometry import LineString, MultiLineString, Point, Polygon, box
 from shapely.ops import linemerge, nearest_points, polygonize, unary_union
 from shapely.strtree import STRtree
 
-from . import pcb, routing
+from .layout.board import pcb
+from .layout.route import routing
 from .placer import rot
 
 NAME = "cut"

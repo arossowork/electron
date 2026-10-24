@@ -1056,7 +1056,7 @@ def _congestion(d2, pl, fp) -> dict:
     import numpy as np
     import shapely
 
-    from . import pcb
+    from .layout.board import pcb
     mains_nets = {n for g in pcb.isolation_needs(d2) for n in g["members"]}
     for r in fp["regions"]:
         if r["kind"] == "mains":

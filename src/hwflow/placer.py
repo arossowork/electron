@@ -292,7 +292,7 @@ class Placer:
                 if h != s_:
                     self.seps.append((h, None, s_, None, tc, "thermal"))
         if antennas:
-            from . import pcb
+            from .layout.board import pcb
             mains = {n for g in pcb.isolation_needs(d) for n in g["members"]}
             noisy = {r for r, c in d.components.items() if r in P and (
                 (c.kind == "K" and r[:1] == "K") or str(c.get("symbol") or "").split(":")[-1].startswith("Relay")
@@ -339,7 +339,7 @@ class Placer:
             if "tracks" in a["forbids"]:
                 n = nl if "*.Cu" in lay else len([L for L in lay if L.endswith(".Cu")])
                 self.keepouts.append((*a["box"], max(0.0, 1 - n / nl)))
-        from . import pcb
+        from .layout.board import pcb
         net_of = {(r, p): n for n, conns in self.d.nets().items() for r, p in conns}
         self.iso_need, self.iso_name, self.iso_between, gid = [], [], [], {}
         for g in pcb.isolation_needs(self.d):
@@ -385,7 +385,8 @@ class Placer:
         `layers` and the nets of a floorplan region with `nets`. self.cor: (net, pads, track width, layers it may use,
         static obstacles [(polygon, spacing, name)]): the conductive keep-outs its region keeps the isolation from and
         the rule areas without tracks on every layer it may use."""
-        from . import floorplan, pcb
+        from . import floorplan
+        from .layout.board import pcb
         d = self.d
         self.cor, self.cor_part = [], {}
         groups = pcb.isolation_needs(d)
@@ -583,7 +584,7 @@ class Placer:
         return list(_BLOCKS[key])
 
     def _block_check(self, nets, fixed) -> list[str]:
-        from . import corridor
+        from .layout.route import corridor
         libs = getattr(self.parts, "libs", None)
         if libs is None:
             from .core.libs import Libs

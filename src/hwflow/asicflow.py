@@ -176,7 +176,8 @@ def necked(design, libs, src, nets=None) -> dict:
         return {}
     from pathlib import Path
 
-    from . import corridor, pcb, pinaccess, routing
+    from .layout.route import corridor, pinaccess, routing
+    from .layout.board import pcb
     try:
         if libs is None:
             from .core.libs import Libs
