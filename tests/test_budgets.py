@@ -70,6 +70,28 @@ def test_width_from_budget_length_and_copper(tmp_path):
     assert nc["VIN"]["width"] == 4.0 and nc["VP"]["width"] == 1.0 and nc["G"]["width"] == d.board["track_mm"]
 
 
+def test_ground_leg_runs_through_the_pour(tmp_path, monkeypatch):
+    """With gnd_pour, a GND leg of a copper_r path gets no width (GND is not widened board-wide) and adds 0 mOhm,
+    as the post-layout extraction treats the poured ground as ideal; without the pour it is a track like any leg."""
+    bud = dict(GUARD, path=GUARD["path"] + ["C1.2 -> J1.2"])
+    comps = {"J1": {"pins": {"1": "VIN", "2": "GND"}}, "Q1": {"pins": {"1": "G", "2": "VP", "3": "VIN"}},
+             "Q2": {"pins": {"1": "G", "2": "VP", "3": "VIN"}}, "C1": {"pins": {"1": "VP", "2": "GND"}}}
+    d = _design(tmp_path, [bud], comps)
+    parts = {"J1": _part(0, 0, {"1": (0, 0), "2": (0, 3)}), "Q1": _part(10, 0, {"2": (0, 5), "3": (0, 0)}),
+             "Q2": _part(10, 20, {"2": (0, 5), "3": (0, 0)}), "C1": _part(30, 10, {"1": (0, 0), "2": (0, 2)})}
+    w, (row,) = budgets.widths(d, parts)
+    assert "GND" in w and row["est_mm"] == pytest.approx(35 + 30 + 9)
+    d.raw["board"]["gnd_pour"] = True
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(d.raw))
+    d = Design.load(tmp_path)
+    w, (row,) = budgets.widths(d, parts)
+    assert "GND" not in w and row["est_mm"] == pytest.approx(35) and row["nets"] == ["VIN", "VP"]
+    monkeypatch.setattr(budgets, "leg_r", lambda ex, leg, design: (1e-3, [], leg["text"]))
+    (m,) = budgets.measure(d, SimpleNamespace())
+    assert m["value"] == pytest.approx(2.0) and m["legs"][2] == {"leg": "C1.2 -> J1.2", "net": "GND", "mohm": 0.0,
+                                                                  "pour": True}
+
+
 PCB = """(kicad_pcb (version 20241229) (net 0 "") (net 1 "VIN") (net 2 "VP")
 {fps}
 {copper})"""

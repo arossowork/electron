@@ -5,6 +5,9 @@ A budget is the part of a requirement margin that layout may spend on copper: th
 capacitor to its IC pin). Before routing, a copper_r budget becomes a track width for the nets of its path
 (`widths`); after routing, every budget is measured on the extracted copper (`measure`) and a budget over its limit
 is a layout error that names the path, the value, the limit and the worst stretch of copper.
+
+A leg on a ground net of a board with `gnd_pour` runs through the pour: it gets no track width and adds no
+resistance, as the post-layout extraction treats that net as ideal (plane resistance is not counted).
 """
 
 from __future__ import annotations
@@ -64,6 +67,11 @@ def legs(design, b: dict) -> tuple[list[dict], list[str]]:
         else:
             out.append({"text": item.strip(), "net": next(iter(nets)), "a": ends[0], "b": ends[1]})
     return out, bad
+
+
+def _pour(design, net) -> bool:
+    """The leg's net is a ground carried by the pour (no track width, ideal in post-layout)."""
+    return bool(design.board.get("gnd_pour")) and net in design.ground_nets()
 
 
 def budgets(design) -> list[dict]:
@@ -147,6 +155,10 @@ def widths(design, parts: dict) -> tuple[dict[str, float], list[dict]]:
         if bad or not lg:
             continue
         detour = float(bd.get("detour", DETOUR))
+        if kind == "copper_r":
+            lg = [x for x in lg if not _pour(design, x["net"])]
+            if not lg:
+                continue
         ests = [_est_mm(x, parts, design) for x in lg]
         if any(e is None for e in ests):
             continue
@@ -287,6 +299,9 @@ def measure(design, ex) -> list[dict]:
         else:
             lim, tot, groups = float(bd["max_mohm"]), 0.0, {}
             for x in lg:
+                if _pour(design, x["net"]):
+                    row["legs"].append({"leg": x["text"], "net": x["net"], "mohm": 0.0, "pour": True})
+                    continue
                 r = leg_r(ex, x, design)
                 if r is None:
                     missing.append(x["text"])
