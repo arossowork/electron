@@ -1,6 +1,7 @@
 """Hierarchical (region-split) routing: the nets of a board split into groups that route as router jobs of their own.
 
-- Partition. The floorplan regions that hold nets (`floorplan.regions[].nets`, e.g. `mains` with AC_*) and the
+- Partition. The floorplan regions that hold nets (`floorplan.regions[].nets`, e.g. `mains` with AC_*), with
+  `board.route_groups: members` every region's local nets (floorplan.member_net_regions), and the
   `board.isolation` groups are the seeds (seeds that share a net merge). A net that belongs to a seed and has every
   pad inside its region is that seed's group; a net of no seed with no pad in a seed region is in `rest`; any other
   net (pads in several regions, or a seed net with a pad outside its region) is an `interface` net.
@@ -39,7 +40,8 @@ def seeds(design) -> list[dict]:
     """The net groups the floorplan and the isolation rules declare: [{name, members, poly}], poly the region shape in
     board coordinates (None for an isolation group with no region). Seeds that share a net are merged."""
     from ...core import floorplan
-    rows = [{"name": r["region"], "members": set(r["nets"]), "poly": r["poly"]} for r in floorplan.net_regions(design)]
+    rows = [{"name": r["region"], "members": set(r["nets"]), "poly": r["poly"]}
+            for r in floorplan.net_regions(design) + floorplan.member_net_regions(design)]
     rows += [{"name": g["name"], "members": set(g["members"]), "poly": None}
              for g in pcb.isolation_groups(design) if g["members"]]
     out: list[dict] = []
