@@ -245,3 +245,43 @@ def test_report_hint_names_the_nets_and_suggests_scope():
     c = {"convergence_hints": [{"analysis": "hp_noise @ 40C", "nets": ["AUD_P4V5", "EFUSE_OUT"]}]}
     line = simrobust.report_lines(c)[0]
     assert "AUD_P4V5, EFUSE_OUT" in line and "scope:" in line and "docs/design-yaml.md" in line
+
+
+# ------------------------------------------------------------------ derating audit
+
+def test_derating_audit_reads_pin_power(tmp_path):
+    d = _design(tmp_path)
+    rows = {r["ref"]: r for r in spice.derating_audit(d, tmp_path / "w")}
+    assert rows["R2"]["p_w"] == pytest.approx(2.5 ** 2 / 1e3, rel=0.02)   # 5 V over 1 k + 1 k
+
+
+def test_derating_audit_falls_back_when_the_op_fails(tmp_path, monkeypatch):
+    """A failed ammeter OP goes through the convergence fallback (find_op) and the ammeter netlist again with a
+    .nodeset from the OP found; with no OP found at all, the audit still fails loudly."""
+    d = _design(tmp_path)
+    real = spice.run_cached
+
+    def first_fails(net, workdir, name, *a, **kw):
+        if name == "derating":
+            return "Error: no convergence in DC operating point\n", 1, False, False
+        return real(net, workdir, name, *a, **kw)
+    monkeypatch.setattr(spice, "run_cached", first_fails)
+    # a fallback OP found (this fixture's own OP needs gmin stepping, which find_op does not count as clean)
+    monkeypatch.setattr(simrobust, "find_op", lambda design, analysis, nm, temp, workdir, cache, tag="": (
+        "nodeset", None, simrobust.op_probe(design, analysis, nm, temp, workdir, cache, tag=tag), {"ok": True}, []))
+    rows = {r["ref"]: r for r in spice.derating_audit(d, tmp_path / "w")}
+    assert rows["R2"]["p_w"] == pytest.approx(2.5 ** 2 / 1e3, rel=0.02)
+    assert ".nodeset" in (tmp_path / "w" / "derating_fallback.cir").read_text()
+    monkeypatch.setattr(simrobust, "find_op", lambda *a, **kw: (None, None, None, None, []))
+    with pytest.raises(RuntimeError, match="derating: no valid operating point"):
+        spice.derating_audit(d, tmp_path / "w2")
+
+
+def test_bom_leaves_out_net_ties_and_bom_false(tmp_path):
+    raw = yaml.safe_load(yaml.safe_dump(SYN))
+    raw["components"]["NT1"] = {"value": "NetTie", "symbol": "Device:NetTie_2", "footprint": "NetTie:NetTie-2_SMD_Pad0.5mm",
+                                "pins": {"1": "LOADN", "2": "GND"}}
+    raw["components"]["R3"]["bom"] = False
+    raw["components"]["R1"]["price_usd"] = 0.01
+    refs = ",".join(r["refs"] for r in _design(tmp_path, raw).bom())
+    assert "NT1" not in refs and "R3" not in refs and "R1" in refs
