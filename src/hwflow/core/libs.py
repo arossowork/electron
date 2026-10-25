@@ -215,7 +215,7 @@ class Libs:
                 dval = float(nums[0]) if nums else None
             pads.append({
                 "number": str(p[1]), "kind": str(p[2]), "shape": str(p[3]),
-                "x": float(at[1]), "y": float(at[2]), "rot": float(at[3]) if len(at) > 3 else 0.0,
+                "x": float(at[1]), "y": float(at[2]), "rot": sexpr.at_angle(at),
                 "w": float(size[1]), "h": float(size[2]), "layers": layers, "drill": dval,
                 "rratio": float(sexpr.value(p, "roundrect_rratio", 0.25)),
                 "hull": sexpr.custom_pad_hull(p),

@@ -33,6 +33,17 @@ def test_sexpr_roundtrip():
     assert sexpr.find(t, "b")[1] == "x y"
 
 
+def test_at_with_unlocked_flag():
+    """Older footprints write text positions as (at x y unlocked): no angle, and the flag survives a rotation."""
+    from hwflow.layout.board.pcb import _rotate_text
+    text = sexpr.loads('(fp_text user "x" (at 0 -2 unlocked))')
+    assert sexpr.at_angle(sexpr.find(text, "at")) == 0.0
+    _rotate_text(text, 90)
+    at = sexpr.find(text, "at")
+    assert sexpr.at_angle(at) == 90.0 and str(at[-1]) == "unlocked" and len(at) == 5
+    assert sexpr.at_angle(sexpr.loads("(at 1 2 45 unlocked)")) == 45.0
+
+
 def test_ipc2221_one_amp():
     # 1 A, 1 oz, 10 C rise, external layer: about 0.3 mm (12 mil)
     assert 0.25 < ipc2221_width_mm(1.0) < 0.35

@@ -89,6 +89,25 @@ def value(node, key, default=None):
     return f[1] if f and len(f) > 1 else default
 
 
+def at_angle(at) -> float:
+    """Angle of an `(at x y [angle] [unlocked])` node; 0 when absent. Older footprints write `(at x y unlocked)`."""
+    for x in at[3:4]:
+        try:
+            return float(x)
+        except ValueError:
+            pass
+    return 0.0
+
+
+def set_at_angle(at, a: float):
+    """Replace the angle of an `at` node, keeping flags such as `unlocked`."""
+    flags = [x for x in at[3:] if str(x) == "unlocked"]
+    del at[3:]
+    if a:
+        at.append(a)
+    at.extend(flags)
+
+
 def custom_pad_hull(pad: list) -> list[tuple[float, float]] | None:
     """Convex hull (pad-local mm, before pad rotation) of a custom pad: anchor rectangle plus gr_poly primitives."""
     if len(pad) < 4 or str(pad[3]) != "custom":

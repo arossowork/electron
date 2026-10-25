@@ -143,11 +143,7 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
             item = copy.deepcopy(item)
             _quote_tokens(item)
             at = sexpr.find(item, "at")
-            prot = float(at[3]) if len(at) > 3 else 0.0
-            ang = (prot + part.r) % 360
-            del at[3:]
-            if ang:
-                at.append(ang)
+            sexpr.set_at_angle(at, (sexpr.at_angle(at) + part.r) % 360)
             net = pin_nets.get(str(item[1]))
             item = [x for x in item if not (isinstance(x, list) and x and x[0] in ("net", "uuid"))]
             if net is not None and str(item[1]):
@@ -177,11 +173,7 @@ def _rotate_text(item: list, r: float):
     at = sexpr.find(item, "at")
     if at is None:
         return
-    base = float(at[3]) if len(at) > 3 else 0.0
-    del at[3:]
-    a = (base + r) % 360
-    if a:
-        at.append(a)
+    sexpr.set_at_angle(at, (sexpr.at_angle(at) + r) % 360)
 
 
 def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
@@ -717,7 +709,7 @@ def read_board(path: Path) -> dict:
     fps = {}
     for fp in sexpr.find_all(t, "footprint"):
         at = sexpr.find(fp, "at")
-        fx, fy, fr = float(at[1]), float(at[2]), float(at[3]) if len(at) > 3 else 0.0
+        fx, fy, fr = float(at[1]), float(at[2]), sexpr.at_angle(at)
         ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), None)
         ref = ref or next((str(p[2]) for p in sexpr.find_all(fp, "fp_text") if str(p[1]) == "reference"), None)
         ref = ref if ref and ref not in fps else f"?{len(fps)}"  # older footprints keep the reference in fp_text
@@ -727,7 +719,7 @@ def read_board(path: Path) -> dict:
             dx, dy = rot(float(pat[1]), float(pat[2]), fr)
             size = sexpr.find(p, "size")
             n = sexpr.find(p, "net")
-            ang = float(pat[3]) if len(pat) > 3 else 0.0
+            ang = sexpr.at_angle(pat)
             w, h = float(size[1]), float(size[2])
             hull = sexpr.custom_pad_hull(p)
             off = (0.0, 0.0)

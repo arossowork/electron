@@ -173,7 +173,7 @@ def mirrored_back_parts(pcb: Path) -> dict[str, dict]:
         ref = next((str(p[2]) for p in sexpr.find_all(fp, "property") if str(p[1]) == "Reference"), None)
         at = sexpr.find(fp, "at")
         if ref:
-            out[ref] = {"rot": float(at[3]) if len(at) > 3 else 0.0}
+            out[ref] = {"rot": sexpr.at_angle(at)}
     return out
 
 
