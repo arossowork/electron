@@ -34,6 +34,7 @@ ISO_SLACK = 0.1
 PIECE_MM = 0.5  # widening tests a track that does not fit as a whole in pieces of at most this length
 NECK_FLOOR = 0.15  # second neck width: the min_track_width pcb.write_project gives KiCad DRC
 NECK_MAX_MM = 3.0  # longest continuous narrow stretch (a pad escape) after widening; a longer one leaves the net open
+GRID_MM = 5.0  # cell of the shape index `widen` looks up the copper near a segment in
 
 
 def pad_layers(tokens: list[str], copper: list[str]) -> list[str]:
@@ -188,6 +189,27 @@ def neck_floor(board: dict) -> float:
     return max(NECK_FLOOR, float(board.get("min_track_mm") or 0.0))
 
 
+class _Grid:
+    """Shape indices by (layer, cell): the copper near a box. widen() buffering every shape of the layer for every
+    segment took over 40 min on an 864-part board."""
+
+    def __init__(self, cell: float = GRID_MM):
+        self.cell, self.cells = cell, {}
+
+    def _keys(self, layer, b):
+        c = self.cell
+        for gx in range(math.floor(b[0] / c), math.floor(b[2] / c) + 1):
+            for gy in range(math.floor(b[1] / c), math.floor(b[3] / c) + 1):
+                yield layer, gx, gy
+
+    def add(self, i: int, layer, bounds):
+        for k in self._keys(layer, bounds):
+            self.cells.setdefault(k, []).append(i)
+
+    def near(self, layer, bounds) -> list[int]:
+        return sorted({i for k in self._keys(layer, bounds) for i in self.cells.get(k, ())})
+
+
 def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: list[str], via_dia: float,
           outline, keepouts: dict[str, list], floor: float = NECK_FLOOR) -> dict[str, tuple[float, float]]:
     """Fit every track of the nets of `widths`, in place in the board file `path`: each piece gets the widest of
@@ -197,6 +219,11 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
     geometries no track may enter. A segment that does not fit as a whole is split into pieces of at most
     PIECE_MM. Returns net -> (length narrower than the net's width, total length, longest narrow stretch) in mm."""
     shapes = copper_shapes(board, copper, via_dia)
+    grid = _Grid()
+    for i, (_, lay, g) in enumerate(shapes):
+        grid.add(i, lay, g.bounds)
+    others = {n for n, _, _ in shapes}
+    reach = {}  # net -> largest clearance to any other net: shapes farther than that cannot be obstacles
     t = sexpr.loads(path.read_text())
     nets = {int(n[1]): str(n[2]) for n in sexpr.find_all(t, "net") if len(n) > 2}
     out, stats, necks = [], {}, {}
@@ -213,14 +240,19 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
         layer = str(sexpr.value(node, "layer"))
         st, en = sexpr.find(node, "start"), sexpr.find(node, "end")
         x1, y1, x2, y2 = float(st[1]), float(st[2]), float(en[1]), float(en[2])
-        obst = [g.buffer(clearance(net, n), quad_segs=4) for n, lay, g in shapes if lay == layer and n != net]
+        cands = sorted({w, cur} | {f for f in (floor,) if f < cur}, reverse=True)
+        if net not in reach:
+            reach[net] = max((clearance(net, n) for n in others if n != net), default=0.0)
+        r = cands[0] / 2 + reach[net] + 0.01
+        near = grid.near(layer, (min(x1, x2) - r, min(y1, y2) - r, max(x1, x2) + r, max(y1, y2) + r))
+        obst = [shapes[i][2].buffer(clearance(net, shapes[i][0]), quad_segs=4) for i in near
+                if shapes[i][1] == layer and shapes[i][0] != net]
         obst = unary_union(obst + list(keepouts.get(layer, [])))
 
         def fits(a, b, width):
             g = LineString([a, b]).buffer(width / 2, quad_segs=8)
             return outline.contains(g) and not g.intersects(obst)
 
-        cands = sorted({w, cur} | {f for f in (floor,) if f < cur}, reverse=True)
         whole = next((c for c in cands if c >= w and fits((x1, y1), (x2, y2), c)), None)
         if whole is not None:
             runs = [[(x1, y1), (x2, y2), whole]]
@@ -243,6 +275,7 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
         narrow, total = stats.get(net, (0.0, 0.0))
         for a, b, c in runs:
             shapes.append((net, layer, LineString([a, b]).buffer(c / 2, quad_segs=8)))  # other nets keep off it
+            grid.add(len(shapes) - 1, layer, shapes[-1][2].bounds)
             n = math.hypot(b[0] - a[0], b[1] - a[1])
             total += n
             if c < w - 1e-6:

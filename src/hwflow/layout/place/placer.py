@@ -157,6 +157,8 @@ ANNEAL = {"moves": 0, "s": 0.0}  # annealing moves and seconds in this process (
 _REPORTED: set = set()  # fixed-part violations already printed, once per process
 _BLOCKS: dict = {}  # corridor block verdicts per net and fixed-part placement (the corridor proof is slow)
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
+UNSTICK_POINTS = 1500  # unstick: most grid points per rotation (a full-board 1.5 mm scan of a 440 mm board took hours)
+UNSTICK_UNITS = 50  # unstick: most parts moved per round, worst violation first
 
 
 class Placer:
@@ -1323,14 +1325,19 @@ class Placer:
                 self._refs(p)
         return self.cost()
 
-    def unstick(self, rounds: int = 3, step: float = 1.5, polish: float = 0.25) -> float:
+    def unstick(self, rounds: int = 3, step: float = 1.5, polish: float = 0.25, deadline: float | None = None) -> float:
         """Annealing can leave a large part stuck on a violation (two relays nose to nose, a part in a keep-out) when
         every small move costs more than it gains. For each movable part in a violation, try every position on a
         coarse grid in the four rotations and keep the cheapest (HPWL and the other terms count), then polish it on a
-        fine grid. Cheap: a few parts, one incremental update per candidate."""
+        fine grid. The grid covers the part's floorplan region (else the board) with at most UNSTICK_POINTS points per
+        rotation (a board up to ~58 x 58 mm keeps the 1.5 mm step); the UNSTICK_UNITS worst parts per round; `deadline`
+        (time.time()) ends it early. One incremental update per candidate."""
+        import time
         P = self.parts
         self.cost()
         for _ in range(rounds):
+            if deadline is not None and time.time() >= deadline:
+                break
             bad: dict = {}
             for (a, b), v in self.pairs.items():
                 bad[a] = bad.get(a, 0.0) + v
@@ -1346,7 +1353,9 @@ class Placer:
                 break
             moved = False
             units = {id(self._unit(P[r])): self._unit(P[r]) for r in bad}  # a block moves as one
-            for p in units.values():
+            for p in list(units.values())[:UNSTICK_UNITS]:  # worst first
+                if deadline is not None and time.time() >= deadline:
+                    break
                 cur = self._total()
                 best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
 
@@ -1360,8 +1369,11 @@ class Placer:
                                 if c < best[0] - 1e-9:
                                     best = (c, x, y, a)
                                 self._undo()
-                scan([i * step for i in range(int(self.W / step) + 1)], [j * step for j in range(int(self.H / step) + 1)],
-                     (0.0, 90.0, 180.0, 270.0))
+                x0, y0, x1, y1 = (self.region_start.get(p.ref) or self.region_start.get(getattr(p, "name", None))
+                                  or (0.0, 0.0, self.W, self.H))
+                st = max(step, math.sqrt((x1 - x0) * (y1 - y0) / UNSTICK_POINTS))
+                scan([x0 + i * st for i in range(int((x1 - x0) / st) + 1)],
+                     [y0 + j * st for j in range(int((y1 - y0) / st) + 1)], (0.0, 90.0, 180.0, 270.0))
                 scan([best[1] + i * polish for i in range(-6, 7)], [best[2] + j * polish for j in range(-6, 7)], (best[3],))
                 p.x, p.y, p.r = best[1], best[2], best[3]
                 self._update(self._refs(p))
@@ -1538,14 +1550,19 @@ class Placer:
 
 
 def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1,
-          refine: float = REFINE):
+          refine: float = REFINE, deadline: float | None = None):
     """Best of several seeds (seed0 .. seed0 + seeds - 1), then a short low-temperature refine pass of
-    `refine * iters` moves on the best one (taken out of the seeds' budget). Returns (parts, cost, violations)."""
+    `refine * iters` moves on the best one (taken out of the seeds' budget). `deadline` (time.time()): no new seed
+    starts after it (the first always runs) and unstick stops. Returns (parts, cost, violations)."""
+    import time
     b = design.board
     best = None
     extra = int(iters * refine)  # the refine pass is paid for by shortening the seeds, so total moves stay the same
     iters -= extra // seeds
     for seed in range(seed0, seed0 + seeds):
+        if best is not None and deadline is not None and time.time() >= deadline:
+            print(f"[place] layout budget used up: seeds {seed}..{seed0 + seeds - 1} skipped")
+            break
         parts = build_parts(design, libs)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
         cost = pl.run(iters)
@@ -1562,7 +1579,7 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
             print(f"[place] fixed parts: {f}")
     if v and any(not p.fixed for p in parts.values()):  # a violation left by the annealing: search it away
         before = pl._state()
-        cost2 = pl.unstick()
+        cost2 = pl.unstick(deadline=deadline)
         v2 = pl.violations()
         if (len(v2), cost2) <= key:
             cost, v, key = cost2, v2, (len(v2), cost2)

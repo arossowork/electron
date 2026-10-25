@@ -33,7 +33,10 @@ detailed moves, anneal), `gplace.py` (global placement), `pinaccess.py`, `krt.kr
    floorplan regions and budgets act through those terms. The refine pass of the old flow does not run.
 
 After the stages, `place` keeps the best seed. `unstick` (a grid search for a part stuck on a violation) still runs
-on a violation.
+on a violation: over the part's floorplan region (else the board), at most `placer.UNSTICK_POINTS` grid points per
+rotation (a board up to about 58 x 58 mm keeps the 1.5 mm step) and the `placer.UNSTICK_UNITS` worst parts per round.
+The layout budget (`HWFLOW_LAYOUT_BUDGET_S`) reaches placement: `stage_layout` gives `place` half of the time left;
+past it no new seed starts and `unstick` stops.
 
 ## Routing (every `krt.krt_route` call, including the repair's reroutes)
 

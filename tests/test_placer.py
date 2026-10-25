@@ -270,6 +270,32 @@ def test_unstick_separates_parts_the_annealing_left_overlapping(tmp_path):
     assert not any(v.startswith("courtyard overlap") for v in pl.violations())
 
 
+def test_unstick_grid_is_bounded_on_a_large_board(tmp_path, monkeypatch):
+    # the same stuck parts on a 440 x 150 mm board: the scan stays within UNSTICK_POINTS per rotation per part and
+    # moves at most UNSTICK_UNITS parts per round (both made small here: each candidate costs a RUDY update)
+    monkeypatch.setattr(placer, "UNSTICK_POINTS", 100)
+    monkeypatch.setattr(placer, "UNSTICK_UNITS", 2)
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    for r in ("R1", "R2", "R3"):
+        parts[r].x, parts[r].y = 18.0, 15.0
+    for r, p in parts.items():
+        if r not in ("R1", "R2", "R3") and not p.fixed:
+            p.x, p.y = 18.0 + 3 * int(r[1:]), 4.0
+    pl = placer.Placer(d, parts, 440.0, 150.0, seed=1)
+    calls: dict = {}
+    upd = pl._update
+
+    def counted(refs):
+        calls[tuple(refs)] = calls.get(tuple(refs), 0) + 1
+        return upd(refs)
+    pl._update = counted
+    pl.unstick(rounds=1)
+    per_part = 4 * placer.UNSTICK_POINTS * 1.1 + 13 * 13 + 1   # coarse grid (rounding) + polish + the move
+    assert 0 < len(calls) <= placer.UNSTICK_UNITS and max(calls.values()) <= per_part
+    assert pl.unstick(rounds=1, deadline=0.0) == pytest.approx(pl.cost())   # a past deadline moves nothing
+
+
 # ---- L12: terms fed by the post-layout checks --------------------------------------------------------------------
 
 def _two(tmp_path, a, b, nets, board_extra=None, status=None, weights=None):

@@ -102,6 +102,20 @@ def test_widen_stays_inside_the_outline_and_keepouts(tmp_path):
     assert stats["A"] == (4.0, 4.0, 4.0)
 
 
+def test_widen_sees_a_far_clearance_across_grid_cells(tmp_path):
+    """The shape index must not hide an obstacle that only a large pair clearance (isolation, 6 mm) reaches: a pad of
+    net B 6.5 mm from the track, cells away, keeps A narrow beside it; with 0.2 mm the same pad is no obstacle."""
+    seg = ["segment", ["start", 0, 0], ["end", 4, 0], ["width", 0.25], ["layer", sexpr.Q("F.Cu")], ["net", 1],
+           ["uuid", sexpr.Q("u")]]
+    path = tmp_path / "x.kicad_pcb"
+    for clr, narrow in ((6.0, 1.0), (0.2, 0.0)):  # 1.0: the 0.5 mm pieces beside the pad (x 1.5-2.5)
+        path.write_text(sexpr.dumps(["kicad_pcb", ["net", 1, sexpr.Q("A")], ["net", 2, sexpr.Q("B")], seg]))
+        b = pcb.read_board(path)
+        b["footprints"] = {"U1": {"pads": [_pad("B", 2.0, 6.5, w=0.4, layers=("F.Cu",))]}}
+        stats = routing.widen(path, b, {"A": 0.6}, lambda a, c, clr=clr: clr, CU, 0.6, box(-20, -20, 20, 20), {})
+        assert stats["A"][0] == narrow
+
+
 def test_pair_clearance_uses_the_isolation_distance():
     classes = {"AC": {"clearance": 0.2}, "S": {"clearance": 0.3}}
     c = krt._pair_clearance(type("D", (), {"board": {"clearance_mm": 0.2}})(), classes, [{"members": ["AC", "AC2"], "mm": 6.0}])
