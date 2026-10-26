@@ -106,6 +106,10 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     b = design.board
     name = design.name
     src, workdir = Path(src).resolve(), Path(workdir).resolve()  # the router runs with cwd=KRT_DIR (a relative project path would not be found)
+    from . import roads
+    if roads.on_route(design):  # roads first: the planned copper of the constrained roads goes on the board first
+        src, nets, pre = roads.preseed(design, libs, src, workdir, stem, nets)
+        keep_first = keep_first or bool(pre)
     rule_files = [workdir / f"{name}.kicad_pro", workdir / f"{name}.kicad_dru"]
     classes = pcb.net_classes(design)
     gnds = design.ground_nets() if b["gnd_pour"] else set()
@@ -167,7 +171,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 t = min(t, deadline - time.time())
                 if t <= 0:
                     raise subprocess.TimeoutExpired(args, 0)
-            p = subprocess.run(args, capture_output=True, text=True, timeout=t, cwd=krt_dir(), env=env)
+            p = run_group(args, timeout=t, cwd=krt_dir(), env=env)
             return p.stdout + p.stderr, p.returncode
         except subprocess.TimeoutExpired as exc:
             if keep_partial:
@@ -439,6 +443,31 @@ def krt_unrouted(summary: dict) -> int:
     return int(summary.get("failed", 0)) + int(summary.get("multipoint_deficit", 0)) + len(summary.get("open_single") or [])
 
 
+def run_group(args, timeout, cwd=None, env=None) -> subprocess.CompletedProcess:
+    """subprocess.run in a session of its own: on a timeout the whole process group is killed. subprocess.run kills
+    only the child and then waits for its worker processes, which hold the output pipes, to end by themselves (a
+    120 s repair budget once took 7009 s that way). The TimeoutExpired raised carries the output read so far."""
+    import signal
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd, env=env,
+                         start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        out, err = p.communicate()  # after a timeout, communicate() again returns all the output (none is lost)
+        raise subprocess.TimeoutExpired(args, timeout, output=out, stderr=err) from None
+    return subprocess.CompletedProcess(args, p.returncode, out, err)
+
+
+def krt_variants() -> list:
+    """KRT_VARIANTS, rotated by HWFLOW_KRT_ROTATE (a layout portfolio strategy starts from another net order)."""
+    k = get_settings().layout.krt_rotate % len(KRT_VARIANTS)
+    return KRT_VARIANTS[k:] + KRT_VARIANTS[:k]
+
+
 def route_class(base: list, stem: Path, retries: int, run, variants: list | None = None,
                 keep_partial: bool = False, stop=None) -> tuple:
     """Route one width class; while nets stay unrouted, retry in another net order (up to `retries` times).
@@ -446,7 +475,7 @@ def route_class(base: list, stem: Path, retries: int, run, variants: list | None
     best try. Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
     import json as _json
     best, tried, logs = None, [], []
-    for j, extra in enumerate(variants or KRT_VARIANTS[:1 + max(retries, 0)]):
+    for j, extra in enumerate(variants or krt_variants()[:1 + max(retries, 0)]):
         if j and best is not None and stop is not None and stop(best[2], j):
             tried.append(("further net orders", f"skipped ({stop.why})"))
             break

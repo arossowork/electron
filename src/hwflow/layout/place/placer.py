@@ -12,10 +12,11 @@ from ...core.geometry import COURTYARD_MARGIN, Part, Parts, Rigid, rot  # noqa: 
 from ...core.settings import get_settings
 
 
-def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN) -> dict[str, Part]:
+def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=None) -> dict[str, Part]:
+    """`areas`: more rule areas for the placer (roads.areas: the road reservations)."""
     parts = Parts()
     from ..board import keepout
-    parts.areas = keepout.placement_areas(design, libs)
+    parts.areas = keepout.placement_areas(design, libs) + list(areas or [])
     for c in design.components.values():
         if c.get("virtual"):
             continue
@@ -332,7 +333,10 @@ class Placer:
         nl = max(1, int(self.d.board.get("layers", 2)))
         self.ko_fp, self.ko_pad = [], []  # (box, board sides, owner, name)
         self.ko_poly = {}  # (owner, name) -> area polygon, to confirm a box overlap before it is reported
+        self.ko_exempt = {}  # (owner, name) -> refs the area does not apply to (roads.areas: the road's own parts)
         for a in areas:
+            if a.get("exempt"):
+                self.ko_exempt[(a["owner"], a["name"])] = frozenset(a["exempt"])
             if a.get("poly") is not None:
                 self.ko_poly[(a["owner"], a["name"])] = a["poly"]
             lay = a["layers"]
@@ -719,14 +723,14 @@ class Placer:
         """Courtyard area of `r` inside the areas that forbid footprints, plus pad area inside those that forbid pads."""
         p = self.parts[r]
         c = 0.0
-        for box, sides, owner, _ in self.ko_fp:
-            if owner != r and not self._same(owner, r):
+        for box, sides, owner, name in self.ko_fp:
+            if not self._ko_skip(owner, name, r):
                 for s in sides:
                     b = p.side_box(s)
                     if b:
                         c += _overlap(b, box)
-        for box, sides, owner, _ in self.ko_pad:
-            if owner != r and not self._same(owner, r) and sides & set(p.sides or ()):
+        for box, sides, owner, name in self.ko_pad:
+            if not self._ko_skip(owner, name, r) and sides & set(p.sides or ()):
                 for n in p.pads:
                     if n not in p.nocu:
                         c += _overlap(self.part_pad_box(p, n), box)
@@ -778,6 +782,10 @@ class Placer:
         m = COURTYARD_MARGIN if courtyard else 0.0  # courtyard boxes carry this margin; KiCad tests the courtyard
         b = box(bx[0] + m, bx[1] + m, bx[2] - m, bx[3] - m) if bx[2] - bx[0] > 2 * m and bx[3] - bx[1] > 2 * m else box(*bx)
         return b.intersection(poly).area > 0.01
+
+    def _ko_skip(self, owner, name, r) -> bool:
+        """Area (owner, name) does not apply to part r: its own area, one of its block, or an exempt part."""
+        return owner == r or self._same(owner, r) or r in self.ko_exempt.get((owner, name), ())
 
     def _same(self, a, b) -> bool:
         """a and b are parts (or the courtyard) of one block: their relative placement is the block's, not a cost."""
@@ -1443,10 +1451,10 @@ class Placer:
             for p in P:  # out of the areas that forbid courtyards, along the axis of least penetration
                 if p.fixed:
                     continue
-                for box, sides, owner, _ in self.ko_fp:
+                for box, sides, owner, name in self.ko_fp:
                     for side in sides:
                         b = p.side_box(side)
-                        if owner == p.ref or self._same(owner, p.ref) or not b or _overlap(b, box) <= 1e-6:
+                        if self._ko_skip(owner, name, p.ref) or not b or _overlap(b, box) <= 1e-6:
                             continue
                         moved = True
                         opts = [(box[0] - b[2] - 0.05, 0), (box[2] - b[0] + 0.05, 0),
@@ -1794,7 +1802,7 @@ class Placer:
             if self._ko_cost(r) > 0.01:
                 yards = [b for b in (P[r].side_box("front"), P[r].side_box("back")) if b]
                 pads = [self.part_pad_box(P[r], k) for k in P[r].pads if k not in P[r].nocu]
-                names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if o != r and (
+                names = [n for box, sides, o, n in self.ko_fp + self.ko_pad if not self._ko_skip(o, n, r) and (
                     any(_overlap(bx, box) > 0 and self._in_area(bx, o, n, courtyard=True) for bx in yards)
                     or any(_overlap(bx, box) > 0 and self._in_area(bx, o, n) for bx in pads))]
                 names += [n for hull, refs, n in self.iso_hulls if r not in refs and any(
@@ -1835,7 +1843,7 @@ class Placer:
 
 
 def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1,
-          refine: float = REFINE, deadline: float | None = None):
+          refine: float = REFINE, deadline: float | None = None, areas=None):
     """Best of several seeds (seed0 .. seed0 + seeds - 1), then a short low-temperature refine pass of
     `refine * iters` moves on the best one (taken out of the seeds' budget). `deadline` (time.time()): no new seed
     starts after it (the first always runs) and unstick stops. Returns (parts, cost, violations)."""
@@ -1850,7 +1858,7 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         if best is not None and deadline is not None and time.time() >= deadline:
             print(f"[place] layout budget used up: seeds {seed}..{seed0 + seeds - 1} skipped")
             break
-        parts = build_parts(design, libs)
+        parts = build_parts(design, libs, areas=areas)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
         cost = pl.run(iters)
         v = pl.violations()

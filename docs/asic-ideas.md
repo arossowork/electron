@@ -792,3 +792,128 @@ hybrid is never worse than the current flow on these runs but costs 1.3-3x the r
 problem is not channel congestion (pin access: 178 nets have no exit at their width): guides do not make its bulk
 pass tractable. Not adopted: the router stays on branch `asic-router`; `scripts/route_bench.py` here benchmarks the
 current flow and environment variants of it (`--mode NAME:KEY=VALUE`), without the guided modes.
+
+## Roads first (2026-10-25, branch `roads-first`, prototype behind `HWFLOW_ROADS=1`)
+
+Idea: plan the critical routing infrastructure (the "roads") before the parts, as urban planning lays out roads
+before buildings. Code (paths as merged): `src/hwflow/layout/route/roads.py` (classify, plan, reserve, place with
+zoning feedback, preseed), hooks in `placer.place(areas=)` / `build_parts(areas=)` (rule areas with `exempt` refs,
+`Placer._ko_skip`), `gplace` (exempt refs on blockages), `pipeline.stages.stage_layout` (placement) and
+`krt.krt_route` (preseed). Bench: the branch's `scripts/route_bench.py --mode base|roads|preseed`; on main the
+routing half is `scripts/route_bench.py --mode preseed:HWFLOW_ROADS=route` (fixed placement). Tests:
+`tests/test_roads.py`.
+
+- Roads: isolation members, `layers` nets, region nets, `min_width_mm`, `impedance_ohm`, tracks >= 2 x board track
+  (`HWFLOW_ROADS_POWER=1` adds power-class nets). Movable-endpoint roads with more than 16 pads are spread nets, skipped.
+- Plan: seed-route search (`seedroute.route_net`) on the fixed copper only, inside the net's floorplan region first;
+  roads in order, each keeping its spacing from the earlier ones. 2-11 s per design.
+- Reserve: centre line grown by w/2 + the foreign-pad spacing (isolation + 0.5 mm, else clearance + 0.1 mm),
+  rasterised to 0.5 mm boxes forbidding footprints (fixed roads) or pads (roads planned on a coarse placement).
+- Place the rest around the reservations; check each road on the placed board; grow a closed road's reservation
+  by 1 mm and place again (at most 2 rounds) instead of a new seed. No round ever closed a road.
+- Route: the constrained roads' planned copper goes on the board before KRT (`preseed`, recorded as seed copper
+  so the final DRC can drop it), and KRT routes the other nets around it.
+
+Results (one run each; the machine had load 10-45 from other jobs, so wall times are noisy; base rows on ht4 and
+synth60 are the earlier `route_bench` base runs on the same placements, same code as main, load 6-12):
+
+| design / placement | mode | unrouted | DRC errors | repair | vias | track mm | mains group s | route s | HPWL | movable bbox mm2 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ht4 seed 11 | base | 1 (AC_ROOM1) | 1 | 1 -> 1, 120 s | 80 | 1266 | 423 | 654 | 1222 | 1598 |
+| ht4 seed 11 | preseed (same placement) | **0** | **0** | none | 80 | 1293 | **5** | 546 | 1222 | 1598 |
+| ht4 seed 11 | roads (reserved placement) | **0** | **0** | none | 78 | 1274 | **5** | 385 | 1214 | 1609 |
+| ht4 seed 1 | base | 1 (K2_IN1) | 1 | 2 -> 1, 120 s | 80 | 1251 | 24 | 525 | 1232 | 1572 |
+| ht4 seed 1 | preseed | 1 (K2_IN1) | 1 | 2 -> 1, 120 s | 80 | 1249 | 5 | 1782 | 1232 | 1572 |
+| ht4 seed 1 | roads | router 0; 1 GND pour island | 1 | 1 -> 1, 19 s | 82 | 1244 | 3 | 332 | 1216 | 1168 |
+| synth60 | roads | no road in the design: placement identical to base (0 parts moved), router input identical; base 31 unrouted | | | | | | | | |
+| home-thermostat (v1, all parts fixed) | base | 15 | 49 | 49 -> 49 | 77 | 1370 | - | 2464 | - | - |
+| home-thermostat (v1) | preseed | 23 | 58 | 50 -> 50 | 79 | 1230 | - | 3590 | - | - |
+
+Both ht4 seed-11 boards are routed and DRC clean; the verdict stays false only for the placer's `courtyard overlap
+C2/M4`, which the base seed-11 placement has too. trace coverage is unchanged in every run (ht4 26/35 verified).
+
+- **Worked:** on ht4 the failure of seed 11 (AC_ROOM1 open) was not a placement problem: the planned road exists on
+  that placement (the reservation never moved a part); KRT's own mains routes block one another. Putting the
+  planned mains copper on the board first closes all four mains nets in 5 s instead of 235-1083 s, and seed 11 then
+  routes clean with no repair. With the reservation placement, seed 1 also routed every net in the router (the
+  remaining error is a GND pour island the repair did not stitch).
+- **Did not help:** the reservations themselves. On ht4 every SELV part is held out of the mains zone by the
+  floorplan already, so no placement (base or reserved) put a part on a road; the zoning feedback never fired.
+  synth60 and sensor_preamp have no roads (no fixed parts, no constrained nets; +3V3 is a 30-pad spread net); their
+  failures are pin escape, which roads first does not address.
+- **Hurt:** home-thermostat v1, whose rules give clearance 4 mm and creepage 6 mm: the plan keeps the clearance
+  (corridor.Model), the creepage errors of the pour touch every seeded road, `drop_on_drc` removes all four, and the
+  mains nets end unrouted (23 vs 15). A preseed must plan to the larger of clearance and creepage, and a drop must
+  hand the net back to the router instead of leaving it open.
+- **Verdict:** adopt the routing half (preseed of the constrained, fixed-endpoint roads), after the two fixes above
+  and more seeds; it is cheap (2-7 s) and turns the 4-7 min mains routing into seconds. Do not adopt the placement
+  reservations yet: no measured gain on these designs; worth a second look only on a board where movable parts
+  can actually sit on a constrained road.
+
+## Layout portfolio (2026-10-26, branch `roads-first`; merged off by default)
+
+Decision (the user, after the measurements below): option (a). `layout --auto` keeps the sequential attempts; the
+portfolio runs only with `HWFLOW_PORTFOLIO=1` (`src/hwflow/pipeline/portfolio.py`). The road fixes and the router
+timeout fix are merged as they are.
+
+What changed:
+- **Road fixes.** Roads are planned to max(clearance, creepage) of their isolation group (`roads.Model`). A road
+  that the final DRC drops (`seedroute.drop_on_drc(copper_only=True)`) goes back to the router as a normal net
+  (`roads.reroute`).
+- **Portfolio.** Attempt 1 of `--auto` is a portfolio (`portfolio.py`; on main only with `HWFLOW_PORTFOLIO=1`): one shared placement, then the strategies
+  base, preseed, roads, order_inside_out and order_mps_reverse run at the same time. A strategy that cannot differ
+  from base is left out, and `portfolio.SELECT` is the predictor hook. Area-search designs run base first. When no
+  strategy converges, the sequential attempts follow with the knobs of the best strategy.
+- **Router timeout.** The KRT router call now runs in a process session of its own (`pcb._run_group`; on main `krt.run_group`), and a
+  timeout kills its worker processes too. Before this, `subprocess.run` waited for the orphaned workers: on ht4 s11
+  sequential, a 120 s repair budget took 7009 s.
+
+Method: `scripts/portfolio_bench.py`, `layout --auto` defaults (4 seeds, 30000 iterations, 3000 s budget), with
+`HWFLOW_PORTFOLIO=1` (pf) or `0` (seq). The runs went one at a time on an otherwise idle 8-core / 16-thread laptop
+in the `low-power` platform profile. With 5 or more busy threads, the clock fell to about 1.9 to 2.6 GHz.
+
+"Converged" is the time of the first board with 0 unrouted, 0 DRC errors and 0 placement violations. CPU and peak
+RSS are summed over the whole process tree.
+
+| design | mode | to converged board (s) | total (s) | CPU s | peak MB | kept | vias / track mm |
+|---|---|---|---|---|---|---|---|
+| sensor_preamp s1 | pf / seq | 68 / 62 | 68 / 62 | 276 / 247 | 1667 / 730 | base (attempt 1) | 3 / 45 both |
+| sensor_preamp s2 | pf / seq | 66 / 64 | 66 / 64 | 253 / 245 | 1660 / 334 | base | 4 / 54 both |
+| sensor_preamp s3 | pf / seq | 164 / 156 | 164 / 156 | 547 / 559 | 1442 / 1604 | base | 4 / 54 both |
+| ht4 s11 | pf / seq | 2076 / 889 | 2380 / 1120 | 10142 / 3122 | 5749 / 4025 | fallback attempt 3 (preseed knobs) / attempt 3 | 78 / 1234, 79 / 1247 |
+| ht4 s1 | pf / seq | 1100 / 430 | 1101 / 432 | 5328 / 1847 | 5518 / 5296 | fallback attempt 2 (preseed knobs) / attempt 2 | 73 / 1195, 73 / 1197 |
+| home-thermostat v1 | pf / seq | none / none | 1498 / 924 | 6844 / 1222 | 5326 / 1814 | order_inside_out 15 unr, 48 DRC / 15, 49 | |
+| synth60 | pf / seq | none / none | 2158 / 1613 | 6290 / 2316 | 3431 / 1547 | order_inside_out 27 unr / base 28 | |
+
+Strategy results in attempt 1 (unrouted, DRC errors, lane seconds):
+- **ht4 s11.** Preseed reached 0 unrouted and 0 DRC errors in 711 s, the only lane that did. It kept a C2/M4
+  courtyard overlap, so it did not converge. Base, order_inside_out and order_mps_reverse ended at 1 unrouted / 1
+  error after 1280 to 1510 s. Roads ended at 4 unrouted / 4 errors after 1766 s. The sequential attempt 1 (base)
+  took 593 s.
+- **ht4 s1.** Every lane ended at 3 unrouted / 3 errors (roads 4 / 4), in 283 to 843 s. Sequential base took 173 s.
+- **home-thermostat v1.** All lanes ended at 15 unrouted / 48-50 errors. Preseed, at 50 errors, is now on par with
+  base (before the fixes it was 23 unrouted / 58 errors).
+- **synth60.** No roads, so three order lanes ran: 27 to 29 unrouted.
+
+Findings:
+1. **No strategy converged where base did not, on any design.** On every design, the converged board came from
+   another placement seed (the fallback), not from another strategy. The single strategy effect is preseed on ht4
+   s11: it reached 0 / 0 copper faster, and the fallback attempts with preseed knobs reused its mains-group cache.
+   The net-order variants gave the same or a worse result.
+2. **Running at the same time costs here.** Each lane is mostly one core, yet with 4-5 lanes at once a lane took
+   1.6 to 2.6 × the time of the same work alone. Attempt 1 also waits for its slowest lane (roads, own placement)
+   before the fallback starts. Result: wall time to a converged board is 2.3-2.6 × longer on ht4 s1 and s11, and
+   CPU is 2.5-3.3 ×. Peak memory is about 1.4 GB per lane (5.5-5.7 GB for 5 lanes, against 4-5 GB for the
+   sequential 3-attempt pool).
+3. **Small designs pay nothing.** With an area search, base runs first, so sensor_preamp is within 10 % of
+   sequential (the first version, with 3 searches at once, was 1.7 × slower).
+
+Recommendation (for the coordinator and the user): on this machine and these designs, the portfolio as the default
+makes `--auto` slower and does not give a better board. Seed diversity is what fixes ht4, not strategy diversity.
+Options:
+- (a) keep `HWFLOW_PORTFOLIO=0` as the default until a predictor (`portfolio.SELECT`) prunes the lanes to the one or
+  two that differ;
+- (b) make the portfolio lanes mix placement seeds with preseed (for example base@seed group 1, preseed@seed group
+  1, base@seed group 2), so the fallback's seed diversity starts at once;
+- (c) drop roads and the order variants from the default list.
+Measurements on a machine without a power cap may favour parallel lanes more. The table above does not show that.

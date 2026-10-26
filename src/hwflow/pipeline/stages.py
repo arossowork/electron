@@ -204,7 +204,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
     from ..layout.place import asicflow
     from ..layout.place import routability
-    for m in (corridor, barrier, pinaccess, asicflow, routability):  # which nets route narrow first
+    from ..layout.route import roads
+    for m in (corridor, barrier, pinaccess, asicflow, routability, roads):  # which nets route narrow first
         h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
     h.update(Path(regionroute.__file__).read_bytes())  # route groups and their cache
@@ -249,12 +250,15 @@ def _cache_save(cache: Path, key: str, data: dict):
 
 
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
-                 passes: int = 30, seed0: int = 1, workdir: Path | None = None, deadline: float | None = None) -> dict:
+                 passes: int = 30, seed0: int = 1, workdir: Path | None = None, deadline: float | None = None,
+                 shared: bool = False) -> dict:
     """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
     (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
     `deadline` (time.time()) bounds routing search, including the first pass and retries, and repair rounds.
     Final DRC, candidate preservation and diagnosis may continue afterwards; this is a search budget, not a
-    hard whole-command timeout. A truncated candidate is checked and kept, but never saved to the board cache."""
+    hard whole-command timeout. A truncated candidate is checked and kept, but never saved to the board cache.
+    `shared`: the placement.json in `workdir` was placed for this call (the layout portfolio's shared placement,
+    place_shared) and is taken as it is, at the declared board size."""
     out = workdir or _out(d)
     cache = _out(d) / "routecache"
     pj = out / "placement.json"
@@ -268,8 +272,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out, deadline=deadline)
     if pre:
         _, _, parts, cost, viol, tracks, vias, summary, _, d.route_budget_exhausted = pre
-    elif reuse and pj.exists() and _saved_board(pj) in (None, declared):
-        _apply_saved_size(d, pj)
+    elif (reuse and pj.exists() and _saved_board(pj) in (None, declared)) or (shared and pj.exists()):
+        if not shared:
+            _apply_saved_size(d, pj)
         parts = placer.build_parts(d, libs)
         saved = json.loads(pj.read_text())
         for r, p in parts.items():
@@ -283,7 +288,13 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     else:
         # placement gets half of the time left, so routing and repair still run inside the budget
         pdl = None if deadline is None else t0 + max(0.0, deadline - t0) / 2
-        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0, deadline=pdl)
+        from ..layout.route import roads
+        if roads.on(d):  # roads first (prototype): plan and reserve the roads, then place the parts around them
+            parts, cost, viol, _ = roads.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0,
+                                               deadline=pdl)
+        else:
+            parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0,
+                                             deadline=pdl)
     tm = {"place_s": round(time.time() - t0, 1)}  # wall time per step (experiment metrics, docs/asic-ideas.md)
     pj.write_text(json.dumps({"__design_board__": list(declared),
                               "__board_mm__": [d.board["width_mm"], d.board["height_mm"]],
@@ -391,12 +402,20 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             _cache_save(cache, key, {"tracks": tracks, "vias": vias, "summary": summary, "island": island, "rep": rep,
                                      "seeds": seeds, "groups": groups})
     if seeds:  # the final DRC judges the seed copper: an error that touches it removes it
-        tr, vi, dropped = seedroute.drop_on_drc(seeds, tracks, vias, drc)
+        from ..layout.route import roads
+        tr, vi, dropped = seedroute.drop_on_drc(seeds, tracks, vias, drc, copper_only=roads.on_route(d))
         if dropped:
             tracks, vias = tr, vi
-            drc = route_check(tracks, vias, island)
             summary += f"; seed route {', '.join(dropped)} removed (a DRC error touches it)"
             print(f"[layout] seed route {', '.join(dropped)}: removed, a DRC error touches it")
+            if roads.on_route(d) and d.board.get("router", "krt") == "krt":  # back to the router as ordinary nets
+                try:
+                    tracks, vias, note = roads.reroute(d, libs, parts, out, tracks, vias, dropped)
+                    summary += f"; {note}"
+                    print(f"[layout] {note}")
+                except Exception as e:  # noqa: BLE001 - the nets stay open; the DRC reports them
+                    print(f"[layout] roads {', '.join(dropped)}: reroute failed ({type(e).__name__}: {e})")
+            drc = route_check(tracks, vias, island)
     from ..layout.route.prune import prune
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:
@@ -478,26 +497,62 @@ def _post_warnings(d: Design, w: Path) -> int:
         return 0
 
 
-def _auto_attempt(k: int) -> dict:
-    """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/. Runs in a worker process,
-    so the design it mutates (board size) is that worker's own copy."""
+def _auto_attempt(k: int, workdir: Path | None = None, env: dict | None = None, placement: Path | None = None) -> dict:
+    """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/ (or `workdir`: a layout
+    portfolio strategy, which runs under its knobs `env`). Runs in a worker process, so the design it mutates (board
+    size) is that worker's own copy. Without `env` it runs under _AUTO["knobs"]: the knobs of the portfolio's best
+    strategy, for the fallback attempts. `placement`: the portfolio's shared placement (place_shared)."""
+    from ..core.settings import use, with_layout_env
     c = _AUTO
-    return run_attempt(c["d"], c["libs"], c["out"], k, size0=c["size0"], seeds=c["seeds"], iters=c["iters"],
-                       passes=c["passes"], reuse=c["reuse"], deadline=c.get("deadline"))
+    with use(with_layout_env(get_settings(), (c.get("knobs") or {}) if env is None else {})):
+        return run_attempt(c["d"], c["libs"], c["out"], k, size0=c["size0"], seeds=c["seeds"], iters=c["iters"],
+                           passes=c["passes"], reuse=c["reuse"], deadline=c.get("deadline"), workdir=workdir,
+                           placement=placement)
 
 
-def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, iters: int, passes: int,
-                reuse: bool, deadline: float | None = None) -> dict:
-    """Attempt `k` (0-based) of the layout search in build/auto/a<k+1>/: placer seeds `seed0 + k*seeds`, the saved
-    placement for attempt 1 with `reuse`. Returns {"k", "r", "line"}, or {"k", "error"} when the attempt crashed."""
-    import shutil
+def _auto_place(k: int, path: Path) -> bool:
+    """place_shared for attempt `k` of layout_auto (the portfolio's shared placement)."""
+    c = _AUTO
+    return place_shared(c["d"], c["libs"], c["out"], k, path, size0=c["size0"], seeds=c["seeds"], iters=c["iters"],
+                        reuse=c["reuse"])
+
+
+def _reset_size(d: Design, size0):
     b = d.raw.setdefault("board", {})
     for key, v in zip(("width_mm", "height_mm"), size0):  # every attempt starts from the requested outline
         if v is None:
             b.pop(key, None)
         else:
             b[key] = v
-    w = out / "auto" / f"a{k + 1}"
+
+
+def place_shared(d: Design, libs: Libs, out: Path, k: int, path: Path, *, size0, seeds: int, iters: int,
+                 reuse: bool) -> bool:
+    """The placement of attempt `k` alone, written to `path` (placement.json format), for the layout portfolio
+    strategies that route the same placement (pipeline.portfolio). False when it is not shared: an area search (each
+    strategy runs its own) or a saved placement that --reuse takes."""
+    _reset_size(d, size0)
+    if d.board.get("optimize_area") or (reuse and k == 0 and (out / "placement.json").exists()):
+        return False
+    seed0 = get_settings().layout.seed0 + k * seeds
+    weights = (d.raw.get("placement") or {}).get("weights")
+    parts, _, _ = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
+    declared = [d.board.get("width_mm"), d.board.get("height_mm")]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"__design_board__": declared, "__board_mm__": declared,
+                                **{r: [p.x, p.y, p.r] for r, p in parts.items()}}))
+    return True
+
+
+def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, iters: int, passes: int,
+                reuse: bool, deadline: float | None = None, workdir: Path | None = None,
+                placement: Path | None = None) -> dict:
+    """Attempt `k` (0-based) of the layout search in build/auto/a<k+1>/ (or `workdir`: a layout portfolio strategy):
+    placer seeds `seed0 + k*seeds`, the saved placement for attempt 1 with `reuse`, or the shared `placement` of the
+    portfolio. Returns {"k", "r", "line"}, or {"k", "error"} when the attempt crashed."""
+    import shutil
+    _reset_size(d, size0)
+    w = Path(workdir) if workdir else out / "auto" / f"a{k + 1}"
     shutil.rmtree(w, ignore_errors=True)
     w.mkdir(parents=True)
     if libs is not None and (out / "fp-lib-table").exists():  # DRC reads the library tables next to the board;
@@ -510,9 +565,11 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
     use_saved = reuse and k == 0 and (out / "placement.json").exists()
     if use_saved:
         shutil.copy(out / "placement.json", w / "placement.json")
+    elif placement:
+        shutil.copy(placement, w / "placement.json")
     try:
         r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=iters, passes=passes, seed0=seed0,
-                         workdir=w, deadline=deadline)
+                         workdir=w, deadline=deadline, **({"shared": True} if placement and not use_saved else {}))
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
@@ -522,10 +579,11 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
         m = {key: r.get(key) for key in keep}
         m["track_mm"] = round(sum(v.get("length_mm", 0) for v in (r.get("nets") or {}).values()), 1)
         m["drc_types"] = sorted(x["type"] for x in r.get("drc") or [] if x["sev"] == "error")
-        (out / "auto" / f"attempt{k + 1}.metrics.json").write_text(json.dumps(m, indent=1))
+        (w / "metrics.json" if workdir else out / "auto" / f"attempt{k + 1}.metrics.json").write_text(
+            json.dumps(m, indent=1))
     except Exception:  # noqa: BLE001 - metrics only
         pass
-    how = "saved placement" if use_saved else f"placer seeds {seed0}-{seed0 + seeds - 1}"
+    how = "saved placement" if use_saved else f"{'shared ' if placement else ''}placer seeds {seed0}-{seed0 + seeds - 1}"
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
@@ -609,7 +667,14 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
         print(f"[layout --auto] {res.get('line') or res.get('error')} ({time.time() - t0:.0f} s of {budget:.0f} s)",
               flush=True)
     fixed_all = all_fixed(d, libs)
-    results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
+    from . import portfolio
+    if portfolio.on():  # HWFLOW_PORTFOLIO=1: attempt 1 is the strategy portfolio on one placement seed
+        results[0] = portfolio.first_attempt(out, d, libs, deadline=deadline, attempt=_auto_attempt,
+                                             place=_auto_place, log=lambda m: print(m, flush=True))
+        if results[0].get("env"):
+            _AUTO["knobs"] = results[0]["env"]  # the fallback attempts carry on with the best strategy's knobs
+    else:
+        results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
     summaries[1] = attempt_summary(results[0], fixed_all)
     progress(results[0])
     s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
@@ -711,6 +776,9 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
             f"attempts; {skipped} attempt{'s' if skipped != 1 else ''} skipped or stopped")
     r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
              seconds=round(time.time() - t0, 1))
+    if r0.get("portfolio") and k != 1:  # a fallback attempt won; it ran with the knobs of the best strategy
+        r["portfolio"] = dict(r0["portfolio"], fallback={"attempt": k, "knobs_of": r0["portfolio"].get("strategy")},
+                              strategy=None)
     if not r["ok"]:
         r["diagnosis"] = layout_diagnosis(d, libs, [results[i]["r"] for i in used if "r" in results[i]])
     return r

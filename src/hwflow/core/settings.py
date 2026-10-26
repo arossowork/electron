@@ -65,6 +65,15 @@ class LayoutSettings(_Group):
     routab_rank: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_RANK"))
     routab_feedback: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_FEEDBACK"))
     routab_retry: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_RETRY"))
+    # roads first (layout.route.roads): 0, 1 (reservations + roads routed first), route (roads routed first);
+    # None: the design's placement.roads, then off
+    roads: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROADS"))
+    roads_power: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROADS_POWER"))  # every power net a road
+    krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
+    # layout portfolio (pipeline.portfolio): off by default, on with HWFLOW_PORTFOLIO=1
+    portfolio: bool = Field(False, validation_alias=AliasChoices("HWFLOW_PORTFOLIO"))
+    portfolio_workers: int = Field(0, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_WORKERS"))  # 0: cpu count - 2
+    portfolio_grace: float = Field(1.5, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_GRACE"))
 
     @model_validator(mode="before")
     @classmethod
@@ -201,6 +210,20 @@ def use(settings: Settings) -> Iterator[Settings]:
     finally:
         _PROCESS.remove(settings)
         _CURRENT.reset(tok)
+
+
+def with_layout_env(settings: Settings, env: Mapping[str, Any]) -> Settings:
+    """`settings` with the layout knobs of `env` (env var names, as HWFLOW_ROADS=route) applied over its layout group;
+    names that are no layout setting are ignored. A layout portfolio strategy runs under it (pipeline.portfolio)."""
+    fields = {}
+    for name, f in LayoutSettings.model_fields.items():
+        for alias in getattr(f.validation_alias, "choices", None) or ():
+            if alias in env:
+                fields[name] = env[alias]
+    if not fields:
+        return settings
+    layout = LayoutSettings(**{**settings.layout.model_dump(), **fields})
+    return settings.model_copy(update={"layout": layout})
 
 
 def get_settings() -> Settings:

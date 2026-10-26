@@ -183,8 +183,8 @@ def _run_fab(c: StageContext) -> dict:
 # Packages count whole (every .py and .lib file); hwflow.models is the SPICE model data. hwflow.fw is in no list.
 _BASE = ("hwflow.pipeline.spec", "hwflow.pipeline.stages", "hwflow.pipeline.status", "hwflow.pipeline.hooks",
          "hwflow.core")
-_LAYOUT = _BASE + ("hwflow.pipeline.layout", "hwflow.buildplan", "hwflow.sim", "hwflow.layout", "hwflow.verify",
-                   "hwflow.schematic",
+_LAYOUT = _BASE + ("hwflow.pipeline.layout", "hwflow.pipeline.portfolio", "hwflow.buildplan", "hwflow.sim",
+                   "hwflow.layout", "hwflow.verify", "hwflow.schematic",
                    "hwflow.models")
 CODE = {
     "check": _BASE + ("hwflow.sim", "hwflow.layout", "hwflow.verify", "hwflow.models"),

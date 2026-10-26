@@ -104,6 +104,44 @@ retrying with more than 3 nets open).
    After routing, DRC repair (`repair.py`) and pruning of dangling vias and tracks (`prune.py`) run. Nets with
    `nets.<n>.min_width_mm` never neck below that width.
 
+## Roads first and the layout portfolio (both off by default)
+
+**Roads first** (`layout/route/roads.py`, a prototype). The "roads" are the nets the rules constrain: isolation
+members, `layers` nets, region nets, `min_width_mm`, `impedance_ohm`, tracks of at least 2 x the board track. Each
+road with fixed endpoints is planned on the fixed copper (the seed-route search, `seedroute.route_net`) to
+max(clearance, creepage) of its isolation group (`roads.Model`). `HWFLOW_ROADS=route` (or `placement: {roads: route}`)
+puts the planned copper of the isolation, layer, region and min-width roads on the board before the router
+(`roads.preseed`, recorded as seed copper); a road that the final DRC drops (`seedroute.drop_on_drc(copper_only=True)`)
+goes back to the router as a normal net (`roads.reroute`). `HWFLOW_ROADS=1` also reserves the roads in placement
+(rule areas with exempt parts, zoning feedback). Measured on ht4 seed 11: the four mains nets route in 5 s instead
+of 4-7 min and the board routes clean (`docs/asic-ideas.md`, "Roads first"); the reservations gave no measured gain.
+
+**Layout portfolio** (`pipeline/portfolio.py`, `HWFLOW_PORTFOLIO=1`). `layout --auto` keeps the sequential attempts
+described above unless `HWFLOW_PORTFOLIO=1`. With it, attempt 1 is a portfolio: the parts are placed once (placer
+seeds seed0 .. seed0+3, `build/auto/p_place/`), then several routing strategies run on that placement at the same
+time, each in a process session of its own (`build/auto/p_<name>/`; the kept one is copied to `build/auto/a1/`):
+
+| strategy | what differs from base |
+|---|---|
+| `base` | nothing |
+| `preseed` | `HWFLOW_ROADS=route` |
+| `roads` | `HWFLOW_ROADS=1` (places for itself, while the shared placement runs) |
+| `order_inside_out`, `order_mps_reverse` | the net-order retries start from another `KRT_VARIANTS` entry (`HWFLOW_KRT_ROTATE=1`, `2`) |
+
+A strategy that cannot differ from `base` on the design is left out; `portfolio.SELECT` hooks may prune the list.
+After the first converged strategy (0 unrouted, 0 DRC errors, 0 placement violations) no other starts and the
+running ones get 1.5 x the winner's time. The kept board is the best by `portfolio.score` (converged, vias, track,
+routing time, strategy order). With none converged, the sequential attempts 2..n follow; in `layout_auto` they run
+with the best strategy's knobs, in `hwflow build` (one stage per attempt) with the default knobs. A design with
+`board.optimize_area` runs `base` first, alone. REPORT.md has a `layout portfolio` table. The strategy knobs are
+layout settings, so they are in the route cache keys.
+
+Why it is off (measured on an 8-core laptop, `scripts/portfolio_bench.py`, `docs/asic-ideas.md` "Layout
+portfolio"): no strategy converged where `base` did not, on any design; on ht4 s1 and s11 the portfolio took 2.3-2.6 x
+the wall time of the sequential attempts to a converged board (2.5-3.3 x the CPU, about 1.4 GB per lane), and it
+never gave a better board. The converged boards came from the fallback to other placement seeds: seed diversity, not
+strategy diversity, fixed ht4. On sensor_preamp (area search, base first) it was within 10 % of sequential.
+
 ## Switches
 
 | switch | effect |
@@ -113,6 +151,9 @@ retrying with more than 3 nets open).
 | `HWFLOW_SEED0` | the first placer seed of `--auto` (attempt k uses seed0 + 4k) |
 | `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0` | router fallbacks off |
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
+| `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
+| `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
+| `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
 | `HWFLOW_ROUTAB_PREDICT=0` | the routability prediction and its run log off |
 | `HWFLOW_ROUTAB_RANK=1`, `HWFLOW_ROUTAB_FEEDBACK=1`, `HWFLOW_ROUTAB_RETRY=1` (or `placement: {routability_rank, routability_feedback, routability_retry: true}`) | the prediction-driven options (off by default). The route cache key includes them (settings group `layout`). |

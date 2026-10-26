@@ -37,8 +37,19 @@ def attempt(d: Design, libs: Libs, p: Mapping[str, Any]) -> dict:
     out = _out(d)
     fixed_all = st.all_fixed(d, libs) if k == 1 else False
     size0 = (d.raw.get("board") or {}).get("width_mm"), (d.raw.get("board") or {}).get("height_mm")
-    res = st.run_attempt(d, libs, out, k - 1, size0=size0, seeds=seeds, iters=iters, passes=passes,
-                         reuse=bool(p.get("reuse")), deadline=p.get("deadline"))
+    kw = dict(size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=bool(p.get("reuse")))
+    from . import portfolio
+    if k == 1 and portfolio.on():  # HWFLOW_PORTFOLIO=1: attempt 1 is the strategy portfolio (files in auto/a1/)
+        # the later attempts are stages of their own and run with the default knobs (layout_auto, in one process,
+        # gives them the best strategy's knobs)
+        def run(k_, workdir=None, env=None, placement=None):
+            return st.run_attempt(d, libs, out, k_, deadline=p.get("deadline"), workdir=workdir, placement=placement,
+                                  **kw)
+        res = portfolio.first_attempt(out, d, libs, deadline=p.get("deadline"), attempt=run,
+                                      place=lambda k_, path: st.place_shared(d, libs, out, k_, path,
+                                                                             **{x: kw[x] for x in kw if x != "passes"}))
+    else:
+        res = st.run_attempt(d, libs, out, k - 1, deadline=p.get("deadline"), **kw)
     if "error" in res:
         return {"ok": False, "attempt": {"k": k, "error": res["error"], "fixed_all": fixed_all}}
     return {**res["r"], "attempt": {"k": k, "line": res["line"], "fixed_all": fixed_all}}

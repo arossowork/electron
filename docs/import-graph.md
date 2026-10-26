@@ -11,7 +11,7 @@ Layers, from the top (a package imports only from packages below it):
 
 | Package | Content | Knows |
 |---|---|---|
-| `hwflow.pipeline` | stages, `spec` (StageSpec, cache keys, stage cache), `exec` (execute_stage in a scratch dir), runner, status, report, trace, hooks (`hwflow.hooks` entry points) | everything below |
+| `hwflow.pipeline` | stages, `spec` (StageSpec, cache keys, stage cache), `exec` (execute_stage in a scratch dir), runner, status, report, trace, hooks (`hwflow.hooks` entry points), `portfolio` (layout portfolio, off by default) | everything below |
 | `hwflow.verify` | `postlayout` (extraction, post-layout SPICE), `em` (openEMS), `checks` (the whole `hwflow check`), `blocks` (block authoring: `extract`, `verify`) | layout, sim, core |
 | `hwflow.layout` | `checks` (layout part of `hwflow check`), `feasibility` (registry of pre-layout proofs), `diagnose`; sub-packages `route`, `place`, `board` | sim, core |
 | `hwflow.sim` | `spice`, `simrobust`, `optimize`, `budgets` | core |
@@ -28,8 +28,8 @@ Inside `hwflow.layout`, from the top:
 |---|---|---|
 | `diagnose` | layout diagnosis | everything below |
 | `checks`, `feasibility` | layout checks of `hwflow check`; proof registry (modules loaded by name) | route, place, board |
-| `route` | `krt` (KiCadRoutingTools and Freerouting drivers, retries, necked routing), `seedroute`, `regionroute`, `repair`, `prune` | place, board |
-| `place` | `placer`, `gplace`, `asicflow` (the layout flow), `floorplan` (early check, report), and the geometric pre-route proofs the placer uses: `corridor`, `barrier`, `cutcap`, `padiso`, `partescape`, `pinaccess` | board |
+| `route` | `krt` (KiCadRoutingTools and Freerouting drivers, retries, necked routing, `run_group`), `seedroute`, `regionroute`, `repair`, `prune`, `roads` (roads first: plan, reserve, preseed) | place, board |
+| `place` | `placer`, `gplace`, `asicflow` (the layout flow), `floorplan` (early check, report), `legality` (placement verdict of the legality gate; `diagnose` re-exports it), `routability` (raster routability prediction, a report), and the geometric pre-route proofs the placer uses: `corridor`, `barrier`, `cutcap`, `padiso`, `partescape`, `pinaccess` | board |
 | `board` | `pcb` (board writer and reader, net classes, isolation rules), `routing` (rule areas, widening: edits to a board file), `keepout` (footprint keep-out DRC), `kicad` (kicad-cli) | core |
 
 ### Where the placement differs from the first plan

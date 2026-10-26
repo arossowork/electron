@@ -100,9 +100,9 @@ class Global:
                 b = p.side_box(s)
                 if b:
                     fbox.append((s, *b))
-        for b, sides, owner, _ in pl.ko_fp:
+        for b, sides, owner, name in pl.ko_fp:
             for s in sides:
-                fbox.append((s, *b, frozenset({owner})))
+                fbox.append((s, *b, frozenset({owner}) | getattr(pl, "ko_exempt", {}).get((owner, name), frozenset())))
         self.region_pen = []  # (unit index, cx off, cy off, hw, hh, rect)
         for g in pl.regions:
             rect = g["rect"] or g["poly"].bounds

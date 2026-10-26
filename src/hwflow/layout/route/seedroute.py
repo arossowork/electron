@@ -245,7 +245,7 @@ def _pieces(a, b):
     return list(zip(pts, pts[1:]))
 
 
-def _route_net(model, design, net, board, placed, floor) -> dict:
+def route_net(model, design, net, board, placed, floor) -> dict:
     w = model.width(net)
     nodes = corridor.corridor_nodes(model, design, net, {})
     if nodes is None or len(nodes) < 2:
@@ -356,7 +356,7 @@ def seed(design, libs, src: Path, dst: Path, nets) -> dict[str, dict]:
     floor = routing.neck_floor(design.board)
     out, placed = {}, []
     for net in sorted(nets):
-        r = _route_net(model, design, net, board, placed, floor)
+        r = route_net(model, design, net, board, placed, floor)
         out[net] = r
         if r["ok"]:
             placed += [(net, L, _line((x1, y1), (x2, y2)).buffer(c / 2, quad_segs=QS))
@@ -401,15 +401,20 @@ def _key(net, x1, y1, x2, y2, layer):
     return (net, layer) + tuple(sorted((a, b)))
 
 
-def drop_on_drc(seeds: dict, tracks: list, vias: list, drc: list[dict], reach: float = 0.5) -> tuple[list, list, list]:
+def drop_on_drc(seeds: dict, tracks: list, vias: list, drc: list[dict], reach: float = 0.5,
+                copper_only: bool = False) -> tuple[list, list, list]:
     """Remove the seed copper of every net with a DRC error touching it: an item of the error names the net
-    (`[net]`) and the error lies within `reach` mm of its seed copper. Returns (tracks, vias, dropped nets)."""
+    (`[net]`) and the error lies within `reach` mm of its seed copper. `copper_only`: that item must be a track, arc
+    or via (an error on the net's pad, e.g. a fixed pad's creepage to a pour, is not the seed copper's).
+    Returns (tracks, vias, dropped nets)."""
     drop = []
+    kinds = ("Track", "Via", "Arc")
     for net, s in seeds.items():
         geo = unary_union([_line((x1, y1), (x2, y2)) for x1, y1, x2, y2, _, _ in s["segments"]]
                           + [Point(x, y) for x, y in s["vias"]])
         for v in drc:
-            if v["sev"] != "error" or not any(f"[{net}]" in str(i or "") for i in v.get("items") or []):
+            if v["sev"] != "error" or not any(f"[{net}]" in str(i or "") and (not copper_only or str(i).startswith(kinds))
+                                              for i in v.get("items") or []):
                 continue
             if any(p and geo.distance(Point(p)) <= reach for p in v.get("at") or []):
                 drop.append(net)

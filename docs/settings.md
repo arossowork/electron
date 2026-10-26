@@ -25,6 +25,12 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.route_illegal` | `HWFLOW_ROUTE_ILLEGAL` | off | Route a placement with violations anyway (debugging only; the legality gate stops it) |
 | `layout.routab_predict` | `HWFLOW_ROUTAB_PREDICT` | on | Routability prediction (a report) and its run log `build/routab/`; off only when exactly `0` |
 | `layout.routab_rank`, `layout.routab_feedback`, `layout.routab_retry` | `HWFLOW_ROUTAB_RANK`, `_FEEDBACK`, `_RETRY` | none (design `placement.routability_rank` etc., then off) | Prediction-driven seed ranking, density feedback, router retry policy (docs/layout-flow.md) |
+| `layout.roads` | `HWFLOW_ROADS` | none (design `placement.roads`, then `0`) | Roads first: `route` routes the planned roads first, `1` also reserves them in placement |
+| `layout.roads_power` | `HWFLOW_ROADS_POWER` | off | Every power-class net is a road too (experiment) |
+| `layout.krt_rotate` | `HWFLOW_KRT_ROTATE` | 0 | The router's net-order retries start from `KRT_VARIANTS[k]` |
+| `layout.portfolio` | `HWFLOW_PORTFOLIO` | off | Attempt 1 of `--auto` as the layout portfolio (pipeline/portfolio.py) |
+| `layout.portfolio_workers` | `HWFLOW_PORTFOLIO_WORKERS` | 0 (CPU count - 2) | Portfolio strategies at once |
+| `layout.portfolio_grace` | `HWFLOW_PORTFOLIO_GRACE` | 1.5 | Running strategies get this x the first converged one's time; `inf` waits for all |
 | `repair.max_errors` | `HWFLOW_REPAIR_MAX_ERRORS` | 40 | Above this many errors, local repair is skipped |
 | `repair.budget_s` | `HWFLOW_REPAIR_BUDGET_S` | 120 | Wall time of the whole repair |
 | `repair.max_stall` | `HWFLOW_REPAIR_MAX_STALL` | 2 | Rounds in a row without improvement before repair stops |

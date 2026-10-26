@@ -46,7 +46,7 @@ def route_setup(tmp_path, monkeypatch):
         pcb.write_board(Path(args[3]), pcb.build_board(d, libs, parts, [track], []))
         return subprocess.CompletedProcess(args, 0, 'JSON_SUMMARY_MIN: {"failed": 1, "failed_single": ["B"]}\n', '')
 
-    monkeypatch.setattr(krt.subprocess, "run", run)
+    monkeypatch.setattr(krt, "run_group", run)  # the router call (krt.run_group)
     return d, libs, parts, calls
 
 
@@ -171,14 +171,14 @@ def test_area_first_timeout_retains_accepted_copper_and_dimensions(tmp_path, mon
                                                      "items": ["Pad 2 [B] of R1", "Pad 2 [B] of R2"]}])
     now = [100.0]
     monkeypatch.setattr(pl_stages.time, "time", lambda: now[0])
-    run = krt.subprocess.run
+    run = krt.run_group
 
     def expire_on_retry(args, **kwargs):
         if calls:
             now[0] = 161.0
         return run(args, **kwargs)
 
-    monkeypatch.setattr(krt.subprocess, "run", expire_on_retry)
+    monkeypatch.setattr(krt, "run_group", expire_on_retry)  # the router call (krt.run_group)
     result = pl_stages.stage_layout(d, libs, seeds=1, iters=1, deadline=160.0)
     assert result["segments"] == 1 and result["unrouted"] == 1
     assert result["budget_exhausted"] and not result["ok"]

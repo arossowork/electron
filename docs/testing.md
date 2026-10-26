@@ -83,6 +83,10 @@ Files with a `slow` mark are noted.
 | `test_regionroute.py` | hierarchical routing: partition, cache key, one real router run | synthetic, needs router |
 | `test_seedroute.py` | seed route for nets the router leaves open | synthetic, needs router |
 | `test_repair.py` | repair loop (needs router; one test needs `kicad-cli`) | real |
+| `test_legality.py` | placement legality gate: `Placer.settle`, `legality.placement_verdict`, `stage_layout` stops before the router, `hwflow floorplan` fails on an illegal quick placement | synthetic |
+| `test_routability.py` | routability predictor (report only): raster primitives, window cuts, exact bounds, verdict thresholds | synthetic |
+| `test_roads.py` | roads first: classify, plan, reservation boxes, placer exemptions, preseed on the board | synthetic |
+| `test_portfolio.py` | layout portfolio (off by default): score order, strategy pruning, shared placement, grace stop, fallback knobs, area-search order; stubbed attempts | synthetic |
 | `test_repair_budget.py`, `test_repair_neighbors.py` | repair budget; freeing nearby copper | synthetic |
 | `test_initial_route_budget.py` | initial routing keeps the search budget | synthetic |
 | `test_prune.py` | removal of dangling router leftovers | synthetic |

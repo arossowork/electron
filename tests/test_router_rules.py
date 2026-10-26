@@ -38,7 +38,7 @@ def test_router_pass_sees_the_drc_rules(tmp_path, monkeypatch):
         seen.append({s: Path(p).read_text() for s, p in sib.items() if Path(p).exists()})
         return subprocess.CompletedProcess(args, 1, "", "")
 
-    monkeypatch.setattr(krt.subprocess, "run", fake_run)
+    monkeypatch.setattr(krt, "run_group", fake_run)  # the router call (krt.run_group)
     with pytest.raises(RuntimeError):
         krt.run_krt(d, libs, parts, tmp_path / "out")
     assert seen, "router was not called"

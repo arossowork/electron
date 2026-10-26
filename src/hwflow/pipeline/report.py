@@ -115,6 +115,9 @@ def write_report(d: Design, history: bool = False) -> str:
         c = s["layout"]
         if c.get("area_search"):
             L.append(f"- area search: {'; '.join(c['area_search'])}")
+        if c.get("portfolio"):
+            from . import portfolio
+            L += portfolio.report_lines(c["portfolio"])
         if c.get("auto"):
             L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {len(c['auto']['attempts'])}"
                      + (f"; {c['auto']['stopped']}" if c["auto"].get("stopped") else ""))
