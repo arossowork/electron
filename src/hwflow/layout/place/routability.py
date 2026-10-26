@@ -242,7 +242,7 @@ def window_map(R: Raster, design, libs=None) -> dict:
     pitch = R.track + R.clr
     gx, gy = int(math.ceil(R.W / POS_MM)), int(math.ceil(R.H / POS_MM))
     worst = np.zeros((gx, gy))
-    sizes = []
+    sizes, maps = [], []
     for k in WINDOWS_MM:
         if k > min(R.W, R.H):
             continue
@@ -253,12 +253,14 @@ def window_map(R: Raster, design, libs=None) -> dict:
         ratio = need / np.maximum(supply, pitch)
         sizes.append({"k": k, "max": round(float(ratio.max()), 3), "hot": int((ratio > RATIO_HOT).sum()),
                       "cross_max": int(cross.max())})
+        maps.append((k, kk, ratio))
         # every position cell under a window takes the window's ratio (worst over windows and sizes)
         full = np.zeros((gx, gy))
         full[:ratio.shape[0], :ratio.shape[1]] = ratio
         r2 = ndimage.maximum_filter(full, size=kk, origin=(kk - 1) // 2, mode="constant")
         worst = np.maximum(worst, r2)
-    return {"ratio": worst, "sizes": sizes, "nets": nets, "widths": widths}
+    # maps: per window size (k mm, k in position cells, ratio per window lower-left corner) for hotspot.py
+    return {"ratio": worst, "sizes": sizes, "nets": nets, "widths": widths, "maps": maps}
 
 
 # ------------------------------------------------------------------ placed board

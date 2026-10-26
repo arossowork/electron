@@ -78,6 +78,7 @@ def main():
     ap.add_argument("--seed0", type=int, default=1)
     ap.add_argument("--label")
     ap.add_argument("--limit", type=float, default=4500, help="wall seconds, then the run is killed")
+    ap.add_argument("--env", action="append", default=[], metavar="K=V", help="more environment of the layout run")
     a = ap.parse_args()
     project = a.project.resolve()
     label = a.label or f"{project.name}_{a.mode}_s{a.seed0}"
@@ -86,7 +87,7 @@ def main():
         shutil.rmtree(dst)
     shutil.copytree(project, dst, ignore=lambda d, names: [n for n in names if Path(d) == project and n in SKIP])
     env = dict(os.environ, PYTHONPATH=str(ROOT / "src"), HWFLOW_SEED0=str(a.seed0),
-               HWFLOW_PORTFOLIO="1" if a.mode == "pf" else "0")
+               HWFLOW_PORTFOLIO="1" if a.mode == "pf" else "0", **dict(kv.split("=", 1) for kv in a.env))
     cli = [sys.executable, "-m", "hwflow.cli"]
     subprocess.run(cli + ["build", str(dst), "--until", "sch", "--force"], cwd=ROOT, env=env, capture_output=True)
     load0 = os.getloadavg()[0]
@@ -121,7 +122,8 @@ def main():
            "kept": (r.get("auto") or {}).get("kept"), "attempts": (r.get("auto") or {}).get("attempts"),
            "stopped": (r.get("auto") or {}).get("stopped"), "strategy": pf.get("strategy"), "fallback": pf.get("fallback"), "place_s": pf.get("place_s"),
            "portfolio": pf.get("rows"), "pf_peak_mb": pf.get("peak_mb"), "load_start": round(load0, 1),
-           "load_end": round(os.getloadavg()[0], 1)}
+           "load_end": round(os.getloadavg()[0], 1), "env": a.env,
+           "firstpass": r.get("firstpass"), "auto_rows": (r.get("auto") or {}).get("attempts")}
     print(json.dumps(row, default=str))
     with (a.work / "results.jsonl").open("a") as f:
         f.write(json.dumps(row, default=str) + "\n")

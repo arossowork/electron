@@ -181,8 +181,9 @@ class Placer:
         self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
         self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
                    "congestion": 1.0, "keepout": 400.0, "isolation": 400.0, "separation": 4.0, "thermal": 4.0, "antenna": 4.0,
-                   "corridor": 30.0}
+                   "corridor": 30.0, "hotspot": 0.0}
         self.wt.update(weights or {})
+        self.hot = None  # hotspot.HotMap: the routability window cuts as a local penalty (hotspot.py; off: None)
         gnds = design.ground_nets()
         self.nets = []
         self._net_rudy = []
@@ -236,6 +237,14 @@ class Placer:
         self.rot_ok: dict = {}  # ref -> allowed rotations (escape.forward, step 3); absent: all four
         if self.esc is not None:
             self.wt.setdefault("escape", get_settings().layout.place_escape_w)
+        # signal pads per component for the hotspot term: (pad, net) with copper, not on a poured net
+        pour = gnds if design.board["gnd_pour"] else set()
+        self.sig_pads = {}
+        for r, p in parts.items():
+            c = design.components.get(r)
+            if c is not None:
+                self.sig_pads[r] = [n for n, net in c.pins.items() if n in p.pads and n not in p.nocu
+                                    and net and net not in pour]
 
     # ---- separation terms (L12): aggressor/sensitive, heat/sensor, antenna/relay+mains --------------------------
 
@@ -708,6 +717,13 @@ class Placer:
 
     # ---- cost -------------------------------------------------------------------------------------------------
 
+    def _hot_cost(self, r):
+        """The hotspot map summed at the signal pads of `r` (0 without a map)."""
+        if self.hot is None:
+            return 0.0
+        p = self.parts[r]
+        return sum(self.hot.at(*p.pad(n), r) for n in self.sig_pads.get(r, ()))
+
     def _net_len(self, k):
         P = self.parts
         xs, ys = zip(*(P[r].pad(p) for r, p in self.nets[k][1]))
@@ -965,6 +981,8 @@ class Placer:
             self.esc.move(self.esc.refs)
             self.part_esc = {r: self.esc.part_cost(r) for r in self.esc.refs}
             self.t_esc = sum(self.part_esc.values())
+        self.part_hot = {r: self._hot_cost(r) for r in P} if self.hot is not None else {}
+        self.t_hot = sum(self.part_hot.values())
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
@@ -985,7 +1003,7 @@ class Placer:
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
         saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-                 self.t_iso, self.t_sep, self.t_cor, self.t_esc)
+                 self.t_iso, self.t_sep, self.t_cor, self.t_esc, self.t_hot)
         old_bk = {r: self.part_buckets[r] for r in moved} if self.cor else {}
         nets, decs, groups, seps = set(), set(), set(), set()
         for r in moved:
@@ -1011,6 +1029,11 @@ class Placer:
             self.t_bnd += self.part_bnd[r] - ob
             self.t_edge += self.part_edge[r] - oe
             log.append(("part", r, ob, oe))
+            if self.hot is not None:
+                oh = self.part_hot.get(r, 0.0)
+                self.part_hot[r] = self._hot_cost(r)
+                self.t_hot += self.part_hot[r] - oh
+                log.append(("hot", r, oh))
             if self.ko_fp or self.ko_pad or self.iso_hulls or self.regions:
                 ok = self.part_ko[r]
                 self.part_ko[r] = self._ko_cost(r)
@@ -1090,6 +1113,8 @@ class Placer:
                 self.part_bnd[e[1]], self.part_edge[e[1]] = e[2], e[3]
             elif kind == "ko":
                 self.part_ko[e[1]] = e[2]
+            elif kind == "hot":
+                self.part_hot[e[1]] = e[2]
             elif kind == "iso_add":
                 key = e[1]
                 del self.iso_pairs[key]
@@ -1130,14 +1155,15 @@ class Placer:
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
         (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-         self.t_iso, self.t_sep, self.t_cor, self.t_esc) = self._saved
+         self.t_iso, self.t_sep, self.t_cor, self.t_esc, self.t_hot) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
                 + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso
-                + self.t_sep + w["corridor"] * self.t_cor + w.get("escape", 0.0) * self.t_esc)
+                + self.t_sep + w["corridor"] * self.t_cor + w.get("escape", 0.0) * self.t_esc
+                + w["hotspot"] * self.t_hot)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -1177,6 +1203,7 @@ class Placer:
         if self.esc is not None:
             self.esc.move(self.esc.refs)
             c += self.wt.get("escape", 0.0) * sum(self.esc.part_cost(r) for r in self.esc.refs)
+        c += self.wt["hotspot"] * sum(self._hot_cost(r) for r in P)
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:

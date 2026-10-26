@@ -77,8 +77,10 @@ def on(design=None) -> bool:
 
 
 def on_route(design=None) -> bool:
-    """The planned roads on the board before the router (preseed)."""
-    return _mode(design) in ("1", "route")
+    """The planned roads on the board before the router (preseed); also with the routable first pass's roads step
+    (firstpass.py)."""
+    from ..place import hotspot
+    return _mode(design) in ("1", "route") or bool({"roads", "preseed"} & hotspot.steps(design))
 
 
 class Model(corridor.Model):

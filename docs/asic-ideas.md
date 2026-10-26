@@ -962,3 +962,92 @@ On ht4 the first placement routed clean with step 1 on seeds 1 and 21 (base: att
 in the mains group (the corridor between fixed F1/J1 pads, the roads-first domain). Track length grows 7-17 % with
 step 1. Step 2 lost the step-1 gain on ht4 s1 and changed nothing measurable elsewhere; step 3 only acts on edge
 parts (sensor_preamp J1: 2 of 4 rotations pruned), no part had an empty rotation set, and it changed no outcome.
+
+## Routable first pass (2026-10-26, branch `place-roads-first`, off by default: `HWFLOW_FIRSTPASS`)
+
+Idea: make the first placement of an attempt routable by changing the order of the flow, as ASIC and FPGA tools
+do, instead of relying on new placer seeds. Code: `src/hwflow/layout/route/firstpass.py` (order, quick route,
+local fix), `src/hwflow/layout/place/hotspot.py` (penalty map, Placer term `hotspot`), hooks in
+`asicflow.place`, `stages.stage_layout`, `roads.on_route` and `krt.krt_route(extra_args=)`. Tests:
+`tests/test_firstpass.py`. `HWFLOW_FIRSTPASS=1` runs every step; a comma list (`roads`, `hot`, `quick`) runs some.
+
+1. **roads**: the constrained roads are planned on the fixed copper to max(clearance, creepage), reserved in
+   placement (`roads.place`, with the movable-road coarse placement and the zoning feedback) and their planned
+   copper goes on the board before KRT (`roads.preseed`).
+2. **hot**: the window cuts of `routability.window_map` become a placer term in the detailed moves and the short
+   anneal. A window over ratio 2 adds its excess (ratio - 2) / 3 to the cells it covers (box sum per window size, so
+   the map slopes out of a cluster), blurred 0.75 mm; a part pays the map at its signal pads, except inside the hot
+   spots it owns (most pads there: moving a QFN does not take its own escape away). Rebuilt after legalization and
+   after the detailed moves; removed before `_finish`, so seeds compare by the plain cost.
+3. **quick**: a truncated KRT route (first net order only, `--max-iterations 50000`, a 240 s cap,
+   `HWFLOW_FIRSTPASS_QUICK_S`) plus a fast DRC of its board gives the open nets and error spots. With 1 to 4 open
+   signal nets, up to three local fixes are tried, each checked by another quick route, and the best is kept:
+   `push` (the movable parts within 4 mm of the open nets' pads, owners held, pushed away by Gaussian bumps at those
+   pads), `replace` (the same window, owners included, re-annealed hotter) with two seeds. More than 4 open nets: no
+   fix (not a local problem). Pour nets (an island the repair stitches) do not trigger a fix.
+4. The full route (unchanged) runs on the placement kept.
+
+Method. Corpus: `scripts/layout_corpus.py measure CASES --route --free` (the cutout's free parts placed again, then
+`hwflow layout`), baseline = a snapshot of `layout-port` 303cb0d, 5 cases at a time. Full boards:
+`scripts/portfolio_bench.py --env HWFLOW_FIRSTPASS=...` (`layout --auto`, 4 seeds, 30000 iterations, 3000 s budget),
+one at a time, baseline and new run back to back. The machine was shared with other benchmarking agents (load 9-60
+on 16 threads): wall times are inflated and noisy, so CPU seconds are given next to them; compare a row only with
+its baseline neighbour.
+
+Corpus, one run each (unrouted / DRC errors, placement violations 0 everywhere; `all` and `base` ran at the same
+time at load ~10; the ablations ran three at once at load 30-55, so their wall times are not comparable):
+
+| case | base | all | roads | hot | quick | base s | all s |
+|---|---|---|---|---|---|---|---|
+| sp_control | 1 / 1 (GND island) | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 47 | 58 |
+| ht3_mains | 1 / 1 (AC_ROOM1) | **0 / 0** | **0 / 0** | 1 / 1 | 1 / 1 | 566 | **67** |
+| ht4_s1_mains | 0 / 0 | 0 / 0 | - | - | - | 47 | 52 |
+| ht4_s11_mains | 0 / 0 | 0 / 0 | - | - | - | 46 | 49 |
+| ht4_s1_k2in | 1 / 1 (K2_COIL_B) | **0 / 0** | **0 / 0** | 1 / 1 | 1 / 1 | 348 | **251** |
+| kb_keys (all fixed) | 0 / 0 | 0 / 0 | - | - | - | 14 | 18 |
+| ht1_mains (all fixed) | 0 / 20 (isolation) | 0 / 24 | - | - | - | 33 | 43 |
+| kb_usb_c | 23 / 29 | 32 / 53 | timeout | 30 / 30 | 23 / 29 | 752 | 1567 |
+| s60_escape | 26 / 26 | 49 / 49 (a fix kept, before the 4-net limit) | 26 / 26 | timeout | timeout | 1037 | 1344 |
+| kb_back_conn | 63 / 67 | 48 / 53 | - | - | - | 475 | 1088 |
+
+Full boards (`layout --auto`; converged = 0 unrouted, 0 DRC errors, 0 placement violations):
+
+| design | run | attempts to converge | wall s | CPU s | load | vias / track mm | note |
+|---|---|---|---|---|---|---|---|
+| ht4 seed 1 | base | 2 | 1556 | 3494 | ~30 | 76 / 1205 | attempt 1: 1 unrouted |
+| ht4 seed 1 | all | 2 | 2600 | 6613 | 30 -> 10 | 75 / 1322 | attempt 1: 1 unrouted; attempt 2's quick route found K2_IN1 open, fix 2 (replace) closed it, the full route converged |
+| ht4 seed 1 | roads | 2 | 1975 | 4151 | ~9 | 80 / 1299 | attempt 1: 7 unrouted |
+| ht4 seed 11 | base | none in 4 | 1334 | 3476 | ~15 | (83 / 1246) | every attempt 1 unrouted |
+| ht4 seed 11 | all | none (budget: 2 of 4 attempts ran) | 3033 | 6993 | ~15 | (81 / 1421) | quick routes 155-250 s each used up the 3000 s budget |
+| ht4 seed 11 | roads | **1** | **693** | **961** | ~14 | 78 / 1333 | |
+| sensor_preamp | base / all | 1 / 1 | 172 / 197 | 522 / 470 | ~16 | 3 / 42.6 both | area search: places through `_minimize_area`, so only `hot` acts; same board |
+
+Quick route as a predictor (first quick route of the placement kept, against the full route with repair; signal
+nets, pour nets left out): on every small case (ht3_mains, ht4_s1_k2in, the mains cases, sp_control; 10 runs) it
+named exactly the nets the full route left open (0 or 1). On the dense cases it is a coarse estimate: kb_back_conn
+20 vs 18 open (18 in common), kb_usb_c 15 vs 15 (9 in common) and 12 vs 10 (7), s60_escape 15 vs 18 (10). It costs
+10-25 % of the full route on the corpus (6-15 s on the small cases, 140-250 s on the dense ones), but 155-250 s on
+the full ht4 board, where it often hit its 240 s cap.
+
+What worked, what did not:
+- **Roads (step 1) carries the whole gain.** It closed the two mains/relay failures of the corpus (ht3_mains AC_ROOM1,
+  ht4_s1_k2in K2_COIL_B; the `hot` and `quick` ablations left both open) and made ht4 seed 11 converge in attempt 1
+  in 693 s / 961 CPU s, where the baseline did not converge in 4 attempts (3476 CPU s). It made attempt 1 of seed 1
+  worse (7 unrouted against 1; the reservations moved parts), and that board still converged at attempt 2.
+- **Hot (step 2) did not help.** On the corpus the predicted hard nets moved by 0-2 (kb_usb_c 27 -> 25) and no routed
+  outcome improved; kb_usb_c routed worse (30 against 23 unrouted). The hot spots the window cuts find are the
+  escape of single fine-pitch parts (a QFN's own pads, a USB-C connector's); moving the neighbours with small local
+  moves does not change them. On ht4 and the mains cases the maximum window ratio is 1.3-1.9, under the threshold,
+  so the term is idle there. Its cost is 1-4 s of map building per seed.
+- **Quick (step 3) is an accurate filter but a weak driver.** It predicts the small failures exactly and the dense
+  ones within about 20 %. The local fix removed the open net in the quick route twice (ht4 s1 attempt 2: K2_IN1;
+  k2in once: K2_COIL_B -> K2_IN2, not better), but no fix turned a failing corpus case into a clean one, and on the
+  full board three quick routes cost 500-750 s per attempt, which spent the layout budget on seed 11. A fix kept on a
+  hopeless board (s60, before the 4-net limit) made its full route worse.
+
+Recommendation: keep the flag off by default. Worth adopting after more seeds: step 1 alone (`HWFLOW_FIRSTPASS=roads`,
+the reserved placement plus the preseed), which is what turned seed 11 into a first-attempt board; it needs a run over
+more ht4 seeds and a second design with constrained roads before it becomes the default, because seed 1's first
+attempt got worse. Drop step 2 (no measured gain, one regression). Keep step 3 only as a cheap report/filter on small
+boards (it predicts their outcome in 10-25 % of the route time); as a fix driver it costs more than the seed retry it
+replaces on a full board.
