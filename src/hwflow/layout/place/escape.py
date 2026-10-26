@@ -164,6 +164,20 @@ class Escape:
         self.pad_of = [np.nonzero(self.pad_ref == i)[0] for i in range(n)]
         self.st_of = [np.nonzero(self.st_ref == i)[0] for i in range(n)]
         self.reach = float(max(self.iso_mm.max(), self.iso_btw.max())) + 0.5
+        # parts that share a net (a series part at its connector, a decoupling cap at its IC) belong close together:
+        # their copper and slots count `conn` x (HWFLOW_PLACE_ESCAPE_CONN, default 1: no exemption)
+        self.conn = float(get_settings().layout.place_escape_conn)
+        self.wconn = np.ones((n, n))
+        if self.conn != 1.0:
+            gnd = set(d.ground_nets())
+            for k, conns in nets.items():
+                if k in gnd:
+                    continue
+                ids = sorted({self.ri[r] for r, _ in conns if r in self.ri})
+                for a in ids:
+                    for b_ in ids:
+                        if a != b_:
+                            self.wconn[a, b_] = self.conn
         # per part: how far its copper reaches into a neighbour's slots (the isolation distance of its pads or slots)
         self.part_reach = np.full(n, 0.5)
         for i in range(n):
@@ -255,7 +269,7 @@ class Escape:
             oy = np.minimum(S[:, None, 3], Q[None, :, 3] + grow) - np.maximum(S[:, None, 1], Q[None, :, 1] - grow)
             a = np.clip(ox, 0, None) * np.clip(oy, 0, None)
             ok = (sn != qn) & ((self.st_mask[si][:, None] & self.pad_mask[near][None, :]) != 0)
-            cover += (a * ok).sum(axis=1)
+            cover += (a * ok * self.wconn[i, self.pad_ref[near]][None, :]).sum(axis=1)
         # other parts' slots of another net
         T = self.st_g
         near = np.nonzero((self.st_ref != i) & (T[:, 0] < x1) & (T[:, 2] > x0) & (T[:, 1] < y1) & (T[:, 3] > y0))[0]
@@ -263,7 +277,7 @@ class Escape:
             a = _ov(S, T[near])
             ok = (self.st_net[si][:, None] != self.st_net[near][None, :]) & \
                  ((self.st_mask[si][:, None] & self.st_mask[near][None, :]) != 0)
-            cover += FAN_SHARE * (a * ok).sum(axis=1)
+            cover += FAN_SHARE * (a * ok * self.wconn[i, self.st_ref[near]][None, :]).sum(axis=1)
         # rule areas without tracks on every layer the slot may use
         ref = self.refs[i]
         for bx, m, exempt, owner in self.ko:

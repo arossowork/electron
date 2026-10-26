@@ -49,3 +49,13 @@ def test_a_foreign_pad_in_front_of_a_slot_blocks_it(tmp_path, monkeypatch):
     assert b.max() > 0.9
     assert e.blocked("R0") == 0 and e.part_cost("R0") < 1  # R1's fans compete, but a direction stays free
     assert math.isclose(pl.cost(), pl.cost_full(), rel_tol=1e-9)
+
+
+def test_incremental_cost_with_the_connected_part_share(tmp_path, monkeypatch):
+    monkeypatch.setenv("HWFLOW_PLACE_ESCAPE", "1")
+    monkeypatch.setenv("HWFLOW_PLACE_ESCAPE_CONN", "0.25")
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    pl = placer.Placer(d, parts, W, H, seed=3)
+    assert pl.esc.conn == 0.25 and (pl.esc.wconn < 1).any()
+    check_incremental(pl, parts)

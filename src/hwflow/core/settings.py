@@ -75,6 +75,7 @@ class LayoutSettings(_Group):
     place_escape_infl: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_INFL"))
     place_escape_rot: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_ROT"))
     place_escape_w: float = Field(10.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_W"))
+    place_escape_conn: float = Field(1.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_CONN"))
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # layout portfolio (pipeline.portfolio): off by default, on with HWFLOW_PORTFOLIO=1
     portfolio: bool = Field(False, validation_alias=AliasChoices("HWFLOW_PORTFOLIO"))
