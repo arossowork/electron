@@ -78,11 +78,13 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
 
 def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, keep_first: bool = False,
               variants: list | None = None, timeout: int = 1800, libs=None,
-              deadline: float | None = None, keep_partial: bool = False) -> tuple[Path, dict, list, int]:
+              deadline: float | None = None, keep_partial: bool = False,
+              extra_args: list | None = None) -> tuple[Path, dict, list, int]:
     """The router invocation: one KiCadRoutingTools pass per track-width class (widest first) on the board `src`.
     `nets` limits the nets to route (default: every non-pour net), `keep_first` keeps the copper already in `src`
     in the first pass too (repair), `variants` replaces the net orders tried (KRT_VARIANTS). `deadline` (time.time())
     bounds every router call: a call past it raises subprocess.TimeoutExpired (the repair rejects that round).
+    `extra_args` go to every router call (the truncated quick route of firstpass.py).
     `keep_partial` is for initial routing: a timeout keeps only completed, accepted candidates, marks remaining
     nets open and sets last["budget"]["budget_exhausted"]. It never reads a timed-out subprocess output board.
     The rules files `<name>.kicad_pro` and `.kicad_dru` in `workdir` are copied next to every pass input.
@@ -152,7 +154,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     env.setdefault("KICAD_RIP_PREEXISTING", "0")
     common = ["--clearance", str(b["clearance_mm"]), "--via-size", str(b["via_dia_mm"]),
               "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
-              "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes"]
+              "--escalation", "off", "--no-fix-drc-settings", "--strict-sizes", *(extra_args or [])]
     cur, log, last, retried = src, [], {}, []
     budget_exhausted = False
     completed = 0

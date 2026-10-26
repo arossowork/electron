@@ -267,6 +267,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
     pre = None
+    firstpass_info = None
     d.route_budget_exhausted = False
     if d.board.get("optimize_area") and not reuse:
         pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out, deadline=deadline)
@@ -288,8 +289,11 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     else:
         # placement gets half of the time left, so routing and repair still run inside the budget
         pdl = None if deadline is None else t0 + max(0.0, deadline - t0) / 2
-        from ..layout.route import roads
-        if roads.on(d):  # roads first (prototype): plan and reserve the roads, then place the parts around them
+        from ..layout.route import firstpass, roads
+        if firstpass.on(d):  # routable first pass (experiment): roads, hotspot-aware placement, quick-route filter
+            parts, cost, viol, firstpass_info = firstpass.place(d, libs, out, seeds=seeds, iters=iters,
+                                                                weights=weights, seed0=seed0, deadline=pdl)
+        elif roads.on(d):  # roads first (prototype): plan and reserve the roads, then place the parts around them
             parts, cost, viol, _ = roads.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0,
                                                deadline=pdl)
         else:
@@ -447,6 +451,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                                                      "repair_s": tm.get("repair_s"), "open": unrouted, "drc": errs,
                                                      "placement_violations": viol})
     return {"failing": failing, "budget_exhausted": d.route_budget_exhausted, "routability": routab,
+            **({"firstpass": firstpass_info} if firstpass_info is not None else {}),
             "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
             and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,

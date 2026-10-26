@@ -70,6 +70,13 @@ class LayoutSettings(_Group):
     roads: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROADS"))
     roads_power: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROADS_POWER"))  # every power net a road
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
+    # routable first pass (layout.route.firstpass, experiment, off by default): "1" (every step) or a comma list of
+    # roads (planned roads reserved in placement and routed first), hot (the routability window cuts as a local
+    # placer penalty), quick (a truncated route as a filter that drives one local placement fix); None: the
+    # design's placement.firstpass, then off
+    firstpass: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_FIRSTPASS"))
+    firstpass_quick_s: float = Field(240.0, validation_alias=AliasChoices("HWFLOW_FIRSTPASS_QUICK_S"))
+    firstpass_hot_w: float = Field(4.0, validation_alias=AliasChoices("HWFLOW_FIRSTPASS_HOT_W"))
     # layout portfolio (pipeline.portfolio): off by default, on with HWFLOW_PORTFOLIO=1
     portfolio: bool = Field(False, validation_alias=AliasChoices("HWFLOW_PORTFOLIO"))
     portfolio_workers: int = Field(0, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_WORKERS"))  # 0: cpu count - 2

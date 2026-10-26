@@ -94,14 +94,26 @@ def place(pl, movable, iters: int, t0: float) -> float:
     ts = time.perf_counter()
     pl.legalize()
     pl._stage("legalize", ts)
+    from . import hotspot
+    hot = hotspot.on(pl.d)  # routable first pass: the window cuts as a local penalty of the moves below
+    if hot:
+        ts = time.perf_counter()
+        hot = hotspot.install(pl)
+        pl._stage("hotspot map", ts)
     if opt("dp"):
         ts = time.perf_counter()
         pl.detailed(movable)
         pl._stage("detailed", ts)
     if opt("anneal"):
+        if hot:
+            ts = time.perf_counter()
+            hotspot.refresh(pl)  # the map of the placement the detailed moves left
+            pl._stage("hotspot map", ts)
         ts = time.perf_counter()
         pl._anneal(movable, max(1, int(iters * ANNEAL_SHARE)), t0 * ANNEAL_T0, 0.01, ramp=False)
         pl._stage("anneal", ts)
+    if hot:
+        hotspot.remove(pl)  # the seeds compare by the plain cost (each map is its own placement's)
     return pl._finish(movable)
 
 
