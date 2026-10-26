@@ -141,7 +141,9 @@ def cmd_floorplan(d: Design, a) -> int:
             print(f"{r}: {len(nets)} nets: {', '.join(nets)}")
         print(f"other: {len(floorplan.routed_nets(d)) - sum(len(v) for v in loc.values())} nets (several regions or none)")
         return 0
-    text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds)
+    from .layout import feasibility
+    text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds,
+                               extra=None if a.no_proofs else feasibility.floorplan_checks)
     _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
     print(text)
     return 0 if data["ok"] else 1
@@ -222,9 +224,13 @@ def main(argv=None):
     p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
                                     "layers, vias")
     p.add_argument("project"); p.add_argument("net", nargs="*", help="net names or globs (default: all)")
-    p = sub.add_parser("floorplan", help="early layout feasibility of the floorplan: field (area, depth, regions, quick "
-                                         "placement and congestion); no simulation or routing")
+    p = sub.add_parser("floorplan", help="early layout feasibility gate of the floorplan: field (area, depth, regions, "
+                                         "connector edges and envelopes, isolation groups, quick placement and "
+                                         "congestion) and, once parts are captured, the layout proofs of `hwflow "
+                                         "check`; no simulation or routing")
     p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
+    p.add_argument("--no-proofs", action="store_true", help="skip the layout proofs (escape, barrier, cut, corridor, "
+                                                            "padiso) of the captured parts")
     p.add_argument("--local-nets", action="store_true",
                    help="only list, per region, the nets whose pads are all on its members (candidates for `nets:`)")
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")

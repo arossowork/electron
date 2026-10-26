@@ -12,11 +12,14 @@ import fnmatch
 from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
 
+from .blocks import YARD
+
 
 KINDS = ("mains", "selv", "antenna", "battery", "keepout", "barrier", "other")
 EXCLUSIVE = {"mains", "antenna", "keepout", "barrier"}  # a part that is not a member stays out
 SIDES = {"front": ("front",), "back": ("back",), "both": ("front", "back")}
 CONSTRUCTIONS = ("single", "double", "stacked")
+EDGES = ("left", "right", "top", "bottom")
 PANEL_GAP_MM = 6.0  # default gap between stacked boards laid side by side in the layout panel
 
 # Fill: courtyard area over the usable area of a board face, and over the pool left outside the exclusive regions and
@@ -182,8 +185,16 @@ def parse(design) -> dict | None:
             size = None
         refs = _list(it.get("refs")) + _list(it.get("ref"))
         groups = _list(it.get("groups"))
-        if size is None and not refs and not groups:
-            errs.append(f"{where}: needs size_mm (a placeholder) or refs / groups (real parts)")
+        fpid = it.get("footprint")
+        if fpid is not None and (not isinstance(fpid, str) or ":" not in fpid):
+            errs.append(f"{where}: footprint must be a library id Lib:Name")
+            fpid = None
+        if size is None and not refs and not groups and not fpid:
+            errs.append(f"{where}: needs size_mm or footprint (a placeholder) or refs / groups (real parts)")
+        env = it.get("envelope_mm")
+        if env is not None and (not isinstance(env, (int, float)) or env < 0):
+            errs.append(f"{where}: envelope_mm must be a number >= 0")
+            env = None
         side = it.get("side", "front")
         if side not in ("front", "back"):
             errs.append(f"{where}: side {side!r} is not front or back")
@@ -208,7 +219,8 @@ def parse(design) -> dict | None:
                       "height": it.get("height_mm"), "protrusion": float(it.get("protrusion_mm") or 0.0),
                       "side": side, "region": str(reg) if reg is not None else None,
                       "board": board_of(it.get("board"), where) if cons == "stacked" or it.get("board") else boards[0]["name"],
-                      "count": int(it.get("count", 1)), "at": at, "edge": it.get("edge"), "source": it.get("source")})
+                      "count": int(it.get("count", 1)), "at": at, "edge": it.get("edge"), "source": it.get("source"),
+                      "footprint": fpid, "envelope": float(env) if env is not None else None})
     inames = [it["name"] for it in items]
     if len(set(inames)) != len(inames):
         errs.append("floorplan.items: names must be unique")
@@ -233,6 +245,12 @@ def parse(design) -> dict | None:
             errs.append("floorplan.depth.extra: each entry needs {name, mm, source}")
             continue
         extra.append({"name": str(e.get("name", "extra")), "mm": float(e["mm"]), "source": e.get("source")})
+    wall = raw.get("wall_mm") or {}
+    if not isinstance(wall, dict) or any(k not in EDGES or not isinstance(v, (int, float)) or v < 0
+                                         for k, v in wall.items()):
+        errs.append("floorplan.wall_mm must map left, right, top or bottom to a distance >= 0 (board edge to the "
+                    "enclosure wall)")
+        wall = {}
     fill = raw.get("fill_max", FILL_MAX)
     if not isinstance(fill, (int, float)) or not 0 < fill <= 1:
         errs.append("floorplan.fill_max must be in (0, 1]")
@@ -241,7 +259,7 @@ def parse(design) -> dict | None:
         raise FloorplanError("; ".join(errs))
     fp = {"construction": cons, "boards": boards, "regions": regions, "items": items, "nets": nets,
           "depth": {"limit_mm": float(lim) if lim is not None else None, "extra": extra}, "fill_max": float(fill),
-          "margin": float(b.get("margin_mm", 1.0))}
+          "margin": float(b.get("margin_mm", 1.0)), "wall": {k: float(v) for k, v in wall.items()}}
     _shape_regions(fp)
     return fp
 
@@ -467,7 +485,7 @@ def resolve(fp: dict, design, refs) -> dict:
     for it in fp["items"]:  # a ref named in `refs` belongs to that item, not to an item that takes its whole group
         real = _refs_of(it, design, refs) if it["refs"] or it["groups"] else []
         real = [r for r in real if r not in named or any(fnmatch.fnmatchcase(r, p) for p in it["refs"])]
-        out[it["name"]] = real or (placeholder_names(it) if it["size"] else [])
+        out[it["name"]] = real or (placeholder_names(it) if it["size"] or it.get("footprint") else [])
     return out
 
 
@@ -532,6 +550,9 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         if r["poly"].is_empty:
             continue
         allow = {x for e in r["allow"] for x in (res.get(e) or [y for y in refs if fnmatch.fnmatchcase(y, e)])}
+        # a layout block that holds an allowed part is allowed with it: its courtyard (ref block:<name>) carries the part
+        allow |= {f"{YARD}{b}" for b, e in (design.raw.get("blocks") or {}).items()
+                  if isinstance(e, dict) and set(map(str, (e.get("parts") or {}).values())) & allow}
         if r["cut"]:  # a hole in the board: every part keeps the board margin from its edge, as from the outline
             out.append(_rule(r["name"], r["poly"].buffer(float(design.board["margin_mm"]), join_style="mitre"),
                              r["sides"], set(), True, allow, {}))
