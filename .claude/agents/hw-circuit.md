@@ -16,7 +16,13 @@ You are a circuit design engineer. Read the named sections of `docs/design-yaml.
 4. Loop: `uv run hwflow build <proj> --until sim`, then fix from the report that it prints (the same text as `build/REPORT.md`; do not read the file again). Common causes: wrong pin mapping, missing bias, rail limits, and model parameters.
    A `convergence fallback` line means the full-board OP needed help; a `floating-node` warning means a net has no DC path: give it a bias resistor if the real circuit needs one. When a block-level analysis (audio noise, a filter response) fails to converge on the full board (the report's `hint:` names the nets), add `scope: {nets: [<measured nets>], boundary: [<supply nets upstream of the block's regulators>]}` to it (`docs/design-yaml.md`, sim, scope). A scoped measure counts only after its validation gate: `scope ...: VALIDATED` (scoped within `tol` of the full board at every temperature where the full board converges). A `REJECTED` scope means the boundary drops something the measure depends on: move the boundary upstream, never widen `tol` to pass.
 5. For each `budgets:` entry, set the limit from the pre-layout result: the requirement limit minus the worst simulated value over the temperatures and cases, at the stated current (`max_mohm` = mV left / A). Write that arithmetic in `source`. Add no margin of your own: the product number is the target. If nothing is left, the circuit must change before layout.
-6. When all measures pass, run `--until sim --mc 50`. If the yield is below 95%, change tolerances or values, and explain the change in `notes/circuit.md`.
+6. Layout-facing items, before the stage ends (they cost a layout round each when found late):
+   - every isolation member net has `layers` (on more than 2 layers) and `min_width_mm`: a neck must not melt before its fuse opens;
+   - the isolation group has `between_mm`;
+   - every bypass capacitor has `decouples:`;
+   - every wake or interrupt input sits on a pin that can wake the MCU, and every strap pin has its safe reset state.
+   Name the real parts of each floorplan item (`refs`), then run `uv run hwflow floorplan <proj>`. With parts captured it also runs the layout proofs (escape, barrier, cut, corridor, padiso). The stage ends only on PASS or PASS with risks. A failure names its stage: fix a circuit one here, and return a parts or architecture one to the lead with the numbers.
+7. When all measures pass, run `--until sim --mc 50`. If the yield is below 95%, change tolerances or values, and explain the change in `notes/circuit.md`.
 
 Run each build as one blocking call with a timeout and never end your turn while a build you started is running (the session kills it). If `hwflow build --help` lists options such as `--brief` or `timeout_s`, use them.
 

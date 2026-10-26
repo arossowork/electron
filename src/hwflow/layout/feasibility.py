@@ -44,3 +44,23 @@ def check(design, libs=None) -> list[dict]:
             continue
         out += [{"sev": "error", "code": code, "msg": f["msg"]} for f in fs]
     return out
+
+
+def floorplan_checks(design, libs=None) -> list[dict]:
+    """The proofs as `hwflow floorplan` checks ({name, ok, msg, back_to}), so the stage-2/3 gate and the build's
+    check stage see the same layout proofs; empty before the circuit names real parts. A check that crashes is a
+    risk."""
+    if not design.components:
+        return []
+    if libs is None:
+        from ..core.libs import Libs
+        libs = Libs(design=design)
+    out = []
+    for code, mod in FEASIBILITY_CHECKS:
+        try:
+            fs = importlib.import_module(mod).findings(design, libs)
+        except Exception as e:  # noqa: BLE001
+            out.append({"name": f"proof-{code}", "ok": None, "msg": f"{mod} failed: {type(e).__name__}: {e}"})
+            continue
+        out += [{"name": f"proof-{code}", "ok": False, "msg": f["msg"], "back_to": f.get("back_to")} for f in fs]
+    return out

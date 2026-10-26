@@ -14,9 +14,7 @@ fast:
   - 36.05
   - 36.8
   placement_violations: []
-  fixed_violations:
-  - block:mcu inside floorplan region 'antenna' (73.9 mm2)
-  - block:mcu inside floorplan region 'antenna_cells' (73.9 mm2)
+  fixed_violations: []
   corridors: {}
   placement_cost: 84434.2
   rudy:

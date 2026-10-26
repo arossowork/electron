@@ -15,6 +15,28 @@ A failing layout build ends with a diagnosis (`src/hwflow/layout/diagnose.py`) t
 
 `feasibility.py` registers the proof modules (`partescape`, `barrier`, `cutcap`, `corridor`, `padiso`). `hwflow check` runs them without a placement (errors `escape`, `barrier`, `cut`, `corridor`, `padiso`; `padiso`: a pad of a region net closer than the region's `isolation_mm` to a conductive keep-out, measured with the pad's real outline, as the post-layout `conductive_clearances` does), and the layout diagnosis runs them again at the kept placement and board. A finding that depends on the placement of movable parts (`fixed: false`) counts there only when its parts are persistent. With the library available, the proofs replace the diagnosis's own pad escape estimate (they use the clearance actually in force, such as a fine-pitch DRC rule).
 
+`hwflow floorplan` runs the same proofs once parts are captured (`layout.feasibility.floorplan_checks`, checks `proof-*`), so the early gate at the end of stages 2, 3 and 4 sees them before any layout build.
+
+### Late findings moved earlier
+
+In home-thermostat-3 these findings came from layout rounds, the review or sign-off. They cost about 14 h of rework (stages 2-4 again) and about 9 h of churn after the first PASS. Each one now has a deterministic check or a checklist item in an earlier stage:
+
+| late finding (stage found) | earlier check now | stage |
+|---|---|---|
+| floorplan infeasible at the committed board size (layout) | `floorplan` area, fit, placer fill (legality gate's 95 %) before any placement; FAIL in seconds | 2 |
+| connector body and plug + cable vs a board notch and the wall (layout) | `floorplan` envelope (`envelope_mm`, `wall_mm`) and edge stretch | 2, 3 (`footprint:` on the item) |
+| hazardous pad vs a conductive notch or screw (layout) | `floorplan` fit with fixed parts, fixed-pad isolation, `padiso` proof | 2, 4 |
+| hazardous nets on inner layers under the other zone (layout) | `floorplan` isolation risk: member nets without `layers` on more than 2 layers | 2, 4 |
+| functional spacing between hazardous nets (review) | `floorplan` isolation risk: a group without `between_mm`; requirements checklist | 1, 2 |
+| fixed anchors that overlap or break isolation (layout) | `floorplan` fixed-placement (shortfalls within the placer margin are risks) | 2, 4 |
+| a net with no corridor between fixed obstacles (layout) | `corridor` proof in `floorplan` | 4 |
+| a neck on a fused net that melts before the fuse (review) | `floorplan` isolation risk: member nets with `current_a` and no `min_width_mm` | 4 |
+| through-hole hazardous pads on the user face (review) | `floorplan` isolation risk: THT member pads with a one-face region | 2 |
+| footprints never checked against a drawing (sign-off) | parts table: cited drawing, no placeholders | 3 |
+| bottom-side and THT assembly, component placement list (fab) | parts table: assembly side and method | 3 |
+| decap distance, copper IR drop (post-layout) | circuit checklist: `decouples:` on every bypass cap, `budgets:` copper share | 4 |
+| wake input on a pin that cannot wake the MCU (firmware) | partition: wake need in `interface.yaml`; circuit checklist | 1b, 4 |
+
 ## Routing corridors of constrained nets (placer)
 
 The placer (`placer.py`, `_cor_eval`) keeps a channel open for the constrained nets: members of a `board.isolation` group (or of a `drc_rules` isolation pattern), nets with `layers`, and nets of a floorplan region with `nets` (2 to 16 pads). For each edge of the minimum spanning tree of the net's pads, it measures the free width of the straight channel and of the two L-shaped channels and keeps the best one. The free width is twice the smallest distance from the centre line to foreign copper, minus the spacing that copper needs. Foreign copper means pads that block every layer the net may use (a through-hole pad blocks all layers, an SMD pad only its own layer), conductive keep-outs and rule areas without tracks. The spacing is `between_mm` between two members of a group, the group distance between a member and another net, and the larger net class clearance otherwise. These are router values, without the placer margins. The channel starts at each pad's edge. A channel narrower than the track adds `weights.corridor` (default 30) × the shortfall in mm to the cost (`placement: {weights: {corridor: ...}}`). The cost is incremental: a net is recomputed only when one of its pads moves, or when a part enters or leaves the spatial-hash cells around it. On home-thermostat-3 this costs about 10 % of the annealing speed.

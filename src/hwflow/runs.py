@@ -467,10 +467,41 @@ def status_entries(run: Run, store: ArtifactStore) -> dict[str, dict]:
     return out
 
 
+TIMING_STAGE = {"layout_attempt": "layout", "layout_select": "layout"}  # stage -> its row in the timing
+
+
+def run_timing(run: Run, entries: Mapping[str, dict] | None = None) -> dict:
+    """Where the run's wall time went: {run_id, wall_s, stages: {stage: {s, cached, n}}, steps: {step: s}}. A stage's
+    `s` is its wall span (layout: first attempt start to the select end, attempts run in parallel), `n` its records
+    (layout attempts + select), `cached` true when every record was a cache hit. `steps` are the stage results' own
+    `timing` (sim_s, derating_s, mc_s; place_s, route_s, repair_s, drc_s of the kept board; extract_s, post_sim_s)."""
+    spans: dict[str, list] = {}
+    for rec in run.stages:
+        if rec.started_at is None or rec.ended_at is None or rec.status.value not in ("succeeded", "failed"):
+            continue
+        k = TIMING_STAGE.get(rec.stage, rec.stage)
+        spans.setdefault(k, []).append(rec)
+    stages = {}
+    for k, recs in spans.items():
+        t0, t1 = min(r.started_at for r in recs), max(r.ended_at for r in recs)
+        stages[k] = {"s": round((t1 - t0).total_seconds(), 1), "cached": all(r.cached for r in recs), "n": len(recs)}
+    steps = {}
+    for k, v in (entries or {}).items():
+        for name, sec in ((v or {}).get("timing") or {}).items() if isinstance(v, dict) else ():
+            if isinstance(sec, (int, float)):
+                steps[f"{k}.{name}"] = sec
+    start = run.started_at or run.created_at
+    end = run.ended_at or max((r.ended_at for r in run.stages if r.ended_at), default=None) or now()
+    return {"run_id": run.run_id, "wall_s": round((end - start).total_seconds(), 1), "stages": stages, "steps": steps}
+
+
 def render_status(run: Run, store: ArtifactStore) -> dict:
-    """status.json as the run alone gives it: settings, the stage entries, updated. `checkout` merges it into the
-    project's status.json (whose `trace`, `score` and command entries the report and other commands write)."""
-    return {"settings": run.settings, **status_entries(run, store), "updated": time.strftime("%Y-%m-%d %H:%M:%S")}
+    """status.json as the run alone gives it: settings, the stage entries, the timing, updated. `checkout` merges it
+    into the project's status.json (whose `trace`, `score` and command entries the report and other commands
+    write)."""
+    entries = status_entries(run, store)
+    return {"settings": run.settings, **entries, "timing": run_timing(run, entries),
+            "updated": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
 def _same_file(p: Path, ref: ArtifactRef) -> bool:

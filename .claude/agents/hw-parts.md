@@ -22,6 +22,11 @@ For each block:
 6. For each datasheet that you read, write the facts the design needs (absolute maximum ratings, application circuit values, SPICE parameters, page numbers) to `notes/datasheets/<mpn>.md`, so later stages and the reviewer do not fetch it again. Check `library/datasheets/<mpn>.md` and the shared `hw:` library (`library/README.md`) first: a part another project already drew and checked is reused, not drawn again. A symbol or footprint you draw that another product could use goes into `library/` (symbols/hw.kicad_sym, footprints/hw.pretty) with a README row (source, verified against).
 7. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
 
-Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model).
+Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model). For every part of a floorplan item, also return the facts the lead needs to run the early layout gate (`hwflow floorplan`, with `footprint:` on the item) before the parts are committed:
+- the footprint id and its height;
+- the mechanical drawing it was checked against: pin count, pad span, body size, and the page;
+- the assembly side and method (SMT, THT or hand solder) for the component placement list;
+- for a connector: the entry direction and the `envelope_mm` of its mating plug with the cable bend.
+A footprint without a cited drawing is a placeholder: say so in the risks.
 
 When the orchestrator sends you back from layout with a `layout diagnosis` (a part whose pads cannot be escaped at the net widths, with the pitch needed), replace that part with one that meets the stated pitch or package, or with a different topology that lowers the current on those pins. Keep its electrical ratings, check stock, and record the change and the diagnosis line in `notes/parts.md`.

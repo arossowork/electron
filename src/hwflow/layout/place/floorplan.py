@@ -16,12 +16,13 @@ from __future__ import annotations
 import copy
 import fnmatch
 import math
+import re
 import time
 
-from shapely.geometry import Point, box
+from shapely.geometry import LineString, Point, box
 from shapely.ops import unary_union
 
-from ...core.floorplan import EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, depth, fixed_pad_isolation, members, parse, region_distances, resolve
+from ...core.floorplan import EDGES, EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, cuts, depth, fixed_pad_isolation, members, outline, parse, region_distances, resolve
 from ...core.floorplan import *  # noqa: F401,F403  (the data model moved to core.floorplan; its public names stay here)
 from ...core.settings import get_settings
 
@@ -148,9 +149,11 @@ def _side_box(p, s, margin):
     return None if b is None else (b[0] + margin, b[1] + margin, b[2] - margin, b[3] - margin)
 
 
-def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) -> dict:
-    """Area, depth, region geometry and a quick placement with a congestion estimate. Returns the result dict with
-    `ok`, `checks` (each {name, ok (True, False, or None for a risk), msg}) and the numbers behind them."""
+def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, extra=None) -> dict:
+    """Area, depth, region geometry, connector edges and envelopes, isolation groups, and a quick placement with a
+    congestion estimate. `extra(design, libs) -> [{name, ok, msg, back_to?}]` adds checks of a higher layer (the
+    feasibility proofs, layout.feasibility.floorplan_checks). Returns the result dict with `ok`, `checks` (each
+    {name, ok (True, False, or None for a risk), msg}) and the numbers behind them."""
     from . import placer
     t0 = time.time()
     try:
@@ -162,13 +165,22 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
         return {"ok": False, "checks": [{"name": "field", "ok": False, "msg": "design.yaml has no floorplan field"}],
                 "seconds": 0.0}
     m = placer.COURTYARD_MARGIN
-    parts, d2 = _parts(design, libs, fp)
-    res = resolve(fp, design, list(parts))
-    mem = members(fp, design, list(parts))
     checks: list[dict] = []
 
     def add(name, ok, msg, back_to=None):
         checks.append({"name": name, "ok": ok, "msg": msg, **({"back_to": back_to} if back_to else {})})
+
+    for it in fp["items"]:  # a footprint chosen in the parts stage gives a placeholder its real courtyard
+        if it["footprint"] and not it["size"]:
+            try:
+                b = libs.footprint(it["footprint"])["bbox"]
+                it["size"] = (b[2] - b[0], b[3] - b[1])
+            except Exception as e:  # noqa: BLE001 - a missing footprint is a finding, not a crash
+                add("field", False, f"item {it['name']}: footprint {it['footprint']} not found ({type(e).__name__}: {e})")
+                it["size"] = (1.0, 1.0)
+    parts, d2 = _parts(design, libs, fp)
+    res = resolve(fp, design, list(parts))
+    mem = members(fp, design, list(parts))
 
     real = [r for r in parts if r in design.components]
     for it in fp["items"]:
@@ -304,12 +316,38 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
         if r["kind"] != "keepout" and r["poly"].is_empty:
             add("geometry", False, f"region {r['name']} has no area left after the keep-outs and the board outline")
 
+    # ---- connector edges and isolation groups (before any placement: they need only sizes, regions and nets)
+    if fp["construction"] != "stacked":
+        for name, ok, msg, back in _edge_checks(d2, parts, fp, res, m) + _isolation_checks(d2, parts, fp, area):
+            add(name, ok, msg, back)
+
     # ---- quick placement and congestion
     place_out = None
+    if parts and fp["construction"] != "stacked":  # the legality gate's own fill, before any placement
+        from .legality import PLACE_FILL_MAX, board_fill
+        W, H = float(design.board["width_mm"]), float(design.board["height_mm"])
+        mg = fp["margin"]
+        outl = outline(design)
+        usable = outl.buffer(-mg, join_style="mitre").area if cuts(design) else (W - 2 * mg) * (H - 2 * mg)
+        for s, v in board_fill(d2, parts, W, H).items():
+            f = v * (outl.area if cuts(design) else W * H) / max(usable, 1e-9)
+            if f > PLACE_FILL_MAX:
+                k = math.sqrt(f / PLACE_FILL_MAX)
+                add("area", False, f"{s} face: the courtyards with the placer margin fill {f:.0%} of the board inside "
+                    f"its {mg:g} mm margin; above {PLACE_FILL_MAX:.0%} no legal placement exists (the stage-7 "
+                    f"legality gate stops there): a board of at least {math.ceil((W - 2 * mg) * k + 2 * mg)} x "
+                    f"{math.ceil((H - 2 * mg) * k + 2 * mg)} mm, or fewer or smaller parts, or parts on the other "
+                    f"face", "architecture")
+    hopeless = [c for c in checks if c["ok"] is False and c["name"] in ("area", "fit", "edge", "isolation", "depth")]
+    if place and parts and hopeless:  # fail fast: an area, fit or edge proof already fails, a placement cannot help
+        add("placement", None, f"quick placement skipped: {len(hopeless)} area, fit, edge, isolation or depth "
+            f"failures above already send the floorplan back")
+        place = False
     if place and parts:
         place_out = _quick_place(design, d2, parts, fp, iters, seeds)
         for msg in place_out["fixed_violations"]:
-            add("fixed-placement", False, msg)
+            ok, why = _fixed_severity(parts, fp, msg, m)
+            add("fixed-placement", ok, msg + why, None if ok is None else "architecture")
         v = place_out["violations"]
         if v:  # an illegal placement is no placement: the floorplan fails (the stage-7 placer would stop there too)
             from .legality import placement_verdict
@@ -333,6 +371,15 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
             f"{c['capacity_mm']:.0f} mm of track capacity where each net may run = {c['util']:.0%} (risk > "
             f"{UTIL_RISK:.0%}, fail > {UTIL_FAIL:.0%}); peak cell {c['peak']:.1f} x capacity (risk > {PEAK_RISK:g}); "
             f"{c['overflow']:.1%} of the wire over capacity, {c['detour']:.1%} over forbidden cells")
+    if fp["construction"] != "stacked" and (place and parts or any(p.fixed for p in parts.values())):
+        for name, ok, msg, back in _envelope_checks(parts, fp, res, m, bool(place)):  # fixed or quick-placed
+            add(name, ok, msg, back)
+    if extra is not None:
+        try:
+            for c in extra(design, libs):
+                add(c["name"], c["ok"], c["msg"], c.get("back_to"))
+        except Exception as e:  # noqa: BLE001 - a crashed proof is a risk to look at, not a lost floorplan check
+            add("proofs", None, f"feasibility proofs not run: {type(e).__name__}: {e}")
     ok = all(c["ok"] is not False for c in checks)
     return {"ok": ok, "verdict": "PASS" if ok and all(c["ok"] for c in checks) else ("PASS with risks" if ok else "FAIL"),
             "construction": fp["construction"], "layers": int(design.board.get("layers", 2)),
@@ -388,6 +435,213 @@ def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
         msg += (f", with its {', '.join(nets)} pads inside region {g['name']}"
                 + (f" ({g['iso']:g} mm from conductive {', '.join(cond)})" if cond else ""))
     return msg + " (back to architecture: board size, part or region change)"
+
+
+# ---------------------------------------------------------------- connector edges, envelopes, isolation groups
+
+
+def _edge_line(rect, e: str) -> LineString:
+    x0, y0, x1, y1 = rect.bounds
+    return LineString({"left": [(x0, y0), (x0, y1)], "right": [(x1, y0), (x1, y1)], "top": [(x0, y0), (x1, y0)],
+                       "bottom": [(x0, y1), (x1, y1)]}[e])
+
+
+def _length(g) -> list[float]:
+    return [x.length for x in getattr(g, "geoms", [g]) if not x.is_empty and x.length > 1e-9]
+
+
+def _edge_checks(d2, parts, fp, res, m) -> list[tuple]:
+    """Connector edge feasibility of the movable parts with an `edge` (the part's placement.edge or its item's): the
+    stretch of that board edge a part may use (inside its own region, outside the cuts with their board margin and the
+    exclusive regions it may not enter) must hold the part's shorter courtyard side, and the edge, cuts taken out,
+    must hold the shorter sides of every part sent to it. Shorter side: a proof, whatever the rotation."""
+    from ...core.floorplan import placer_regions
+    rules, _ = placer_regions(d2, parts)
+    rect = fp["boards"][0]["rect"]
+    cut_names = {r["name"] for r in fp["regions"] if r["cut"]}
+    item_edge = {x: it["edge"] for it in fp["items"] if it["edge"] for x in res[it["name"]]}
+    out, by_edge = [], {}
+    for x, p in parts.items():
+        e = getattr(p, "edge", None) or item_edge.get(x)
+        if e not in EDGES or p.fixed or not p.sides:
+            continue
+        for s, v in p.sides.items():
+            w, h = v[0] - 2 * m, v[1] - 2 * m
+            need = min(w, h)
+            line, common = _edge_line(rect, e), _edge_line(rect, e)
+            for g in rules:
+                if s not in g["sides"] or g["name"].startswith("board "):
+                    continue
+                if g["name"] in cut_names:
+                    common = common.difference(g["poly"])
+                if x in g["members"]:
+                    line = line.intersection(g["poly"].buffer(0.01))
+                elif g["excl"] and x not in g["allow"]:
+                    line = line.difference(g["poly"])
+            longest = max(_length(line), default=0.0)
+            if longest < need - 1e-6:
+                out.append(("edge", False, f"{x} ({w:.1f} x {h:.1f} mm, {s}) needs at least {need:.1f} mm of the {e} "
+                            f"edge; the longest stretch inside its region and clear of the cuts and of the regions it "
+                            f"may not enter is {longest:.1f} mm (another edge, a smaller connector, or a larger board)",
+                            "architecture"))
+            by_edge.setdefault((e, s), [sum(_length(common)), []])[1].append((x, need))
+    for (e, s), (free, rows) in sorted(by_edge.items()):
+        tot = sum(n for _, n in rows)
+        if len(rows) > 1 and tot > free + 1e-6:
+            out.append(("edge", False, f"{s} {e} edge: {', '.join(x for x, _ in rows)} need at least {tot:.1f} mm "
+                        f"side by side, the edge has {free:.1f} mm clear of the cuts (move some to another edge, or a "
+                        f"larger board)", "architecture"))
+    return out
+
+
+def _isolation_checks(d2, parts, fp, area) -> list[tuple]:
+    """Each isolation group of the design (board.isolation, drc_rules isolation patterns): a group of two or more
+    nets without between_mm (the functional spacing between its own nets, across a fuse or an open contact), member
+    nets free to use the inner layers of a board with more than 2 layers (they can pass under the other zone), and a
+    group that no floorplan region confines (with the parts that carry its nets, an area estimate of its isolation
+    bubble: the members' courtyards at the fill limit with the isolation band on their open sides, in a corner or as a
+    strip along one edge, plus the other parts at the fill limit, against the usable face)."""
+    from ..board import pcb
+    try:
+        groups = pcb.isolation_needs(d2)
+    except Exception:  # noqa: BLE001 - a malformed rule is the design check's finding
+        return []
+    nets_raw = d2.raw.get("nets") or {}
+    layers = int(d2.board.get("layers", 2))
+    b = fp["boards"][0]
+    mg, fill = fp["margin"], fp["fill_max"]
+    out = []
+    for g in groups:
+        mem = sorted(g["members"])
+        names = ", ".join(mem[:6]) + (", ..." if len(mem) > 6 else "")
+        if len(mem) > 1 and not g.get("between"):
+            out.append(("isolation", None, f"isolation group {g['name']} ({names}): no between_mm, so its own nets keep "
+                        f"only the class clearance from each other; state the functional spacing (across a fuse or an "
+                        f"open contact) from the safety standard, or why none is needed", None))
+        if layers > 2:
+            free = [n for n in mem if not (nets_raw.get(n) or {}).get("layers")]
+            if free:
+                out.append(("isolation", None, f"isolation group {g['name']} on {layers} layers: {', '.join(free[:6])} "
+                            f"may route on the inner layers, under the other zone; give each member net `layers:` "
+                            f"(nets.<net>.layers) or a rule area that keeps them out", None))
+        wide = [n for n in mem if (nets_raw.get(n) or {}).get("current_a") and not (nets_raw.get(n) or {}).get("min_width_mm")]
+        if wide:
+            out.append(("isolation", None, f"isolation group {g['name']}: {', '.join(wide[:6])} carry current but have no "
+                        f"min_width_mm, so the router may neck them down at a fine pad; set the narrowest track the "
+                        f"protection allows (a neck must not melt before the fuse opens: its I2t against the fuse's)",
+                        None))
+        regs = [r for r in fp["regions"] if r["nets"] and r["kind"] != "keepout"
+                and all(any(fnmatch.fnmatchcase(n, p) for p in r["nets"]) for n in mem)]
+        tht = sorted({x for x in parts if x in d2.components and getattr(parts[x], "tht", None)
+                      and any(net in mem for pin, net in d2.components[x].pins.items() if pin in parts[x].tht)})
+        if tht and (not regs or all(len(r["sides"]) == 1 for r in regs)):
+            out.append(("isolation", None, f"isolation group {g['name']}: the through-hole pads of {', '.join(tht[:6])} "
+                        f"on its nets come through to both faces, but no region of the group covers both: the "
+                        f"isolation (and the accessible face) must hold on the other face too (region side: both, "
+                        f"or an insulating barrier item)", None))
+        if regs:
+            continue
+        out.append(("isolation", None, f"isolation group {g['name']} ({names}) has no floorplan region with its nets: "
+                    f"the placer does not confine it; declare a region (kind mains for a hazardous voltage) with "
+                    f"`nets:` and `isolation_mm`", None))
+        refs = [x for x in parts if x in d2.components and set(d2.components[x].pins.values()) & set(mem)]
+        Wu, Hu = b["w"] - 2 * mg, b["h"] - 2 * mg
+        iso = float(g["mm"])
+        for s in ("front", "back"):
+            A = sum(area[x].get(s, 0.0) for x in refs if x in area) / fill
+            if A <= 0:
+                continue
+            rest = sum(v.get(s, 0.0) for x, v in area.items() if x not in refs) / fill
+            opts = [(math.sqrt(A) + iso) ** 2] if math.sqrt(A) + iso <= min(Wu, Hu) else []
+            opts += [(A / L + iso) * L for L, D in ((Wu, Hu), (Hu, Wu)) if A / L + iso <= D]
+            need = min(opts, default=math.inf)
+            if need + rest > Wu * Hu + 1e-6:
+                out.append(("isolation", False, f"isolation bubble of {g['name']} on the {s} face: its {len(refs)} parts "
+                            f"take at least {need:.0f} mm2 with the {iso:g} mm band, the other parts {rest:.0f} mm2 (fill "
+                            f"limit {fill:.0%}): {need + rest:.0f} of {Wu * Hu:.0f} mm2 (a larger board, parts on the "
+                            f"other face, or another construction)", "architecture"))
+    return out
+
+
+def _envelope_checks(parts, fp, res, m, placed: bool) -> list[tuple]:
+    """Items with `envelope_mm`: the mating part, cable and its bend need that much room in front of the part's edge
+    side (its `edge`, else the nearest board edge), across the part's width. It must stay within floorplan.wall_mm of
+    that edge (the enclosure wall), off every keep-out and cut, and off the courtyards of other parts on its faces.
+    A fixed part against a cut or a fixed part fails; against a quick-placed part it is a risk."""
+    out = []
+    rect = fp["boards"][0]["rect"]
+    X0, Y0, X1, Y1 = rect.bounds
+    kos = [r for r in fp["regions"] if r["kind"] == "keepout" and r["poly"] is not None and not r["poly"].is_empty]
+    for it in fp["items"]:
+        env = it["envelope"]
+        if env is None:
+            continue
+        names = [x for x in res[it["name"]] if x in parts]
+        for x in names:
+            p = parts[x]
+            boxes = {s: _side_box(p, s, m) for s in (p.sides or {})}
+            boxes = {s: bb for s, bb in boxes.items() if bb and bb[2] > bb[0] and bb[3] > bb[1]}
+            if not boxes or not (p.fixed or placed):
+                continue
+            bx = (min(v[0] for v in boxes.values()), min(v[1] for v in boxes.values()),
+                  max(v[2] for v in boxes.values()), max(v[3] for v in boxes.values()))
+            gaps = {"left": bx[0] - X0, "right": X1 - bx[2], "top": bx[1] - Y0, "bottom": Y1 - bx[3]}
+            e = it["edge"] or getattr(p, "edge", None) or min(gaps, key=gaps.get)
+            strip = {"left": box(bx[0] - env, bx[1], bx[0], bx[3]), "right": box(bx[2], bx[1], bx[2] + env, bx[3]),
+                     "top": box(bx[0], bx[1] - env, bx[2], bx[1]), "bottom": box(bx[0], bx[3], bx[2], bx[3] + env)}[e]
+            reach = env - gaps[e]  # past the board edge
+            wall = fp["wall"].get(e)
+            where = f"{x} ({'fixed' if p.fixed else 'quick placement'}): its mating part and cable need {env:g} mm in front of its {e} side"
+            if wall is not None and reach > wall + 1e-6:
+                out.append(("envelope", False, f"{where}, {reach:.1f} mm past the {e} board edge; the enclosure wall is "
+                            f"{wall:g} mm away (floorplan.wall_mm): a connector with another entry direction or a "
+                            f"shorter mating part, or another position", "parts"))
+            for r in kos:
+                a = strip.intersection(r["poly"]).area
+                if a > 0.01:
+                    out.append(("envelope", False if p.fixed else None, f"{where}, which crosses {'cut' if r['cut'] else 'keep-out'} "
+                                f"{r['name']} ({a:.1f} mm2): move the part along the edge, or another connector",
+                                "architecture" if p.fixed else None))
+            for q, o in parts.items():
+                if q == x or q in names or not o.sides or not (o.fixed or placed):
+                    continue
+                a = max((strip.intersection(box(*ob)).area for s in boxes if s in o.sides
+                         for ob in [_side_box(o, s, m)] if ob and ob[2] > ob[0] and ob[3] > ob[1]), default=0.0)
+                if a > 0.01:
+                    hard = p.fixed and o.fixed
+                    out.append(("envelope", False if hard else None, f"{where}, which overlaps {q} ({a:.1f} mm2)"
+                                + ("" if hard else ": the stage-7 placer does not know the envelope; fix the "
+                                   "connector or keep that side clear"), "architecture" if hard else None))
+    return out
+
+
+_ISO_SHORT = re.compile(r"isolation \S+: ([\d.]+) mm short .*?\+ ([\d.]+) mm (?:placer )?margin")
+_IN_REGION = re.compile(r"(\S+) inside floorplan region '([^']+)'")
+
+
+def _fixed_severity(parts, fp: dict, msg: str, m: float) -> tuple[bool | None, str]:
+    """A fixed-rule finding of the quick placement as (False, "") for a failure, or (None, why) for a risk: the
+    placer adds a margin to its rules (an isolation shortfall no larger than the placer's own margin leaves the rule
+    itself met on the pad bounding boxes) and keeps parts board.margin_mm from a cut as from the board edge (a fixed
+    courtyard that enters only that band, not the cut, does not collide with what fills the cut)."""
+    k = _ISO_SHORT.search(msg)
+    if k and float(k.group(1)) <= float(k.group(2)) + 1e-6:
+        return None, (f" (the rule itself holds: the shortfall is within the placer's {float(k.group(2)):g} mm "
+                      "margin; check the real pad gap in post-layout)")
+    k = _IN_REGION.match(msg)
+    if k and k.group(1) in parts:
+        cut = next((r for r in fp["regions"] if r["name"] == k.group(2) and r["cut"]), None)
+        if cut is not None:
+            p = parts[k.group(1)]
+            hit = 0.0
+            for s in p.sides or {}:
+                b = _side_box(p, s, m)
+                if b and b[2] > b[0] and b[3] > b[1]:
+                    hit = max(hit, box(*b).intersection(cut["poly"]).area)
+            if hit < 0.01:
+                return None, (f" (the courtyard stays off the cut itself, inside its {fp['margin']:g} mm board "
+                              "margin: check the mating part and cable envelope against the cut)")
+    return False, ""
 
 
 def _span(g) -> str:
@@ -558,7 +812,11 @@ def report(design, res: dict) -> str:
     bad = [c for c in res["checks"] if c["ok"] is False]
     risk = [c for c in res["checks"] if c["ok"] is None]
     if bad:
-        L += ["## Failures", ""] + [f"- {c['name']}: {c['msg']}" for c in bad] + [""]
+        back = sorted({c["back_to"] for c in bad if c.get("back_to")})
+        L += ["## Failures", ""] + (["Back to: " + ", ".join(back) + " (before parts are committed or the circuit "
+                                    "capture ends: these do not get better in layout).", ""] if back else []) \
+            + [f"- {c['name']}: {c['msg']}" + (f" [back to {c['back_to']}]" if c.get("back_to") else "")
+               for c in bad] + [""]
     if risk:
         L += ["## Risks", ""] + [f"- {c['name']}: {c['msg']}" for c in risk] + [""]
     L += ["## Area", "", "| where | load mm2 | area mm2 | fill |", "|---|---|---|---|"]
@@ -647,9 +905,9 @@ def svg(res: dict) -> str:
     return "\n".join(out) + "\n"
 
 
-def run(design, libs, out, iters: int = 20000, seeds: int = 2) -> tuple[str, dict]:
+def run(design, libs, out, iters: int = 20000, seeds: int = 2, extra=None) -> tuple[str, dict]:
     """`hwflow floorplan`: the check, build/FLOORPLAN.md and build/floorplan.svg. Returns (report text, status data)."""
-    res = check(design, libs, iters=iters, seeds=seeds)
+    res = check(design, libs, iters=iters, seeds=seeds, extra=extra)
     text = report(design, res)
     (out / "FLOORPLAN.md").write_text(text)
     if "_fp" in res:

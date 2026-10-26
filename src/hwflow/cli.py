@@ -8,6 +8,7 @@ import json
 import re
 import sys
 import time
+from pathlib import Path
 
 from .sim import spice
 from .commands.block import cmd_block
@@ -141,7 +142,9 @@ def cmd_floorplan(d: Design, a) -> int:
             print(f"{r}: {len(nets)} nets: {', '.join(nets)}")
         print(f"other: {len(floorplan.routed_nets(d)) - sum(len(v) for v in loc.values())} nets (several regions or none)")
         return 0
-    text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds)
+    from .layout import feasibility
+    text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds,
+                               extra=None if a.no_proofs else feasibility.floorplan_checks)
     _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
     print(text)
     return 0 if data["ok"] else 1
@@ -198,6 +201,11 @@ def main(argv=None):
     p.add_argument("run_id", nargs="?", help="default: the newest run of the project")
     p.add_argument("--timeout", type=float, default=580, help="wait: give up after this many seconds (exit 2)")
     p.add_argument("--remote", action="store_true", help="a run on the hosted platform")
+    p = sub.add_parser("time", help="where the time went: hours per /hw-design stage (with rework) from the stage "
+                                    "marks, build seconds per stage and step from build/history.jsonl")
+    p.add_argument("project"); p.add_argument("--mark", metavar="STAGE",
+                                              help="record that this stage starts now (e.g. 2-architecture, done)")
+    p.add_argument("--note"); p.add_argument("--last", type=int, help="only the newest N builds")
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
@@ -222,9 +230,13 @@ def main(argv=None):
     p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
                                     "layers, vias")
     p.add_argument("project"); p.add_argument("net", nargs="*", help="net names or globs (default: all)")
-    p = sub.add_parser("floorplan", help="early layout feasibility of the floorplan: field (area, depth, regions, quick "
-                                         "placement and congestion); no simulation or routing")
+    p = sub.add_parser("floorplan", help="early layout feasibility gate of the floorplan: field (area, depth, regions, "
+                                         "connector edges and envelopes, isolation groups, quick placement and "
+                                         "congestion) and, once parts are captured, the layout proofs of `hwflow "
+                                         "check`; no simulation or routing")
     p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
+    p.add_argument("--no-proofs", action="store_true", help="skip the layout proofs (escape, barrier, cut, corridor, "
+                                                            "padiso) of the captured parts")
     p.add_argument("--local-nets", action="store_true",
                    help="only list, per region, the nets whose pads are all on its members (candidates for `nets:`)")
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")
@@ -263,6 +275,16 @@ def main(argv=None):
     if a.cmd == "run":
         from .commands.run import cmd_run
         return cmd_run(a)
+    if a.cmd == "time":  # before _load: stage 1 has no design.yaml yet
+        from .pipeline import timing
+        pd = Path(a.project)
+        pd = pd.parent if pd.name == "design.yaml" else pd
+        if a.mark:
+            r = timing.mark(pd, a.mark, a.note)
+            print(f"{r['ts']}: stage {r['stage']}")
+            return 0
+        print(timing.summary(pd, last=a.last))
+        return 0
     if a.cmd == "build":
         from .commands import run as runcmd
         if not a.inline and runcmd.wants_remote(a):  # the platform executor (ADR 4.9): never imported by the engine
