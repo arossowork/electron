@@ -1,0 +1,74 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), rect 3,4,80,45 of the key matrix
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: 3,4,80,45
+  nets: null
+window:
+- 0.0
+- 1.0
+- 83.05
+- 54.8
+frame_mm: 3.0
+offset:
+- -0.0
+- -1.0
+board_mm:
+- 83.05
+- 53.8
+free: []
+dropped_neighbors:
+- SW21
+- SW4
+terminals:
+- ref: TPB1
+  net: COL0
+  from: SW17.1
+  to: SW38.1
+  at:
+  - 6.2525
+  - 51.55
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: COL1
+  from: SW18.1
+  to: SW39.1
+  at:
+  - 25.5148
+  - 51.55
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: COL2
+  from: SW19.1
+  to: SW40.1
+  at:
+  - 44.5269
+  - 51.55
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: COL3
+  from: SW20.1
+  to: SW41.1
+  at:
+  - 63.539
+  - 51.55
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: ROW0
+  from: D3.1
+  to: D4.1
+  at:
+  - 80.8
+  - 23.5216
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: ROW1
+  from: D20.1
+  to: D21.1
+  at:
+  - 80.8
+  - 34.5327
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

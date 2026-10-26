@@ -1,0 +1,262 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region usb_c
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: usb_c
+  nets: null
+window:
+- 327.0
+- 124.85
+- 363.0
+- 152.0
+frame_mm: 5.0
+offset:
+- -327.0
+- -124.85
+board_mm:
+- 36.0
+- 27.15
+free:
+- C311
+- C312
+- D311
+- D312
+- D313
+- D314
+- D315
+- D316
+- J311
+- J312
+- U311
+- U312
+dropped_neighbors:
+- C101
+- C122
+- C124
+- C133
+- C135
+- C722
+- C723
+- C767
+- C770
+- C773
+- D102
+- D752
+- FB101
+- M761
+- R101
+- R102
+- R103
+- R106
+- R107
+- R724
+- R772
+- R773
+- R774
+- R786
+- SW101
+- SW102
+terminals:
+- ref: TPB1
+  net: C1_RTN
+  from: J311.A12
+  to: C725.1
+  at:
+  - 33.25
+  - 15.3372
+  footprint: TestPoint:TestPoint_Pad_D2.0mm
+- ref: TPB10
+  net: C1_TX_N
+  from: U311.4
+  to: C134.2
+  at:
+  - 2.25
+  - 10.3033
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: C1_TX_P
+  from: U311.3
+  to: C133.2
+  at:
+  - 2.25
+  - 7.535
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: C2_DM
+  from: D316.2
+  to: U101.26
+  at:
+  - 2.25
+  - 18.86
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: C2_DP
+  from: D316.1
+  to: U101.25
+  at:
+  - 2.25
+  - 21.6283
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: C2_ORIENT
+  from: U312.9
+  to: R773.2
+  at:
+  - 33.75
+  - 20.1183
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: C2_RX_N
+  from: U312.8
+  to: U101.23
+  at:
+  - 2.25
+  - 24.3967
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: C2_RX_P
+  from: U312.7
+  to: U101.24
+  at:
+  - 2.25
+  - 16.0917
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: C2_SHELL
+  from: J312.S1
+  to: R774.1
+  at:
+  - 33.75
+  - 22.8867
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: C2_TX_N
+  from: U312.4
+  to: C136.2
+  at:
+  - 2.25
+  - 13.3233
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB19
+  net: C2_TX_P
+  from: U312.3
+  to: C135.2
+  at:
+  - 4.95
+  - 19.2
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: C2_RTN
+  from: J312.B12
+  to: C775.1
+  at:
+  - 33.25
+  - 11.561
+  footprint: TestPoint:TestPoint_Pad_D2.0mm
+- ref: TPB20
+  net: CC1_C1
+  from: J311.A5
+  to: C716.1
+  at:
+  - 33.75
+  - 8.29
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB21
+  net: CC1_C2
+  from: J312.A5
+  to: C766.1
+  at:
+  - 31.05
+  - 18.7
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB22
+  net: CC2_C1
+  from: J311.B5
+  to: C717.1
+  at:
+  - 33.75
+  - 5.5217
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB23
+  net: CC2_C2
+  from: J312.B5
+  to: C767.1
+  at:
+  - 31.05
+  - 22.2
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB24
+  net: VBUS_C1
+  from: J311.A9
+  to: C722.1
+  at:
+  - 31.05
+  - 8.45
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB25
+  net: VBUS_C2
+  from: J312.B9
+  to: R786.1
+  at:
+  - 33.75
+  - 2.7533
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: 3V3_D
+  from: U311.6
+  to: R772.1
+  at:
+  - 31.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: C1_DM
+  from: D313.2
+  to: U101.64
+  at:
+  - 2.25
+  - 4.7667
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: C1_DP
+  from: D313.1
+  to: U101.63
+  at:
+  - 4.95
+  - 10.2
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: C1_ORIENT
+  from: U311.9
+  to: C720.1
+  at:
+  - 31.05
+  - 5.7
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: C1_RX_N
+  from: U311.8
+  to: U101.61
+  at:
+  - 4.95
+  - 12.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: C1_RX_P
+  from: U311.7
+  to: U101.62
+  at:
+  - 5.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: C1_SHELL
+  from: J311.S1
+  to: C723.1
+  at:
+  - 28.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

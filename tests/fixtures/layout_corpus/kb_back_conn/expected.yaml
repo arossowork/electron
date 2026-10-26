@@ -1,0 +1,180 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region back_conn
+source_failure: 'back_conn host/PD region: 14 of 33 nets open'
+reproduces: 'yes: 21 nets open (source 14 of 33), host SuperSpeed and PD nets among them'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 94
+  nets: 56
+  board_mm:
+  - 85.25
+  - 29.2
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 2367.8
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.04
+  pin_access:
+    pads: 289
+    nets_no_exit_at_width:
+    - 3V3_D
+    - 5V_SYS
+    - CH224_VBUS
+    - CH224_VDD
+    - EFUSE_IMON
+    - GND
+    - HOST_5V
+    - HOST_CC1
+    - HOST_RX1_N
+    - HOST_RX2_N
+    - HOST_RX2_P
+    - HOST_RX_P
+    - HOST_TX1_P
+    - HOST_TX2_N
+    - HOST_TX2_P
+    - HOST_TX_N
+    - HOST_TX_P
+    - HOST_VBUSDET
+    - PDIN_DM
+    - PDIN_DP
+    - VIN20
+    necked:
+    - 3V3_D
+    - 5V_SYS
+    - CH224_VBUS
+    - CH224_VDD
+    - EFUSE_IMON
+    - GND
+    - HOST_5V
+    - HOST_CC1
+    - HOST_RX1_N
+    - HOST_RX2_N
+    - HOST_RX2_P
+    - HOST_RX_P
+    - HOST_TX1_P
+    - HOST_TX2_N
+    - HOST_TX2_P
+    - HOST_TX_N
+    - HOST_TX_P
+    - HOST_VBUSDET
+    - PDIN_DM
+    - PDIN_DP
+    - VIN20
+    no_access:
+    - U600.21
+    - U650.21
+  seconds:
+    check: 32.7
+    pin_access: 1.4
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 49
+  open_nets:
+  - 3V3_D
+  - 5V_SYS
+  - CH224_VBUS
+  - CH224_VDD
+  - EFUSE_IMON
+  - GND
+  - HOST_CC1
+  - HOST_DP
+  - HOST_RX1_N
+  - HOST_RX2_N
+  - HOST_RX2_P
+  - HOST_RX_P
+  - HOST_TX1_P
+  - HOST_TX2_N
+  - HOST_TX2_P
+  - HOST_TX_N
+  - HOST_TX_P
+  - HOST_VBUSDET
+  - PDIN_DM
+  - PDIN_DP
+  - VBUS_HOST
+  drc_errors: 53
+  drc_types:
+    clearance: 4
+  placement_violations: 0
+  router: '22 unrouted, krt 8 pass(es) in 2 route groups (back_conn miss, interface miss); retried in another net order (1.6
+    mm: HOST_5V routed narrow first (corridor proof, exact spacings; the router keeps 0.1 mm more from isolation keep-outs:
+    HOST_5V 0 mm without a neck); 1.6 mm: HOST_5V routed with the rout'
+  route_groups:
+  - name: back_conn
+    nets:
+    - CC_VLB
+    - CH224_CC1
+    - CH224_CC2
+    - CH224_VBUS
+    - CH224_VDD
+    - EFUSE_DVDT
+    - EFUSE_EN
+    - EFUSE_ILIM
+    - EFUSE_IMON
+    - EFUSE_OVP
+    - HOST_5V
+    - HOST_CC1
+    - HOST_CC2
+    - HOST_RX1_N
+    - HOST_RX1_P
+    - HOST_RX2_N
+    - HOST_RX2_P
+    - HOST_TX1_N
+    - HOST_TX1_P
+    - HOST_TX2_N
+    - HOST_TX2_P
+    - HOST_VBUSDET
+    - HP_G
+    - HP_OFFN
+    - HP_SEN
+    - PDIN_CC1
+    - PDIN_CC2
+    - PDIN_DM
+    - PDIN_DP
+    - PDIN_VBUS
+    - PDS_A
+    - SINK_G
+    - SINK_S
+    unrouted: 13
+    seconds: 231.4
+  - name: interface
+    nets:
+    - 3V3_D
+    - 5V_SYS
+    - BUCK_EN
+    - C1_EN
+    - C1_OVR
+    - C1_OVS
+    - C2_EN
+    - C2_OVR
+    - C2_OVS
+    - CC_VH
+    - CC_VL
+    - HOST_DM
+    - HOST_DP
+    - HOST_RX_N
+    - HOST_RX_P
+    - HOST_TX_N
+    - HOST_TX_P
+    - PDMODE_N
+    - PDS_G
+    - PD_STAT
+    - VBUS_HOST
+    - VIN20
+    unrouted: 9
+    seconds: 531.5
+  seconds: 825.7
+  timing:
+    drc_s: 20.9
+    place_s: 0.4
+    repair_s: 0.0
+    route_s: 763.3

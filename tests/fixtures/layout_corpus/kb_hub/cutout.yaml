@@ -1,0 +1,441 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region hub
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: hub
+  nets: null
+window:
+- 285.0
+- 122.75
+- 337.15
+- 152.0
+frame_mm: 7.0
+offset:
+- -285.0
+- -122.75
+board_mm:
+- 52.15
+- 29.25
+free:
+- C101
+- C102
+- C103
+- C104
+- C105
+- C106
+- C107
+- C108
+- C109
+- C110
+- C111
+- C112
+- C113
+- C114
+- C115
+- C116
+- C117
+- C118
+- C119
+- C120
+- C121
+- C122
+- C123
+- C124
+- C131
+- C132
+- C133
+- C134
+- C135
+- C136
+- C137
+- C138
+- C139
+- C140
+- C151
+- C152
+- C153
+- C154
+- C155
+- C156
+- C157
+- C158
+- C159
+- C160
+- C161
+- C162
+- C163
+- C164
+- C165
+- C166
+- C167
+- C168
+- C169
+- C170
+- C171
+- C172
+- C173
+- C174
+- C181
+- C182
+- C183
+- C184
+- FB101
+- FB151
+- L101
+- L151
+- R101
+- R102
+- R103
+- R104
+- R105
+- R106
+- R107
+- R108
+- R109
+- R110
+- R111
+- R112
+- R113
+- R151
+- R152
+- R153
+- R154
+- R155
+- R156
+- R157
+- R158
+- R159
+- U101
+- U151
+- Y101
+- Y151
+dropped_neighbors:
+- D100
+- D101
+- D321
+- SW100
+- SW101
+terminals:
+- ref: TPB1
+  net: 5V_SYS
+  from: R156.1
+  to: C800.1
+  at:
+  - 3.0
+  - 12.75
+  footprint: TestPoint:TestPoint_Pad_D2.5mm
+- ref: TPB10
+  net: A2_SSRX_N
+  from: U151.61
+  to: D322.5
+  at:
+  - 2.25
+  - 9.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: A2_SSRX_P
+  from: U151.62
+  to: D322.4
+  at:
+  - 2.25
+  - 6.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: A2_SSTX_N
+  from: C184.2
+  to: D322.2
+  at:
+  - 2.25
+  - 3.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: A2_SSTX_P
+  from: C183.2
+  to: D322.1
+  at:
+  - 2.25
+  - 16.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: AUD_DM
+  from: U151.26
+  to: U1100.28
+  at:
+  - 2.25
+  - 21.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: AUD_DP
+  from: U151.25
+  to: U1100.29
+  at:
+  - 2.25
+  - 23.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: C1_DM
+  from: U101.64
+  to: D313.2
+  at:
+  - 49.9
+  - 11.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: C1_DP
+  from: U101.63
+  to: D313.1
+  at:
+  - 49.9
+  - 14.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: C1_RX_N
+  from: U101.61
+  to: U311.8
+  at:
+  - 49.9
+  - 17.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB19
+  net: C1_RX_P
+  from: U101.62
+  to: U311.7
+  at:
+  - 49.9
+  - 8.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: A1_DM
+  from: U101.14
+  to: U800.2
+  at:
+  - 2.25
+  - 26.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB20
+  net: C1_TX_N
+  from: C134.2
+  to: U311.4
+  at:
+  - 49.9
+  - 6.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB21
+  net: C1_TX_P
+  from: C133.2
+  to: U311.3
+  at:
+  - 49.9
+  - 19.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB22
+  net: C2_DM
+  from: U101.26
+  to: D316.2
+  at:
+  - 49.9
+  - 22.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB23
+  net: C2_DP
+  from: U101.25
+  to: D316.1
+  at:
+  - 49.9
+  - 25.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB24
+  net: C2_RX_N
+  from: U101.23
+  to: U312.8
+  at:
+  - 47.2
+  - 23.7974
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB25
+  net: C2_RX_P
+  from: U101.24
+  to: U312.7
+  at:
+  - 47.2
+  - 21.0331
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB26
+  net: C2_TX_N
+  from: C136.2
+  to: U312.4
+  at:
+  - 47.2
+  - 18.2688
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB27
+  net: C2_TX_P
+  from: C135.2
+  to: U312.3
+  at:
+  - 47.2
+  - 15.5045
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB28
+  net: HOST_DM
+  from: U101.67
+  to: D303.2
+  at:
+  - 39.1161
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB29
+  net: HOST_DP
+  from: U101.66
+  to: D303.1
+  at:
+  - 41.8747
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: A1_DP
+  from: U101.13
+  to: U800.3
+  at:
+  - 4.95
+  - 19.274
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB30
+  net: HOST_RX_N
+  from: U101.71
+  to: U301.10
+  at:
+  - 36.3574
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB31
+  net: HOST_RX_P
+  from: U101.72
+  to: U301.9
+  at:
+  - 44.6334
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB32
+  net: HOST_TX_N
+  from: C132.2
+  to: U301.7
+  at:
+  - 47.3921
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB33
+  net: HOST_TX_P
+  from: C131.2
+  to: U301.6
+  at:
+  - 45.9426
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB34
+  net: HUB1_OVCUR3
+  from: R110.2
+  to: U800.13
+  at:
+  - 4.95
+  - 22.0383
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB35
+  net: HUB1_PWREN3
+  from: R113.1
+  to: U800.5
+  at:
+  - 4.95
+  - 16.5097
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB36
+  net: HUB2_OVCUR1
+  from: R158.2
+  to: U820.13
+  at:
+  - 4.95
+  - 9.2221
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB37
+  net: HUB2_PWREN1
+  from: R159.1
+  to: R824.1
+  at:
+  - 4.95
+  - 6.4578
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB38
+  net: MCU_DM
+  from: U151.14
+  to: R403.2
+  at:
+  - 5.0087
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB39
+  net: MCU_DP
+  from: U151.13
+  to: R402.2
+  at:
+  - 7.7674
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: A1_SSRX_N
+  from: U101.18
+  to: D321.5
+  at:
+  - 10.5261
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB40
+  net: VBUS_HOST
+  from: R106.1
+  to: R301.1
+  at:
+  - 43.1762
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: A1_SSRX_P
+  from: U101.19
+  to: D321.4
+  at:
+  - 7.7164
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: A1_SSTX_N
+  from: C138.2
+  to: D321.2
+  at:
+  - 13.2847
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: A1_SSTX_P
+  from: C137.2
+  to: D321.1
+  at:
+  - 10.4827
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: A2_DM
+  from: U151.64
+  to: U820.2
+  at:
+  - 16.0434
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: A2_DP
+  from: U151.63
+  to: U820.3
+  at:
+  - 13.2491
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

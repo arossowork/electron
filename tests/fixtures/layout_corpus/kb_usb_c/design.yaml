@@ -1,0 +1,862 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_usb_c
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_usb_c)
+board:
+  width_mm: 36.0
+  height_mm: 27.15
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  C311:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: usb_c
+    decouples: U311
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 11.2
+      y: 11.15
+      rot: 90.0
+      fixed: true
+  C312:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: usb_c
+    decouples: U312
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 10.49
+      y: 20.7
+      rot: 90.0
+      fixed: true
+  D311:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C1_TX1_P
+      '2': C1_TX1_N
+      '4': C1_RX1_P
+      '5': C1_RX1_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 17.2
+      y: 9.2
+      rot: 0.0
+      fixed: true
+  D312:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C1_TX2_P
+      '2': C1_TX2_N
+      '4': C1_RX2_P
+      '5': C1_RX2_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 17.2
+      y: 12.75
+      rot: 0.0
+      fixed: true
+  D313:
+    value: PUSB3FR4Z
+    mpn: PUSB3FR4Z-ES
+    lcsc: C41429303
+    price_usd: 0.0437
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C1_DP
+      '2': C1_DM
+      '3': GND
+      '8': GND
+    nc:
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 9.2
+      y: 8.85
+      rot: 180.0
+      fixed: true
+  D314:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C2_TX1_P
+      '2': C2_TX1_N
+      '4': C2_RX1_P
+      '5': C2_RX1_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 16.46
+      y: 19.75
+      rot: 180.0
+      fixed: true
+  D315:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C2_TX2_P
+      '2': C2_TX2_N
+      '4': C2_RX2_P
+      '5': C2_RX2_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 16.55
+      y: 23.3
+      rot: 0.0
+      fixed: true
+  D316:
+    value: PUSB3FR4Z
+    mpn: PUSB3FR4Z-ES
+    lcsc: C41429303
+    price_usd: 0.0437
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_c
+    pins:
+      '1': C2_DP
+      '2': C2_DM
+      '3': GND
+      '8': GND
+    nc:
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 7.65
+      y: 17.85
+      rot: 180.0
+      fixed: true
+  J311:
+    value: USB-C 24P MM
+    mpn: HC-TYPE-C-24P-MM-1.4-5A-12
+    lcsc: C5307768
+    price_usd: 0.6624
+    symbol: Connector:USB_C_Receptacle
+    footprint: kb_hub:USB_C_Receptacle_HCTL_HC-TYPE-C-24P-MM-1.4
+    group: usb_c
+    height_mm: 3.3
+    pins:
+      A1: C1_RTN
+      A12: C1_RTN
+      B1: C1_RTN
+      B12: C1_RTN
+      S1: C1_SHELL
+      A4: VBUS_C1
+      A9: VBUS_C1
+      B4: VBUS_C1
+      B9: VBUS_C1
+      A5: CC1_C1
+      B5: CC2_C1
+      A6: C1_DP
+      B6: C1_DP
+      A7: C1_DM
+      B7: C1_DM
+      A2: C1_TX1_P
+      A3: C1_TX1_N
+      B11: C1_RX1_P
+      B10: C1_RX1_N
+      B2: C1_TX2_P
+      B3: C1_TX2_N
+      A11: C1_RX2_P
+      A10: C1_RX2_N
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 23.45
+      y: 10.45
+      rot: 270.0
+      fixed: true
+  J312:
+    value: USB-C 24P MM
+    mpn: HC-TYPE-C-24P-MM-1.4-5A-12
+    lcsc: C5307768
+    price_usd: 0.6624
+    symbol: Connector:USB_C_Receptacle
+    footprint: kb_hub:USB_C_Receptacle_HCTL_HC-TYPE-C-24P-MM-1.4
+    group: usb_c
+    height_mm: 3.3
+    pins:
+      A1: C2_RTN
+      A12: C2_RTN
+      B1: C2_RTN
+      B12: C2_RTN
+      S1: C2_SHELL
+      A4: VBUS_C2
+      A9: VBUS_C2
+      B4: VBUS_C2
+      B9: VBUS_C2
+      A5: CC1_C2
+      B5: CC2_C2
+      A6: C2_DP
+      B6: C2_DP
+      A7: C2_DM
+      B7: C2_DM
+      A2: C2_TX1_P
+      A3: C2_TX1_N
+      B11: C2_RX1_P
+      B10: C2_RX1_N
+      B2: C2_TX2_P
+      B3: C2_TX2_N
+      A11: C2_RX2_P
+      A10: C2_RX2_N
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 23.25
+      y: 21.1
+      rot: 180.0
+      fixed: true
+  U311:
+    value: HD3SS3212
+    mpn: HD3SS3212RKSR
+    lcsc: C129320
+    price_usd: 1.03
+    datasheet: notes/datasheets/hd3ss3212.md
+    symbol: kb_hub:HD3SS3212
+    footprint: kb_hub:VQFN-20-1EP_2.5x4.5mm_P0.5mm_EP1.0x3.0mm
+    group: usb_c
+    pins:
+      '2': GND
+      '3': C1_TX_P
+      '4': C1_TX_N
+      '7': C1_RX_P
+      '8': C1_RX_N
+      '9': C1_ORIENT
+      '19': C1_TX1_P
+      '18': C1_TX1_N
+      '17': C1_RX1_P
+      '16': C1_RX1_N
+      '15': C1_TX2_P
+      '14': C1_TX2_N
+      '13': C1_RX2_P
+      '12': C1_RX2_N
+      '6': 3V3_D
+      '5': GND
+      '11': GND
+      '20': GND
+      '21': GND
+    nc:
+    - '1'
+    - '10'
+    placement:
+      x: 13.95
+      y: 11.1
+      rot: 0.0
+      fixed: true
+  U312:
+    value: HD3SS3212
+    mpn: HD3SS3212RKSR
+    lcsc: C129320
+    price_usd: 1.03
+    datasheet: notes/datasheets/hd3ss3212.md
+    symbol: kb_hub:HD3SS3212
+    footprint: kb_hub:VQFN-20-1EP_2.5x4.5mm_P0.5mm_EP1.0x3.0mm
+    group: usb_c
+    pins:
+      '2': GND
+      '3': C2_TX_P
+      '4': C2_TX_N
+      '7': C2_RX_P
+      '8': C2_RX_N
+      '9': C2_ORIENT
+      '19': C2_TX1_P
+      '18': C2_TX1_N
+      '17': C2_RX1_P
+      '16': C2_RX1_N
+      '15': C2_TX2_P
+      '14': C2_TX2_N
+      '13': C2_RX2_P
+      '12': C2_RX2_N
+      '6': 3V3_D
+      '5': GND
+      '11': GND
+      '20': GND
+      '21': GND
+    nc:
+    - '1'
+    - '10'
+    placement:
+      x: 13.25
+      y: 20.8
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.0mm
+    pins:
+      '1': C1_RTN
+    group: cutout_terminal
+    placement:
+      x: 33.25
+      y: 15.3372
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_TX_N
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 10.3033
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_TX_P
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 7.535
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_DM
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 18.86
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_DP
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 21.6283
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_ORIENT
+    group: cutout_terminal
+    placement:
+      x: 33.75
+      y: 20.1183
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_RX_N
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 24.3967
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_RX_P
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 16.0917
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_SHELL
+    group: cutout_terminal
+    placement:
+      x: 33.75
+      y: 22.8867
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_TX_N
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 13.3233
+      rot: 0
+      fixed: true
+  TPB19:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_TX_P
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 19.2
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.0mm
+    pins:
+      '1': C2_RTN
+    group: cutout_terminal
+    placement:
+      x: 33.25
+      y: 11.561
+      rot: 0
+      fixed: true
+  TPB20:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC1_C1
+    group: cutout_terminal
+    placement:
+      x: 33.75
+      y: 8.29
+      rot: 0
+      fixed: true
+  TPB21:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC1_C2
+    group: cutout_terminal
+    placement:
+      x: 31.05
+      y: 18.7
+      rot: 0
+      fixed: true
+  TPB22:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC2_C1
+    group: cutout_terminal
+    placement:
+      x: 33.75
+      y: 5.5217
+      rot: 0
+      fixed: true
+  TPB23:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC2_C2
+    group: cutout_terminal
+    placement:
+      x: 31.05
+      y: 22.2
+      rot: 0
+      fixed: true
+  TPB24:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBUS_C1
+    group: cutout_terminal
+    placement:
+      x: 31.05
+      y: 8.45
+      rot: 0
+      fixed: true
+  TPB25:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBUS_C2
+    group: cutout_terminal
+    placement:
+      x: 33.75
+      y: 2.7533
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 3V3_D
+    group: cutout_terminal
+    placement:
+      x: 31.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_DM
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 4.7667
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_DP
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 10.2
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_ORIENT
+    group: cutout_terminal
+    placement:
+      x: 31.05
+      y: 5.7
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_RX_N
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 12.95
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_RX_P
+    group: cutout_terminal
+    placement:
+      x: 5.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_SHELL
+    group: cutout_terminal
+    placement:
+      x: 28.25
+      y: 2.25
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  3V3_D:
+    current_a: 0.3
+    external_supply: true
+  VBUS_C1: {}
+  VBUS_C2: {}
+  CC1_C1:
+    class: signal
+    allow_single: true
+  CC2_C1:
+    class: signal
+    allow_single: true
+  CC1_C2:
+    class: signal
+    allow_single: true
+  CC2_C2:
+    class: signal
+    allow_single: true
+  C1_ORIENT:
+    class: signal
+    allow_single: true
+  C2_ORIENT:
+    class: signal
+    allow_single: true
+  C1_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C1_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C2_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C2_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C1_RTN:
+    current_a: 3.0
+  C2_RTN:
+    current_a: 3.0
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: key_matrix
+    kind: other
+    items: []
+    isolation_mm: 5
+    from: []
+    source: 'ANSI 104 at 19.05 mm pitch: 22.5 u x 6.5 u = 428.6 x 123.8 mm; R35 no matrix trace within 5 mm of the audio region'
+    rect:
+    - 0.0
+    - 0.0
+    - 36.0
+    - 5.15
+  - name: hub
+    kind: other
+    items: []
+    source: hub between the USB-A and USB-C ports; upstream SuperSpeed pairs come down the nav/numpad channel (x ~356); 428
+      mm2 in 836 (51 %)
+    rect:
+    - 0.0
+    - 5.15
+    - 3.0
+    - 27.15
+  - name: usb_c
+    kind: other
+    items:
+    - usbc1
+    - usbc2
+    - usbc_mux
+    source: R3, R14; 273 mm2 in 572 (48 %); USB-C charge ports 209 mm from the audio region
+    rect:
+    - 5.0
+    - 5.15
+    - 31.0
+    - 27.15
+  - name: power_b
+    kind: other
+    items: []
+    source: 'two PD source bucks next to the C ports with the stage-5 LMV339 / 2N7002 logic: 75 % of 1694 mm2 front (floorplan
+      check 2026-10-24, limit 85 %); 20 V arrives from back_conn down the right edge on L3'
+    rect:
+    - 33.0
+    - 5.15
+    - 36.0
+    - 27.15
+  items:
+  - name: usbc1
+    refs:
+    - J311
+    height_mm: 3.3
+    source: HCTL USB-C 24P mid-mount (provisional footprint, B1)
+  - name: usbc2
+    refs:
+    - J312
+    height_mm: 3.3
+    source: same
+  - name: usbc_mux
+    groups:
+    - usb_c
+    height_mm: 1.0
+    source: 2 x HD3SS3212 + SS/D ESD arrays

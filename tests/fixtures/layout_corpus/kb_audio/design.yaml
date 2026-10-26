@@ -1,0 +1,3380 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_audio
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_audio)
+board:
+  width_mm: 128.25
+  height_mm: 21.75
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  C1000:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 92.75
+      y: 14.05
+      rot: 270.0
+      fixed: true
+  C1001:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 93.8
+      y: 12.13
+      rot: 0.0
+      fixed: true
+  C1002:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 94.65
+      y: 13.58
+      rot: 0.0
+      fixed: true
+  C1003:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 25
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 97.14
+      y: 13.5
+      rot: 270.0
+      fixed: true
+  C1004:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 25
+    pins:
+      '1': ADC_VREFL
+      '2': AGND
+    placement:
+      x: 90.51
+      y: 18.05
+      rot: 0.0
+      fixed: true
+  C1005:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 25
+    pins:
+      '1': ADC_VREFR
+      '2': AGND
+    placement:
+      x: 96.3
+      y: 10.14
+      rot: 0.0
+      fixed: true
+  C1006:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': ADC_DVDD
+      '2': AGND
+    placement:
+      x: 93.8
+      y: 5.95
+      rot: 0.0
+      fixed: true
+  C1007:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 93.8
+      y: 7.42
+      rot: 0.0
+      fixed: true
+  C1008:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1000
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 93.14
+      y: 8.85
+      rot: 0.0
+      fixed: true
+  C1012:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U1001
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 102.85
+      y: 13.36
+      rot: 180.0
+      fixed: true
+  C900:
+    value: 4.7uF
+    mpn: CL10A475KO8NNNC
+    lcsc: C19666
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 110.45
+      y: 12.81
+      rot: 0.0
+      fixed: true
+  C901:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 107.6
+      y: 10.75
+      rot: 180.0
+      fixed: true
+  C902:
+    value: 4.7uF
+    mpn: CL10A475KO8NNNC
+    lcsc: C19666
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 104.75
+      y: 6.0
+      rot: 180.0
+      fixed: true
+  C903:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 107.65
+      y: 9.3
+      rot: 180.0
+      fixed: true
+  C904:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 107.6
+      y: 7.85
+      rot: 180.0
+      fixed: true
+  C905:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 113.35
+      y: 12.5
+      rot: 0.0
+      fixed: true
+  C906:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 115.05
+      y: 13.95
+      rot: 0.0
+      fixed: true
+  C907:
+    value: 1uF
+    mpn: TAJA105K016RNJ
+    price_usd: 0.05
+    symbol: Device:C_Polarized
+    footprint: Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': DAC_DVDD
+      '2': AGND
+    placement:
+      x: 111.3
+      y: 15.1
+      rot: 0.0
+      fixed: true
+  C908:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U900
+    voltage_rating_v: 16
+    pins:
+      '1': DAC_VCCA
+      '2': AGND
+    placement:
+      x: 107.65
+      y: 6.35
+      rot: 180.0
+      fixed: true
+  C910:
+    value: 330uF
+    mpn: T520B337M006ATE025
+    price_usd: 0.3
+    symbol: Device:C_Polarized
+    footprint: Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B
+    group: audio_dac
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': DAC_LP
+      '2': IVS_LP
+    placement:
+      x: 83.1
+      y: 6.95
+      rot: 180.0
+      fixed: true
+  C911:
+    value: 330uF
+    mpn: T520B337M006ATE025
+    price_usd: 0.3
+    symbol: Device:C_Polarized
+    footprint: Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B
+    group: audio_dac
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': DAC_LN
+      '2': IVS_LN
+    placement:
+      x: 101.05
+      y: 15.45
+      rot: 0.0
+      fixed: true
+  C912:
+    value: 1.8nF
+    mpn: 0603 C0G 1.8nF 50V 5%
+    price_usd: 0.005
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': IV_LP
+      '2': IVS_LP
+    placement:
+      x: 78.75
+      y: 12.11
+      rot: 180.0
+      fixed: true
+  C913:
+    value: 1.8nF
+    mpn: 0603 C0G 1.8nF 50V 5%
+    price_usd: 0.005
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': IV_LN
+      '2': IVS_LN
+    placement:
+      x: 85.36
+      y: 19.75
+      rot: 0.0
+      fixed: true
+  C914:
+    value: 330uF
+    mpn: T520B337M006ATE025
+    price_usd: 0.3
+    symbol: Device:C_Polarized
+    footprint: Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B
+    group: audio_dac
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': DAC_RP
+      '2': IVS_RP
+    placement:
+      x: 94.6
+      y: 17.7
+      rot: 180.0
+      fixed: true
+  C915:
+    value: 330uF
+    mpn: T520B337M006ATE025
+    price_usd: 0.3
+    symbol: Device:C_Polarized
+    footprint: Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B
+    group: audio_dac
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': DAC_RN
+      '2': IVS_RN
+    placement:
+      x: 101.0
+      y: 10.7
+      rot: 180.0
+      fixed: true
+  C916:
+    value: 1.8nF
+    mpn: 0603 C0G 1.8nF 50V 5%
+    price_usd: 0.005
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': IV_RP
+      '2': IVS_RP
+    placement:
+      x: 72.35
+      y: 14.11
+      rot: 0.0
+      fixed: true
+  C917:
+    value: 1.8nF
+    mpn: 0603 C0G 1.8nF 50V 5%
+    price_usd: 0.005
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': IV_RN
+      '2': IVS_RN
+    placement:
+      x: 76.41
+      y: 12.11
+      rot: 0.0
+      fixed: true
+  C918:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U910
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 94.7
+      y: 15.05
+      rot: 0.0
+      fixed: true
+  C919:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U910
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_N4V5
+      '2': AGND
+    placement:
+      x: 78.75
+      y: 18.04
+      rot: 180.0
+      fixed: true
+  C920:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U911
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 75.8
+      y: 10.37
+      rot: 0.0
+      fixed: true
+  C921:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U911
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_N4V5
+      '2': AGND
+    placement:
+      x: 74.25
+      y: 6.16
+      rot: 90.0
+      fixed: true
+  C922:
+    value: 6.8nF
+    mpn: 0805 C0G 6.8nF 50V 5%
+    price_usd: 0.01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': DS_LM
+      '2': DS_LO
+    placement:
+      x: 33.45
+      y: 6.25
+      rot: 0.0
+      fixed: true
+  C923:
+    value: 6.8nF
+    mpn: 0805 C0G 6.8nF 50V 5%
+    price_usd: 0.01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': DS_LP
+      '2': AGND
+    placement:
+      x: 69.38
+      y: 9.75
+      rot: 180.0
+      fixed: true
+  C926:
+    value: 6.8nF
+    mpn: 0805 C0G 6.8nF 50V 5%
+    price_usd: 0.01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': DS_RM
+      '2': DS_RO
+    placement:
+      x: 48.15
+      y: 6.23
+      rot: 180.0
+      fixed: true
+  C927:
+    value: 6.8nF
+    mpn: 0805 C0G 6.8nF 50V 5%
+    price_usd: 0.01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_dac
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': DS_RP
+      '2': AGND
+    placement:
+      x: 61.9
+      y: 9.76
+      rot: 0.0
+      fixed: true
+  C930:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U912
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 49.55
+      y: 8.6
+      rot: 270.0
+      fixed: true
+  C931:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_dac
+    decouples: U912
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_N4V5
+      '2': AGND
+    placement:
+      x: 40.1
+      y: 9.9
+      rot: 90.0
+      fixed: true
+  C932:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_hp
+    decouples: U913
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 43.75
+      y: 18.75
+      rot: 0.0
+      fixed: true
+  C933:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_hp
+    decouples: U913
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_N4V5
+      '2': AGND
+    placement:
+      x: 44.8
+      y: 17.28
+      rot: 0.0
+      fixed: true
+  C934:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_hp
+    decouples: U913
+    voltage_rating_v: 25
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 40.6
+      y: 17.9
+      rot: 0.0
+      fixed: true
+  C935:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_hp
+    decouples: U913
+    voltage_rating_v: 25
+    pins:
+      '1': AUD_N4V5
+      '2': AGND
+    placement:
+      x: 48.2
+      y: 15.2
+      rot: 0.0
+      fixed: true
+  C936:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_hp
+    voltage_rating_v: 16
+    pins:
+      '1': HP_EN
+      '2': AGND
+    placement:
+      x: 105.25
+      y: 16.65
+      rot: 0.0
+      fixed: true
+  C950:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U950
+    voltage_rating_v: 25
+    pins:
+      '1': AUD_P5V5F
+      '2': AGND
+    placement:
+      x: 38.9
+      y: 12.3
+      rot: 180.0
+      fixed: true
+  C951:
+    value: 10nF
+    mpn: CL05B103KB5NNNC
+    lcsc: C15195
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    voltage_rating_v: 50
+    pins:
+      '1': P45_SS
+      '2': AGND
+    placement:
+      x: 41.35
+      y: 19.85
+      rot: 180.0
+      fixed: true
+  C952:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U950
+    voltage_rating_v: 25
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 34.95
+      y: 12.2
+      rot: 0.0
+      fixed: true
+  C953:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    decouples: U950
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P4V5
+      '2': AGND
+    placement:
+      x: 38.1
+      y: 12.84
+      rot: 0.0
+      fixed: true
+  C954:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U951
+    voltage_rating_v: 25
+    pins:
+      '1': AGND
+      '2': AUD_N5V5F
+    placement:
+      x: 83.75
+      y: 10.15
+      rot: 0.0
+      fixed: true
+  C955:
+    value: 470nF
+    mpn: CL05A474KP5NNNC
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    voltage_rating_v: 16
+    pins:
+      '1': AGND
+      '2': N45_SET
+    placement:
+      x: 87.8
+      y: 19.59
+      rot: 90.0
+      fixed: true
+  C956:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U951
+    voltage_rating_v: 25
+    pins:
+      '1': AGND
+      '2': AUD_N4V5
+    placement:
+      x: 79.8
+      y: 9.85
+      rot: 0.0
+      fixed: true
+  C957:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    decouples: U951
+    voltage_rating_v: 16
+    pins:
+      '1': AGND
+      '2': AUD_N4V5
+    placement:
+      x: 83.9
+      y: 12.1
+      rot: 0.0
+      fixed: true
+  C958:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U952
+    voltage_rating_v: 25
+    pins:
+      '1': 5V_AF
+      '2': AGND
+    placement:
+      x: 108.1
+      y: 19.52
+      rot: 180.0
+      fixed: true
+  C959:
+    value: 470nF
+    mpn: CL05A474KP5NNNC
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    voltage_rating_v: 16
+    pins:
+      '1': A33_SET
+      '2': AGND
+    placement:
+      x: 122.09
+      y: 20.04
+      rot: 0.0
+      fixed: true
+  C960:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U952
+    voltage_rating_v: 25
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 118.8
+      y: 18.05
+      rot: 0.0
+      fixed: true
+  C961:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    decouples: U952
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_A
+      '2': AGND
+    placement:
+      x: 115.06
+      y: 15.6
+      rot: 0.0
+      fixed: true
+  C962:
+    value: 470nF
+    mpn: CL05A474KP5NNNC
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    voltage_rating_v: 16
+    pins:
+      '1': A45_SET
+      '2': AGND
+    placement:
+      x: 79.15
+      y: 5.71
+      rot: 0.0
+      fixed: true
+  C963:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    decouples: U953
+    voltage_rating_v: 25
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 78.3
+      y: 7.7
+      rot: 0.0
+      fixed: true
+  C964:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    decouples: U953
+    voltage_rating_v: 16
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+    placement:
+      x: 76.8
+      y: 5.71
+      rot: 0.0
+      fixed: true
+  C965:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_ldo
+    voltage_rating_v: 25
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 98.45
+      y: 6.25
+      rot: 0.0
+      fixed: true
+  C966:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_DA
+      '2': AGND
+    placement:
+      x: 98.65
+      y: 8.24
+      rot: 180.0
+      fixed: true
+  C967:
+    value: 47uF
+    mpn: CL31A476MPHNNNE
+    lcsc: C96123
+    price_usd: 0.05
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    group: audio_ldo
+    voltage_rating_v: 10
+    pins:
+      '1': 2V5_BIAS
+      '2': AGND
+    placement:
+      x: 47.5
+      y: 19.35
+      rot: 0.0
+      fixed: true
+  C968:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_ldo
+    decouples: U953
+    voltage_rating_v: 16
+    pins:
+      '1': AUD_P5V5F
+      '2': AGND
+    placement:
+      x: 68.6
+      y: 9.23
+      rot: 180.0
+      fixed: true
+  C980:
+    value: 1nF
+    mpn: 0402 C0G 1nF 50V
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': MIC_RF
+      '2': AGND
+    placement:
+      x: 40.19
+      y: 20.04
+      rot: 0.0
+      fixed: true
+  C981:
+    value: 1uF
+    mpn: CL21B105KBFNNNE
+    lcsc: C28323
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    voltage_rating_v: 25
+    pins:
+      '1': MIC_RF
+      '2': MIC_IN
+    placement:
+      x: 24.5
+      y: 19.4
+      rot: 180.0
+      fixed: true
+  C982:
+    value: 47uF
+    mpn: CL31A476MPHNNNE
+    lcsc: C96123
+    price_usd: 0.05
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    group: audio_mic
+    voltage_rating_v: 10
+    pins:
+      '1': MIC_CM
+      '2': AGND
+    placement:
+      x: 64.6
+      y: 19.35
+      rot: 0.0
+      fixed: true
+  C983:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U980
+    voltage_rating_v: 16
+    pins:
+      '1': MIC_VP
+      '2': AGND
+    placement:
+      x: 21.7
+      y: 8.65
+      rot: 180.0
+      fixed: true
+  C984:
+    value: 100uF
+    mpn: CL32A107MQVNNNE
+    lcsc: C15008
+    price_usd: 0.12
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1210_3225Metric
+    group: audio_mic
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': MIC_RG
+      '2': MIC_SW
+    placement:
+      x: 68.13
+      y: 14.9
+      rot: 0.0
+      fixed: true
+  C985:
+    value: 10nF
+    mpn: 0603 C0G 10nF 50V 5%
+    price_usd: 0.01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': ADC_INP
+      '2': ADC_INM
+    placement:
+      x: 37.65
+      y: 9.94
+      rot: 0.0
+      fixed: true
+  C986:
+    value: 220pF
+    mpn: 0402 C0G 220pF 50V 5%
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': ADC_INP
+      '2': AGND
+    placement:
+      x: 28.4
+      y: 11.74
+      rot: 180.0
+      fixed: true
+  C987:
+    value: 220pF
+    mpn: 0402 C0G 220pF 50V 5%
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    tolerance: 0.05
+    voltage_rating_v: 50
+    pins:
+      '1': ADC_INM
+      '2': AGND
+    placement:
+      x: 40.84
+      y: 14.3
+      rot: 0.0
+      fixed: true
+  C988:
+    value: 100uF
+    mpn: CL32A107MQVNNNE
+    lcsc: C15008
+    price_usd: 0.12
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1210_3225Metric
+    group: audio_mic
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': MIC_RG
+      '2': MIC_SW
+    placement:
+      x: 63.68
+      y: 13.32
+      rot: 90.0
+      fixed: true
+  C989:
+    value: 100uF
+    mpn: CL32A107MQVNNNE
+    lcsc: C15008
+    price_usd: 0.12
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1210_3225Metric
+    group: audio_mic
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': MIC_RG
+      '2': MIC_SW
+    placement:
+      x: 69.75
+      y: 18.65
+      rot: 0.0
+      fixed: true
+  C990:
+    value: 10nF
+    mpn: CL05B103KB5NNNC
+    lcsc: C15195
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    voltage_rating_v: 50
+    pins:
+      '1': AUD_P5V5F
+      '2': MIC_VPG
+    placement:
+      x: 21.7
+      y: 7.28
+      rot: 0.0
+      fixed: true
+  C991:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    decouples: U980
+    voltage_rating_v: 25
+    pins:
+      '1': MIC_VP
+      '2': AGND
+    placement:
+      x: 20.3
+      y: 14.5
+      rot: 180.0
+      fixed: true
+  C993:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_mic
+    voltage_rating_v: 25
+    pins:
+      '1': MIC_VP
+      '2': AGND
+    placement:
+      x: 18.1
+      y: 10.5
+      rot: 180.0
+      fixed: true
+  C995:
+    value: 100uF
+    mpn: CL32A107MQVNNNE
+    lcsc: C15008
+    price_usd: 0.12
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1210_3225Metric
+    group: audio_mic
+    tolerance: 0.2
+    voltage_rating_v: 6.3
+    pins:
+      '1': MIC_RG
+      '2': MIC_SW
+    placement:
+      x: 69.75
+      y: 18.9
+      rot: 0.0
+      fixed: true
+  C997:
+    value: 1uF
+    mpn: CL05A105KA5NQNC
+    lcsc: C52923
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U980
+    voltage_rating_v: 25
+    pins:
+      '1': AGND
+      '2': MIC_VN
+    placement:
+      x: 21.05
+      y: 16.95
+      rot: 0.0
+      fixed: true
+  C998:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    decouples: U980
+    voltage_rating_v: 16
+    pins:
+      '1': AGND
+      '2': MIC_VN
+    placement:
+      x: 19.9
+      y: 18.42
+      rot: 0.0
+      fixed: true
+  C999:
+    value: 10nF
+    mpn: CL05B103KB5NNNC
+    lcsc: C15195
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_mic
+    voltage_rating_v: 50
+    pins:
+      '1': MIC_VNG
+      '2': AUD_N4V5
+    placement:
+      x: 32.05
+      y: 20.04
+      rot: 0.0
+      fixed: true
+  D930:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYT
+    lcsc: C1847652
+    price_usd: 0.24
+    symbol: Power_Protection:TPD1E05U06DPY
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    group: audio_hp
+    pins:
+      '1': HP_L
+      '2': AGND
+    placement:
+      x: 17.35
+      y: 15.1
+      rot: 0.0
+      fixed: true
+  D931:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYT
+    lcsc: C1847652
+    price_usd: 0.24
+    symbol: Power_Protection:TPD1E05U06DPY
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    group: audio_hp
+    pins:
+      '1': HP_R
+      '2': AGND
+    placement:
+      x: 17.7
+      y: 18.55
+      rot: 180.0
+      fixed: true
+  D932:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYT
+    lcsc: C1847652
+    price_usd: 0.24
+    symbol: Power_Protection:TPD1E05U06DPY
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    group: audio_hp
+    pins:
+      '1': HP_TN
+      '2': AGND
+    placement:
+      x: 94.25
+      y: 20.05
+      rot: 0.0
+      fixed: true
+  D980:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYT
+    lcsc: C1847652
+    price_usd: 0.24
+    symbol: Power_Protection:TPD1E05U06DPY
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    group: audio_mic
+    pins:
+      '1': MIC_T
+      '2': AGND
+    placement:
+      x: 49.3
+      y: 17.15
+      rot: 0.0
+      fixed: true
+  D981:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYT
+    lcsc: C1847652
+    price_usd: 0.24
+    symbol: Power_Protection:TPD1E05U06DPY
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    group: audio_mic
+    pins:
+      '1': MIC_TN
+      '2': AGND
+    placement:
+      x: 96.05
+      y: 20.05
+      rot: 180.0
+      fixed: true
+  D982:
+    value: BAT54S
+    mpn: BAT54S,215
+    price_usd: 0.02
+    symbol: Diode:BAT54S
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': AGND
+      '2': ADC_4V5
+      '3': ADC_INP
+    placement:
+      x: 33.7
+      y: 8.97
+      rot: 0.0
+      fixed: true
+  D983:
+    value: BAT54S
+    mpn: BAT54S,215
+    price_usd: 0.02
+    symbol: Diode:BAT54S
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': AGND
+      '2': ADC_4V5
+      '3': ADC_INM
+    placement:
+      x: 38.1
+      y: 6.95
+      rot: 0.0
+      fixed: true
+  FB900:
+    value: BLM18PG121SN1D
+    mpn: BLM18PG121SN1D
+    lcsc: C14709
+    price_usd: 0.015
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: audio_dac
+    pins:
+      '1': 3V3_DA
+      '2': DAC_VCCA
+    placement:
+      x: 102.15
+      y: 7.77
+      rot: 0.0
+      fixed: true
+  FB950:
+    value: BLM18PG121SN1D
+    mpn: BLM18PG121SN1D
+    lcsc: C14709
+    price_usd: 0.015
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: audio_ldo
+    pins:
+      '1': AUD_P5V5
+      '2': AUD_P5V5F
+    placement:
+      x: 108.2
+      y: 17.4
+      rot: 180.0
+      fixed: true
+  FB951:
+    value: BLM18PG121SN1D
+    mpn: BLM18PG121SN1D
+    lcsc: C14709
+    price_usd: 0.015
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: audio_ldo
+    pins:
+      '1': AUD_N5V5
+      '2': AUD_N5V5F
+    placement:
+      x: 117.45
+      y: 8.6
+      rot: 180.0
+      fixed: true
+  FB952:
+    value: BLM18PG121SN1D
+    mpn: BLM18PG121SN1D
+    lcsc: C14709
+    price_usd: 0.015
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: audio_ldo
+    pins:
+      '1': 5V_SYS
+      '2': 5V_AF
+    placement:
+      x: 121.95
+      y: 17.55
+      rot: 90.0
+      fixed: true
+  FB953:
+    value: BLM18PG121SN1D
+    mpn: BLM18PG121SN1D
+    lcsc: C14709
+    price_usd: 0.015
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: audio_ldo
+    pins:
+      '1': 3V3_D
+      '2': 3V3_DA
+    placement:
+      x: 117.34
+      y: 6.59
+      rot: 180.0
+      fixed: true
+  J930:
+    value: SJ-3524-SMT
+    mpn: SJ-3524-SMT-TR
+    price_usd: 1.0
+    symbol: Connector_Audio:AudioJack3_SwitchT
+    footprint: Connector_Audio:Jack_3.5mm_CUI_SJ-3524-SMT_Horizontal
+    group: audio_hp
+    height_mm: 5.37
+    pins:
+      T: HP_L
+      R: HP_R
+      S: AGND
+      TN: HP_TN
+    placement:
+      x: 10.25
+      y: 16.85
+      rot: 180.0
+      fixed: true
+  J980:
+    value: SJ-3524-SMT
+    mpn: SJ-3524-SMT-TR
+    price_usd: 1.0
+    symbol: Connector_Audio:AudioJack3_SwitchT
+    footprint: Connector_Audio:Jack_3.5mm_CUI_SJ-3524-SMT_Horizontal
+    group: audio_mic
+    height_mm: 5.37
+    pins:
+      T: MIC_T
+      R: MIC_T
+      S: AGND
+      TN: MIC_TN
+    placement:
+      x: 56.05
+      y: 16.85
+      rot: 180.0
+      fixed: true
+  M930:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_hp
+    pins:
+      '1': HP_TN
+      '2': AGND
+      '3': JACK_DET
+    placement:
+      x: 99.55
+      y: 18.8
+      rot: 0.0
+      fixed: true
+  M931:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_hp
+    pins:
+      '1': HP_MUTE
+      '2': AGND
+      '3': HP_EN
+    placement:
+      x: 118.5
+      y: 14.45
+      rot: 180.0
+      fixed: true
+  M932:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_hp
+    pins:
+      '1': JACK_DET
+      '2': AGND
+      '3': HP_EN
+    placement:
+      x: 118.55
+      y: 10.5
+      rot: 180.0
+      fixed: true
+  M980:
+    value: AO3400A
+    mpn: AO3400A
+    lcsc: C20917
+    price_usd: 0.02
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': MIC_GAIN
+      '2': AGND
+      '3': MIC_SW
+    placement:
+      x: 103.95
+      y: 18.8
+      rot: 0.0
+      fixed: true
+  M981:
+    value: AO3400A
+    mpn: AO3400A
+    lcsc: C20917
+    price_usd: 0.02
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': MIC_VNG
+      '2': AUD_N4V5
+      '3': MIC_VN
+    placement:
+      x: 28.67
+      y: 18.8
+      rot: 180.0
+      fixed: true
+  M982:
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.02
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': AGND
+      '2': ADC_4V5
+      '3': MIC_VNP
+    placement:
+      x: 24.91
+      y: 8.22
+      rot: 180.0
+      fixed: true
+  M983:
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.02
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': MIC_VPG
+      '2': AUD_P5V5F
+      '3': MIC_VPD
+    placement:
+      x: 18.3
+      y: 7.25
+      rot: 180.0
+      fixed: true
+  M984:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_mic
+    pins:
+      '1': ADC_4V5
+      '2': AGND
+      '3': MIC_VPN
+    placement:
+      x: 29.3
+      y: 7.0
+      rot: 180.0
+      fixed: true
+  R1000:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': ADC_EN
+      '2': AGND
+    placement:
+      x: 101.6
+      y: 6.05
+      rot: 0.0
+      fixed: true
+  R1001:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': ADC_ADDR2
+      '2': AGND
+    placement:
+      x: 95.7
+      y: 6.35
+      rot: 90.0
+      fixed: true
+  R1002:
+    value: 2.37k
+    mpn: 0603 0.1% 2.37k thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_RG
+      '2': MIC_CM
+    placement:
+      x: 63.8
+      y: 16.9
+      rot: 180.0
+      fixed: true
+  R1006:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': ADC_MCLK_G
+      '2': ADC_MCLK
+    placement:
+      x: 96.2
+      y: 8.3
+      rot: 180.0
+      fixed: true
+  R900:
+    value: '0'
+    mpn: 0603 jumper 0R
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    pins:
+      '1': AGND
+      '2': GND
+    placement:
+      x: 120.85
+      y: 6.45
+      rot: 0.0
+      fixed: true
+  R901:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_dac
+    pins:
+      '1': DAC_EN
+      '2': AGND
+    placement:
+      x: 121.5
+      y: 11.05
+      rot: 90.0
+      fixed: true
+  R910:
+    value: '383'
+    mpn: 0603 0.1% 25ppm 383R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_LP
+      '2': IVS_LP
+    placement:
+      x: 76.2
+      y: 10.1
+      rot: 0.0
+      fixed: true
+  R911:
+    value: '383'
+    mpn: 0603 0.1% 25ppm 383R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_LN
+      '2': IVS_LN
+    placement:
+      x: 81.85
+      y: 19.75
+      rot: 0.0
+      fixed: true
+  R914:
+    value: '383'
+    mpn: 0603 0.1% 25ppm 383R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_RP
+      '2': IVS_RP
+    placement:
+      x: 79.13
+      y: 19.75
+      rot: 0.0
+      fixed: true
+  R915:
+    value: '383'
+    mpn: 0603 0.1% 25ppm 383R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_RN
+      '2': IVS_RN
+    placement:
+      x: 72.9
+      y: 12.1
+      rot: 0.0
+      fixed: true
+  R922:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_LP
+      '2': DS_LM
+    placement:
+      x: 65.9
+      y: 6.75
+      rot: 270.0
+      fixed: true
+  R923:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': DS_LM
+      '2': DS_LO
+    placement:
+      x: 42.05
+      y: 5.98
+      rot: 0.0
+      fixed: true
+  R924:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_LN
+      '2': DS_LP
+    placement:
+      x: 71.7
+      y: 10.1
+      rot: 180.0
+      fixed: true
+  R925:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': DS_LP
+      '2': AGND
+    placement:
+      x: 65.65
+      y: 9.5
+      rot: 0.0
+      fixed: true
+  R926:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_RP
+      '2': DS_RM
+    placement:
+      x: 67.25
+      y: 12.0
+      rot: 180.0
+      fixed: true
+  R927:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': DS_RM
+      '2': DS_RO
+    placement:
+      x: 48.15
+      y: 12.85
+      rot: 180.0
+      fixed: true
+  R928:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': IV_RN
+      '2': DS_RP
+    placement:
+      x: 63.7
+      y: 11.5
+      rot: 180.0
+      fixed: true
+  R929:
+    value: '100'
+    mpn: 0603 0.1% 25ppm 100R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_dac
+    tolerance: 0.001
+    pins:
+      '1': DS_RP
+      '2': AGND
+    placement:
+      x: 62.9
+      y: 6.75
+      rot: 90.0
+      fixed: true
+  R930:
+    value: '0.47'
+    mpn: 0603 1% 0.47R
+    price_usd: 0.003
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_hp
+    pins:
+      '1': HPA_L
+      '2': HP_L
+    placement:
+      x: 17.9
+      y: 16.85
+      rot: 180.0
+      fixed: true
+  R931:
+    value: '0.47'
+    mpn: 0603 1% 0.47R
+    price_usd: 0.003
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_hp
+    pins:
+      '1': HPA_R
+      '2': HP_R
+    placement:
+      x: 32.45
+      y: 18.3
+      rot: 180.0
+      fixed: true
+  R932:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_hp
+    pins:
+      '1': HP_L
+      '2': AGND
+    placement:
+      x: 17.45
+      y: 20.03
+      rot: 0.0
+      fixed: true
+  R933:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_hp
+    pins:
+      '1': HP_R
+      '2': AGND
+    placement:
+      x: 19.85
+      y: 19.9
+      rot: 0.0
+      fixed: true
+  R934:
+    value: 1M
+    mpn: 0402 1% 1M
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_hp
+    pins:
+      '1': 3V3_A
+      '2': HP_TN
+    placement:
+      x: 89.7
+      y: 20.03
+      rot: 180.0
+      fixed: true
+  R935:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_hp
+    pins:
+      '1': 3V3_D
+      '2': JACK_DET
+    placement:
+      x: 120.55
+      y: 8.8
+      rot: 180.0
+      fixed: true
+  R936:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_hp
+    pins:
+      '1': 3V3_A
+      '2': HP_EN
+    placement:
+      x: 74.66
+      y: 10.4
+      rot: 0.0
+      fixed: true
+  R950:
+    value: 27.4k
+    mpn: 0402 0.1% 27.4k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': AUD_P4V5
+      '2': P45_ADJ
+    placement:
+      x: 35.4
+      y: 17.55
+      rot: 0.0
+      fixed: true
+  R951:
+    value: 10k
+    mpn: 0402 0.1% 10k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': P45_ADJ
+      '2': AGND
+    placement:
+      x: 35.4
+      y: 19.0
+      rot: 180.0
+      fixed: true
+  R952:
+    value: 45.3k
+    mpn: 0402 0.1% 45.3k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': N45_SET
+      '2': AGND
+    placement:
+      x: 86.75
+      y: 17.65
+      rot: 0.0
+      fixed: true
+  R953:
+    value: 33.2k
+    mpn: 0402 0.1% 33.2k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': A33_SET
+      '2': AGND
+    placement:
+      x: 118.05
+      y: 20.03
+      rot: 0.0
+      fixed: true
+  R954:
+    value: 45.3k
+    mpn: 0402 0.1% 45.3k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': A45_SET
+      '2': AGND
+    placement:
+      x: 81.51
+      y: 12.1
+      rot: 0.0
+      fixed: true
+  R955:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    pins:
+      '1': ADC_PWR_EN
+      '2': AGND
+    placement:
+      x: 105.05
+      y: 11.35
+      rot: 0.0
+      fixed: true
+  R956:
+    value: '470'
+    mpn: 0402 0.1% 470R
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': 3V3_A
+      '2': 2V5_BIAS
+    placement:
+      x: 47.15
+      y: 17.35
+      rot: 180.0
+      fixed: true
+  R957:
+    value: 1.43k
+    mpn: 0402 0.1% 1.43k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_ldo
+    tolerance: 0.001
+    pins:
+      '1': 2V5_BIAS
+      '2': AGND
+    placement:
+      x: 37.8
+      y: 20.03
+      rot: 0.0
+      fixed: true
+  R980:
+    value: 2.2k
+    mpn: 0603 0.1% 2.2k thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': 2V5_BIAS
+      '2': MIC_T
+    placement:
+      x: 36.85
+      y: 19.77
+      rot: 0.0
+      fixed: true
+  R981:
+    value: 1M
+    mpn: 0402 1% 1M
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_TN
+      '2': AGND
+    placement:
+      x: 92.1
+      y: 20.03
+      rot: 0.0
+      fixed: true
+  R982:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_TN
+      '2': MIC_DET
+    placement:
+      x: 121.95
+      y: 13.4
+      rot: 0.0
+      fixed: true
+  R983:
+    value: '47'
+    mpn: 0603 0.1% 47R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_T
+      '2': MIC_RF
+    placement:
+      x: 43.1
+      y: 19.77
+      rot: 180.0
+      fixed: true
+  R984:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_IN
+      '2': MIC_CM
+    placement:
+      x: 21.8
+      y: 19.45
+      rot: 90.0
+      fixed: true
+  R985:
+    value: 10k
+    mpn: 0402 0.1% 10k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': ADC_4V5
+      '2': MIC_CM
+    placement:
+      x: 35.2
+      y: 16.1
+      rot: 0.0
+      fixed: true
+  R986:
+    value: 10k
+    mpn: 0402 0.1% 10k
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_CM
+      '2': AGND
+    placement:
+      x: 35.39
+      y: 20.03
+      rot: 180.0
+      fixed: true
+  R987:
+    value: 1.69k
+    mpn: 0603 0.1% 1.69k thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_PA
+      '2': MIC_FB
+    placement:
+      x: 32.05
+      y: 16.3
+      rot: 180.0
+      fixed: true
+  R988:
+    value: '12'
+    mpn: 0603 0.1% 12R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_FB
+      '2': MIC_RG
+    placement:
+      x: 34.6
+      y: 14.29
+      rot: 0.0
+      fixed: true
+  R989:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_GAIN
+      '2': AGND
+    placement:
+      x: 121.9
+      y: 14.95
+      rot: 180.0
+      fixed: true
+  R990:
+    value: 1k
+    mpn: 0603 0.1% 1k thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_PA
+      '2': MIC_INV
+    placement:
+      x: 29.75
+      y: 10.0
+      rot: 180.0
+      fixed: true
+  R991:
+    value: 1k
+    mpn: 0603 0.1% 1k thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_INV
+      '2': MIC_PB
+    placement:
+      x: 25.4
+      y: 11.2
+      rot: 180.0
+      fixed: true
+  R992:
+    value: '22'
+    mpn: 0603 0.1% 22R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_PA
+      '2': ADC_INP
+    placement:
+      x: 31.98
+      y: 12.05
+      rot: 0.0
+      fixed: true
+  R993:
+    value: '22'
+    mpn: 0603 0.1% 22R thin film
+    price_usd: 0.02
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: audio_mic
+    tolerance: 0.001
+    pins:
+      '1': MIC_PB
+      '2': ADC_INM
+    placement:
+      x: 21.85
+      y: 11.2
+      rot: 0.0
+      fixed: true
+  R994:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_SW
+      '2': MIC_CM
+    placement:
+      x: 45.0
+      y: 5.72
+      rot: 180.0
+      fixed: true
+  R995:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_VNG
+      '2': AUD_N4V5
+    placement:
+      x: 31.6
+      y: 14.0
+      rot: 180.0
+      fixed: true
+  R996:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_VNP
+      '2': MIC_VNG
+    placement:
+      x: 21.4
+      y: 9.45
+      rot: 0.0
+      fixed: true
+  R997:
+    value: 100k
+    mpn: 0402 1% 100k
+    lcsc: C25741
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': AUD_P5V5F
+      '2': MIC_VPG
+    placement:
+      x: 21.7
+      y: 5.8
+      rot: 0.0
+      fixed: true
+  R998:
+    value: 100k
+    mpn: 0402 1% 100k
+    lcsc: C25741
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_VPG
+      '2': MIC_VPN
+    placement:
+      x: 25.95
+      y: 5.75
+      rot: 0.0
+      fixed: true
+  R999:
+    value: '10'
+    mpn: 0402 1% 10R
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_mic
+    pins:
+      '1': MIC_VPD
+      '2': MIC_VP
+    placement:
+      x: 18.5
+      y: 12.5
+      rot: 0.0
+      fixed: true
+  U1000:
+    value: ES9822PRO
+    mpn: ES9822PRO
+    price_usd: 7.0
+    symbol: kb_audio:ES9822PRO
+    footprint: Package_DFN_QFN:QFN-40-1EP_5x5mm_P0.4mm_EP3.8x3.8mm
+    package: QFN-40
+    package_pads: 41
+    package_pitch_mm: 0.4
+    group: audio_mic
+    theta_ja: 40
+    tj_max_c: 125
+    pins:
+      '5': ADC_4V5
+      '10': ADC_4V5
+      '21': ADC_4V5
+      '6': AGND
+      '11': AGND
+      '20': AGND
+      '31': AGND
+      '40': AGND
+      '41': AGND
+      '3': AGND
+      '9': ADC_VREFL
+      '22': ADC_VREFR
+      '12': ADC_INP
+      '19': ADC_INP
+      '13': ADC_INM
+      '18': ADC_INM
+      '23': ADC_EN
+      '25': I2C_SDA
+      '26': I2C_SCL
+      '27': 3V3_DA
+      '28': ADC_ADDR2
+      '29': ADC_DVDD
+      '30': 3V3_DA
+      '8': ADC_MCLK
+      '39': I2S_BCLK
+      '38': I2S_LRCK
+      '37': I2S_DIN
+    nc:
+    - '1'
+    - '2'
+    - '4'
+    - '7'
+    - '14'
+    - '15'
+    - '16'
+    - '17'
+    - '24'
+    - '32'
+    - '33'
+    - '34'
+    - '35'
+    - '36'
+    placement:
+      x: 89.2
+      y: 8.4
+      rot: 0.0
+      fixed: true
+  U1001:
+    value: 74LVC1G08
+    mpn: SN74LVC1G08DBVR
+    price_usd: 0.05
+    datasheet: https://www.ti.com/lit/ds/symlink/sn74lvc1g08.pdf
+    symbol: 74xGxx:74LVC1G08
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    group: audio_mic
+    pins:
+      '1': MCLK
+      '2': ADC_EN
+      '3': AGND
+      '4': ADC_MCLK_G
+      '5': 3V3_DA
+    placement:
+      x: 106.4
+      y: 13.94
+      rot: 180.0
+      fixed: true
+  U900:
+    value: ES9039Q2M
+    mpn: ES9039Q2M
+    price_usd: 9.0
+    datasheet: notes/datasheets/es9039q2m.md
+    symbol: kb_audio:ES9039Q2M
+    footprint: Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.3x3.3mm
+    package: QFN-32
+    package_pads: 33
+    package_pitch_mm: 0.5
+    group: audio_dac
+    theta_ja: 40
+    tj_max_c: 125
+    pins:
+      '1': 3V3_A
+      '8': 3V3_A
+      '31': DAC_VCCA
+      '3': DAC_LP
+      '2': DAC_LN
+      '7': DAC_RP
+      '6': DAC_RN
+      '4': AGND
+      '5': AGND
+      '11': AGND
+      '30': AGND
+      '33': AGND
+      '17': AGND
+      '19': AGND
+      '20': AGND
+      '29': AGND
+      '9': DAC_DVDD
+      '10': 3V3_DA
+      '12': I2S_BCLK
+      '13': I2S_LRCK
+      '14': I2S_DOUT
+      '15': I2C_SCL
+      '16': I2C_SDA
+      '18': DAC_EN
+      '32': MCLK
+    nc:
+    - '21'
+    - '22'
+    - '23'
+    - '24'
+    - '25'
+    - '26'
+    - '27'
+    - '28'
+    placement:
+      x: 112.25
+      y: 8.4
+      rot: 0.0
+      fixed: true
+  U910:
+    value: OPA1612
+    mpn: OPA1612AIDR
+    lcsc: C94590
+    price_usd: 0.93
+    datasheet: https://www.ti.com/product/OPA1612
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: audio_dac
+    theta_ja: 120
+    tj_max_c: 150
+    pins:
+      '3': AGND
+      '2': IVS_LP
+      '1': IV_LP
+      '5': AGND
+      '6': IVS_LN
+      '7': IV_LN
+      '8': AUD_P4V5
+      '4': AUD_N4V5
+    placement:
+      x: 81.35
+      y: 15.8
+      rot: 0.0
+      fixed: true
+  U911:
+    value: OPA1612
+    mpn: OPA1612AIDR
+    lcsc: C94590
+    price_usd: 0.93
+    datasheet: https://www.ti.com/product/OPA1612
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: audio_dac
+    theta_ja: 120
+    tj_max_c: 150
+    pins:
+      '3': AGND
+      '2': IVS_RP
+      '1': IV_RP
+      '5': AGND
+      '6': IVS_RN
+      '7': IV_RN
+      '8': AUD_P4V5
+      '4': AUD_N4V5
+    placement:
+      x: 74.4
+      y: 16.8
+      rot: 90.0
+      fixed: true
+  U912:
+    value: OPA1612
+    mpn: OPA1612AIDR
+    lcsc: C94590
+    price_usd: 0.93
+    datasheet: https://www.ti.com/product/OPA1612
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: audio_dac
+    theta_ja: 120
+    tj_max_c: 150
+    pins:
+      '3': DS_LP
+      '2': DS_LM
+      '1': DS_LO
+      '5': DS_RP
+      '6': DS_RM
+      '7': DS_RO
+      '8': AUD_P4V5
+      '4': AUD_N4V5
+    placement:
+      x: 44.85
+      y: 8.8
+      rot: 0.0
+      fixed: true
+  U913:
+    value: OPA1622
+    mpn: OPA1622IDRCR
+    price_usd: 2.5
+    datasheet: https://www.ti.com/product/OPA1622
+    symbol: Amplifier_Audio:OPA1622
+    footprint: Package_SON:Texas_S-PVSON-N10
+    group: audio_hp
+    theta_ja: 50
+    tj_max_c: 150
+    pins:
+      '1': DS_LO
+      '10': HPA_L
+      '9': HPA_L
+      '5': DS_RO
+      '6': HPA_R
+      '7': HPA_R
+      '2': AUD_P4V5
+      '4': AUD_N4V5
+      '11': AUD_N4V5
+      '3': AGND
+      '8': HP_EN
+    placement:
+      x: 43.85
+      y: 14.2
+      rot: 90.0
+      fixed: true
+  U950:
+    value: ADP7118
+    mpn: ADP7118ACPZN-R7
+    lcsc: C579266
+    price_usd: 1.9
+    symbol: Regulator_Linear:ADP7118ACPZN
+    footprint: Package_CSP:LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm
+    group: audio_ldo
+    theta_ja: 110
+    tj_max_c: 125
+    pins:
+      '6': AUD_P5V5F
+      '4': AUD_P5V5F
+      '1': AUD_P4V5
+      '2': P45_ADJ
+      '3': AGND
+      '7': AGND
+      '5': P45_SS
+    placement:
+      x: 38.05
+      y: 15.1
+      rot: 0.0
+      fixed: true
+  U951:
+    value: LT3094
+    mpn: LT3094EMSE#TRPBF
+    lcsc: C670494
+    price_usd: 5.48
+    symbol: Regulator_Linear:LT3094xMSE
+    footprint: Package_SO:MSOP-12-1EP_3x4mm_P0.65mm_EP1.65x2.85mm
+    group: audio_ldo
+    theta_ja: 40
+    tj_max_c: 125
+    pins:
+      '1': AUD_N5V5F
+      '2': AUD_N5V5F
+      '13': AUD_N5V5F
+      '3': AUD_N5V5F
+      '11': AUD_N4V5
+      '12': AUD_N4V5
+      '10': AUD_N4V5
+      '9': AGND
+      '8': N45_SET
+      '6': AGND
+      '5': AUD_N5V5F
+    nc:
+    - '4'
+    - '7'
+    placement:
+      x: 88.48
+      y: 14.3
+      rot: 180.0
+      fixed: true
+  U952:
+    value: LT3045
+    mpn: LT3045EMSE#TRPBF
+    lcsc: C666577
+    price_usd: 5.77
+    symbol: Regulator_Linear:LT3045xMSE
+    footprint: Package_SO:MSOP-12-1EP_3x4mm_P0.65mm_EP1.65x2.85mm
+    group: audio_ldo
+    theta_ja: 40
+    tj_max_c: 125
+    pins:
+      '1': 5V_AF
+      '2': 5V_AF
+      '3': 5V_AF
+      '4': 5V_AF
+      '7': 5V_AF
+      '11': 3V3_A
+      '12': 3V3_A
+      '10': 3V3_A
+      '9': AGND
+      '13': AGND
+      '8': A33_SET
+      '6': AGND
+    nc:
+    - '5'
+    placement:
+      x: 113.47
+      y: 18.25
+      rot: 0.0
+      fixed: true
+  U953:
+    value: LT3045
+    mpn: LT3045EMSE#TRPBF
+    lcsc: C666577
+    price_usd: 5.77
+    symbol: Regulator_Linear:LT3045xMSE
+    footprint: Package_SO:MSOP-12-1EP_3x4mm_P0.65mm_EP1.65x2.85mm
+    group: audio_ldo
+    theta_ja: 40
+    tj_max_c: 125
+    pins:
+      '1': AUD_P5V5F
+      '2': AUD_P5V5F
+      '3': AUD_P5V5F
+      '7': AUD_P5V5F
+      '4': ADC_PWR_EN
+      '11': ADC_4V5
+      '12': ADC_4V5
+      '10': ADC_4V5
+      '9': AGND
+      '13': AGND
+      '8': A45_SET
+      '6': AGND
+    nc:
+    - '5'
+    placement:
+      x: 70.8
+      y: 7.5
+      rot: 0.0
+      fixed: true
+  U980:
+    value: OPA1612
+    mpn: OPA1612AIDR
+    lcsc: C94590
+    price_usd: 0.93
+    datasheet: https://www.ti.com/product/OPA1612
+    symbol: Amplifier_Operational:OPA1612AxD
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: audio_mic
+    theta_ja: 120
+    tj_max_c: 150
+    pins:
+      '3': MIC_IN
+      '2': MIC_FB
+      '1': MIC_PA
+      '5': MIC_CM
+      '6': MIC_INV
+      '7': MIC_PB
+      '8': MIC_VP
+      '4': MIC_VN
+    placement:
+      x: 26.25
+      y: 15.2
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.5mm
+    pins:
+      '1': 5V_SYS
+    group: cutout_terminal
+    placement:
+      x: 125.25
+      y: 18.5
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SDA
+    group: cutout_terminal
+    placement:
+      x: 126.0
+      y: 10.0
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_BCLK
+    group: cutout_terminal
+    placement:
+      x: 126.0
+      y: 7.25
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_DIN
+    group: cutout_terminal
+    placement:
+      x: 126.0
+      y: 4.5
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_DOUT
+    group: cutout_terminal
+    placement:
+      x: 126.0
+      y: 12.75
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_LRCK
+    group: cutout_terminal
+    placement:
+      x: 123.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': JACK_DET
+    group: cutout_terminal
+    placement:
+      x: 120.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCLK
+    group: cutout_terminal
+    placement:
+      x: 117.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_DET
+    group: cutout_terminal
+    placement:
+      x: 115.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_GAIN
+    group: cutout_terminal
+    placement:
+      x: 112.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 3V3_D
+    group: cutout_terminal
+    placement:
+      x: 109.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ADC_EN
+    group: cutout_terminal
+    placement:
+      x: 106.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ADC_PWR_EN
+    group: cutout_terminal
+    placement:
+      x: 104.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_N5V5
+    group: cutout_terminal
+    placement:
+      x: 101.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_P5V5
+    group: cutout_terminal
+    placement:
+      x: 98.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': DAC_EN
+    group: cutout_terminal
+    placement:
+      x: 95.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HP_MUTE
+    group: cutout_terminal
+    placement:
+      x: 93.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SCL
+    group: cutout_terminal
+    placement:
+      x: 90.25
+      y: 2.25
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  5V_SYS:
+    class: power
+    current_a: 4.0
+    external_supply: true
+  3V3_D:
+    current_a: 0.3
+    external_supply: true
+  JACK_DET:
+    class: signal
+  AUD_P5V5:
+    current_a: 0.1
+  AUD_N5V5:
+    current_a: 0.1
+  AGND:
+    class: ground
+  3V3_A:
+    current_a: 0.05
+  AUD_P4V5:
+    current_a: 0.25
+  AUD_N4V5:
+    current_a: 0.25
+  ADC_4V5:
+    current_a: 0.06
+  AUD_P5V5F:
+    current_a: 0.25
+    external_supply: true
+  AUD_N5V5F:
+    current_a: 0.25
+    external_supply: true
+  5V_AF:
+    current_a: 0.05
+    external_supply: true
+  3V3_DA:
+    current_a: 0.05
+    external_supply: true
+  ADC_DVDD:
+    external_supply: true
+  HPA_L:
+    current_a: 0.15
+  HPA_R:
+    current_a: 0.15
+  HP_L:
+    current_a: 0.15
+  HP_R:
+    current_a: 0.15
+  DAC_LP:
+    class: signal
+    sensitive: true
+  DAC_LN:
+    class: signal
+    sensitive: true
+  DAC_RP:
+    class: signal
+    sensitive: true
+  DAC_RN:
+    class: signal
+    sensitive: true
+  IVS_LP:
+    class: signal
+    sensitive: true
+  IVS_LN:
+    class: signal
+    sensitive: true
+  IVS_RP:
+    class: signal
+    sensitive: true
+  IVS_RN:
+    class: signal
+    sensitive: true
+  IV_LP:
+    class: signal
+    sensitive: true
+  IV_LN:
+    class: signal
+    sensitive: true
+  IV_RP:
+    class: signal
+    sensitive: true
+  IV_RN:
+    class: signal
+    sensitive: true
+  DS_LP:
+    class: signal
+    sensitive: true
+  DS_LM:
+    class: signal
+    sensitive: true
+  DS_LO:
+    class: signal
+    sensitive: true
+  DS_RP:
+    class: signal
+    sensitive: true
+  DS_RM:
+    class: signal
+    sensitive: true
+  DS_RO:
+    class: signal
+    sensitive: true
+  MIC_T:
+    class: signal
+    sensitive: true
+  MIC_RF:
+    class: signal
+    sensitive: true
+  MIC_IN:
+    class: signal
+    sensitive: true
+  MIC_FB:
+    class: signal
+    sensitive: true
+  MIC_RG:
+    class: signal
+    sensitive: true
+  MIC_PA:
+    class: signal
+    sensitive: true
+  MIC_PB:
+    class: signal
+    sensitive: true
+  MIC_INV:
+    class: signal
+    sensitive: true
+  ADC_INP:
+    class: signal
+    sensitive: true
+  ADC_INM:
+    class: signal
+    sensitive: true
+  MIC_CM:
+    class: signal
+    sensitive: true
+  MIC_VN:
+    current_a: 0.02
+    external_supply: true
+  MIC_VP:
+    current_a: 0.05
+    external_supply: true
+  MIC_VPD:
+    current_a: 0.05
+    external_supply: true
+  2V5_BIAS:
+    class: signal
+    sensitive: true
+  MCLK:
+    class: clock
+  ADC_MCLK_G:
+    class: clock
+  ADC_MCLK:
+    class: clock
+  I2S_BCLK:
+    class: clock
+  DAC_VCCA:
+    current_a: 0.02
+    external_supply: true
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: audio
+    kind: other
+    items:
+    - hp_jack
+    - mic_jack
+    - audio_top
+    isolation_mm: 30
+    from: []
+    source: 'R35 / C11: audio analog parts and jacks >= 30 mm from switching inductors and USB-C charge ports; 120 x 16.5
+      = 1980 mm2; floorplan check 2026-10-24 after the stage-5 audio fixes: 71 % front (limit 85 %)'
+    rect:
+    - 3.0
+    - 5.25
+    - 123.0
+    - 21.75
+  - name: ui
+    kind: other
+    items: []
+    source: R28 knob on the front strip, next to the audio corner (not inside it); 255 mm2 in 440 (58 %)
+    rect:
+    - 125.0
+    - 0.0
+    - 128.25
+    - 21.75
+  items:
+  - name: hp_jack
+    refs:
+    - J930
+    at:
+    - 12.0
+    - 14.75
+    side: front
+    height_mm: 5.37
+    source: SJ-3524-SMT headphone jack (pass C), 5.37 mm high
+  - name: mic_jack
+    refs:
+    - J980
+    at:
+    - 27.0
+    - 14.75
+    side: front
+    height_mm: 5.37
+    source: SJ-3524-SMT mic jack (pass C)
+  - name: audio_top
+    groups:
+    - audio_dac
+    - audio_hp
+    - audio_ldo
+    - audio_mic
+    side: front
+    height_mm: 2.8
+    source: 'pass C real parts: DAC + ADC QFN, 4 OPA1612 SOIC-8, OPA1622 VSON, 4 LDOs, 4 x 330 uF tantalum B (2.1 mm), passives;
+      all front (hwflow places every part on the front)'

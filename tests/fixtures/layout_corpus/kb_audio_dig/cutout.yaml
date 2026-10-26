@@ -1,0 +1,488 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region audio_dig
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: audio_dig
+  nets: null
+window:
+- 139.75
+- 123.0
+- 194.25
+- 152.0
+frame_mm: 7.0
+offset:
+- -139.75
+- -123.0
+board_mm:
+- 54.5
+- 29.0
+free:
+- C1100
+- C1101
+- C1102
+- C1103
+- C1104
+- C1110
+- C1111
+- C1112
+- C1113
+- C1114
+- C1115
+- C1116
+- C1117
+- C1118
+- C1119
+- C1120
+- C1121
+- C1122
+- C1123
+- C1124
+- C1125
+- C1126
+- C1127
+- C1128
+- C401
+- C402
+- C403
+- C404
+- C405
+- C406
+- C407
+- C408
+- C409
+- C410
+- C411
+- C412
+- C413
+- C414
+- C415
+- C416
+- C417
+- FB1100
+- M933
+- R1100
+- R1101
+- R1102
+- R1103
+- R1104
+- R1105
+- R1106
+- R1107
+- R1108
+- R1109
+- R1110
+- R401
+- R402
+- R403
+- R404
+- R405
+- R937
+- R938
+- SW401
+- SW402
+- TP1100
+- TP1101
+- TP1102
+- TP1103
+- TP1104
+- TP1105
+- TP401
+- TP402
+- TP403
+- U1100
+- U1101
+- U401
+- U402
+- Y1100
+- Y1101
+- Y1102
+- Y401
+dropped_neighbors:
+- C690
+- C850
+- C868
+- R503
+- R864
+- R865
+- SW95
+- U850
+terminals:
+- ref: TPB1
+  net: 0V9_CORE
+  from: FB1100.1
+  to: R840.1
+  at:
+  - 52.25
+  - 21.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB10
+  net: COL10
+  from: U401.34
+  to: SW69.1
+  at:
+  - 51.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: COL2
+  from: U401.17
+  to: SW99.1
+  at:
+  - 52.25
+  - 15.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: COL3
+  from: U401.18
+  to: SW95.1
+  at:
+  - 2.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: COL4
+  from: U401.27
+  to: SW96.1
+  at:
+  - 52.25
+  - 5.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: COL5
+  from: U401.28
+  to: SW80.1
+  at:
+  - 17.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: COL6
+  from: U401.29
+  to: SW81.1
+  at:
+  - 27.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: COL7
+  from: U401.30
+  to: SW82.1
+  at:
+  - 35.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: COL8
+  from: U401.31
+  to: SW83.1
+  at:
+  - 43.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: COL9
+  from: U401.32
+  to: SW84.1
+  at:
+  - 48.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB19
+  net: DAC_EN
+  from: U1100.48
+  to: R901.1
+  at:
+  - 2.25
+  - 17.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: 1V8_D
+  from: TP1105.1
+  to: U850.5
+  at:
+  - 52.25
+  - 23.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB20
+  net: ENC_A
+  from: U401.35
+  to: D501.1
+  at:
+  - 2.25
+  - 10.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB21
+  net: ENC_B
+  from: U401.36
+  to: R502.2
+  at:
+  - 2.25
+  - 13.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB22
+  net: ENC_SW
+  from: U401.37
+  to: R503.2
+  at:
+  - 2.25
+  - 23.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB23
+  net: HP_MUTE
+  from: R938.2
+  to: M931.1
+  at:
+  - 2.25
+  - 25.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB24
+  net: I2C_SCL
+  from: R1106.2
+  to: U900.15
+  at:
+  - 2.25
+  - 20.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB25
+  net: I2C_SDA
+  from: R1107.2
+  to: U900.16
+  at:
+  - 4.95
+  - 16.7618
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB26
+  net: I2S_BCLK
+  from: R1108.2
+  to: U900.12
+  at:
+  - 2.25
+  - 7.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB27
+  net: I2S_DIN
+  from: U1100.47
+  to: U1000.37
+  at:
+  - 4.95
+  - 13.9974
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB28
+  net: I2S_DOUT
+  from: R1110.2
+  to: U900.14
+  at:
+  - 4.95
+  - 19.5263
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB29
+  net: I2S_LRCK
+  from: R1109.2
+  to: U900.13
+  at:
+  - 4.95
+  - 11.2329
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: 3V3_D
+  from: R938.1
+  to: R503.1
+  at:
+  - 4.95
+  - 24.05
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB30
+  net: JACK_DET
+  from: U401.38
+  to: R935.2
+  at:
+  - 2.25
+  - 5.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB31
+  net: MCLK
+  from: U1100.41
+  to: U900.32
+  at:
+  - 4.95
+  - 8.4684
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB32
+  net: MCU_DM
+  from: R403.2
+  to: U151.14
+  at:
+  - 52.25
+  - 11.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB33
+  net: MCU_DP
+  from: R402.2
+  to: U151.13
+  at:
+  - 52.25
+  - 8.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB34
+  net: MIC_DET
+  from: U1100.53
+  to: R982.2
+  at:
+  - 5.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB35
+  net: MIC_GAIN
+  from: U1100.32
+  to: R989.1
+  at:
+  - 4.95
+  - 5.7039
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB36
+  net: ROW0
+  from: U401.2
+  to: D8.1
+  at:
+  - 38.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB37
+  net: ROW1
+  from: U401.3
+  to: D25.1
+  at:
+  - 32.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB38
+  net: ROW10
+  from: U401.13
+  to: D85.1
+  at:
+  - 49.55
+  - 6.9605
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB39
+  net: ROW11
+  from: U401.14
+  to: D97.1
+  at:
+  - 52.25
+  - 18.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: ADC_EN
+  from: U1100.51
+  to: U1001.2
+  at:
+  - 7.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB40
+  net: ROW2
+  from: U401.4
+  to: D46.1
+  at:
+  - 41.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB41
+  net: ROW3
+  from: U401.5
+  to: D67.1
+  at:
+  - 30.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB42
+  net: ROW4
+  from: U401.6
+  to: D82.1
+  at:
+  - 35.268
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB43
+  net: ROW5
+  from: U401.7
+  to: D96.1
+  at:
+  - 49.55
+  - 9.725
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB44
+  net: ROW6
+  from: U401.8
+  to: D10.1
+  at:
+  - 43.286
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB45
+  net: ROW7
+  from: U401.9
+  to: D28.1
+  at:
+  - 46.0421
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB46
+  net: ROW8
+  from: U401.11
+  to: D49.1
+  at:
+  - 40.5298
+  - 4.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB47
+  net: ROW9
+  from: U401.12
+  to: D70.1
+  at:
+  - 49.55
+  - 12.4895
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: ADC_PWR_EN
+  from: U1100.40
+  to: R955.1
+  at:
+  - 10.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: AUD_DM
+  from: U1100.28
+  to: U151.26
+  at:
+  - 52.25
+  - 26.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: AUD_DP
+  from: U1100.29
+  to: U151.25
+  at:
+  - 49.55
+  - 22.2908
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: COL0
+  from: U401.15
+  to: SW97.1
+  at:
+  - 49.55
+  - 15.2539
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: COL1
+  from: U401.16
+  to: SW98.1
+  at:
+  - 49.55
+  - 18.0184
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

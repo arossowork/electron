@@ -1,0 +1,184 @@
+project: sensor_preamp_cut_sp_overfull
+description: layout cutout of sensor_preamp (sp_overfull)
+board:
+  width_mm: 13.0
+  height_mm: 10.0
+  layers: 2
+components:
+  C1:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 16
+    pins:
+      '1': VBUS
+      '2': GND
+    group: power
+    decouples: U1
+    placement:
+      x: 6.9
+      y: 8.02
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 16
+    pins:
+      '1': +3V3
+      '2': GND
+    group: power
+    decouples: U1
+    placement:
+      x: 11.0
+      y: 5.25
+      rot: 90.0
+      fixed: true
+  C3:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 16
+    pins:
+      '1': +3V3
+      '2': GND
+    group: amp
+    decouples: U2
+    placement:
+      x: 0.0
+      y: 2.75
+      rot: 270.0
+      fixed: true
+  C4:
+    value: 1.5n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 16
+    pins:
+      '1': AMP_OUT
+      '2': FB
+    group: amp
+    placement:
+      x: 8.77
+      y: 1.98
+      rot: 0.0
+      fixed: true
+  D1:
+    value: green
+    symbol: Device:LED
+    footprint: LED_SMD:LED_0603_1608Metric
+    pins:
+      '1': GND
+      '2': LED_A
+    group: power
+    placement:
+      x: 10.27
+      y: 8.02
+      rot: 180.0
+      fixed: true
+  J1:
+    value: Conn_01x04
+    symbol: Connector_Generic:Conn_01x04
+    footprint: Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': VBUS
+      '2': SENS_IN
+      '3': AMP_OUT
+      '4': GND
+    placement:
+      x: 3.05
+      y: 2.75
+      rot: 0.0
+      fixed: true
+  R1:
+    value: 90.9k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': AMP_OUT
+      '2': FB
+    group: amp
+    placement:
+      x: 12.25
+      y: 1.75
+      rot: 0.0
+      fixed: true
+  R2:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': FB
+      '2': GND
+    group: amp
+    placement:
+      x: 13.0
+      y: 4.5
+      rot: 270.0
+      fixed: true
+  R3:
+    value: 1k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': LED_A
+    group: power
+    placement:
+      x: 0.0
+      y: 6.75
+      rot: 270.0
+      fixed: true
+  U1:
+    value: AP2112K-3.3
+    mpn: AP2112K-3.3TRG1
+    symbol: Regulator_Linear:AP2112K-3.3
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins:
+      '1': VBUS
+      '2': GND
+      '3': VBUS
+      '5': +3V3
+    nc:
+    - '4'
+    theta_ja: 250
+    group: power
+    placement:
+      x: 7.5
+      y: 5.0
+      rot: 180.0
+      fixed: true
+  U2:
+    value: OPA333
+    mpn: OPA333AIDBVR
+    datasheet: https://www.ti.com/lit/ds/symlink/opa333.pdf
+    symbol: Amplifier_Operational:OPA333xxDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins:
+      '1': AMP_OUT
+      '2': GND
+      '3': SENS_IN
+      '4': FB
+      '5': +3V3
+    group: amp
+    placement:
+      x: 7.5
+      y: -1.0
+      rot: 180.0
+      fixed: true
+nets:
+  VBUS:
+    class: power
+    current_a: 0.1
+    external_supply: true
+  +3V3:
+    class: power
+    current_a: 0.05
+  GND:
+    class: ground
+  SENS_IN:
+    class: signal
+    sensitive: true
+  AMP_OUT:
+    class: signal

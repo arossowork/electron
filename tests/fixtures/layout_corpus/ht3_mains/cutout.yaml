@@ -1,0 +1,109 @@
+source: 'home-thermostat-3 (projects/home-thermostat-3), build/placement.json (round 8 fixed anchors: F1 and K1 at x 13.5),
+  rect 0,0,30,46'
+source_project: home_thermostat_3
+placement: build/placement.json
+selection:
+  parts: null
+  region: 0,0,30,46
+  nets: null
+window:
+- 0.0
+- 0.0
+- 33.75
+- 46.0
+frame_mm: 3.0
+offset:
+- -0.0
+- -0.0
+board_mm:
+- 33.75
+- 46.0
+free:
+- C12
+- C13
+- R12
+- R7
+- R8
+- TP4
+dropped_neighbors:
+- BT1
+- BT2
+- C1
+- M1
+- R10
+- R13
+- R16
+terminals:
+- ref: TPB1
+  net: AIN_NTC1
+  from: C12.1
+  to: U3.5
+  at:
+  - 31.5
+  - 42.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: AIN_NTC2
+  from: C13.1
+  to: U3.6
+  at:
+  - 31.5
+  - 34.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: K1_COIL_A
+  from: K1.A1
+  to: U4.2
+  at:
+  - 31.5
+  - 9.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: K1_COIL_B
+  from: K1.A2
+  to: U4.3
+  at:
+  - 31.5
+  - 3.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: K2_COIL_A
+  from: K2.A1
+  to: U5.2
+  at:
+  - 28.8
+  - 35.7854
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: K2_COIL_B
+  from: K2.A2
+  to: U5.3
+  at:
+  - 31.5
+  - 25.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: NTC2_A
+  from: R12.1
+  to: R10.2
+  at:
+  - 31.5
+  - 22.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: SCL
+  from: R7.2
+  to: U3.10
+  at:
+  - 28.8
+  - 25.5069
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: SENS_EN
+  from: R7.1
+  to: R13.1
+  at:
+  - 31.5
+  - 20.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

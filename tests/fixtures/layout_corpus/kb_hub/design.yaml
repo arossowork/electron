@@ -1,0 +1,2542 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_hub
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_hub)
+board:
+  width_mm: 52.15
+  height_mm: 29.25
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  C101:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 10
+    pins:
+      '1': HUB1_5V
+      '2': GND
+    placement:
+      x: 43.4
+      y: 22.95
+      rot: 0.0
+      fixed: true
+  C102:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_5V
+      '2': GND
+    placement:
+      x: 40.5
+      y: 23.2
+      rot: 0.0
+      fixed: true
+  C103:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_5V
+      '2': GND
+    placement:
+      x: 40.95
+      y: 21.25
+      rot: 180.0
+      fixed: true
+  C104:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 10
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 33.75
+      y: 9.15
+      rot: 180.0
+      fixed: true
+  C105:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 34.45
+      y: 10.9
+      rot: 180.0
+      fixed: true
+  C106:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 41.0
+      y: 16.85
+      rot: 0.0
+      fixed: true
+  C107:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 40.95
+      y: 19.8
+      rot: 0.0
+      fixed: true
+  C108:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 41.0
+      y: 18.35
+      rot: 0.0
+      fixed: true
+  C109:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 39.05
+      y: 10.95
+      rot: 0.0
+      fixed: true
+  C110:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_3V3
+      '2': GND
+    placement:
+      x: 40.95
+      y: 15.35
+      rot: 0.0
+      fixed: true
+  C111:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 33.4
+      y: 23.2
+      rot: 0.0
+      fixed: true
+  C112:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 27.8
+      y: 18.7
+      rot: 180.0
+      fixed: true
+  C113:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 27.8
+      y: 20.2
+      rot: 180.0
+      fixed: true
+  C114:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 32.1
+      y: 10.9
+      rot: 180.0
+      fixed: true
+  C115:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 27.75
+      y: 21.8
+      rot: 180.0
+      fixed: true
+  C116:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 27.85
+      y: 15.4
+      rot: 180.0
+      fixed: true
+  C117:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 31.05
+      y: 23.2
+      rot: 180.0
+      fixed: true
+  C118:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 27.85
+      y: 17.25
+      rot: 180.0
+      fixed: true
+  C119:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 29.95
+      y: 24.7
+      rot: 180.0
+      fixed: true
+  C120:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 10
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 36.35
+      y: 23.5
+      rot: 0.0
+      fixed: true
+  C121:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub1
+    decouples: U101
+    voltage_rating_v: 10
+    pins:
+      '1': HUB1_1V2
+      '2': GND
+    placement:
+      x: 32.85
+      y: 24.95
+      rot: 0.0
+      fixed: true
+  C122:
+    value: 18pF
+    mpn: 0402 C0G 18 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 50
+    pins:
+      '1': HUB1_XI
+      '2': GND
+    placement:
+      x: 43.7
+      y: 13.05
+      rot: 0.0
+      fixed: true
+  C123:
+    value: 18pF
+    mpn: 0402 C0G 18 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 50
+    pins:
+      '1': HUB1_XO
+      '2': GND
+    placement:
+      x: 41.5
+      y: 10.95
+      rot: 0.0
+      fixed: true
+  C124:
+    value: 1uF
+    mpn: CL05A105KA5NQNC
+    lcsc: C52923
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 10
+    pins:
+      '1': HUB1_RESETJ
+      '2': GND
+    placement:
+      x: 43.5
+      y: 14.55
+      rot: 0.0
+      fixed: true
+  C131:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_US_TX_P
+      '2': HOST_TX_P
+    placement:
+      x: 41.46
+      y: 7.95
+      rot: 0.0
+      fixed: true
+  C132:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_US_TX_N
+      '2': HOST_TX_N
+    placement:
+      x: 41.46
+      y: 9.42
+      rot: 0.0
+      fixed: true
+  C133:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS1_TX_P
+      '2': C1_TX_P
+    placement:
+      x: 43.9
+      y: 11.5
+      rot: 0.0
+      fixed: true
+  C134:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS1_TX_N
+      '2': C1_TX_N
+    placement:
+      x: 41.35
+      y: 12.42
+      rot: 0.0
+      fixed: true
+  C135:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS2_TX_P
+      '2': C2_TX_P
+    placement:
+      x: 43.4
+      y: 21.2
+      rot: 0.0
+      fixed: true
+  C136:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS2_TX_N
+      '2': C2_TX_N
+    placement:
+      x: 39.25
+      y: 23.77
+      rot: 180.0
+      fixed: true
+  C137:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS3_TX_P
+      '2': A1_SSTX_P
+    placement:
+      x: 10.2
+      y: 22.6
+      rot: 180.0
+      fixed: true
+  C138:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS3_TX_N
+      '2': A1_SSTX_N
+    placement:
+      x: 12.45
+      y: 10.25
+      rot: 180.0
+      fixed: true
+  C139:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS4_TX_P
+      '2': HUB2_US_RX_P
+    placement:
+      x: 30.1
+      y: 9.45
+      rot: 180.0
+      fixed: true
+  C140:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub1
+    voltage_rating_v: 16
+    pins:
+      '1': HUB1_DS4_TX_N
+      '2': HUB2_US_RX_N
+    placement:
+      x: 30.45
+      y: 8.0
+      rot: 180.0
+      fixed: true
+  C151:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 10
+    pins:
+      '1': HUB2_5V
+      '2': GND
+    placement:
+      x: 21.45
+      y: 22.75
+      rot: 180.0
+      fixed: true
+  C152:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_5V
+      '2': GND
+    placement:
+      x: 23.05
+      y: 20.95
+      rot: 0.0
+      fixed: true
+  C153:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_5V
+      '2': GND
+    placement:
+      x: 23.0
+      y: 19.45
+      rot: 0.0
+      fixed: true
+  C154:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 10
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 17.1
+      y: 25.8
+      rot: 0.0
+      fixed: true
+  C155:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 17.7
+      y: 24.0
+      rot: 0.0
+      fixed: true
+  C156:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 23.05
+      y: 16.5
+      rot: 0.0
+      fixed: true
+  C157:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 15.95
+      y: 22.5
+      rot: 180.0
+      fixed: true
+  C158:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 15.35
+      y: 23.95
+      rot: 180.0
+      fixed: true
+  C159:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 23.1
+      y: 18.0
+      rot: 0.0
+      fixed: true
+  C160:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_3V3
+      '2': GND
+    placement:
+      x: 18.35
+      y: 22.5
+      rot: 0.0
+      fixed: true
+  C161:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.85
+      y: 15.5
+      rot: 180.0
+      fixed: true
+  C162:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.8
+      y: 20.1
+      rot: 180.0
+      fixed: true
+  C163:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.85
+      y: 14.0
+      rot: 180.0
+      fixed: true
+  C164:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 14.37
+      y: 9.8
+      rot: 90.0
+      fixed: true
+  C165:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.85
+      y: 18.5
+      rot: 180.0
+      fixed: true
+  C166:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.85
+      y: 17.0
+      rot: 180.0
+      fixed: true
+  C167:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 12.98
+      y: 23.95
+      rot: 180.0
+      fixed: true
+  C168:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 13.6
+      y: 22.5
+      rot: 180.0
+      fixed: true
+  C169:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 9.85
+      y: 12.5
+      rot: 180.0
+      fixed: true
+  C170:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 10
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 16.85
+      y: 9.95
+      rot: 0.0
+      fixed: true
+  C171:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: hub2
+    decouples: U151
+    voltage_rating_v: 10
+    pins:
+      '1': HUB2_1V2
+      '2': GND
+    placement:
+      x: 23.61
+      y: 12.65
+      rot: 0.0
+      fixed: true
+  C172:
+    value: 18pF
+    mpn: 0402 C0G 18 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 50
+    pins:
+      '1': HUB2_XI
+      '2': GND
+    placement:
+      x: 25.25
+      y: 10.1
+      rot: 0.0
+      fixed: true
+  C173:
+    value: 18pF
+    mpn: 0402 C0G 18 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 50
+    pins:
+      '1': HUB2_XO
+      '2': GND
+    placement:
+      x: 25.2
+      y: 8.4
+      rot: 180.0
+      fixed: true
+  C174:
+    value: 1uF
+    mpn: CL05A105KA5NQNC
+    lcsc: C52923
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 10
+    pins:
+      '1': HUB2_RESETJ
+      '2': GND
+    placement:
+      x: 29.05
+      y: 10.95
+      rot: 0.0
+      fixed: true
+  C181:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_US_TX_P
+      '2': HUB1_DS4_RX_P
+    placement:
+      x: 25.45
+      y: 15.65
+      rot: 0.0
+      fixed: true
+  C182:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_US_TX_N
+      '2': HUB1_DS4_RX_N
+    placement:
+      x: 26.55
+      y: 13.95
+      rot: 180.0
+      fixed: true
+  C183:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_DS1_TX_P
+      '2': A2_SSTX_P
+    placement:
+      x: 10.0
+      y: 8.65
+      rot: 0.0
+      fixed: true
+  C184:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: hub2
+    voltage_rating_v: 16
+    pins:
+      '1': HUB2_DS1_TX_N
+      '2': A2_SSTX_N
+    placement:
+      x: 12.35
+      y: 8.8
+      rot: 180.0
+      fixed: true
+  FB101:
+    value: 220R@100MHz 1.4A
+    mpn: BLM18PG221SN1D
+    price_usd: 0.006
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: hub1
+    pins:
+      '1': 5V_SYS
+      '2': HUB1_5V
+    placement:
+      x: 42.95
+      y: 26.5
+      rot: 0.0
+      fixed: true
+  FB151:
+    value: 220R@100MHz 1.4A
+    mpn: BLM18PG221SN1D
+    price_usd: 0.006
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0603_1608Metric
+    group: hub2
+    pins:
+      '1': 5V_SYS
+      '2': HUB2_5V
+    placement:
+      x: 27.55
+      y: 26.44
+      rot: 180.0
+      fixed: true
+  L101:
+    value: 4.7uH
+    mpn: NR3015T4R7M
+    price_usd: 0.05
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Taiyo-Yuden_NR-30xx
+    group: hub1
+    pins:
+      '1': HUB1_SW
+      '2': HUB1_1V2
+    placement:
+      x: 39.15
+      y: 26.2
+      rot: 270.0
+      fixed: true
+  L151:
+    value: 4.7uH
+    mpn: NR3015T4R7M
+    price_usd: 0.05
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Taiyo-Yuden_NR-30xx
+    group: hub2
+    pins:
+      '1': HUB2_SW
+      '2': HUB2_1V2
+    placement:
+      x: 20.95
+      y: 25.8
+      rot: 270.0
+      fixed: true
+  R101:
+    value: 20k
+    mpn: 0402 1% 20k
+    lcsc: C25765
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_RTERM
+      '2': GND
+    placement:
+      x: 43.4
+      y: 17.6
+      rot: 0.0
+      fixed: true
+  R102:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_3V3
+      '2': HUB1_CHIPEN
+    placement:
+      x: 43.35
+      y: 19.2
+      rot: 180.0
+      fixed: true
+  R103:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_3V3
+      '2': HUB1_RESETJ
+    placement:
+      x: 43.4
+      y: 16.1
+      rot: 180.0
+      fixed: true
+  R104:
+    value: 220k
+    mpn: 0402 1% 220k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_PGANG
+      '2': GND
+    placement:
+      x: 41.05
+      y: 13.85
+      rot: 0.0
+      fixed: true
+  R105:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_PSWPOL
+      '2': HUB1_3V3
+    placement:
+      x: 33.4
+      y: 26.75
+      rot: 180.0
+      fixed: true
+  R106:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': VBUS_HOST
+      '2': HUB1_VBUSDET
+    placement:
+      x: 43.85
+      y: 8.5
+      rot: 180.0
+      fixed: true
+  R107:
+    value: 100k
+    mpn: 0402 1% 100k
+    lcsc: C25741
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_VBUSDET
+      '2': GND
+    placement:
+      x: 43.9
+      y: 10.0
+      rot: 0.0
+      fixed: true
+  R108:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_3V3
+      '2': HUB1_OVCUR1
+    placement:
+      x: 42.6
+      y: 24.75
+      rot: 180.0
+      fixed: true
+  R109:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_3V3
+      '2': HUB1_OVCUR2
+    placement:
+      x: 35.9
+      y: 25.25
+      rot: 0.0
+      fixed: true
+  R110:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_3V3
+      '2': HUB1_OVCUR3
+    placement:
+      x: 27.35
+      y: 23.25
+      rot: 180.0
+      fixed: true
+  R111:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_PWREN1
+      '2': GND
+    placement:
+      x: 35.85
+      y: 26.7
+      rot: 180.0
+      fixed: true
+  R112:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_PWREN2
+      '2': GND
+    placement:
+      x: 31.0
+      y: 26.75
+      rot: 180.0
+      fixed: true
+  R113:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub1
+    pins:
+      '1': HUB1_PWREN3
+      '2': GND
+    placement:
+      x: 24.55
+      y: 26.05
+      rot: 0.0
+      fixed: true
+  R151:
+    value: 20k
+    mpn: 0402 1% 20k
+    lcsc: C25765
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_RTERM
+      '2': GND
+    placement:
+      x: 24.2
+      y: 24.45
+      rot: 0.0
+      fixed: true
+  R152:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_3V3
+      '2': HUB2_CHIPEN
+    placement:
+      x: 25.5
+      y: 17.2
+      rot: 180.0
+      fixed: true
+  R153:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_3V3
+      '2': HUB2_RESETJ
+    placement:
+      x: 26.55
+      y: 11.85
+      rot: 0.0
+      fixed: true
+  R154:
+    value: 220k
+    mpn: 0402 1% 220k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_PGANG
+      '2': GND
+    placement:
+      x: 23.05
+      y: 14.45
+      rot: 0.0
+      fixed: true
+  R155:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_PSWPOL
+      '2': HUB2_3V3
+    placement:
+      x: 14.1
+      y: 25.5
+      rot: 180.0
+      fixed: true
+  R156:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': 5V_SYS
+      '2': HUB2_VBUSDET
+    placement:
+      x: 27.65
+      y: 9.45
+      rot: 180.0
+      fixed: true
+  R157:
+    value: 100k
+    mpn: 0402 1% 100k
+    lcsc: C25741
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_VBUSDET
+      '2': GND
+    placement:
+      x: 27.6
+      y: 8.0
+      rot: 0.0
+      fixed: true
+  R158:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_3V3
+      '2': HUB2_OVCUR1
+    placement:
+      x: 9.5
+      y: 10.55
+      rot: 180.0
+      fixed: true
+  R159:
+    value: 47k
+    mpn: 0402 1% 47k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: hub2
+    pins:
+      '1': HUB2_PWREN1
+      '2': GND
+    placement:
+      x: 11.69
+      y: 25.5
+      rot: 180.0
+      fixed: true
+  U101:
+    value: GL3523
+    mpn: GL3523-OTY30
+    lcsc: C390630
+    price_usd: 1.54
+    datasheet: notes/datasheets/gl3523.md
+    symbol: kb_hub:GL3523
+    footprint: Package_DFN_QFN:QFN-76-1EP_9x9mm_P0.4mm_EP5.81x6.31mm
+    group: hub1
+    height_mm: 0.9
+    pins:
+      '43': HUB1_5V
+      '42': HUB1_5V
+      '40': GND
+      '77': GND
+      '44': HUB1_3V3
+      '55': HUB1_3V3
+      '73': HUB1_3V3
+      '65': HUB1_3V3
+      '12': HUB1_3V3
+      '27': HUB1_3V3
+      '41': HUB1_SW
+      '39': HUB1_1V2
+      '28': HUB1_1V2
+      '47': HUB1_1V2
+      '4': HUB1_1V2
+      '70': HUB1_1V2
+      '60': HUB1_1V2
+      '22': HUB1_1V2
+      '17': HUB1_1V2
+      '7': HUB1_1V2
+      '57': HUB1_XI
+      '56': HUB1_XO
+      '46': HUB1_RTERM
+      '45': HUB1_CHIPEN
+      '48': HUB1_RESETJ
+      '54': HUB1_VBUSDET
+      '53': HUB1_PGANG
+      '30': HUB1_PSWPOL
+      '69': HUB1_US_TX_P
+      '68': HUB1_US_TX_N
+      '72': HOST_RX_P
+      '71': HOST_RX_N
+      '66': HOST_DP
+      '67': HOST_DM
+      '59': HUB1_DS1_TX_P
+      '58': HUB1_DS1_TX_N
+      '62': C1_RX_P
+      '61': C1_RX_N
+      '63': C1_DP
+      '64': C1_DM
+      '21': HUB1_DS2_TX_P
+      '20': HUB1_DS2_TX_N
+      '24': C2_RX_P
+      '23': C2_RX_N
+      '25': C2_DP
+      '26': C2_DM
+      '16': HUB1_DS3_TX_P
+      '15': HUB1_DS3_TX_N
+      '19': A1_SSRX_P
+      '18': A1_SSRX_N
+      '13': A1_DP
+      '14': A1_DM
+      '6': HUB1_DS4_TX_P
+      '5': HUB1_DS4_TX_N
+      '9': HUB1_DS4_RX_P
+      '8': HUB1_DS4_RX_N
+      '10': HUB2_DP
+      '11': HUB2_DM
+      '37': HUB1_PWREN1
+      '38': HUB1_OVCUR1
+      '36': HUB1_PWREN2
+      '35': HUB1_OVCUR2
+      '33': HUB1_PWREN3
+      '34': HUB1_OVCUR3
+      '31': HUB1_3V3
+    nc:
+    - '1'
+    - '2'
+    - '3'
+    - '29'
+    - '32'
+    - '49'
+    - '50'
+    - '51'
+    - '52'
+    - '74'
+    - '75'
+    - '76'
+    placement:
+      x: 34.4
+      y: 17.05
+      rot: 0.0
+      fixed: true
+  U151:
+    value: GL3523
+    mpn: GL3523-OTY30
+    lcsc: C390630
+    price_usd: 1.54
+    datasheet: notes/datasheets/gl3523.md
+    symbol: kb_hub:GL3523
+    footprint: Package_DFN_QFN:QFN-76-1EP_9x9mm_P0.4mm_EP5.81x6.31mm
+    group: hub2
+    height_mm: 0.9
+    pins:
+      '43': HUB2_5V
+      '42': HUB2_5V
+      '40': GND
+      '77': GND
+      '44': HUB2_3V3
+      '55': HUB2_3V3
+      '73': HUB2_3V3
+      '65': HUB2_3V3
+      '12': HUB2_3V3
+      '27': HUB2_3V3
+      '41': HUB2_SW
+      '39': HUB2_1V2
+      '28': HUB2_1V2
+      '47': HUB2_1V2
+      '4': HUB2_1V2
+      '70': HUB2_1V2
+      '60': HUB2_1V2
+      '22': HUB2_1V2
+      '17': HUB2_1V2
+      '7': HUB2_1V2
+      '57': HUB2_XI
+      '56': HUB2_XO
+      '46': HUB2_RTERM
+      '45': HUB2_CHIPEN
+      '48': HUB2_RESETJ
+      '54': HUB2_VBUSDET
+      '53': HUB2_PGANG
+      '30': HUB2_PSWPOL
+      '69': HUB2_US_TX_P
+      '68': HUB2_US_TX_N
+      '72': HUB2_US_RX_P
+      '71': HUB2_US_RX_N
+      '66': HUB2_DP
+      '67': HUB2_DM
+      '59': HUB2_DS1_TX_P
+      '58': HUB2_DS1_TX_N
+      '62': A2_SSRX_P
+      '61': A2_SSRX_N
+      '63': A2_DP
+      '64': A2_DM
+      '25': AUD_DP
+      '26': AUD_DM
+      '13': MCU_DP
+      '14': MCU_DM
+      '37': HUB2_PWREN1
+      '38': HUB2_OVCUR1
+      '35': HUB2_3V3
+      '34': HUB2_3V3
+      '31': HUB2_3V3
+    nc:
+    - '1'
+    - '2'
+    - '3'
+    - '5'
+    - '6'
+    - '8'
+    - '9'
+    - '10'
+    - '11'
+    - '15'
+    - '16'
+    - '18'
+    - '19'
+    - '20'
+    - '21'
+    - '23'
+    - '24'
+    - '29'
+    - '32'
+    - '33'
+    - '36'
+    - '49'
+    - '50'
+    - '51'
+    - '52'
+    - '74'
+    - '75'
+    - '76'
+    placement:
+      x: 16.45
+      y: 16.35
+      rot: 0.0
+      fixed: true
+  Y101:
+    value: 25MHz
+    mpn: X322525MOB4SI
+    lcsc: C9006
+    price_usd: 0.067
+    symbol: Device:Crystal_GND24
+    footprint: Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm
+    group: hub1
+    height_mm: 0.8
+    pins:
+      '1': HUB1_XI
+      '2': GND
+      '3': HUB1_XO
+      '4': GND
+    placement:
+      x: 38.0
+      y: 8.95
+      rot: 180.0
+      fixed: true
+  Y151:
+    value: 25MHz
+    mpn: X322525MOB4SI
+    lcsc: C9006
+    price_usd: 0.067
+    symbol: Device:Crystal_GND24
+    footprint: Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm
+    group: hub2
+    height_mm: 0.8
+    pins:
+      '1': HUB2_XI
+      '2': GND
+      '3': HUB2_XO
+      '4': GND
+    placement:
+      x: 21.6
+      y: 8.95
+      rot: 180.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.5mm
+    pins:
+      '1': 5V_SYS
+    group: cutout_terminal
+    placement:
+      x: 3.0
+      y: 12.75
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_SSRX_N
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 9.25
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_SSRX_P
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 6.5
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_SSTX_N
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 3.75
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_SSTX_P
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 16.25
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_DM
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 21.0
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_DP
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 23.75
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_DM
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 11.5
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_DP
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 14.25
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_RX_N
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 17.0
+      rot: 0
+      fixed: true
+  TPB19:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_RX_P
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 8.75
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_DM
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 26.5
+      rot: 0
+      fixed: true
+  TPB20:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_TX_N
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 6.0
+      rot: 0
+      fixed: true
+  TPB21:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_TX_P
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 19.75
+      rot: 0
+      fixed: true
+  TPB22:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_DM
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 22.5
+      rot: 0
+      fixed: true
+  TPB23:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_DP
+    group: cutout_terminal
+    placement:
+      x: 49.9
+      y: 25.25
+      rot: 0
+      fixed: true
+  TPB24:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_RX_N
+    group: cutout_terminal
+    placement:
+      x: 47.2
+      y: 23.7974
+      rot: 0
+      fixed: true
+  TPB25:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_RX_P
+    group: cutout_terminal
+    placement:
+      x: 47.2
+      y: 21.0331
+      rot: 0
+      fixed: true
+  TPB26:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_TX_N
+    group: cutout_terminal
+    placement:
+      x: 47.2
+      y: 18.2688
+      rot: 0
+      fixed: true
+  TPB27:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_TX_P
+    group: cutout_terminal
+    placement:
+      x: 47.2
+      y: 15.5045
+      rot: 0
+      fixed: true
+  TPB28:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_DM
+    group: cutout_terminal
+    placement:
+      x: 39.1161
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB29:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_DP
+    group: cutout_terminal
+    placement:
+      x: 41.8747
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_DP
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 19.274
+      rot: 0
+      fixed: true
+  TPB30:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_RX_N
+    group: cutout_terminal
+    placement:
+      x: 36.3574
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB31:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_RX_P
+    group: cutout_terminal
+    placement:
+      x: 44.6334
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB32:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_TX_N
+    group: cutout_terminal
+    placement:
+      x: 47.3921
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB33:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_TX_P
+    group: cutout_terminal
+    placement:
+      x: 45.9426
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB34:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HUB1_OVCUR3
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 22.0383
+      rot: 0
+      fixed: true
+  TPB35:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HUB1_PWREN3
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 16.5097
+      rot: 0
+      fixed: true
+  TPB36:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HUB2_OVCUR1
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 9.2221
+      rot: 0
+      fixed: true
+  TPB37:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HUB2_PWREN1
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 6.4578
+      rot: 0
+      fixed: true
+  TPB38:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCU_DM
+    group: cutout_terminal
+    placement:
+      x: 5.0087
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB39:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCU_DP
+    group: cutout_terminal
+    placement:
+      x: 7.7674
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_SSRX_N
+    group: cutout_terminal
+    placement:
+      x: 10.5261
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB40:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBUS_HOST
+    group: cutout_terminal
+    placement:
+      x: 43.1762
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_SSRX_P
+    group: cutout_terminal
+    placement:
+      x: 7.7164
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_SSTX_N
+    group: cutout_terminal
+    placement:
+      x: 13.2847
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A1_SSTX_P
+    group: cutout_terminal
+    placement:
+      x: 10.4827
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_DM
+    group: cutout_terminal
+    placement:
+      x: 16.0434
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': A2_DP
+    group: cutout_terminal
+    placement:
+      x: 13.2491
+      y: 4.95
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  5V_SYS:
+    class: power
+    current_a: 4.0
+    external_supply: true
+  VBUS_HOST:
+    external_supply: true
+  HUB1_5V:
+    current_a: 0.5
+    external_supply: true
+  HUB2_5V:
+    current_a: 0.5
+    external_supply: true
+  HUB1_1V2:
+    current_a: 0.5
+    external_supply: true
+  HUB1_3V3:
+    current_a: 0.25
+  HUB1_SW:
+    class: switching
+    current_a: 0.5
+  HUB1_XI:
+    class: clock
+  HUB1_XO:
+    class: clock
+  HUB2_1V2:
+    current_a: 0.5
+    external_supply: true
+  HUB2_3V3:
+    current_a: 0.25
+  HUB2_SW:
+    class: switching
+    current_a: 0.5
+  HUB2_XI:
+    class: clock
+  HUB2_XO:
+    class: clock
+  HUB1_PWREN1:
+    class: signal
+    allow_single: true
+  HUB1_PWREN2:
+    class: signal
+    allow_single: true
+  HUB1_PWREN3:
+    class: signal
+    allow_single: true
+  HUB2_PWREN1:
+    class: signal
+    allow_single: true
+  HOST_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C1_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  C2_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A1_SSTX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A1_SSTX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A1_SSRX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A1_SSRX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A2_SSTX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A2_SSTX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A2_SSRX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  A2_SSRX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_US_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_US_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS1_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS1_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS2_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS2_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS3_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS3_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS4_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS4_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS4_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB1_DS4_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_US_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_US_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_US_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_US_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_DS1_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HUB2_DS1_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  HOST_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C1_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C1_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C2_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  C2_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  A1_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  A1_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  A2_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  A2_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  HUB2_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  HUB2_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  MCU_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  MCU_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  AUD_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  AUD_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: key_matrix
+    kind: other
+    items: []
+    isolation_mm: 5
+    from: []
+    source: 'ANSI 104 at 19.05 mm pitch: 22.5 u x 6.5 u = 428.6 x 123.8 mm; R35 no matrix trace within 5 mm of the audio region'
+    rect:
+    - 0.0
+    - 0.0
+    - 52.15
+    - 7.25
+  - name: usb_a
+    kind: other
+    items: []
+    source: R3, R14; 545 mm2 in 946 (58 %), next to usba_sw (power_a) and the hub
+    rect:
+    - 0.0
+    - 7.25
+    - 5.0
+    - 29.25
+  - name: hub
+    kind: other
+    items:
+    - hub1
+    - hub2
+    source: hub between the USB-A and USB-C ports; upstream SuperSpeed pairs come down the nav/numpad channel (x ~356); 428
+      mm2 in 836 (51 %)
+    rect:
+    - 7.0
+    - 7.25
+    - 45.0
+    - 29.25
+  - name: usb_c
+    kind: other
+    items: []
+    source: R3, R14; 273 mm2 in 572 (48 %); USB-C charge ports 209 mm from the audio region
+    rect:
+    - 47.0
+    - 7.25
+    - 52.15
+    - 29.25
+  items:
+  - name: hub1
+    groups:
+    - hub1
+    height_mm: 1.0
+    source: GL3523 QFN-76 + 25 MHz crystal + 1.2 V DC-DC L (NR3015 1.5 mm) + AC caps
+  - name: hub2
+    groups:
+    - hub2
+    height_mm: 1.0
+    source: same, cascaded on hub1 DS4

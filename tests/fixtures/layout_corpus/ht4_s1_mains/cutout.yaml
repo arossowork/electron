@@ -1,0 +1,70 @@
+source: home-thermostat-4 (projects/home-thermostat-4) at placer seed 1, routability benchmark 2026-10-25 (that placement
+  is kept only in this cutout), rect 0,0,30,46
+source_project: home_thermostat_4
+placement: kept in this cutout (source placement file not in the repository)
+selection:
+  parts: null
+  region: 0,0,30,46
+  nets: null
+window:
+- 0.0
+- 0.0
+- 33.0
+- 46.0
+frame_mm: 3.0
+offset:
+- -0.0
+- -0.0
+board_mm:
+- 33.0
+- 46.0
+free:
+- SW1
+dropped_neighbors:
+- BT1
+- BT2
+- C1
+- M1
+- M3
+terminals:
+- ref: TPB1
+  net: BTN
+  from: SW1.1
+  to: R5.2
+  at:
+  - 30.75
+  - 33.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: K1_COIL_A
+  from: K1.A1
+  to: U4.2
+  at:
+  - 30.75
+  - 9.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: K1_COIL_B
+  from: K1.A2
+  to: U4.3
+  at:
+  - 30.75
+  - 3.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: K2_COIL_A
+  from: K2.A1
+  to: U5.2
+  at:
+  - 30.75
+  - 42.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: K2_COIL_B
+  from: K2.A2
+  to: U5.3
+  at:
+  - 30.75
+  - 31.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

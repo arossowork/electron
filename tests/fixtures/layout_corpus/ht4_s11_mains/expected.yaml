@@ -1,0 +1,93 @@
+source: home-thermostat-4 (projects/home-thermostat-4) at placer seed 11, routability benchmark 2026-10-25 (that placement
+  is kept only in this cutout), rect 0,0,30,46 (230 V corner)
+source_failure: 'seed 11: AC_ROOM1 open (1 unrouted, 1 DRC); 1.0 mm F.Cu only, 6 mm isolation, 1.5 mm between AC nets; predictor
+  (routability branch) corridor margin +0.152 mm, R8 near the SELV border'
+reproduces: 'yes, faithfully: AC_ROOM1 the only open net (1 unrouted, 1 DRC), isolation 6.00 mm kept'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 13
+  nets: 10
+  board_mm:
+  - 33.0
+  - 46.0
+  placement_violations: []
+  fixed_violations:
+  - J1 inside floorplan region 'notch_l' (1.3 mm2)
+  - 'isolation J1.3/K2.A2: 0.32 mm short (AC_ROOM2 / K2_COIL_B: isolation mains-SELV 6 mm + 0.5 mm placer margin between a
+    member and another net, pad bounding boxes)'
+  corridors:
+    AC_L: -1.4
+    AC_L_IN: 2.0
+    AC_ROOM1: -1.0
+    AC_ROOM2: 2.0
+  placement_cost: 11734.2
+  rudy:
+    congestion: 1.9
+    max_overflow: 0.25
+  pin_access:
+    pads: 20
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 2.1
+    pin_access: 0.0
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 1
+  violations: []
+  seconds: 0.5
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 1
+  open_nets:
+  - AC_ROOM1
+  drc_errors: 1
+  drc_types: {}
+  placement_violations: 0
+  isolation:
+  - rule: mains-SELV
+    ok: true
+    mm: 6.0
+    limit: 6.0
+    drc_clearance: 0
+    drc_creepage: 0
+  - rule: mains-SELV between members
+    ok: true
+    mm: 1.621
+    limit: 1.5
+    drc_clearance: 0
+    drc_creepage: 0
+  router: '1 unrouted, krt 3 pass(es) in 2 route groups (mains miss, rest miss); retried in another net order (1.0 mm: default
+    order 1 unrouted, --ordering inside_out 1 unrouted, --mps-reverse-rounds 1 unrouted, --direction backward 1 unrouted)'
+  route_groups:
+  - name: mains
+    nets:
+    - AC_L
+    - AC_L_IN
+    - AC_ROOM1
+    - AC_ROOM2
+    unrouted: 1
+    seconds: 480.3
+  - name: rest
+    nets:
+    - K1_COIL_A
+    - K1_COIL_B
+    - K2_COIL_A
+    - K2_COIL_B
+    - SENS_EN
+    unrouted: 0
+    seconds: 7.5
+  seconds: 617.0
+  timing:
+    drc_s: 5.4
+    place_s: 0.2
+    repair_s: 120.0
+    route_s: 487.9

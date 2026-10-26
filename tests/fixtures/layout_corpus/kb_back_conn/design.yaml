@@ -1,0 +1,1778 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_back_conn
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_back_conn)
+board:
+  width_mm: 85.25
+  height_mm: 29.2
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  C301:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: usb_host
+    decouples: U301
+    voltage_rating_v: 16
+    pins:
+      '1': 5V_SYS
+      '2': GND
+    placement:
+      x: 29.85
+      y: 19.5
+      rot: 180.0
+      fixed: true
+  C302:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: usb_host
+    decouples: U301
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 25.65
+      y: 16.15
+      rot: 0.0
+      fixed: true
+  C600:
+    value: 1uF
+    mpn: CL10A105KB8NNNC
+    price_usd: 0.008
+    lcsc: C15849
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: pd_sink
+    decouples: U600
+    voltage_rating_v: 50
+    pins:
+      '1': CH224_VBUS
+      '2': GND
+    placement:
+      x: 50.7
+      y: 5.25
+      rot: 180.0
+      fixed: true
+  C601:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    price_usd: 0.004
+    lcsc: C52923
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: pd_sink
+    decouples: U600
+    voltage_rating_v: 16
+    pins:
+      '1': CH224_VDD
+      '2': GND
+    placement:
+      x: 54.35
+      y: 7.65
+      rot: 180.0
+      fixed: true
+  C602:
+    value: 100nF
+    mpn: CL05B104KB54PNC
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: pd_sink
+    voltage_rating_v: 50
+    pins:
+      '1': PDIN_VBUS
+      '2': GND
+    placement:
+      x: 56.5
+      y: 19.71
+      rot: 180.0
+      fixed: true
+  C630:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    price_usd: 0.004
+    lcsc: C52923
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: pwr_ctl
+    voltage_rating_v: 16
+    pins:
+      '1': PDS_G
+      '2': GND
+    placement:
+      x: 6.65
+      y: 22.8
+      rot: 0.0
+      fixed: true
+  C650:
+    value: 1uF
+    mpn: CL10A105KA8NNNC
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 25
+    pins:
+      '1': VBUS_HOST
+      '2': GND
+    placement:
+      x: 14.95
+      y: 5.85
+      rot: 0.0
+      fixed: true
+  C651:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    price_usd: 0.003
+    lcsc: C1525
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 16
+    pins:
+      '1': VBUS_HOST
+      '2': GND
+    placement:
+      x: 10.45
+      y: 6.94
+      rot: 180.0
+      fixed: true
+  C652:
+    value: 10nF
+    mpn: CL05B103KB5NNNC
+    price_usd: 0.002
+    lcsc: C15195
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: vbus_path
+    voltage_rating_v: 50
+    pins:
+      '1': EFUSE_DVDT
+      '2': GND
+    placement:
+      x: 6.16
+      y: 8.7
+      rot: 180.0
+      fixed: true
+  C653:
+    value: 22uF
+    mpn: CL31A226KAHNNNE
+    price_usd: 0.0932
+    lcsc: C12891
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 25
+    pins:
+      '1': 5V_SYS
+      '2': GND
+    placement:
+      x: 7.55
+      y: 14.15
+      rot: 0.0
+      fixed: true
+  C654:
+    value: 22uF
+    mpn: CL31A226KAHNNNE
+    price_usd: 0.0932
+    lcsc: C12891
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 25
+    pins:
+      '1': 5V_SYS
+      '2': GND
+    placement:
+      x: 7.55
+      y: 17.05
+      rot: 180.0
+      fixed: true
+  C655:
+    value: 22uF
+    mpn: CL31A226KAHNNNE
+    price_usd: 0.0932
+    lcsc: C12891
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_1206_3216Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 25
+    pins:
+      '1': 5V_SYS
+      '2': GND
+    placement:
+      x: 10.4
+      y: 21.1
+      rot: 0.0
+      fixed: true
+  C656:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    price_usd: 0.003
+    lcsc: C1525
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: vbus_path
+    decouples: U650
+    voltage_rating_v: 16
+    pins:
+      '1': HOST_5V
+      '2': GND
+    placement:
+      x: 11.3
+      y: 13.2
+      rot: 180.0
+      fixed: true
+  C659:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: pwr_ctl
+    decouples: U660
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 37.3
+      y: 17.15
+      rot: 0.0
+      fixed: true
+  C693:
+    value: 1nF
+    mpn: CL05B102KB5NNNC
+    lcsc: C1523
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: pwr_ctl
+    voltage_rating_v: 50
+    pins:
+      '1': HP_SEN
+      '2': GND
+    placement:
+      x: 43.3
+      y: 22.95
+      rot: 0.0
+      fixed: true
+  D301:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_host
+    pins:
+      '1': HOST_TX1_P
+      '2': HOST_TX1_N
+      '4': HOST_RX1_P
+      '5': HOST_RX1_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 24.91
+      y: 13.6
+      rot: 0.0
+      fixed: true
+  D302:
+    value: TPD4E02B04
+    mpn: TPD4E02B04DQAR
+    lcsc: C106794
+    price_usd: 0.22
+    symbol: Power_Protection:TPD4E02B04DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_host
+    pins:
+      '1': HOST_TX2_P
+      '2': HOST_TX2_N
+      '4': HOST_RX2_P
+      '5': HOST_RX2_N
+      '3': GND
+      '8': GND
+    nc:
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 24.9
+      y: 10.05
+      rot: 0.0
+      fixed: true
+  D303:
+    value: PUSB3FR4Z
+    mpn: PUSB3FR4Z-ES
+    lcsc: C41429303
+    price_usd: 0.0437
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: usb_host
+    pins:
+      '1': HOST_DP
+      '2': HOST_DM
+      '3': GND
+      '8': GND
+    nc:
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 6.6
+      y: 20.25
+      rot: 180.0
+      fixed: true
+  D600:
+    value: BZT52C22
+    mpn: BZT52C22
+    price_usd: 0.01
+    symbol: Device:D_Zener
+    footprint: Diode_SMD:D_SOD-123
+    group: pd_sink
+    pins:
+      '1': CH224_VBUS
+      '2': GND
+    placement:
+      x: 49.8
+      y: 2.85
+      rot: 180.0
+      fixed: true
+  D601:
+    value: TVS 24V bidir
+    mpn: PESD24VS1UB (DOWO)
+    lcsc: C2985484
+    price_usd: 0.03
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SOD-523
+    group: pd_sink
+    pins:
+      '1': PDIN_CC1
+      '2': GND
+    placement:
+      x: 63.25
+      y: 7.85
+      rot: 0.0
+      fixed: true
+  D602:
+    value: TVS 24V bidir
+    mpn: PESD24VS1UB (DOWO)
+    lcsc: C2985484
+    price_usd: 0.03
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SOD-523
+    group: pd_sink
+    pins:
+      '1': PDIN_CC2
+      '2': GND
+    placement:
+      x: 68.95
+      y: 12.6
+      rot: 270.0
+      fixed: true
+  D603:
+    value: SMBJ22A
+    mpn: SMBJ22A
+    price_usd: 0.0314
+    lcsc: C284010
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SMB
+    group: pd_sink
+    pins:
+      '1': PDIN_VBUS
+      '2': GND
+    placement:
+      x: 61.75
+      y: 21.45
+      rot: 0.0
+      fixed: true
+  D604:
+    value: BZT52C12
+    mpn: BZT52C12
+    price_usd: 0.01
+    symbol: Device:D_Zener
+    footprint: Diode_SMD:D_SOD-123
+    group: pd_sink
+    pins:
+      '1': SINK_S
+      '2': SINK_G
+    placement:
+      x: 43.6
+      y: 16.35
+      rot: 0.0
+      fixed: true
+  D605:
+    value: PUSB3FR4Z
+    mpn: PUSB3FR4Z-ES
+    lcsc: C41429303
+    price_usd: 0.0437
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    group: pd_sink
+    pins:
+      '1': PDIN_DP
+      '2': PDIN_DM
+      '3': GND
+      '8': GND
+    nc:
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    placement:
+      x: 55.35
+      y: 13.55
+      rot: 180.0
+      fixed: true
+  D630:
+    value: BZT52C12
+    mpn: BZT52C12
+    price_usd: 0.01
+    symbol: Device:D_Zener
+    footprint: Diode_SMD:D_SOD-123
+    group: pwr_ctl
+    pins:
+      '1': VIN20
+      '2': PDS_A
+    placement:
+      x: 22.0
+      y: 22.8
+      rot: 180.0
+      fixed: true
+  D631:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: Diode_SMD:D_SOD-123
+    group: pwr_ctl
+    pins:
+      '1': PDS_A
+      '2': PDS_G
+    placement:
+      x: 20.05
+      y: 19.95
+      rot: 180.0
+      fixed: true
+  D650:
+    value: SMBJ6.0A
+    mpn: SMBJ6.0A
+    price_usd: 0.2
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SMB
+    group: vbus_path
+    pins:
+      '1': VBUS_HOST
+      '2': GND
+    placement:
+      x: 9.25
+      y: 3.7
+      rot: 180.0
+      fixed: true
+  D651:
+    value: PESD5V0S1UB
+    mpn: PESD5V0S1UB
+    price_usd: 0.03
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SOD-523
+    group: vbus_path
+    pins:
+      '1': HOST_CC1
+      '2': GND
+    placement:
+      x: 18.2
+      y: 7.35
+      rot: 0.0
+      fixed: true
+  D652:
+    value: PESD5V0S1UB
+    mpn: PESD5V0S1UB
+    price_usd: 0.03
+    symbol: Device:D_TVS
+    footprint: Diode_SMD:D_SOD-523
+    group: vbus_path
+    pins:
+      '1': HOST_CC2
+      '2': GND
+    placement:
+      x: 11.25
+      y: 18.75
+      rot: 180.0
+      fixed: true
+  J301:
+    value: USB-C 24P MM
+    mpn: HC-TYPE-C-24P-MM-1.4-5A-12
+    lcsc: C5307768
+    price_usd: 0.6624
+    symbol: Connector:USB_C_Receptacle
+    footprint: kb_hub:USB_C_Receptacle_HCTL_HC-TYPE-C-24P-MM-1.4
+    group: usb_host
+    height_mm: 3.3
+    pins:
+      A1: GND
+      A12: GND
+      B1: GND
+      B12: GND
+      S1: GND
+      A4: VBUS_HOST
+      A9: VBUS_HOST
+      B4: VBUS_HOST
+      B9: VBUS_HOST
+      A5: HOST_CC1
+      B5: HOST_CC2
+      A6: HOST_DP
+      B6: HOST_DP
+      A7: HOST_DM
+      B7: HOST_DM
+      A2: HOST_TX1_P
+      A3: HOST_TX1_N
+      B11: HOST_RX1_P
+      B10: HOST_RX1_N
+      B2: HOST_TX2_P
+      B3: HOST_TX2_N
+      A11: HOST_RX2_P
+      A10: HOST_RX2_N
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 18.25
+      y: 13.4
+      rot: 0.0
+      fixed: true
+  J600:
+    value: USB-C 24P MM (PD in)
+    mpn: HC-TYPE-C-24P-MM-1.4-5A-12
+    lcsc: C5307768
+    price_usd: 0.6624
+    symbol: Connector:USB_C_Receptacle
+    footprint: kb_hub:USB_C_Receptacle_HCTL_HC-TYPE-C-24P-MM-1.4
+    group: pd_sink
+    height_mm: 3.3
+    pins:
+      A1: GND
+      A12: GND
+      B1: GND
+      B12: GND
+      S1: GND
+      A4: PDIN_VBUS
+      A9: PDIN_VBUS
+      B4: PDIN_VBUS
+      B9: PDIN_VBUS
+      A5: PDIN_CC1
+      B5: PDIN_CC2
+      A6: PDIN_DP
+      B6: PDIN_DP
+      A7: PDIN_DM
+      B7: PDIN_DM
+    nc:
+    - A2
+    - A3
+    - B2
+    - B3
+    - A10
+    - A11
+    - B10
+    - B11
+    - A8
+    - B8
+    placement:
+      x: 62.0
+      y: 13.9
+      rot: 0.0
+      fixed: true
+  M600:
+    value: AO4407A
+    mpn: AO4407A
+    lcsc: C16072
+    price_usd: 0.2433
+    symbol: Transistor_FET:IRF7404
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: pd_sink
+    theta_ja: 75
+    tj_max_c: 150
+    pins:
+      '1': SINK_S
+      '2': SINK_S
+      '3': SINK_S
+      '4': SINK_G
+      '5': PDIN_VBUS
+      '6': PDIN_VBUS
+      '7': PDIN_VBUS
+      '8': PDIN_VBUS
+    placement:
+      x: 50.2
+      y: 14.85
+      rot: 0.0
+      fixed: true
+  M601:
+    value: AO4407A
+    mpn: AO4407A
+    lcsc: C16072
+    price_usd: 0.2433
+    symbol: Transistor_FET:IRF7404
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: pd_sink
+    theta_ja: 75
+    tj_max_c: 150
+    pins:
+      '1': SINK_S
+      '2': SINK_S
+      '3': SINK_S
+      '4': SINK_G
+      '5': VIN20
+      '6': VIN20
+      '7': VIN20
+      '8': VIN20
+    placement:
+      x: 51.35
+      y: 20.85
+      rot: 0.0
+      fixed: true
+  M602:
+    value: BSS138
+    mpn: BSS138LT1G
+    lcsc: C82045
+    price_usd: 0.0417
+    datasheet: https://www.onsemi.com/pdf/datasheet/bss138lt1-d.pdf
+    symbol: Transistor_FET:BSS138
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: pd_sink
+    pins:
+      '1': CH224_VDD
+      '2': CH224_CC1
+      '3': PDIN_CC1
+    placement:
+      x: 59.45
+      y: 2.95
+      rot: 0.0
+      fixed: true
+  M603:
+    value: BSS138
+    mpn: BSS138LT1G
+    lcsc: C82045
+    price_usd: 0.0417
+    datasheet: https://www.onsemi.com/pdf/datasheet/bss138lt1-d.pdf
+    symbol: Transistor_FET:BSS138
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: pd_sink
+    pins:
+      '1': CH224_VDD
+      '2': CH224_CC2
+      '3': PDIN_CC2
+    placement:
+      x: 59.45
+      y: 6.9
+      rot: 0.0
+      fixed: true
+  M630:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: pwr_ctl
+    pins:
+      '1': PDS_G
+      '2': GND
+      '3': PDMODE_N
+    placement:
+      x: 15.2
+      y: 20.5
+      rot: 180.0
+      fixed: true
+  M631:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: pwr_ctl
+    pins:
+      '1': PDMODE_N
+      '2': GND
+      '3': PD_STAT
+    placement:
+      x: 30.9
+      y: 16.8
+      rot: 0.0
+      fixed: true
+  M657:
+    value: DMP2035U
+    mpn: DMP2035U-7
+    lcsc: C110499
+    price_usd: 0.1385
+    datasheet: https://www.diodes.com/assets/Datasheets/DMP2035U.pdf
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: vbus_path
+    theta_ja: 150
+    tj_max_c: 150
+    pins:
+      '1': HP_G
+      '2': HOST_5V
+      '3': 5V_SYS
+    placement:
+      x: 28.25
+      y: 11.55
+      rot: 0.0
+      fixed: true
+  M658:
+    value: BSS84
+    mpn: LBSS84LT1G
+    lcsc: C8492
+    price_usd: 0.0222
+    symbol: Transistor_FET:BSS84
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: vbus_path
+    pins:
+      '1': HP_OFFN
+      '2': HOST_5V
+      '3': HP_G
+    placement:
+      x: 26.4
+      y: 5.9
+      rot: 90.0
+      fixed: true
+  M659:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: vbus_path
+    pins:
+      '1': PD_STAT
+      '2': GND
+      '3': HP_OFFN
+    placement:
+      x: 30.7
+      y: 7.55
+      rot: 180.0
+      fixed: true
+  R301:
+    value: 910k
+    mpn: 0402 1% 910k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: usb_host
+    pins:
+      '1': VBUS_HOST
+      '2': HOST_VBUSDET
+    placement:
+      x: 11.55
+      y: 15.5
+      rot: 0.0
+      fixed: true
+  R600:
+    value: '100'
+    mpn: 0603 1% 100R 0.25W
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    group: pd_sink
+    pins:
+      '1': PDIN_VBUS
+      '2': CH224_VBUS
+    placement:
+      x: 54.05
+      y: 10.8
+      rot: 180.0
+      fixed: true
+  R601:
+    value: 5.1k
+    mpn: 1206 1% 5.1k 0.25W
+    price_usd: 0.003
+    symbol: Device:R
+    footprint: Resistor_SMD:R_1206_3216Metric
+    group: pd_sink
+    pins:
+      '1': PDIN_CC1
+      '2': GND
+    placement:
+      x: 66.2
+      y: 4.7
+      rot: 0.0
+      fixed: true
+  R602:
+    value: 5.1k
+    mpn: 1206 1% 5.1k 0.25W
+    price_usd: 0.003
+    symbol: Device:R
+    footprint: Resistor_SMD:R_1206_3216Metric
+    group: pd_sink
+    pins:
+      '1': PDIN_CC2
+      '2': GND
+    placement:
+      x: 74.85
+      y: 11.9
+      rot: 0.0
+      fixed: true
+  R603:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pd_sink
+    pins:
+      '1': SINK_G
+      '2': GND
+    placement:
+      x: 46.15
+      y: 20.0
+      rot: 180.0
+      fixed: true
+  R604:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pd_sink
+    pins:
+      '1': SINK_S
+      '2': SINK_G
+    placement:
+      x: 46.1
+      y: 18.55
+      rot: 0.0
+      fixed: true
+  R630:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': PDS_A
+      '2': GND
+    placement:
+      x: 15.2
+      y: 23.25
+      rot: 180.0
+      fixed: true
+  R631:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': PDS_A
+      '2': PDS_G
+    placement:
+      x: 18.05
+      y: 23.2
+      rot: 180.0
+      fixed: true
+  R632:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': 3V3_D
+      '2': PDMODE_N
+    placement:
+      x: 11.0
+      y: 23.3
+      rot: 0.0
+      fixed: true
+  R633:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': 3V3_D
+      '2': PD_STAT
+    placement:
+      x: 34.3
+      y: 17.05
+      rot: 0.0
+      fixed: true
+  R634:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': VIN20
+      '2': BUCK_EN
+    placement:
+      x: 29.9
+      y: 20.95
+      rot: 180.0
+      fixed: true
+  R635:
+    value: 13.7k
+    mpn: 0402 1% 13.7k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': BUCK_EN
+      '2': GND
+    placement:
+      x: 11.6
+      y: 17.0
+      rot: 0.0
+      fixed: true
+  R650:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': VBUS_HOST
+      '2': EFUSE_EN
+    placement:
+      x: 14.45
+      y: 4.15
+      rot: 0.0
+      fixed: true
+  R651:
+    value: 30.1k
+    mpn: 0402 1% 30.1k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': EFUSE_EN
+      '2': GND
+    placement:
+      x: 18.2
+      y: 5.55
+      rot: 0.0
+      fixed: true
+  R652:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': VBUS_HOST
+      '2': EFUSE_OVP
+    placement:
+      x: 6.2
+      y: 6.97
+      rot: 0.0
+      fixed: true
+  R653:
+    value: 20k
+    mpn: 0402 1% 20k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': EFUSE_OVP
+      '2': GND
+    placement:
+      x: 13.95
+      y: 7.6
+      rot: 0.0
+      fixed: true
+  R654:
+    value: 84.5k
+    mpn: 0402 0.1% 84.5k thin film
+    price_usd: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    tolerance: 0.001
+    pins:
+      '1': EFUSE_ILIM
+      '2': GND
+    placement:
+      x: 6.18
+      y: 10.15
+      rot: 180.0
+      fixed: true
+  R657:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': EFUSE_IMON
+      '2': GND
+    placement:
+      x: 6.18
+      y: 12.0
+      rot: 180.0
+      fixed: true
+  R658:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': HP_G
+      '2': GND
+    placement:
+      x: 25.95
+      y: 3.0
+      rot: 180.0
+      fixed: true
+  R659:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: vbus_path
+    pins:
+      '1': HOST_5V
+      '2': HP_OFFN
+    placement:
+      x: 27.25
+      y: 8.8
+      rot: 0.0
+      fixed: true
+  R665:
+    value: 15.4k
+    mpn: 0402 1% 15.4k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': 3V3_D
+      '2': CC_VH
+    placement:
+      x: 30.1
+      y: 22.6
+      rot: 0.0
+      fixed: true
+  R666:
+    value: 10k
+    mpn: 0402 1% 10k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': CC_VH
+      '2': GND
+    placement:
+      x: 32.45
+      y: 20.65
+      rot: 90.0
+      fixed: true
+  R667:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': 3V3_D
+      '2': CC_VL
+    placement:
+      x: 29.7
+      y: 4.8
+      rot: 0.0
+      fixed: true
+  R668:
+    value: 3.3k
+    mpn: 0402 1% 3.3k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': CC_VL
+      '2': CC_VLB
+    placement:
+      x: 34.65
+      y: 6.5
+      rot: 0.0
+      fixed: true
+  R669:
+    value: 6.19k
+    mpn: 0402 1% 6.19k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': CC_VLB
+      '2': GND
+    placement:
+      x: 35.05
+      y: 8.45
+      rot: 270.0
+      fixed: true
+  R690:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    tolerance: 0.01
+    pins:
+      '1': VIN20
+      '2': HP_SEN
+    placement:
+      x: 45.35
+      y: 22.3
+      rot: 90.0
+      fixed: true
+  R691:
+    value: 12.7k
+    mpn: 0402 1% 12.7k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    tolerance: 0.01
+    pins:
+      '1': HP_SEN
+      '2': GND
+    placement:
+      x: 43.45
+      y: 20.0
+      rot: 180.0
+      fixed: true
+  R692:
+    value: 1M
+    mpn: 0402 1% 1M
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: pwr_ctl
+    pins:
+      '1': PD_STAT
+      '2': HP_SEN
+    placement:
+      x: 43.35
+      y: 21.5
+      rot: 0.0
+      fixed: true
+  U301:
+    value: HD3SS3220
+    mpn: HD3SS3220IRNHR
+    lcsc: C701817
+    price_usd: 1.09
+    datasheet: notes/datasheets/hd3ss3220.md
+    symbol: kb_hub:HD3SS3220
+    footprint: kb_hub:WQFN-30-1EP_2.5x4.5mm_P0.4mm_EP1.2x3.2mm
+    group: usb_host
+    pins:
+      '2': HOST_CC1
+      '1': HOST_CC2
+      '5': HOST_VBUSDET
+      '29': GND
+      '12': GND
+      '4': GND
+      '3': GND
+      '6': HOST_TX_P
+      '7': HOST_TX_N
+      '9': HOST_RX_P
+      '10': HOST_RX_N
+      '17': HOST_TX1_P
+      '16': HOST_TX1_N
+      '15': HOST_RX1_P
+      '14': HOST_RX1_N
+      '21': HOST_TX2_P
+      '20': HOST_TX2_N
+      '19': HOST_RX2_P
+      '18': HOST_RX2_N
+      '30': 5V_SYS
+      '8': 3V3_D
+      '13': GND
+      '28': GND
+      '31': GND
+    nc:
+    - '11'
+    - '22'
+    - '23'
+    - '24'
+    - '27'
+    - '25'
+    - '26'
+    placement:
+      x: 26.65
+      y: 19.95
+      rot: 180.0
+      fixed: true
+  U600:
+    value: CH224D
+    mpn: CH224D
+    lcsc: C3975094
+    price_usd: 0.2403
+    datasheet: notes/datasheets/ch224d.md
+    symbol: kb_power:CH224D
+    footprint: Package_DFN_QFN:QFN-20-1EP_3x3mm_P0.4mm_EP1.65x1.65mm
+    group: pd_sink
+    pins:
+      '2': CH224_VBUS
+      '7': CH224_VDD
+      '11': CH224_CC1
+      '10': CH224_CC2
+      '8': PDIN_DP
+      '9': PDIN_DM
+      '6': GND
+      '14': GND
+      '15': GND
+      '21': GND
+    nc:
+    - '1'
+    - '19'
+    - '13'
+    - '12'
+    - '5'
+    - '3'
+    - '4'
+    - '16'
+    - '17'
+    - '18'
+    - '20'
+    placement:
+      x: 54.85
+      y: 4.55
+      rot: 0.0
+      fixed: true
+  U650:
+    value: TPS25940A
+    mpn: TPS25940ARVCR
+    lcsc: C2653873
+    price_usd: 1.5094
+    datasheet: notes/datasheets/tps25940a.md
+    symbol: kb_power:TPS25940A
+    footprint: kb_power:WQFN-20_RVC0020A_4.0x3.0mm_P0.5mm_EP2.6x1.6mm
+    group: vbus_path
+    theta_ja: 50
+    tj_max_c: 125
+    pins:
+      '9': VBUS_HOST
+      '10': VBUS_HOST
+      '11': VBUS_HOST
+      '12': VBUS_HOST
+      '13': VBUS_HOST
+      '4': HOST_5V
+      '5': HOST_5V
+      '6': HOST_5V
+      '7': HOST_5V
+      '8': HOST_5V
+      '14': EFUSE_EN
+      '15': EFUSE_OVP
+      '1': GND
+      '3': GND
+      '17': EFUSE_ILIM
+      '18': EFUSE_DVDT
+      '19': EFUSE_IMON
+      '16': GND
+      '21': GND
+    nc:
+    - '2'
+    - '20'
+    placement:
+      x: 10.05
+      y: 10.05
+      rot: 0.0
+      fixed: true
+  U660:
+    value: LMV339
+    mpn: LMV339IPWR
+    price_usd: 0.12
+    symbol: Comparator:LMV339
+    footprint: Package_SO:TSSOP-14_4.4x5mm_P0.65mm
+    group: pwr_ctl
+    pins:
+      '2': C1_EN
+      '4': C1_OVS
+      '5': C1_OVR
+      '1': C2_EN
+      '6': C2_OVS
+      '7': C2_OVR
+      '10': CC_VH
+      '11': HP_SEN
+      '13': PD_STAT
+      '8': CC_VH
+      '9': GND
+      '3': 3V3_D
+      '12': GND
+    nc:
+    - '14'
+    placement:
+      x: 37.8
+      y: 20.9
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.5mm
+    pins:
+      '1': 5V_SYS
+    group: cutout_terminal
+    placement:
+      x: 5.25
+      y: 26.2
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_OVS
+    group: cutout_terminal
+    placement:
+      x: 35.25
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC_VH
+    group: cutout_terminal
+    placement:
+      x: 30.5
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': CC_VL
+    group: cutout_terminal
+    placement:
+      x: 38.0
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_DM
+    group: cutout_terminal
+    placement:
+      x: 8.75
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_DP
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 22.6653
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_RX_N
+    group: cutout_terminal
+    placement:
+      x: 21.75
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_RX_P
+    group: cutout_terminal
+    placement:
+      x: 24.5
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_TX_N
+    group: cutout_terminal
+    placement:
+      x: 19.0
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HOST_TX_P
+    group: cutout_terminal
+    placement:
+      x: 27.25
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB19:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PDMODE_N
+    group: cutout_terminal
+    placement:
+      x: 11.5
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D2.0mm
+    pins:
+      '1': VIN20
+    group: cutout_terminal
+    placement:
+      x: 54.5
+      y: 26.45
+      rot: 0
+      fixed: true
+  TPB20:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PDS_G
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 19.8929
+      rot: 0
+      fixed: true
+  TPB21:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PD_STAT
+    group: cutout_terminal
+    placement:
+      x: 16.25
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB22:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBUS_HOST
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 17.1204
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 3V3_D
+    group: cutout_terminal
+    placement:
+      x: 27.4799
+      y: 24.25
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': BUCK_EN
+    group: cutout_terminal
+    placement:
+      x: 40.75
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_EN
+    group: cutout_terminal
+    placement:
+      x: 43.5
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_OVR
+    group: cutout_terminal
+    placement:
+      x: 46.25
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C1_OVS
+    group: cutout_terminal
+    placement:
+      x: 49.0
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_EN
+    group: cutout_terminal
+    placement:
+      x: 57.75
+      y: 26.95
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': C2_OVR
+    group: cutout_terminal
+    placement:
+      x: 60.5
+      y: 26.95
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  5V_SYS:
+    class: power
+    current_a: 4.0
+    external_supply: true
+  HOST_5V:
+    class: power
+    current_a: 3.3
+  3V3_D:
+    current_a: 0.3
+    external_supply: true
+  VBUS_HOST:
+    external_supply: true
+  PD_STAT:
+    class: signal
+    allow_single: true
+  HOST_TX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX1_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX1_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_TX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX2_P:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_RX2_N:
+    class: high_speed
+    edge_ns: 0.05
+    impedance_ohm: 45
+  HOST_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  HOST_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  VIN20:
+    class: power
+    current_a: 3.3
+    external_supply: true
+  PDIN_VBUS: {}
+  SINK_S:
+    class: power
+    current_a: 3.3
+  CH224_VBUS:
+    external_supply: true
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: key_matrix
+    kind: other
+    items: []
+    isolation_mm: 5
+    from: []
+    source: 'ANSI 104 at 19.05 mm pitch: 22.5 u x 6.5 u = 428.6 x 123.8 mm; R35 no matrix trace within 5 mm of the audio region'
+    poly:
+    - - 82.25
+      - 26.0
+    - - 3.25
+      - 26.0
+    - - 3.25
+      - 4.0
+    - - 0.0
+      - 4.0
+    - - 0.0
+      - 29.2
+    - - 82.25
+      - 29.2
+  - name: back_conn
+    kind: other
+    items:
+    - usbc_host
+    - host_mux
+    - usbc_pdin
+    - pd_sink
+    - vbus_path
+    source: 'R9, R20: host and PD input on the back edge, in the blank 4 u x 1 u above the numpad (no switch there)'
+    rect:
+    - 5.25
+    - 0.0
+    - 82.25
+    - 24.0
+  items:
+  - name: usbc_host
+    refs:
+    - J301
+    height_mm: 3.3
+    source: HCTL USB-C 24P mid-mount (provisional footprint, B1); under the plate gap 3.5 mm (C7)
+  - name: host_mux
+    groups:
+    - usb_host
+    height_mm: 1.0
+    source: HD3SS3220 + host SS/D ESD arrays at the host connector
+  - name: usbc_pdin
+    refs:
+    - J600
+    at:
+    - 43.25
+    - 3.8
+    side: front
+    height_mm: 3.3
+    source: USB-C power receptacle; centre 20 mm from the host socket (R20 <= 25)
+  - name: pd_sink
+    groups:
+    - pd_sink
+    - pwr_ctl
+    side: front
+    height_mm: 1.2
+    source: 'pass B real parts: CH224D sink + AO4407A back-to-back + TVS, and the PD/bus mode logic (pwr_ctl)'
+  - name: vbus_path
+    groups:
+    - vbus_path
+    side: front
+    height_mm: 1.2
+    source: host VBUS eFuse with ILIM (SOT/QFN 2x2) + CC Rp detect + ideal-diode OR

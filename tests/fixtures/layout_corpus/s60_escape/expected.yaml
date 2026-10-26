@@ -1,0 +1,80 @@
+source: synth60 (evals/bench/synth60) at its benchmark placement, whole board 63 x 48
+source_failure: 'pin-escape case: 31 unrouted, 31 DRC on the whole board'
+reproduces: 'yes: 32 unrouted, 24 nets open (source 31 unrouted); same board, nothing cut'
+fast:
+  check:
+    ok: false
+    errors: 2
+    warnings: 0
+    codes:
+    - escape
+  parts: 60
+  nets: 78
+  board_mm:
+  - 63.0
+  - 48.0
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 2237.7
+  rudy:
+    congestion: 97.8
+    max_overflow: 1.85
+  pin_access:
+    pads: 227
+    nets_no_exit_at_width:
+    - +3V3
+    - GND
+    necked:
+    - +3V3
+    no_access:
+    - U1.33
+    - U2.33
+  seconds:
+    check: 16.7
+    pin_access: 0.8
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 32
+  open_nets:
+  - GND
+  - S11A
+  - S11B
+  - S12A
+  - S13
+  - S15
+  - S16B
+  - S18B
+  - S19A
+  - S2
+  - S26A
+  - S27
+  - S29A
+  - S31
+  - S34
+  - S4
+  - S40B
+  - S41
+  - S42
+  - S44
+  - S45
+  - S8A
+  - S8B
+  - S9
+  drc_errors: 32
+  drc_types: {}
+  placement_violations: 0
+  router: '20 unrouted, krt 3 completed pass(es); retried in another net order (0.4 mm: +3V3 routed narrow first (corridor
+    proof, exact spacings; the router keeps 0.1 mm more from isolation keep-outs: +3V3 0 mm without a neck); 0.4 mm: neck-down
+    to 0.25 mm: +3V3 15.0 of 137.2 mm narrow, longest neck 2.9 mm; 0.'
+  route_groups: []
+  seconds: 1884.5
+  timing:
+    drc_s: 17.0
+    place_s: 0.1
+    repair_s: 120.0
+    route_s: 1730.3

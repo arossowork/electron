@@ -1,0 +1,92 @@
+source: home-thermostat v1 (projects/home-thermostat), build/placement.json, rect 64,14,104,40 (battery switch)
+source_failure: 'v1: the open nets AVDD_SW, BAT_N, M3_G, VBAT, VBAT_SENSE, VBAT_SW_G, VBAT_TOP sit here'
+reproduces: 'yes, faithfully: 15 unrouted with exactly the source''s open nets (AVDD_SW, BAT_N, GND, M3_G, VBAT, VBAT_SENSE,
+  VBAT_SW_G, VBAT_TOP); 11 items_not_allowed DRC (source 1) from the antenna projection keep-out the fixed parts already overlap'
+fast:
+  check:
+    ok: false
+    errors: 11
+    warnings: 0
+    codes:
+    - barrier
+    - cut
+  parts: 79
+  nets: 35
+  board_mm:
+  - 71.0
+  - 31.95
+  placement_violations: []
+  fixed_violations:
+  - BT1 courtyard or pad in keep-out 'antenna projection keepout (rear board)'
+  - C21 courtyard or pad in keep-out 'antenna projection keepout (rear board)'
+  - M1 courtyard or pad in keep-out 'antenna projection keepout (rear board)'
+  - M4 courtyard or pad in keep-out 'antenna projection keepout (rear board)'
+  - R19 courtyard or pad in keep-out 'antenna projection keepout (rear board)'
+  corridors: {}
+  placement_cost: 8744.0
+  rudy:
+    congestion: 57.4
+    max_overflow: 1.49
+  pin_access:
+    pads: 145
+    nets_no_exit_at_width:
+    - AVDD_SW
+    - BAT_N
+    - GND
+    - M3_G
+    - VBAT
+    - VBAT_SENSE
+    - VBAT_SW_G
+    - VBAT_TOP
+    necked: []
+    no_access:
+    - C22.1
+    - C22.2
+    - M1.1
+    - M1.2
+    - M3.1
+    - M3.2
+    - M3.3
+    - M4.1
+    - M4.2
+    - M4.3
+    - R17.1
+    - R17.2
+    - R3.1
+    - R3.2
+    - R4.1
+    - R4.2
+  seconds:
+    check: 15.7
+    pin_access: 1.1
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 15
+  open_nets:
+  - AVDD_SW
+  - BAT_N
+  - GND
+  - M3_G
+  - VBAT
+  - VBAT_SENSE
+  - VBAT_SW_G
+  - VBAT_TOP
+  drc_errors: 28
+  drc_types:
+    items_not_allowed: 11
+  placement_violations: 0
+  isolation: []
+  router: '17 unrouted, krt 3 completed pass(es); retried in another net order (0.4 mm: default order 9 unrouted, --ordering
+    inside_out 9 unrouted, --mps-reverse-rounds 9 unrouted, --direction backward 9 unrouted; 0.4 mm: neck-down to 0.25 mm:
+    AVDD_SW, BAT_N, VBAT still open; 0.4 mm: neck-down to 0.15 mm: AVDD'
+  route_groups: []
+  seconds: 939.7
+  timing:
+    drc_s: 28.8
+    place_s: 0.2
+    repair_s: 120.0
+    route_s: 779.2

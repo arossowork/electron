@@ -1,0 +1,60 @@
+source: home-thermostat-4 (projects/home-thermostat-4) at placer seed 1, routability benchmark 2026-10-25 (that placement
+  is kept only in this cutout), parts on net K2_IN1 (relay driver and MCU block)
+source_failure: 'seed 1: K2_IN1 open (1 unrouted, 1 DRC) on the whole board'
+reproduces: 'partly: 3 unrouted, open GND and K2_IN2 (the sibling relay input), not K2_IN1'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 1
+    codes: []
+  parts: 49
+  nets: 25
+  board_mm:
+  - 36.05
+  - 36.8
+  placement_violations: []
+  fixed_violations:
+  - block:mcu inside floorplan region 'antenna' (73.9 mm2)
+  - block:mcu inside floorplan region 'antenna_cells' (73.9 mm2)
+  corridors: {}
+  placement_cost: 84434.2
+  rudy:
+    congestion: 6.6
+    max_overflow: 0.5
+  pin_access:
+    pads: 114
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 5.5
+    pin_access: 0.3
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 18
+  violations: []
+  seconds: 1.6
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 3
+  open_nets:
+  - GND
+  - K2_IN2
+  drc_errors: 3
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '1 unrouted, krt 3 completed pass(es); retried in another net order (0.25 mm: default order 1 unrouted, --ordering
+    inside_out 1 unrouted, --mps-reverse-rounds 1 unrouted, --direction backward 1 unrouted; 0.25 mm: neck-down to 0.15 mm:
+    K2_IN2 still open; 0.25 mm: K2_COIL_B, SENS_EN routed before the o'
+  route_groups: []
+  seconds: 537.3
+  timing:
+    drc_s: 11.0
+    place_s: 0.2
+    repair_s: 120.0
+    route_s: 395.1

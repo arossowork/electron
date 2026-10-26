@@ -1,0 +1,72 @@
+source: home-thermostat v1 (projects/home-thermostat), build/placement.json, rect 0,0,50,40 (relays, terminals)
+source_project: home_thermostat
+placement: build/placement.json
+selection:
+  parts: null
+  region: 0,0,50,40
+  nets: null
+window:
+- 0.0
+- 0.0
+- 65.4
+- 40.0
+frame_mm: 5.0
+offset:
+- -0.0
+- -0.0
+board_mm:
+- 65.4
+- 40.0
+free: []
+dropped_neighbors:
+- SLOT1
+terminals:
+- ref: TPB1
+  net: COIL1_A
+  from: J4A.3
+  to: J4B.3
+  at:
+  - 63.15
+  - 5.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: COIL1_B
+  from: J4A.4
+  to: J4B.4
+  at:
+  - 63.15
+  - 8.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: COIL2_A
+  from: J4A.5
+  to: J4B.5
+  at:
+  - 63.15
+  - 11.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: COIL2_B
+  from: J4A.6
+  to: J4B.6
+  at:
+  - 63.15
+  - 2.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: PROBE1
+  from: J4A.9
+  to: J4B.9
+  at:
+  - 63.15
+  - 13.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: PROBE2
+  from: J4A.10
+  to: J4B.10
+  at:
+  - 57.85
+  - 30.1864
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

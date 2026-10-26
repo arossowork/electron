@@ -1,0 +1,2221 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_audio_dig
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_audio_dig)
+board:
+  width_mm: 54.5
+  height_mm: 29.0
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  C1100:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1101
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 18.05
+      y: 9.15
+      rot: 0.0
+      fixed: true
+  C1101:
+    value: 22pF
+    mpn: CL05C220JB5NNNC
+    lcsc: C1555
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    voltage_rating_v: 50
+    pins:
+      '1': XU_XI
+      '2': GND
+    placement:
+      x: 26.1
+      y: 26.05
+      rot: 0.0
+      fixed: true
+  C1102:
+    value: 22pF
+    mpn: CL05C220JB5NNNC
+    lcsc: C1555
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    voltage_rating_v: 50
+    pins:
+      '1': XU_XOR
+      '2': GND
+    placement:
+      x: 7.71
+      y: 21.9
+      rot: 90.0
+      fixed: true
+  C1103:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: Y1101
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 22.8
+      y: 9.53
+      rot: 0.0
+      fixed: true
+  C1104:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: Y1102
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 21.2
+      y: 14.7
+      rot: 0.0
+      fixed: true
+  C1110:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 18.35
+      y: 14.6
+      rot: 0.0
+      fixed: true
+  C1111:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 13.75
+      y: 24.75
+      rot: 180.0
+      fixed: true
+  C1112:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 15.95
+      y: 14.6
+      rot: 0.0
+      fixed: true
+  C1113:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 16.15
+      y: 24.7
+      rot: 180.0
+      fixed: true
+  C1114:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 21.25
+      y: 20.75
+      rot: 0.0
+      fixed: true
+  C1115:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 10.65
+      y: 18.6
+      rot: 90.0
+      fixed: true
+  C1116:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 21.2
+      y: 19.3
+      rot: 0.0
+      fixed: true
+  C1117:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 21.2
+      y: 17.85
+      rot: 0.0
+      fixed: true
+  C1118:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 25
+    pins:
+      '1': 0V9_CORE
+      '2': GND
+    placement:
+      x: 22.9
+      y: 24.35
+      rot: 0.0
+      fixed: true
+  C1119:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': XU_PLL
+      '2': GND
+    placement:
+      x: 21.2
+      y: 26.4
+      rot: 0.0
+      fixed: true
+  C1120:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 21.5
+      y: 16.4
+      rot: 0.0
+      fixed: true
+  C1121:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 21.21
+      y: 22.2
+      rot: 0.0
+      fixed: true
+  C1122:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 23.55
+      y: 19.3
+      rot: 0.0
+      fixed: true
+  C1123:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 23.6
+      y: 20.8
+      rot: 0.0
+      fixed: true
+  C1124:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 25
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 26.75
+      y: 21.6
+      rot: 0.0
+      fixed: true
+  C1125:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 1V8_D
+      '2': GND
+    placement:
+      x: 18.75
+      y: 25.8
+      rot: 0.0
+      fixed: true
+  C1126:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 1V8_D
+      '2': GND
+    placement:
+      x: 19.75
+      y: 24.33
+      rot: 0.0
+      fixed: true
+  C1127:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 16
+    pins:
+      '1': 1V8_D
+      '2': GND
+    placement:
+      x: 18.8
+      y: 27.29
+      rot: 0.0
+      fixed: true
+  C1128:
+    value: 10uF
+    mpn: CL21A106KAYNNNE
+    lcsc: C15850
+    price_usd: 0.012
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    group: audio_bridge
+    decouples: U1100
+    voltage_rating_v: 25
+    pins:
+      '1': 1V8_D
+      '2': GND
+    placement:
+      x: 26.9
+      y: 24.11
+      rot: 0.0
+      fixed: true
+  C401:
+    value: 15pF
+    mpn: 0402 C0G 15 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    voltage_rating_v: 50
+    pins:
+      '1': MCU_XIN
+      '2': GND
+    placement:
+      x: 43.5
+      y: 23.35
+      rot: 0.0
+      fixed: true
+  C402:
+    value: 15pF
+    mpn: 0402 C0G 15 pF
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    voltage_rating_v: 50
+    pins:
+      '1': MCU_XOUT_X
+      '2': GND
+    placement:
+      x: 46.25
+      y: 23.35
+      rot: 180.0
+      fixed: true
+  C403:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 45.2
+      y: 15.0
+      rot: 0.0
+      fixed: true
+  C404:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 41.9
+      y: 11.1
+      rot: 0.0
+      fixed: true
+  C405:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 37.1
+      y: 11.1
+      rot: 180.0
+      fixed: true
+  C406:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 37.2
+      y: 9.65
+      rot: 180.0
+      fixed: true
+  C407:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 39.1
+      y: 8.2
+      rot: 180.0
+      fixed: true
+  C408:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 39.5
+      y: 11.1
+      rot: 180.0
+      fixed: true
+  C409:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 45.2
+      y: 12.15
+      rot: 0.0
+      fixed: true
+  C410:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 45.2
+      y: 13.62
+      rot: 0.0
+      fixed: true
+  C411:
+    value: 1uF
+    mpn: CL05A105KA5NQNC
+    lcsc: C52923
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 10
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 45.15
+      y: 16.45
+      rot: 0.0
+      fixed: true
+  C412:
+    value: 1uF
+    mpn: CL05A105KA5NQNC
+    lcsc: C52923
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 10
+    pins:
+      '1': MCU_1V1
+      '2': GND
+    placement:
+      x: 43.65
+      y: 21.4
+      rot: 0.0
+      fixed: true
+  C413:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': MCU_1V1
+      '2': GND
+    placement:
+      x: 45.2
+      y: 17.95
+      rot: 0.0
+      fixed: true
+  C414:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': MCU_1V1
+      '2': GND
+    placement:
+      x: 43.9
+      y: 22.87
+      rot: 0.0
+      fixed: true
+  C415:
+    value: 100nF
+    mpn: CL05B104KO5NNNC
+    lcsc: C1525
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U402
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 35.2
+      y: 8.2
+      rot: 0.0
+      fixed: true
+  C416:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.006
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 10
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 42.0
+      y: 8.25
+      rot: 0.0
+      fixed: true
+  C417:
+    value: 1uF
+    mpn: CL05A105KO5NNNC
+    lcsc: C52923
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U401
+    voltage_rating_v: 16
+    pins:
+      '1': 3V3_D
+      '2': GND
+    placement:
+      x: 39.55
+      y: 9.99
+      rot: 180.0
+      fixed: true
+  FB1100:
+    value: BLM15AG601SN1D
+    mpn: BLM15AG601SN1D
+    price_usd: 0.02
+    symbol: Device:FerriteBead
+    footprint: Inductor_SMD:L_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': 0V9_CORE
+      '2': XU_PLL
+    placement:
+      x: 23.6
+      y: 26.4
+      rot: 180.0
+      fixed: true
+  M933:
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.0155
+    symbol: Transistor_FET:2N7002
+    footprint: Package_TO_SOT_SMD:SOT-23
+    group: audio_bridge
+    pins:
+      '1': AUDIO_UNMUTE
+      '2': GND
+      '3': HP_MUTE
+    placement:
+      x: 10.64
+      y: 21.72
+      rot: 0.0
+      fixed: true
+  R1100:
+    value: 4.7k
+    mpn: 0402 1% 4.7k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': 3V3_D
+      '2': XQ_CS
+    placement:
+      x: 8.7
+      y: 14.35
+      rot: 0.0
+      fixed: true
+  R1101:
+    value: '680'
+    mpn: 0402 1% 680
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': XU_XO
+      '2': XU_XOR
+    placement:
+      x: 10.15
+      y: 23.35
+      rot: 180.0
+      fixed: true
+  R1102:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': MCLK48_O
+      '2': MCLK
+    placement:
+      x: 24.87
+      y: 8.05
+      rot: 180.0
+      fixed: true
+  R1103:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': MCLK44_O
+      '2': MCLK
+    placement:
+      x: 20.45
+      y: 8.1
+      rot: 0.0
+      fixed: true
+  R1104:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': OSC48_EN
+      '2': GND
+    placement:
+      x: 23.55
+      y: 17.85
+      rot: 0.0
+      fixed: true
+  R1105:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': OSC44_EN
+      '2': GND
+    placement:
+      x: 23.55
+      y: 22.25
+      rot: 0.0
+      fixed: true
+  R1106:
+    value: 2.2k
+    mpn: 0402 1% 2.2k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': 3V3_D
+      '2': I2C_SCL
+    placement:
+      x: 8.2
+      y: 15.85
+      rot: 180.0
+      fixed: true
+  R1107:
+    value: 2.2k
+    mpn: 0402 1% 2.2k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': 3V3_D
+      '2': I2C_SDA
+    placement:
+      x: 10.61
+      y: 16.05
+      rot: 0.0
+      fixed: true
+  R1108:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': XI2S_BCLK
+      '2': I2S_BCLK
+    placement:
+      x: 11.15
+      y: 14.6
+      rot: 180.0
+      fixed: true
+  R1109:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': XI2S_LRCK
+      '2': I2S_LRCK
+    placement:
+      x: 13.55
+      y: 14.58
+      rot: 180.0
+      fixed: true
+  R1110:
+    value: '33'
+    mpn: 0402 1% 33
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': XI2S_DOUT
+      '2': I2S_DOUT
+    placement:
+      x: 8.7
+      y: 17.5
+      rot: 180.0
+      fixed: true
+  R401:
+    value: 1k
+    mpn: 0402 1% 1k
+    lcsc: C11702
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: mcu
+    pins:
+      '1': MCU_XOUT
+      '2': MCU_XOUT_X
+    placement:
+      x: 46.3
+      y: 21.85
+      rot: 0.0
+      fixed: true
+  R402:
+    value: '27'
+    mpn: 0402 1% 27R
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: mcu
+    pins:
+      '1': RP_DP
+      '2': MCU_DP
+    placement:
+      x: 44.95
+      y: 9.15
+      rot: 0.0
+      fixed: true
+  R403:
+    value: '27'
+    mpn: 0402 1% 27R
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: mcu
+    pins:
+      '1': RP_DM
+      '2': MCU_DM
+    placement:
+      x: 45.75
+      y: 10.65
+      rot: 0.0
+      fixed: true
+  R404:
+    value: 1k
+    mpn: 0402 1% 1k
+    lcsc: C11702
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: mcu
+    pins:
+      '1': QSPI_SS
+      '2': BOOT_N
+    placement:
+      x: 24.9
+      y: 15.15
+      rot: 180.0
+      fixed: true
+  R405:
+    value: 10k
+    mpn: 0402 1% 10k
+    lcsc: C25744
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: mcu
+    pins:
+      '1': 3V3_D
+      '2': MCU_RUN
+    placement:
+      x: 34.4
+      y: 22.0
+      rot: 0.0
+      fixed: true
+  R937:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': AUDIO_UNMUTE
+      '2': GND
+    placement:
+      x: 8.7
+      y: 19.0
+      rot: 0.0
+      fixed: true
+  R938:
+    value: 100k
+    mpn: 0402 1% 100k
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: audio_bridge
+    pins:
+      '1': 3V3_D
+      '2': HP_MUTE
+    placement:
+      x: 8.18
+      y: 23.83
+      rot: 0.0
+      fixed: true
+  SW401:
+    value: BOOTSEL
+    mpn: TS-1187A-B-A-B
+    price_usd: 0.03
+    symbol: Switch:SW_Push
+    footprint: Button_Switch_SMD:SW_SPST_TL3342
+    group: mcu
+    pins:
+      '1': BOOT_N
+      '2': GND
+    placement:
+      x: 30.6
+      y: 17.05
+      rot: 0.0
+      fixed: true
+  SW402:
+    value: RESET
+    mpn: TS-1187A-B-A-B
+    price_usd: 0.03
+    symbol: Switch:SW_Push
+    footprint: Button_Switch_SMD:SW_SPST_TL3342
+    group: mcu
+    pins:
+      '1': MCU_RUN
+      '2': GND
+    placement:
+      x: 37.79
+      y: 24.75
+      rot: 0.0
+      fixed: true
+  TP1100:
+    value: TDI
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': XU_TDI
+    placement:
+      x: 13.8
+      y: 26.75
+      rot: 0.0
+      fixed: true
+  TP1101:
+    value: TDO
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': XU_TDO
+    placement:
+      x: 16.3
+      y: 26.71
+      rot: 90.0
+      fixed: true
+  TP1102:
+    value: TMS
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': XU_TMS
+    placement:
+      x: 30.15
+      y: 24.2
+      rot: 0.0
+      fixed: true
+  TP1103:
+    value: TCK
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': XU_TCK
+    placement:
+      x: 30.15
+      y: 21.7
+      rot: 0.0
+      fixed: true
+  TP1104:
+    value: RST_N
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': XU_RST_N
+    placement:
+      x: 28.6
+      y: 26.75
+      rot: 270.0
+      fixed: true
+  TP1105:
+    value: VTREF_1V8
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: audio_bridge
+    pins:
+      '1': 1V8_D
+    placement:
+      x: 46.25
+      y: 26.75
+      rot: 0.0
+      fixed: true
+  TP401:
+    value: SWCLK
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: mcu
+    pins:
+      '1': SWCLK
+    placement:
+      x: 41.05
+      y: 21.47
+      rot: 180.0
+      fixed: true
+  TP402:
+    value: SWDIO
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: mcu
+    pins:
+      '1': SWDIO
+    placement:
+      x: 46.15
+      y: 19.96
+      rot: 180.0
+      fixed: true
+  TP403:
+    value: GND
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    group: mcu
+    pins:
+      '1': GND
+    placement:
+      x: 31.99
+      y: 26.75
+      rot: 0.0
+      fixed: true
+  U1100:
+    value: XU316-1024-QF60B
+    mpn: XU316-1024-QF60B-C24
+    price_usd: 6.8
+    datasheet: notes/datasheets/xu316-1024-qf60b.md
+    symbol: kb_audio:XU316-1024-QF60B
+    footprint: kb_audio:QFN-60-5EP_7x7mm_P0.4mm_XU316
+    package: QFN-60
+    package_pads: 65
+    package_pitch_mm: 0.4
+    group: audio_bridge
+    theta_ja: 30
+    tj_max_c: 125
+    pins:
+      '1': XQ_D1
+      '2': XQ_D3
+      '3': XQ_CS
+      '5': XQ_CLK
+      '59': XQ_D0
+      '60': XQ_D2
+      '6': I2C_SDA
+      '7': I2C_SCL
+      '8': 3V3_D
+      '38': 3V3_D
+      '52': 3V3_D
+      '30': 3V3_D
+      '17': 1V8_D
+      '26': 1V8_D
+      '31': 1V8_D
+      '65': GND
+      '22': XU_PLL
+      '15': XU_XO
+      '16': XU_XI
+      '18': XU_TDI
+      '20': XU_TDO
+      '21': XU_RST_N
+      '23': XU_TMS
+      '24': XU_TCK
+      '28': AUD_DM
+      '29': AUD_DP
+      '32': MIC_GAIN
+      '40': ADC_PWR_EN
+      '41': MCLK
+      '43': XI2S_BCLK
+      '44': XI2S_LRCK
+      '45': XI2S_DOUT
+      '46': OSC48_EN
+      '47': I2S_DIN
+      '48': DAC_EN
+      '50': OSC44_EN
+      '51': ADC_EN
+      '53': MIC_DET
+      '39': AUDIO_UNMUTE
+      '4': 0V9_CORE
+      '12': 0V9_CORE
+      '19': 0V9_CORE
+      '27': 0V9_CORE
+      '34': 0V9_CORE
+      '42': 0V9_CORE
+      '49': 0V9_CORE
+      '57': 0V9_CORE
+      '61': 0V9_CORE
+      '62': 0V9_CORE
+      '63': 0V9_CORE
+      '64': 0V9_CORE
+    nc:
+    - '9'
+    - '10'
+    - '11'
+    - '13'
+    - '14'
+    - '25'
+    - '33'
+    - '35'
+    - '36'
+    - '37'
+    - '54'
+    - '55'
+    - '56'
+    - '58'
+    placement:
+      x: 15.7
+      y: 19.65
+      rot: 0.0
+      fixed: true
+  U1101:
+    value: W25Q64JVSSIQ
+    mpn: W25Q64JVSSIQ
+    lcsc: C179171
+    price_usd: 1.6
+    symbol: Memory_Flash:W25Q32JVSS
+    footprint: Package_SO:SOIC-8_5.275x5.275mm_P1.27mm
+    group: audio_bridge
+    pins:
+      '1': XQ_CS
+      '2': XQ_D1
+      '3': XQ_D2
+      '4': GND
+      '5': XQ_D0
+      '6': XQ_CLK
+      '7': XQ_D3
+      '8': 3V3_D
+    placement:
+      x: 11.9
+      y: 10.45
+      rot: 0.0
+      fixed: true
+  U401:
+    value: RP2040
+    mpn: RP2040
+    lcsc: C2040
+    price_usd: 0.99
+    datasheet: notes/datasheets/rp2040.md
+    symbol: MCU_RaspberryPi:RP2040
+    footprint: Package_DFN_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP3.2x3.2mm
+    group: mcu
+    pins:
+      '2': ROW0
+      '3': ROW1
+      '4': ROW2
+      '5': ROW3
+      '6': ROW4
+      '7': ROW5
+      '8': ROW6
+      '9': ROW7
+      '11': ROW8
+      '12': ROW9
+      '13': ROW10
+      '14': ROW11
+      '15': COL0
+      '16': COL1
+      '17': COL2
+      '18': COL3
+      '27': COL4
+      '28': COL5
+      '29': COL6
+      '30': COL7
+      '31': COL8
+      '32': COL9
+      '34': COL10
+      '35': ENC_A
+      '36': ENC_B
+      '37': ENC_SW
+      '38': JACK_DET
+      '1': 3V3_D
+      '10': 3V3_D
+      '22': 3V3_D
+      '33': 3V3_D
+      '42': 3V3_D
+      '49': 3V3_D
+      '44': 3V3_D
+      '48': 3V3_D
+      '43': 3V3_D
+      '23': MCU_1V1
+      '50': MCU_1V1
+      '45': MCU_1V1
+      '57': GND
+      '19': GND
+      '20': MCU_XIN
+      '21': MCU_XOUT
+      '24': SWCLK
+      '25': SWDIO
+      '26': MCU_RUN
+      '46': RP_DM
+      '47': RP_DP
+      '51': QSPI_SD3
+      '52': QSPI_SCLK
+      '53': QSPI_SD0
+      '54': QSPI_SD2
+      '55': QSPI_SD1
+      '56': QSPI_SS
+    nc:
+    - '39'
+    - '40'
+    - '41'
+    placement:
+      x: 39.6
+      y: 16.25
+      rot: 0.0
+      fixed: true
+  U402:
+    value: W25Q16JV
+    mpn: W25Q16JVSNIQ
+    lcsc: C2456211
+    price_usd: 0.8
+    symbol: Memory_Flash:W25Q128JVS
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    group: mcu
+    pins:
+      '1': QSPI_SS
+      '2': QSPI_SD1
+      '3': QSPI_SD2
+      '4': GND
+      '5': QSPI_SD0
+      '6': QSPI_SCLK
+      '7': QSPI_SD3
+      '8': 3V3_D
+    placement:
+      x: 30.05
+      y: 10.4
+      rot: 0.0
+      fixed: true
+  Y1100:
+    value: 24MHz
+    mpn: X322524MOB4SI
+    lcsc: C70590
+    price_usd: 0.058
+    symbol: Device:Crystal_GND24
+    footprint: Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm
+    group: audio_bridge
+    pins:
+      '1': XU_XI
+      '3': XU_XOR
+      '2': GND
+      '4': GND
+    placement:
+      x: 10.1
+      y: 26.05
+      rot: 180.0
+      fixed: true
+  Y1101:
+    value: 24.576MHz
+    mpn: SIT1602BC-23-33S-24.576000E
+    price_usd: 1.2
+    symbol: Oscillator:ASE-xxxMHz
+    footprint: Oscillator:Oscillator_SMD_Abracon_ASE-4Pin_3.2x2.5mm
+    group: audio_bridge
+    pins:
+      '1': OSC48_EN
+      '2': GND
+      '3': MCLK48_O
+      '4': 3V3_D
+    placement:
+      x: 23.7
+      y: 12.0
+      rot: 0.0
+      fixed: true
+  Y1102:
+    value: 22.5792MHz
+    mpn: SIT8008BC-23-33S-22.579200E
+    price_usd: 1.2
+    symbol: Oscillator:ASE-xxxMHz
+    footprint: Oscillator:Oscillator_SMD_Abracon_ASE-4Pin_3.2x2.5mm
+    group: audio_bridge
+    pins:
+      '1': OSC44_EN
+      '2': GND
+      '3': MCLK44_O
+      '4': 3V3_D
+    placement:
+      x: 19.15
+      y: 11.9
+      rot: 0.0
+      fixed: true
+  Y401:
+    value: 12MHz
+    mpn: ABM8-272-T3
+    price_usd: 0.45
+    symbol: Device:Crystal_GND24
+    footprint: Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm
+    group: mcu
+    height_mm: 0.8
+    pins:
+      '1': MCU_XIN
+      '2': GND
+      '3': MCU_XOUT_X
+      '4': GND
+    placement:
+      x: 44.75
+      y: 26.05
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 0V9_CORE
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 21.0
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL10
+    group: cutout_terminal
+    placement:
+      x: 51.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL2
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 15.25
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL3
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL4
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 5.0
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL5
+    group: cutout_terminal
+    placement:
+      x: 17.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL6
+    group: cutout_terminal
+    placement:
+      x: 27.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL7
+    group: cutout_terminal
+    placement:
+      x: 35.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL8
+    group: cutout_terminal
+    placement:
+      x: 43.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL9
+    group: cutout_terminal
+    placement:
+      x: 48.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB19:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': DAC_EN
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 17.5
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 1V8_D
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 23.75
+      rot: 0
+      fixed: true
+  TPB20:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ENC_A
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 10.5
+      rot: 0
+      fixed: true
+  TPB21:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ENC_B
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 13.25
+      rot: 0
+      fixed: true
+  TPB22:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ENC_SW
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 23.0
+      rot: 0
+      fixed: true
+  TPB23:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': HP_MUTE
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 25.75
+      rot: 0
+      fixed: true
+  TPB24:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SCL
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 20.25
+      rot: 0
+      fixed: true
+  TPB25:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SDA
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 16.7618
+      rot: 0
+      fixed: true
+  TPB26:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_BCLK
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 7.75
+      rot: 0
+      fixed: true
+  TPB27:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_DIN
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 13.9974
+      rot: 0
+      fixed: true
+  TPB28:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_DOUT
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 19.5263
+      rot: 0
+      fixed: true
+  TPB29:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2S_LRCK
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 11.2329
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': 3V3_D
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 24.05
+      rot: 0
+      fixed: true
+  TPB30:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': JACK_DET
+    group: cutout_terminal
+    placement:
+      x: 2.25
+      y: 5.0
+      rot: 0
+      fixed: true
+  TPB31:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCLK
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 8.4684
+      rot: 0
+      fixed: true
+  TPB32:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCU_DM
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 11.25
+      rot: 0
+      fixed: true
+  TPB33:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MCU_DP
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 8.5
+      rot: 0
+      fixed: true
+  TPB34:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_DET
+    group: cutout_terminal
+    placement:
+      x: 5.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB35:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_GAIN
+    group: cutout_terminal
+    placement:
+      x: 4.95
+      y: 5.7039
+      rot: 0
+      fixed: true
+  TPB36:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW0
+    group: cutout_terminal
+    placement:
+      x: 38.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB37:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW1
+    group: cutout_terminal
+    placement:
+      x: 32.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB38:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW10
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 6.9605
+      rot: 0
+      fixed: true
+  TPB39:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW11
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 18.0
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ADC_EN
+    group: cutout_terminal
+    placement:
+      x: 7.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB40:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW2
+    group: cutout_terminal
+    placement:
+      x: 41.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB41:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW3
+    group: cutout_terminal
+    placement:
+      x: 30.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB42:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW4
+    group: cutout_terminal
+    placement:
+      x: 35.268
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB43:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW5
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 9.725
+      rot: 0
+      fixed: true
+  TPB44:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW6
+    group: cutout_terminal
+    placement:
+      x: 43.286
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB45:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW7
+    group: cutout_terminal
+    placement:
+      x: 46.0421
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB46:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW8
+    group: cutout_terminal
+    placement:
+      x: 40.5298
+      y: 4.95
+      rot: 0
+      fixed: true
+  TPB47:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW9
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 12.4895
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ADC_PWR_EN
+    group: cutout_terminal
+    placement:
+      x: 10.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_DM
+    group: cutout_terminal
+    placement:
+      x: 52.25
+      y: 26.5
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AUD_DP
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 22.2908
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL0
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 15.2539
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL1
+    group: cutout_terminal
+    placement:
+      x: 49.55
+      y: 18.0184
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  3V3_D:
+    current_a: 0.3
+    external_supply: true
+  MCU_1V1:
+    current_a: 0.05
+  MCU_XIN:
+    class: clock
+  MCU_XOUT:
+    class: clock
+  MCU_XOUT_X:
+    class: clock
+  JACK_DET:
+    class: signal
+  MCU_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  MCU_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  RP_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  RP_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  AUD_DP:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  AUD_DM:
+    class: high_speed
+    edge_ns: 0.5
+    impedance_ohm: 45
+  ROW0:
+    class: signal
+    edge_ns: 20
+  ROW1:
+    class: signal
+    edge_ns: 20
+  ROW2:
+    class: signal
+    edge_ns: 20
+  ROW3:
+    class: signal
+    edge_ns: 20
+  ROW4:
+    class: signal
+    edge_ns: 20
+  ROW5:
+    class: signal
+    edge_ns: 20
+  ROW6:
+    class: signal
+    edge_ns: 20
+  ROW7:
+    class: signal
+    edge_ns: 20
+  ROW8:
+    class: signal
+    edge_ns: 20
+  ROW9:
+    class: signal
+    edge_ns: 20
+  ROW10:
+    class: signal
+    edge_ns: 20
+  ROW11:
+    class: signal
+    edge_ns: 20
+  COL0:
+    class: signal
+    edge_ns: 20
+  COL1:
+    class: signal
+    edge_ns: 20
+  COL2:
+    class: signal
+    edge_ns: 20
+  COL3:
+    class: signal
+    edge_ns: 20
+  COL4:
+    class: signal
+    edge_ns: 20
+  COL5:
+    class: signal
+    edge_ns: 20
+  COL6:
+    class: signal
+    edge_ns: 20
+  COL7:
+    class: signal
+    edge_ns: 20
+  COL8:
+    class: signal
+    edge_ns: 20
+  COL9:
+    class: signal
+    edge_ns: 20
+  COL10:
+    class: signal
+    edge_ns: 20
+  0V9_CORE:
+    current_a: 0.4
+    external_supply: true
+  1V8_D:
+    current_a: 0.05
+  XU_PLL:
+    current_a: 0.01
+    external_supply: true
+  MCLK:
+    class: clock
+  MCLK48_O:
+    class: clock
+  MCLK44_O:
+    class: clock
+  I2S_BCLK:
+    class: clock
+  XI2S_BCLK:
+    class: clock
+  XU_XI:
+    class: clock
+  XU_XO:
+    class: clock
+  XU_XOR:
+    class: clock
+  XQ_CLK:
+    class: clock
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: key_matrix
+    kind: other
+    items: []
+    isolation_mm: 5
+    from: []
+    source: 'ANSI 104 at 19.05 mm pitch: 22.5 u x 6.5 u = 428.6 x 123.8 mm; R35 no matrix trace within 5 mm of the audio region'
+    rect:
+    - 0.0
+    - 0.0
+    - 54.5
+    - 7.0
+  - name: ui
+    kind: other
+    items: []
+    source: R28 knob on the front strip, next to the audio corner (not inside it); 255 mm2 in 440 (58 %)
+    rect:
+    - 0.0
+    - 7.0
+    - 5.25
+    - 29.0
+  - name: audio_dig
+    kind: other
+    items:
+    - audio_bridge
+    - mcu
+    source: 'USB audio bridge and keyboard MCU: 539 mm2 in 880 (61 %); USB traces stay >= 24 mm from the audio region (R35
+      asks 5 mm)'
+    rect:
+    - 7.25
+    - 7.0
+    - 47.25
+    - 29.0
+  - name: power_a
+    kind: other
+    items: []
+    source: '5 V buck (USB-A + internal), 3.3 V / 0.9 V bucks, +-5.5 V audio pre-regulator: 785 mm2 in 1232 (64 %), 66 mm
+      from audio (R35 30)'
+    rect:
+    - 49.25
+    - 7.0
+    - 54.5
+    - 29.0
+  items:
+  - name: audio_bridge
+    groups:
+    - audio_bridge
+    side: front
+    height_mm: 1.2
+    source: 'pass C real parts: XU316 QFN-60 7x7, W25Q64 SOIC-8, 24 MHz crystal, 2 MCLK oscillators, decoupling, JTAG pads'
+  - name: mcu
+    groups:
+    - mcu
+    height_mm: 1.0
+    source: RP2040 QFN-56 + W25Q16 SOIC-8 + 12 MHz crystal, buttons, SWD pads

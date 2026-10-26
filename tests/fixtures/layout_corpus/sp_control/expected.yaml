@@ -1,0 +1,51 @@
+source: sensor_preamp (examples/sensor_preamp) placed on an 18 x 13 mm board (routability benchmark variant)
+source_failure: 'control: routes clean in seconds'
+reproduces: 'yes (control): routes clean in about 25 s'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 11
+  nets: 7
+  board_mm:
+  - 18.0
+  - 13.0
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 501.5
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 29
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 1.1
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 11
+  violations: []
+  seconds: 0.6
+measured: '2026-10-26'
+route:
+  ok: true
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 0
+  router: 0 unrouted, krt 2 completed pass(es)
+  route_groups: []
+  seconds: 23.7
+  timing:
+    drc_s: 10.9
+    place_s: 0.0
+    route_s: 9.5

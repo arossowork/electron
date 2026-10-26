@@ -1,0 +1,334 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region audio
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: audio
+  nets: null
+window:
+- 0.0
+- 130.25
+- 128.25
+- 152.0
+frame_mm: 5.0
+offset:
+- -0.0
+- -130.25
+board_mm:
+- 128.25
+- 21.75
+free:
+- C1000
+- C1001
+- C1002
+- C1003
+- C1004
+- C1005
+- C1006
+- C1007
+- C1008
+- C1012
+- C900
+- C901
+- C902
+- C903
+- C904
+- C905
+- C906
+- C907
+- C908
+- C910
+- C911
+- C912
+- C913
+- C914
+- C915
+- C916
+- C917
+- C918
+- C919
+- C920
+- C921
+- C922
+- C923
+- C926
+- C927
+- C930
+- C931
+- C932
+- C933
+- C934
+- C935
+- C936
+- C950
+- C951
+- C952
+- C953
+- C954
+- C955
+- C956
+- C957
+- C958
+- C959
+- C960
+- C961
+- C962
+- C963
+- C964
+- C965
+- C966
+- C967
+- C968
+- C980
+- C981
+- C982
+- C983
+- C984
+- C985
+- C986
+- C987
+- C988
+- C989
+- C990
+- C991
+- C993
+- C995
+- C997
+- C998
+- C999
+- D930
+- D931
+- D932
+- D980
+- D981
+- D982
+- D983
+- FB900
+- FB950
+- FB951
+- FB952
+- FB953
+- J930
+- J980
+- M930
+- M931
+- M932
+- M980
+- M981
+- M982
+- M983
+- M984
+- R1000
+- R1001
+- R1002
+- R1006
+- R900
+- R901
+- R910
+- R911
+- R914
+- R915
+- R922
+- R923
+- R924
+- R925
+- R926
+- R927
+- R928
+- R929
+- R930
+- R931
+- R932
+- R933
+- R934
+- R935
+- R936
+- R950
+- R951
+- R952
+- R953
+- R954
+- R955
+- R956
+- R957
+- R980
+- R981
+- R982
+- R983
+- R984
+- R985
+- R986
+- R987
+- R988
+- R989
+- R990
+- R991
+- R992
+- R993
+- R994
+- R995
+- R996
+- R997
+- R998
+- R999
+- U1000
+- U1001
+- U900
+- U910
+- U911
+- U912
+- U913
+- U950
+- U951
+- U952
+- U953
+- U980
+dropped_neighbors:
+- SW501
+terminals:
+- ref: TPB1
+  net: 5V_SYS
+  from: FB952.1
+  to: C690.1
+  at:
+  - 125.25
+  - 18.5
+  footprint: TestPoint:TestPoint_Pad_D2.5mm
+- ref: TPB10
+  net: I2C_SDA
+  from: U900.16
+  to: R1107.2
+  at:
+  - 126.0
+  - 10.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: I2S_BCLK
+  from: U900.12
+  to: R1108.2
+  at:
+  - 126.0
+  - 7.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: I2S_DIN
+  from: U1000.37
+  to: U1100.47
+  at:
+  - 126.0
+  - 4.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: I2S_DOUT
+  from: U900.14
+  to: R1110.2
+  at:
+  - 126.0
+  - 12.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: I2S_LRCK
+  from: U900.13
+  to: R1109.2
+  at:
+  - 123.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: JACK_DET
+  from: R935.2
+  to: U401.38
+  at:
+  - 120.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: MCLK
+  from: U900.32
+  to: U1100.41
+  at:
+  - 117.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: MIC_DET
+  from: R982.2
+  to: U1100.53
+  at:
+  - 115.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: MIC_GAIN
+  from: R989.1
+  to: U1100.32
+  at:
+  - 112.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: 3V3_D
+  from: R935.1
+  to: R501.1
+  at:
+  - 109.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: ADC_EN
+  from: U1001.2
+  to: U1100.51
+  at:
+  - 106.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: ADC_PWR_EN
+  from: R955.1
+  to: U1100.40
+  at:
+  - 104.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: AUD_N5V5
+  from: FB951.1
+  to: R865.2
+  at:
+  - 101.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: AUD_P5V5
+  from: FB950.1
+  to: R864.1
+  at:
+  - 98.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: DAC_EN
+  from: R901.1
+  to: U1100.48
+  at:
+  - 95.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: HP_MUTE
+  from: M931.1
+  to: R938.2
+  at:
+  - 93.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: I2C_SCL
+  from: U900.15
+  to: R1106.2
+  at:
+  - 90.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

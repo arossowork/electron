@@ -1,0 +1,65 @@
+source: home-thermostat v1 (projects/home-thermostat), build/placement.json, rect 0,0,50,40 (relays, terminals)
+source_failure: 'v1 (4 mm clearance / 6 mm creepage by drc_rules): 15 unrouted, 49 DRC on the whole board, of them 21 creepage
+  and 2 clearance errors in the mains part'
+reproduces: 'yes: 20 creepage DRC errors (source 21 creepage, 2 clearance), mains-SELV clearance row fails'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 18
+  nets: 13
+  board_mm:
+  - 65.4
+  - 40.0
+  placement_violations: []
+  fixed_violations:
+  - 'isolation J3.1/K2.A1: 0.05 mm short (AC_COM2 / COIL2_A: isolation drc_rules AC_* 6 mm + 0.5 mm placer margin between
+    a member and another net, pad bounding boxes)'
+  - 'isolation K1.12/D2.2: 0.34 mm short (AC_NC1 / GND: isolation drc_rules AC_* 6 mm + 0.5 mm placer margin between a member
+    and another net, pad bounding boxes)'
+  corridors:
+    AC_COM1: -0.8
+    AC_COM2: -0.8
+    AC_OUT1: 1.9
+    AC_OUT2: 2.0
+  placement_cost: 2914.2
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 42
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 4.6
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 20
+  drc_types:
+    creepage: 20
+  placement_violations: 0
+  isolation:
+  - rule: R8 mains-SELV clearance
+    ok: false
+    mm: 4.0
+    limit: 4.0
+    drc_clearance: 0
+    drc_creepage: 20
+  router: 0 unrouted, krt 3 completed pass(es)
+  route_groups: []
+  seconds: 30.3
+  timing:
+    drc_s: 4.5
+    place_s: 0.3
+    repair_s: 0.0
+    route_s: 22.0

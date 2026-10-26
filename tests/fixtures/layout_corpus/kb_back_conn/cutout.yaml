@@ -1,0 +1,272 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region back_conn
+source_project: mechanical-keyboard-usb-audio-hub
+placement: build/placement.json
+selection:
+  parts: null
+  region: back_conn
+  nets: null
+window:
+- 354.75
+- 0.0
+- 440.0
+- 29.2
+frame_mm: 5.0
+offset:
+- -354.75
+- -0.0
+board_mm:
+- 85.25
+- 29.2
+free:
+- C301
+- C302
+- C600
+- C601
+- C602
+- C630
+- C650
+- C651
+- C652
+- C653
+- C654
+- C655
+- C656
+- C659
+- C693
+- D301
+- D302
+- D303
+- D600
+- D601
+- D602
+- D603
+- D604
+- D605
+- D630
+- D631
+- D650
+- D651
+- D652
+- J301
+- J600
+- M600
+- M601
+- M602
+- M603
+- M630
+- M631
+- M657
+- M658
+- M659
+- R301
+- R600
+- R601
+- R602
+- R603
+- R604
+- R630
+- R631
+- R632
+- R633
+- R634
+- R635
+- R650
+- R651
+- R652
+- R653
+- R654
+- R657
+- R658
+- R659
+- R665
+- R666
+- R667
+- R668
+- R669
+- R690
+- R691
+- R692
+- U301
+- U600
+- U650
+- U660
+dropped_neighbors: []
+terminals:
+- ref: TPB1
+  net: 5V_SYS
+  from: C655.1
+  to: R156.1
+  at:
+  - 5.25
+  - 26.2
+  footprint: TestPoint:TestPoint_Pad_D2.5mm
+- ref: TPB10
+  net: C2_OVS
+  from: U660.6
+  to: R777.2
+  at:
+  - 35.25
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: CC_VH
+  from: R665.2
+  to: R779.1
+  at:
+  - 30.5
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: CC_VL
+  from: R668.1
+  to: U703.4
+  at:
+  - 38.0
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: HOST_DM
+  from: D303.2
+  to: U101.67
+  at:
+  - 8.75
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: HOST_DP
+  from: D303.1
+  to: U101.66
+  at:
+  - 2.25
+  - 22.6653
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: HOST_RX_N
+  from: U301.10
+  to: U101.71
+  at:
+  - 21.75
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: HOST_RX_P
+  from: U301.9
+  to: U101.72
+  at:
+  - 24.5
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: HOST_TX_N
+  from: U301.7
+  to: C132.2
+  at:
+  - 19.0
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: HOST_TX_P
+  from: U301.6
+  to: C131.2
+  at:
+  - 27.25
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB19
+  net: PDMODE_N
+  from: R632.2
+  to: M711.1
+  at:
+  - 11.5
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: VIN20
+  from: M601.5
+  to: C705.1
+  at:
+  - 54.5
+  - 26.45
+  footprint: TestPoint:TestPoint_Pad_D2.0mm
+- ref: TPB20
+  net: PDS_G
+  from: C630.1
+  to: M681.1
+  at:
+  - 2.25
+  - 19.8929
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB21
+  net: PD_STAT
+  from: M631.3
+  to: U820.4
+  at:
+  - 16.25
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB22
+  net: VBUS_HOST
+  from: R301.1
+  to: R106.1
+  at:
+  - 2.25
+  - 17.1204
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: 3V3_D
+  from: R665.1
+  to: C731.1
+  at:
+  - 27.4799
+  - 24.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: BUCK_EN
+  from: R634.2
+  to: R776.1
+  at:
+  - 40.75
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: C1_EN
+  from: U660.2
+  to: R730.1
+  at:
+  - 43.5
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: C1_OVR
+  from: U660.5
+  to: R730.2
+  at:
+  - 46.25
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: C1_OVS
+  from: U660.4
+  to: R728.1
+  at:
+  - 49.0
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: C2_EN
+  from: U660.1
+  to: R780.1
+  at:
+  - 57.75
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: C2_OVR
+  from: U660.7
+  to: R779.2
+  at:
+  - 60.5
+  - 26.95
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

@@ -1,0 +1,215 @@
+source: home-thermostat v1 (projects/home-thermostat), build/placement.json, rect 64,14,104,40 (battery switch)
+source_project: home_thermostat
+placement: build/placement.json
+selection:
+  parts: null
+  region: 64,14,104,40
+  nets: null
+window:
+- 59.0
+- 8.05
+- 130.0
+- 40.0
+frame_mm: 5.0
+offset:
+- -59.0
+- -8.05
+board_mm:
+- 71.0
+- 31.95
+free: []
+dropped_neighbors:
+- C1
+- C9
+- J4A
+- J4B
+- R11
+- TP6
+- U1
+- U3
+terminals:
+- ref: TPB1
+  net: +3V3
+  from: R14.1
+  to: R11.1
+  at:
+  - 44.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB10
+  net: ESP_EN
+  from: R5.2
+  to: U1.8
+  at:
+  - 58.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: LED_K
+  from: D1.1
+  to: U1.22
+  at:
+  - 68.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: PROBE1
+  from: R7.1
+  to: J4B.9
+  at:
+  - 14.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: PROBE2
+  from: R2.2
+  to: J4B.10
+  at:
+  - 11.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: RLY1_IN1
+  from: U4.6
+  to: U1.19
+  at:
+  - 61.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: RLY1_IN2
+  from: U4.5
+  to: U1.20
+  at:
+  - 55.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB16
+  net: RLY2_IN1
+  from: U5.6
+  to: U1.21
+  at:
+  - 41.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB17
+  net: RLY2_IN2
+  from: U5.5
+  to: U1.16
+  at:
+  - 38.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB18
+  net: UART_TX
+  from: TP7.1
+  to: U1.31
+  at:
+  - 40.7672
+  - 4.9
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB19
+  net: USB_DN
+  from: TP3.1
+  to: U1.26
+  at:
+  - 36.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: AIN1P
+  from: R7.2
+  to: U3.6
+  at:
+  - 33.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB20
+  net: USB_DP
+  from: TP4.1
+  to: U1.27
+  at:
+  - 30.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB21
+  net: VBAT_SENSE
+  from: C13.1
+  to: U1.6
+  at:
+  - 33.4934
+  - 4.9
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB22
+  net: XTAL32_N
+  from: Y1.2
+  to: U1.13
+  at:
+  - 27.75
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB23
+  net: XTAL32_P
+  from: Y1.1
+  to: U1.12
+  at:
+  - 30.7344
+  - 4.9
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: AIN2P
+  from: R8.2
+  to: U3.8
+  at:
+  - 25.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: AVDD_EN_N
+  from: R15.1
+  to: U1.5
+  at:
+  - 27.9754
+  - 4.9
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: AVDD_SW
+  from: C10.1
+  to: U3.1
+  at:
+  - 22.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: COIL1_A
+  from: U4.2
+  to: J4B.3
+  at:
+  - 19.5
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: COIL1_B
+  from: U4.3
+  to: J4B.4
+  at:
+  - 24.2131
+  - 4.9
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: COIL2_A
+  from: U5.2
+  to: J4B.5
+  at:
+  - 9.0
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: COIL2_B
+  from: U5.3
+  to: J4B.6
+  at:
+  - 6.25
+  - 2.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

@@ -231,6 +231,14 @@ def main(argv=None):
     p = sub.add_parser("em", help="optional openEMS field-solver run on nets with `em:` set (prototype)")
     p.add_argument("project"); p.add_argument("--net", action="append")
     p.add_argument("--fmax-ghz", type=float); p.add_argument("--cell-mm", type=float)
+    p = sub.add_parser("cutout", help="cut placed parts out of a design into a small standalone project (layout "
+                                      "regression corpus): exact placement, nets, rules, regions, border terminals")
+    p.add_argument("project"); p.add_argument("--out", required=True, help="folder of the new project")
+    p.add_argument("--parts", help="ref globs, comma separated"); p.add_argument("--nets", help="net globs: their parts")
+    p.add_argument("--region", help="floorplan region name or x0,y0,x1,y1 (board mm): the parts centred in it")
+    p.add_argument("--placement", help="placement.json (default <project>/build/placement.json)")
+    p.add_argument("--frame", type=float, default=3.0, help="border band around the kept parts, mm")
+    p.add_argument("--name", help="suffix of the new project name")
     for c in registry().commands.values():  # subcommands registered by extension packages (hwflow.pipeline.hooks)
         c.add_arguments(sub.add_parser(c.name, help=c.help))
     a = ap.parse_args(argv)
@@ -243,6 +251,15 @@ def main(argv=None):
         return cmd_block(a)
     if a.cmd == "parts":
         return cmd_parts(a)
+    if a.cmd == "cutout":
+        from .layout.place.cutout import cutout
+        rec = cutout(a.project, a.out, parts=a.parts, region=a.region, nets=a.nets, placement=a.placement,
+                     frame=a.frame, name=a.name)
+        print(f"cutout: {a.out}: board {rec['board_mm'][0]:g} x {rec['board_mm'][1]:g} mm (window {rec['window']}), "
+              f"{len(rec['terminals'])} border terminals, {len(rec['dropped_neighbors'])} neighbours cut by the window")
+        for w in rec["warnings"]:
+            print(f"cutout: warning: {w}")
+        return 0
     if a.cmd == "run":
         from .commands.run import cmd_run
         return cmd_run(a)

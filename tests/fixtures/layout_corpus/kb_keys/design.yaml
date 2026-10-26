@@ -1,0 +1,366 @@
+project: mechanical-keyboard-usb-audio-hub_cut_kb_keys
+revision: A
+description: layout cutout of mechanical-keyboard-usb-audio-hub (kb_keys)
+board:
+  width_mm: 83.05
+  height_mm: 53.8
+  layers: 4
+  thickness_mm: 1.6
+  route_groups: members
+  router_retries: 1
+  budget_max_track_mm: 5
+components:
+  D1:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 15.225
+      y: 20.325
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW0
+      '2': K1
+  D17:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 15.225
+      y: 48.9
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW1
+      '2': K17
+  D18:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 34.275
+      y: 48.9
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW1
+      '2': K18
+  D19:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 53.325
+      y: 48.9
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW1
+      '2': K19
+  D2:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 53.325
+      y: 20.325
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW0
+      '2': K2
+  D20:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 72.375
+      y: 48.9
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW1
+      '2': K20
+  D3:
+    value: 1N4148W
+    mpn: 1N4148W
+    lcsc: C81598
+    price_usd: 0.012
+    symbol: Diode:1N4148W
+    footprint: kb_keys:D_SOD-123_Back
+    group: matrix
+    height_mm: 1.2
+    placement:
+      x: 72.375
+      y: 20.325
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': ROW0
+      '2': K3
+  SW1:
+    value: MX Esc
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 15.225
+      y: 14.725
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL0
+      '2': K1
+  SW17:
+    value: MX `
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 15.225
+      y: 43.3
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL0
+      '2': K17
+  SW18:
+    value: MX 1
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 34.275
+      y: 43.3
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL1
+      '2': K18
+  SW19:
+    value: MX 2
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 53.325
+      y: 43.3
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL2
+      '2': K19
+  SW2:
+    value: MX F1
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 53.325
+      y: 14.725
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL1
+      '2': K2
+  SW20:
+    value: MX 3
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 72.375
+      y: 43.3
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL3
+      '2': K20
+  SW3:
+    value: MX F2
+    mpn: CPG151101S11
+    lcsc: C2803348
+    price_usd: 0.075
+    symbol: Switch:SW_Push
+    footprint: kb_keys:SW_MX_Hotswap_Kailh_CPG151101S11_1u_Back
+    group: matrix
+    height_mm: 1.85
+    placement:
+      x: 72.375
+      y: 14.725
+      rot: 0.0
+      fixed: true
+    pins:
+      '1': COL2
+      '2': K3
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL0
+    group: cutout_terminal
+    placement:
+      x: 6.2525
+      y: 51.55
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL1
+    group: cutout_terminal
+    placement:
+      x: 25.5148
+      y: 51.55
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL2
+    group: cutout_terminal
+    placement:
+      x: 44.5269
+      y: 51.55
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COL3
+    group: cutout_terminal
+    placement:
+      x: 63.539
+      y: 51.55
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW0
+    group: cutout_terminal
+    placement:
+      x: 80.8
+      y: 23.5216
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ROW1
+    group: cutout_terminal
+    placement:
+      x: 80.8
+      y: 34.5327
+      rot: 0
+      fixed: true
+nets:
+  ROW0:
+    class: signal
+    edge_ns: 20
+  ROW1:
+    class: signal
+    edge_ns: 20
+  COL0:
+    class: signal
+    edge_ns: 20
+  COL1:
+    class: signal
+    edge_ns: 20
+  COL2:
+    class: signal
+    edge_ns: 20
+  COL3:
+    class: signal
+    edge_ns: 20
+floorplan:
+  construction: double
+  depth:
+    limit_mm: 11.1
+    source: 'R24: tallest front part 7.5 mm above PCB top (knob shaft excluded) + 1.6 mm board (R34) + 2.0 mm back allowance
+      = hot-swap socket height (assumption: nothing on the back taller than the sockets, case bottom sees one flat level)'
+  regions:
+  - name: key_matrix
+    kind: other
+    items:
+    - keys
+    isolation_mm: 5
+    from: []
+    source: 'ANSI 104 at 19.05 mm pitch: 22.5 u x 6.5 u = 428.6 x 123.8 mm; R35 no matrix trace within 5 mm of the audio region'
+    rect:
+    - 3.0
+    - 3.0
+    - 83.05
+    - 53.8
+  items:
+  - name: keys
+    groups:
+    - matrix
+    height_mm: 1.85
+    source: Kailh CPG151101S11 socket height ~1.85 mm on the back; the MX switch sits above the plate (not a board part)

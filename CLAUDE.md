@@ -8,6 +8,7 @@ This repository turns a product conversation into a verified, routed PCB. Claude
 - `harness/`: the local agent harness (`claude -p` sessions, limits, product-person simulator support).
 - `services/platform/`: `hwplatform`, the hosted platform (API, Temporal workflows and workers, agent worker, outbox relay, Postgres migrations, S3). `web/`: its React SPA. `deploy/`: compose, Helm chart, worker image. See `docs/platform-dev.md`, `docs/platform-k8s.md`, `docs/runbook.md`, `docs/adr/0001-platform-contracts.md`.
 - `docs/design-yaml.md`: the design file reference. Read it before you write a `design.yaml`.
+- `docs/testing.md`: the test suite (tiers, runtimes, files by area, the layout corpus `tests/fixtures/layout_corpus/`, evals, gaps).
 - `.claude/skills/hw-design/`: the orchestrator skill (`/hw-design`).
 - `.claude/agents/`: specialist subagents (requirements, architect, parts, circuit, layout, reviewer).
 - `projects/<name>/`: one folder per product. `examples/` holds reference designs.
@@ -47,6 +48,8 @@ uv run hwflow fw <proj> [--scaffold]   # firmware headers from design.yaml and i
 uv run hwflow report <proj>            # rewrite build/REPORT.md
 uv run pytest -q -m "not slow"         # fast tier (minutes); the full suite (about 20 min) before a merge
 uv run pytest -q                       # deterministic tests, full suite
+uv run hwflow cutout <proj> --out <dir> --region <name|x0,y0,x1,y1>   # placed sub-circuit as a small project (layout corpus)
+uv run python scripts/layout_corpus.py summary --jobs 6   # route the layout corpus: case, expected, actual, time
 ```
 
 `HWFLOW_FLOW=legacy` runs the old annealing-only placement. It is a temporary escape hatch, not a tuning knob.

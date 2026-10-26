@@ -60,6 +60,10 @@ past it no new seed starts and `unstick` stops.
 | `HWFLOW_SEED0` | the first placer seed of `--auto` (attempt k uses seed0 + 4k) |
 | `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0` | router fallbacks off |
 
+Regression corpus: `tests/fixtures/layout_corpus/` (README there) holds cutouts of real placed boards (`hwflow
+cutout`) with their measured outcome; `tests/test_layout_corpus.py` checks the pre-routing estimates in the fast tier
+and routes every case in the slow tier.
+
 `placer.STAGES` records each placement stage (seconds, HPWL, overflow, overlap), and `asicflow.FEEDBACK` records
 each density feedback. `scripts/asic_flow_bench.py` measures the placement proxies of the flow and its ablations.
 

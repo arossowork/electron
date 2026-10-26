@@ -1,0 +1,291 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region audio
+source_failure: 'audio region: 25 of 66 nets open; 178 nets with no pin exit at their width and 167 placement violations in
+  the dense 22 mm front strip (whole board); on main before 30fa4c4 the layout crashed on a KiCad `(at x y unlocked)` footprint
+  (Texas_DPY0002A)'
+reproduces: 'yes: 42 placement violations in the fixed placement (dense front strip), 28 nets open (source 25 of 66), 17 nets
+  without an exit at their width; routes on main since 30fa4c4 (crashed before)'
+fast:
+  check:
+    ok: false
+    errors: 8
+    warnings: 0
+    codes:
+    - barrier
+    - single-pin-net
+  parts: 183
+  nets: 86
+  board_mm:
+  - 128.25
+  - 21.75
+  placement_violations:
+  - J930 pad S copper closer than 0.3 mm to the board edge
+  - J980 pad S copper closer than 0.3 mm to the board edge
+  - courtyard overlap C1004/C914
+  - courtyard overlap C1008/U1000
+  - courtyard overlap C1012/C911
+  - courtyard overlap C907/U952
+  - courtyard overlap C912/C917
+  - courtyard overlap C916/U911
+  - courtyard overlap C919/U910
+  - courtyard overlap C920/R910
+  - courtyard overlap C920/R936
+  - courtyard overlap C921/U953
+  - courtyard overlap C923/C968
+  - courtyard overlap C923/R924
+  - courtyard overlap C923/U953
+  - courtyard overlap C926/U912
+  - courtyard overlap C927/J980
+  - courtyard overlap C932/R983
+  - courtyard overlap C936/M980
+  - courtyard overlap C950/C953
+  - courtyard overlap C951/C980
+  - courtyard overlap C951/R983
+  - courtyard overlap C952/R992
+  - courtyard overlap C961/U952
+  - courtyard overlap C968/U953
+  - courtyard overlap C983/R996
+  - courtyard overlap C987/U913
+  - courtyard overlap C988/R928
+  - courtyard overlap C989/C995
+  - courtyard overlap C989/U911
+  - courtyard overlap C995/U911
+  - courtyard overlap FB951/M932
+  - courtyard overlap M932/R935
+  - courtyard overlap M981/U980
+  - courtyard overlap R910/R936
+  - courtyard overlap R911/R914
+  - courtyard overlap R923/U912
+  - courtyard overlap R924/U953
+  - courtyard overlap R951/R980
+  - courtyard overlap R957/R980
+  - courtyard overlap R980/R986
+  - courtyard overlap R994/U912
+  fixed_violations:
+  - J930 outside floorplan region 'audio' (45.9 mm2)
+  - J980 outside floorplan region 'audio' (45.9 mm2)
+  corridors: {}
+  placement_cost: 103795.1
+  rudy:
+    congestion: 0.4
+    max_overflow: 0.36
+  pin_access:
+    pads: 480
+    nets_no_exit_at_width:
+    - 2V5_BIAS
+    - 3V3_DA
+    - 5V_SYS
+    - ADC_4V5
+    - ADC_ADDR2
+    - ADC_DVDD
+    - ADC_EN
+    - ADC_INM
+    - ADC_INP
+    - ADC_MCLK
+    - ADC_VREFL
+    - ADC_VREFR
+    - AGND
+    - AUD_P4V5
+    - AUD_P5V5F
+    - DS_RP
+    - HP_EN
+    - I2C_SCL
+    - I2C_SDA
+    - I2S_BCLK
+    - I2S_DIN
+    - I2S_LRCK
+    - IV_RN
+    - MIC_CM
+    - P45_SS
+    necked:
+    - 2V5_BIAS
+    - 3V3_DA
+    - 5V_SYS
+    - ADC_4V5
+    - ADC_ADDR2
+    - ADC_DVDD
+    - ADC_INM
+    - ADC_INP
+    - ADC_MCLK
+    - ADC_VREFL
+    - ADC_VREFR
+    - AGND
+    - I2C_SCL
+    - I2S_BCLK
+    - I2S_DIN
+    - I2S_LRCK
+    - P45_SS
+    no_access:
+    - C920.1
+    - C953.1
+    - C968.1
+    - R928.1
+    - R928.2
+    - R936.2
+    - R986.1
+    - U1000.23
+    - U1000.25
+    - U1000.41
+    - U951.9
+  seconds:
+    check: 67.1
+    pin_access: 2.4
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 96
+  open_nets:
+  - 2V5_BIAS
+  - 3V3_D
+  - 3V3_DA
+  - ADC_4V5
+  - ADC_ADDR2
+  - ADC_DVDD
+  - ADC_EN
+  - ADC_INM
+  - ADC_INP
+  - ADC_MCLK
+  - ADC_PWR_EN
+  - ADC_VREFL
+  - ADC_VREFR
+  - AGND
+  - AUD_N5V5
+  - AUD_P4V5
+  - AUD_P5V5
+  - AUD_P5V5F
+  - DAC_EN
+  - DAC_LP
+  - DAC_RN
+  - DS_RP
+  - HP_EN
+  - HP_MUTE
+  - I2C_SCL
+  - I2C_SDA
+  - I2S_BCLK
+  - I2S_DIN
+  - I2S_DOUT
+  - I2S_LRCK
+  - IVS_RP
+  - IV_RN
+  - JACK_DET
+  - MCLK
+  - MIC_CM
+  - MIC_DET
+  - MIC_GAIN
+  - P45_ADJ
+  - P45_SS
+  drc_errors: 185
+  drc_types:
+    solder_mask_bridge: 19
+    copper_edge_clearance: 2
+    courtyards_overlap: 41
+    clearance: 9
+    shorting_items: 19
+  placement_violations: 42
+  router: '31 unrouted, krt 5 pass(es) in 2 route groups (audio miss, interface miss); retried in another net order (0.25
+    mm: 2V5_BIAS, 3V3_DA, ADC_4V5, ADC_ADDR2, ADC_DVDD, ADC_INM, ADC_INP, ADC_MCLK, ADC_VREFL, ADC_VREFR, P45_SS routed narrow
+    first (corridor proof, exact spacings; the router keeps 0.1 mm mor'
+  route_groups:
+  - name: audio
+    nets:
+    - 2V5_BIAS
+    - 3V3_A
+    - 3V3_DA
+    - 5V_AF
+    - A33_SET
+    - A45_SET
+    - ADC_4V5
+    - ADC_ADDR2
+    - ADC_DVDD
+    - ADC_INM
+    - ADC_INP
+    - ADC_MCLK
+    - ADC_MCLK_G
+    - ADC_VREFL
+    - ADC_VREFR
+    - AUD_N4V5
+    - AUD_N5V5F
+    - AUD_P4V5
+    - AUD_P5V5F
+    - DAC_DVDD
+    - DAC_LN
+    - DAC_LP
+    - DAC_RN
+    - DAC_RP
+    - DAC_VCCA
+    - DS_LM
+    - DS_LO
+    - DS_LP
+    - DS_RM
+    - DS_RO
+    - DS_RP
+    - HPA_L
+    - HPA_R
+    - HP_EN
+    - HP_L
+    - HP_R
+    - HP_TN
+    - IVS_LN
+    - IVS_LP
+    - IVS_RN
+    - IVS_RP
+    - IV_LN
+    - IV_LP
+    - IV_RN
+    - IV_RP
+    - MIC_CM
+    - MIC_FB
+    - MIC_IN
+    - MIC_INV
+    - MIC_PA
+    - MIC_PB
+    - MIC_RF
+    - MIC_RG
+    - MIC_SW
+    - MIC_T
+    - MIC_TN
+    - MIC_VN
+    - MIC_VNG
+    - MIC_VNP
+    - MIC_VP
+    - MIC_VPD
+    - MIC_VPG
+    - MIC_VPN
+    - N45_SET
+    - P45_ADJ
+    - P45_SS
+    unrouted: 24
+    seconds: 1142.3
+  - name: interface
+    nets:
+    - 3V3_D
+    - 5V_SYS
+    - ADC_EN
+    - ADC_PWR_EN
+    - AUD_N5V5
+    - AUD_P5V5
+    - DAC_EN
+    - HP_MUTE
+    - I2C_SCL
+    - I2C_SDA
+    - I2S_BCLK
+    - I2S_DIN
+    - I2S_DOUT
+    - I2S_LRCK
+    - JACK_DET
+    - MCLK
+    - MIC_DET
+    - MIC_GAIN
+    unrouted: 7
+    seconds: 698.8
+  seconds: 1991.1
+  timing:
+    drc_s: 45.0
+    place_s: 0.5
+    repair_s: 0.0
+    route_s: 1841.8
+  noise: 'route counts are the worse of two runs of main 30fa4c4 under load (84/174/28 and 96/185/37 unrouted/DRC/open nets):
+    the repair loop runs on a wall-time budget'

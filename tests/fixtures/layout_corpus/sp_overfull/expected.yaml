@@ -1,0 +1,86 @@
+source: 'sensor_preamp (examples/sensor_preamp) placed on a 13 x 10 mm board: deliberately over-full'
+source_failure: 'over-full variant (no source failure): placement violations and open nets expected'
+reproduces: 'yes (over-full): 6 placement violations, 11 unrouted, 10 copper-edge DRC; re-placement keeps 6 violations'
+fast:
+  check:
+    ok: false
+    errors: 5
+    warnings: 0
+    codes:
+    - barrier
+  parts: 11
+  nets: 7
+  board_mm:
+  - 13.0
+  - 10.0
+  placement_violations:
+  - C3 pad 1 copper closer than 0.3 mm to the board edge
+  - J1 pad 4 copper closer than 0.3 mm to the board edge
+  - R1 pad 2 copper closer than 0.3 mm to the board edge
+  - R2 pad 1 copper closer than 0.3 mm to the board edge
+  - R3 pad 1 copper closer than 0.3 mm to the board edge
+  - U2 pad 1 copper closer than 0.3 mm to the board edge
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 6711.8
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 29
+    nets_no_exit_at_width:
+    - +3V3
+    - AMP_OUT
+    - FB
+    - GND
+    - SENS_IN
+    necked:
+    - +3V3
+    no_access:
+    - R1.2
+    - U2.1
+    - U2.2
+    - U2.3
+    - U2.4
+    - U2.5
+  seconds:
+    check: 6.6
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 11
+  violations:
+  - C1 pad 1 copper closer than 0.3 mm to the board edge
+  - C3 pad 1 copper closer than 0.3 mm to the board edge
+  - C4 pad 1 copper closer than 0.3 mm to the board edge
+  - J1 pad 4 copper closer than 0.3 mm to the board edge
+  - R1 pad 1 copper closer than 0.3 mm to the board edge
+  - courtyard overlap R3/U2
+  seconds: 1.6
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 11
+  open_nets:
+  - +3V3
+  - AMP_OUT
+  - FB
+  - GND
+  - LED_A
+  - SENS_IN
+  drc_errors: 21
+  drc_types:
+    copper_edge_clearance: 10
+  placement_violations: 6
+  router: '7 unrouted, krt 3 completed pass(es); retried in another net order (0.4 mm: +3V3 routed narrow first (corridor
+    proof, exact spacings; the router keeps 0.1 mm more from isolation keep-outs: +3V3 0 mm without a neck); 0.4 mm: neck-down
+    to 0.25 mm: +3V3 still open; 0.4 mm: neck-down to 0.15 mm: +3V3 st'
+  route_groups: []
+  seconds: 343.8
+  timing:
+    drc_s: 19.7
+    place_s: 0.0
+    repair_s: 120.0
+    route_s: 200.7

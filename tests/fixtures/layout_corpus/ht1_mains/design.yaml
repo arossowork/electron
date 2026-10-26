@@ -1,0 +1,344 @@
+project: home_thermostat_cut_ht1_mains
+revision: A
+description: layout cutout of home_thermostat (ht1_mains)
+board:
+  width_mm: 65.4
+  height_mm: 40.0
+  layers: 4
+  clearance_mm: 0.15
+  track_mm: 0.25
+  decap_max_mm: 4.0
+  drc_rules:
+  - (rule "R8 mains-SELV clearance" (constraint clearance (min 4.0mm)) (condition "A.NetName == 'AC_*' && B.NetName != 'AC_*'"))
+  - (rule "R8 mains-SELV creepage" (constraint creepage (min 6.0mm)) (condition "A.NetName == 'AC_*' && B.NetName != 'AC_*'"))
+components:
+  J4A:
+    value: A2541HWV-2x5P
+    mpn: A2541HWV-2x5P
+    lcsc: C239345
+    price_usd: 0.24
+    symbol: Connector_Generic:Conn_02x05_Odd_Even
+    footprint: thermostat:PinSocket_2x05_P2.54mm_Vertical_Mirror
+    pins:
+      '1': GND
+      '2': GND
+      '3': COIL1_A
+      '4': COIL1_B
+      '5': COIL2_A
+      '6': COIL2_B
+      '7': GND
+      '8': GND
+      '9': PROBE1
+      '10': PROBE2
+    group: rear_selv
+    placement:
+      x: 56.5
+      y: 3.0
+      rot: 0.0
+      fixed: true
+  KO_MAINS:
+    value: mains no-pour keepout
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Rear_MainsPour
+    pins:
+      '1': GND
+    price_usd: 0
+    group: layout
+    placement:
+      x: 65.0
+      y: 26.0
+      rot: 0.0
+      fixed: true
+  D2:
+    value: ESD5Z5CL
+    mpn: ESD5Z5CL
+    lcsc: C384854
+    price_usd: 0.063
+    symbol: Device:D_TVS
+    footprint: thermostat:D_SOD-523_Mirror
+    pins:
+      '1': PROBE1
+      '2': GND
+    group: rear_selv
+    placement:
+      x: 39.8
+      y: 11.9
+      rot: 0.0
+      fixed: true
+  D3:
+    value: ESD5Z5CL
+    mpn: ESD5Z5CL
+    lcsc: C384854
+    price_usd: 0.063
+    symbol: Device:D_TVS
+    footprint: thermostat:D_SOD-523_Mirror
+    pins:
+      '1': PROBE2
+      '2': GND
+    group: rear_selv
+    placement:
+      x: 27.8
+      y: 11.9
+      rot: 0.0
+      fixed: true
+  J1:
+    value: KF301-5.0-2P
+    mpn: KF301-5.0-2P
+    lcsc: C474881
+    price_usd: 0.1
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_KF301_5.0-2P_P5.00mm_Horizontal_Mirror
+    pins:
+      '1': AC_COM1
+      '2': AC_OUT1
+    group: rear_mains
+    placement:
+      x: 46.0
+      y: 35.5
+      rot: 0.0
+      fixed: true
+  J2:
+    value: KF250-3.5-2P
+    mpn: KF250-3.5-2P-1
+    lcsc: C475154
+    price_usd: 0.12
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_Phoenix_PT-1,5-2-3.5-H_1x02_P3.50mm_Horizontal_Mirror
+    pins:
+      '1': PROBE1
+      '2': GND
+    group: rear_selv
+    placement:
+      x: 38.0
+      y: 6.5
+      rot: 180.0
+      fixed: true
+  J3:
+    value: KF301-5.0-2P
+    mpn: KF301-5.0-2P
+    lcsc: C474881
+    price_usd: 0.1
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_KF301_5.0-2P_P5.00mm_Horizontal_Mirror
+    pins:
+      '1': AC_COM2
+      '2': AC_OUT2
+    group: rear_mains
+    placement:
+      x: 22.0
+      y: 35.5
+      rot: 0.0
+      fixed: true
+  J6:
+    value: KF250-3.5-2P
+    mpn: KF250-3.5-2P-1
+    lcsc: C475154
+    price_usd: 0.12
+    symbol: Connector:Screw_Terminal_01x02
+    footprint: thermostat:TerminalBlock_Phoenix_PT-1,5-2-3.5-H_1x02_P3.50mm_Horizontal_Mirror
+    pins:
+      '1': PROBE2
+      '2': GND
+    group: rear_selv
+    placement:
+      x: 26.0
+      y: 6.5
+      rot: 180.0
+      fixed: true
+  K1:
+    value: PE014F03
+    mpn: 1415390-1
+    price_usd: 9.0
+    symbol: thermostat:Relay_TE_PE014F03
+    footprint: thermostat:Relay_TE_PE014_Bistable_Mirror
+    placement:
+      x: 58.5
+      y: 19.6
+      rot: 0.0
+      fixed: true
+    pins:
+      A1: COIL1_A
+      A2: COIL1_B
+      '11': AC_COM1
+      '12': AC_NC1
+      '14': AC_OUT1
+    group: rear_mains
+  K2:
+    value: PE014F03
+    mpn: 1415390-1
+    price_usd: 9.0
+    symbol: thermostat:Relay_TE_PE014F03
+    footprint: thermostat:Relay_TE_PE014_Bistable_Mirror
+    placement:
+      x: 26.6
+      y: 19.6
+      rot: 0.0
+      fixed: true
+    pins:
+      A1: COIL2_A
+      A2: COIL2_B
+      '11': AC_COM2
+      '12': AC_NC2
+      '14': AC_OUT2
+    group: rear_mains
+  RV1:
+    value: 275VAC DNP do not fit in this stack
+    mpn: TDK B72207S2271K101 (S07K275)
+    price_usd: 0
+    dnp: true
+    symbol: Device:Varistor
+    footprint: thermostat:RV_Disc_D7mm_W3.8mm_P5mm_Mirror
+    pins:
+      '1': AC_OUT1
+      '2': AC_COM1
+    group: rear_mains
+    placement:
+      x: 35.5
+      y: 34.5
+      rot: 0.0
+      fixed: true
+  RV2:
+    value: 275VAC DNP do not fit in this stack
+    mpn: TDK B72207S2271K101 (S07K275)
+    price_usd: 0
+    dnp: true
+    symbol: Device:Varistor
+    footprint: thermostat:RV_Disc_D7mm_W3.8mm_P5mm_Mirror
+    pins:
+      '1': AC_OUT2
+      '2': AC_COM2
+    group: rear_mains
+    placement:
+      x: 11.5
+      y: 35.0
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL1_A
+    group: cutout_terminal
+    placement:
+      x: 63.15
+      y: 5.5
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL1_B
+    group: cutout_terminal
+    placement:
+      x: 63.15
+      y: 8.25
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL2_A
+    group: cutout_terminal
+    placement:
+      x: 63.15
+      y: 11.0
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL2_B
+    group: cutout_terminal
+    placement:
+      x: 63.15
+      y: 2.75
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PROBE1
+    group: cutout_terminal
+    placement:
+      x: 63.15
+      y: 13.75
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PROBE2
+    group: cutout_terminal
+    placement:
+      x: 57.85
+      y: 30.1864
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  COIL1_A:
+    class: switching
+    current_a: 0.1
+  COIL1_B:
+    class: switching
+    current_a: 0.1
+  COIL2_A:
+    class: switching
+    current_a: 0.1
+  COIL2_B:
+    class: switching
+    current_a: 0.1
+  PROBE1:
+    class: signal
+    sensitive: true
+  PROBE2:
+    class: signal
+    sensitive: true
+  AC_COM1:
+    class: mains
+    current_a: 2
+    clearance_mm: 2.5
+  AC_OUT1:
+    class: mains
+    current_a: 2
+    clearance_mm: 2.5
+  AC_NC1:
+    class: mains
+    clearance_mm: 2.5
+    allow_single: true
+  AC_COM2:
+    class: mains
+    current_a: 2
+    clearance_mm: 2.5
+  AC_OUT2:
+    class: mains
+    current_a: 2
+    clearance_mm: 2.5
+  AC_NC2:
+    class: mains
+    clearance_mm: 2.5
+    allow_single: true
+floorplan:
+  construction: single
+  regions:
+  - name: SLOT1_cut
+    cut: true
+    source: 'cutout: the Edge.Cuts slot of SLOT1, clipped to the window'
+    rect:
+    - 62.0
+    - 16.5
+    - 65.4
+    - 38.0
+  items: []

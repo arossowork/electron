@@ -1,0 +1,1269 @@
+project: home_thermostat_cut_ht1_battery
+revision: A
+description: layout cutout of home_thermostat (ht1_battery)
+board:
+  width_mm: 71.0
+  height_mm: 31.95
+  layers: 4
+  clearance_mm: 0.15
+  track_mm: 0.25
+  decap_max_mm: 4.0
+  drc_rules:
+  - (rule "R8 mains-SELV clearance" (constraint clearance (min 4.0mm)) (condition "A.NetName == 'AC_*' && B.NetName != 'AC_*'"))
+  - (rule "R8 mains-SELV creepage" (constraint creepage (min 6.0mm)) (condition "A.NetName == 'AC_*' && B.NetName != 'AC_*'"))
+components:
+  KO_ANT:
+    value: antenna keepout
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Antenna_Stack
+    pins:
+      '1': GND
+    price_usd: 0
+    group: layout
+    placement:
+      x: 6.0
+      y: 13.95
+      rot: 0.0
+      fixed: true
+  KO_BAND:
+    value: no-track band above the rear contact row (mains to SELV 4 mm)
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Rear_SELVBand
+    pins:
+      '1': GND
+    price_usd: 0
+    group: layout
+    placement:
+      x: 7.0
+      y: 13.95
+      rot: 0.0
+      fixed: true
+  KO_MAINS:
+    value: mains no-pour keepout
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:Keepout_Rear_MainsPour
+    pins:
+      '1': GND
+    price_usd: 0
+    group: layout
+    placement:
+      x: 6.0
+      y: 17.95
+      rot: 0.0
+      fixed: true
+  BT1:
+    value: 2xAAA holder, wire leads
+    mpn: Keystone 2469
+    price_usd: 1.18
+    datasheet: https://www.keyelco.com/userAssets/file/M65p28.pdf
+    symbol: Device:Battery
+    footprint: thermostat:BatteryHolder_Keystone_2469_Wire
+    pins:
+      '1': VBAT
+      '2': BAT_N
+    group: front_power
+    placement:
+      x: 12.2
+      y: 21.6
+      rot: 0.0
+      fixed: true
+  C10:
+    placement:
+      x: 55.45
+      y: 7.15
+      rot: 90.0
+      fixed: true
+    value: 1u
+    mpn: CL10A105KB8NNNC
+    lcsc: C15849
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AVDD_SW
+      '2': GND
+    group: front_adc
+  C11:
+    placement:
+      x: 41.25
+      y: 8.0
+      rot: 0.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AIN1P
+      '2': GND
+    group: front_adc
+  C12:
+    placement:
+      x: 46.55
+      y: 10.3
+      rot: 90.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AIN2P
+      '2': GND
+    group: front_adc
+  C13:
+    placement:
+      x: 44.61
+      y: 14.8
+      rot: 270.0
+      fixed: true
+    value: 10n
+    mpn: CL10B103KB8NNNC
+    lcsc: C57112
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': VBAT_SENSE
+      '2': GND
+    group: front_vbat
+  C14:
+    placement:
+      x: 67.7
+      y: 7.2
+      rot: 90.0
+      fixed: true
+    value: 1u
+    mpn: CL10A105KB8NNNC
+    lcsc: C15849
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AVDD_SW
+      '2': GND
+    decouples: U4
+    group: front_relay_drv
+  C15:
+    placement:
+      x: 64.85
+      y: 4.45
+      rot: 0.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AVDD_SW
+      '2': GND
+    decouples: U4
+    group: front_relay_drv
+  C16:
+    placement:
+      x: 28.9
+      y: 12.9
+      rot: 90.0
+      fixed: true
+    value: 1u
+    mpn: CL10A105KB8NNNC
+    lcsc: C15849
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AVDD_SW
+      '2': GND
+    decouples: U5
+    group: front_relay_drv
+  C17:
+    placement:
+      x: 31.2
+      y: 9.95
+      rot: 270.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': AVDD_SW
+      '2': GND
+    decouples: U5
+    group: front_relay_drv
+  C19:
+    placement:
+      x: 47.65
+      y: 14.15
+      rot: 270.0
+      fixed: true
+    value: 10n
+    mpn: CL10B103KB8NNNC
+    lcsc: C57112
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': +3V3
+      '2': M2_G
+    group: front_adc
+  C2:
+    placement:
+      x: 59.3
+      y: 13.0
+      rot: 90.0
+      fixed: true
+    value: 18p
+    mpn: CL10C180JB8NNNC
+    lcsc: C1647
+    price_usd: 0.012
+    tolerance: 0.05
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': XTAL32_P
+      '2': GND
+    group: front_mcu
+  C20:
+    placement:
+      x: 36.65
+      y: 5.8
+      rot: 180.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': +3V3
+      '2': GND
+    decouples: U6
+    group: front_mcu
+  C21:
+    placement:
+      x: 20.0
+      y: 16.25
+      rot: 0.0
+      fixed: true
+    value: 1u
+    mpn: CL10A105KB8NNNC
+    lcsc: C15849
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': M3_GH
+      '2': GND
+    group: front_power
+  C22:
+    placement:
+      x: 10.9
+      y: 27.85
+      rot: 90.0
+      fixed: true
+    value: 100n
+    mpn: CC0603KRX7R9BB104
+    lcsc: C14663
+    price_usd: 0.003
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': BAT_N
+      '2': GND
+    group: front_power
+  C23:
+    placement:
+      x: 16.2
+      y: 8.95
+      rot: 0.0
+      fixed: true
+    value: 10n
+    mpn: CL10B103KB8NNNC
+    lcsc: C57112
+    price_usd: 0.002
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': Q1_B
+      '2': GND
+    group: front_power
+  C3:
+    placement:
+      x: 61.8
+      y: 10.4
+      rot: 90.0
+      fixed: true
+    value: 18p
+    mpn: CL10C180JB8NNNC
+    lcsc: C1647
+    price_usd: 0.012
+    tolerance: 0.05
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': XTAL32_N
+      '2': GND
+    group: front_mcu
+  C4:
+    placement:
+      x: 41.85
+      y: 13.64
+      rot: 180.0
+      fixed: true
+    value: 10u
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.008
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 10
+    pins:
+      '1': VBAT
+      '2': GND
+    decouples: U2
+    group: front_power
+  C5:
+    placement:
+      x: 39.7
+      y: 19.85
+      rot: 90.0
+      fixed: true
+    value: 10u
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.008
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 10
+    pins:
+      '1': +3V3
+      '2': GND
+    decouples: U2
+    group: front_power
+  C6:
+    placement:
+      x: 57.25
+      y: 14.35
+      rot: 90.0
+      fixed: true
+    value: 1u
+    mpn: CL10A105KB8NNNC
+    lcsc: C15849
+    price_usd: 0.004
+    symbol: Device:C
+    footprint: thermostat:C_0603_1608Metric_Back
+    voltage_rating_v: 50
+    pins:
+      '1': ESP_EN
+      '2': GND
+    group: front_mcu
+  D1:
+    value: red
+    mpn: KT-0603R
+    lcsc: C2286
+    price_usd: 0.0073
+    symbol: Device:LED
+    footprint: LED_SMD:LED_0603_1608Metric
+    pins:
+      '1': LED_K
+      '2': LED_A
+    group: front_ui
+    placement:
+      x: 51.0
+      y: 3.95
+      rot: 0.0
+      fixed: true
+  L1:
+    placement:
+      x: 32.9
+      y: 16.15
+      rot: 180.0
+      fixed: true
+    value: 2.2u
+    mpn: LVH252A12-2R2M-N
+    lcsc: C285849
+    price_usd: 0.058
+    symbol: Device:L
+    footprint: thermostat:L_1008_2520Metric_Back
+    pins:
+      '1': VBAT
+      '2': SW
+    group: front_power
+  M1:
+    placement:
+      x: 16.0
+      y: 23.25
+      rot: 90.0
+      fixed: true
+    value: 2N7002
+    mpn: 2N7002
+    lcsc: C8545
+    price_usd: 0.01
+    symbol: Transistor_FET:2N7002
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': AVDD_SW
+      '2': GND
+      '3': VBAT_SW_G
+    group: front_vbat
+  M2:
+    placement:
+      x: 37.25
+      y: 13.35
+      rot: 270.0
+      fixed: true
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.072
+    symbol: Transistor_FET:AO3401A
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': M2_G
+      '2': +3V3
+      '3': AVDD_SW
+    group: front_adc
+  M3:
+    placement:
+      x: 13.9
+      y: 27.85
+      rot: 90.0
+      fixed: true
+    value: AO3416
+    mpn: AO3416
+    lcsc: C43307
+    price_usd: 0.109
+    datasheet: https://aosmd.com/sites/default/files/res/datasheets/AO3416.pdf
+    symbol: Device:Q_NMOS_GSD
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': M3_G
+      '2': GND
+      '3': BAT_N
+    group: front_power
+  M4:
+    placement:
+      x: 16.0
+      y: 18.55
+      rot: 90.0
+      fixed: true
+    value: AO3401A
+    mpn: AO3401A
+    lcsc: C15127
+    price_usd: 0.072
+    symbol: Transistor_FET:AO3401A
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': VBAT_SW_G
+      '2': VBAT
+      '3': VBAT_TOP
+    group: front_vbat
+  Q1:
+    placement:
+      x: 20.0
+      y: 10.45
+      rot: 270.0
+      fixed: true
+    value: MMBT3904
+    mpn: MMBT3904
+    lcsc: C20526
+    price_usd: 0.009
+    symbol: Transistor_BJT:MMBT3904
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': Q1_B
+      '2': VBAT
+      '3': M3_G
+    group: front_power
+  R1:
+    placement:
+      x: 48.55
+      y: 10.5
+      rot: 90.0
+      fixed: true
+    value: 47k
+    mpn: PTFR0603B47K0P9
+    lcsc: C328427
+    price_usd: 0.117
+    tolerance: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': AVDD_SW
+      '2': PROBE1
+    group: front_adc
+  R13:
+    placement:
+      x: 50.85
+      y: 6.45
+      rot: 180.0
+      fixed: true
+    value: 680
+    mpn: 0603WAF6800T5E
+    lcsc: C23228
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': +3V3
+      '2': LED_A
+    group: front_ui
+  R14:
+    placement:
+      x: 46.6
+      y: 4.45
+      rot: 90.0
+      fixed: true
+    value: 100k
+    mpn: 0603WAF1003T5E
+    lcsc: C25803
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': +3V3
+      '2': LED_K
+    group: front_ui
+  R15:
+    placement:
+      x: 51.35
+      y: 11.1
+      rot: 0.0
+      fixed: true
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': AVDD_EN_N
+      '2': M2_G
+    group: front_adc
+  R16:
+    placement:
+      x: 24.15
+      y: 14.85
+      rot: 270.0
+      fixed: true
+    value: 100k
+    mpn: 0603WAF1003T5E
+    lcsc: C25803
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': VBAT
+      '2': M3_GH
+    group: front_power
+  R17:
+    placement:
+      x: 17.0
+      y: 27.55
+      rot: 90.0
+      fixed: true
+    value: 1M
+    mpn: 0603WAF1004T5E
+    lcsc: C22935
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': VBAT
+      '2': VBAT_SW_G
+    group: front_vbat
+  R18:
+    placement:
+      x: 23.9
+      y: 8.75
+      rot: 0.0
+      fixed: true
+    value: 3.3M
+    mpn: 0603WAF3304T5E
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': Q1_B
+      '2': BAT_N
+    group: front_power
+  R19:
+    placement:
+      x: 20.0
+      y: 13.95
+      rot: 0.0
+      fixed: true
+    value: 100k
+    mpn: 0603WAF1003T5E
+    lcsc: C25803
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': M3_GH
+      '2': M3_G
+    group: front_power
+  R2:
+    placement:
+      x: 32.15
+      y: 7.2
+      rot: 0.0
+      fixed: true
+    value: 47k
+    mpn: PTFR0603B47K0P9
+    lcsc: C328427
+    price_usd: 0.117
+    tolerance: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': AVDD_SW
+      '2': PROBE2
+    group: front_adc
+  R20:
+    placement:
+      x: 23.9
+      y: 10.95
+      rot: 0.0
+      fixed: true
+    value: 6.8M
+    mpn: 0603WAF6804T5E
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': M3_GH
+      '2': Q1_B
+    group: front_power
+  R3:
+    placement:
+      x: 11.4
+      y: 31.15
+      rot: 0.0
+      fixed: true
+    value: 200k
+    mpn: RT0603BRD07200KL
+    lcsc: C728585
+    price_usd: 0.048
+    tolerance: 0.001
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': VBAT_TOP
+      '2': VBAT_SENSE
+    group: front_vbat
+  R4:
+    placement:
+      x: 15.2
+      y: 31.15
+      rot: 0.0
+      fixed: true
+    value: 100k
+    mpn: RT0603BRD07100KL
+    lcsc: C122538
+    price_usd: 0.04
+    tolerance: 0.001
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': VBAT_SENSE
+      '2': GND
+    group: front_vbat
+  R5:
+    placement:
+      x: 55.45
+      y: 10.75
+      rot: 90.0
+      fixed: true
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': EN_RST_N
+      '2': ESP_EN
+    group: front_mcu
+  R7:
+    placement:
+      x: 47.35
+      y: 7.4
+      rot: 0.0
+      fixed: true
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': PROBE1
+      '2': AIN1P
+    group: front_adc
+  R8:
+    placement:
+      x: 43.75
+      y: 6.0
+      rot: 180.0
+      fixed: true
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: thermostat:R_0603_1608Metric_Back
+    pins:
+      '1': PROBE2
+      '2': AIN2P
+    group: front_adc
+  SLOT1:
+    value: panel gap 6x21.5
+    symbol: Mechanical:MountingHole_Pad
+    footprint: thermostat:PanelSlot_6x21.5
+    pins:
+      '1': GND
+    price_usd: 0
+    group: layout
+    placement:
+      x: 6.0
+      y: 19.2
+      rot: 0.0
+      fixed: true
+  TP1:
+    placement:
+      x: 44.3
+      y: 9.4
+      rot: 90.0
+      fixed: true
+    value: 3V3
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': +3V3
+    group: front_prog
+    price_usd: 0
+  TP2:
+    placement:
+      x: 41.8
+      y: 11.65
+      rot: 180.0
+      fixed: true
+    value: GND
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': GND
+    group: front_prog
+    price_usd: 0
+  TP3:
+    placement:
+      x: 59.3
+      y: 9.95
+      rot: 0.0
+      fixed: true
+    value: D-
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': USB_DN
+    group: front_prog
+    price_usd: 0
+  TP4:
+    placement:
+      x: 68.7
+      y: 10.2
+      rot: 0.0
+      fixed: true
+    value: D+
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': USB_DP
+    group: front_prog
+    price_usd: 0
+  TP5:
+    placement:
+      x: 55.0
+      y: 14.15
+      rot: 270.0
+      fixed: true
+    value: EN
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': ESP_EN
+    group: front_prog
+    price_usd: 0
+  TP7:
+    placement:
+      x: 53.2
+      y: 8.73
+      rot: 270.0
+      fixed: true
+    value: TXD0
+    symbol: Connector:TestPoint
+    footprint: thermostat:TestPoint_Pad_D1.0mm_Back
+    pins:
+      '1': UART_TX
+    group: front_prog
+    price_usd: 0
+  U2:
+    placement:
+      x: 41.15
+      y: 16.35
+      rot: 90.0
+      fixed: true
+    value: TPS610994
+    mpn: TPS610994YFFR
+    price_usd: 1.21
+    datasheet: https://www.ti.com/lit/gpn/tps61099
+    symbol: thermostat:TPS610994YFF
+    footprint: thermostat:DSBGA-6_Back
+    pins:
+      A1: VBAT
+      A2: GND
+      B1: SW
+      B2: +3V3
+      C1: VBAT
+      C2: GND
+    theta_ja: 134
+    group: front_power
+  U4:
+    placement:
+      x: 65.2
+      y: 7.3
+      rot: 270.0
+      fixed: true
+    value: DRV8837
+    mpn: DRV8837DSGT-JSM
+    lcsc: C22447133
+    price_usd: 0.14
+    symbol: Driver_Motor:DRV8837
+    footprint: thermostat:WSON-8-1EP_2x2mm_Back
+    pins:
+      '1': AVDD_SW
+      '2': COIL1_A
+      '3': COIL1_B
+      '4': GND
+      '5': RLY1_IN2
+      '6': RLY1_IN1
+      '7': AVDD_SW
+      '8': AVDD_SW
+      '9': GND
+    group: front_relay_drv
+  U5:
+    placement:
+      x: 28.35
+      y: 9.65
+      rot: 180.0
+      fixed: true
+    value: DRV8837
+    mpn: DRV8837DSGT-JSM
+    lcsc: C22447133
+    price_usd: 0.14
+    symbol: Driver_Motor:DRV8837
+    footprint: thermostat:WSON-8-1EP_2x2mm_Back
+    pins:
+      '1': AVDD_SW
+      '2': COIL2_A
+      '3': COIL2_B
+      '4': GND
+      '5': RLY2_IN2
+      '6': RLY2_IN1
+      '7': AVDD_SW
+      '8': AVDD_SW
+      '9': GND
+    group: front_relay_drv
+  U6:
+    placement:
+      x: 36.15
+      y: 9.0
+      rot: 270.0
+      fixed: true
+    value: TPS3839K33
+    mpn: TPS3839K33DBZR
+    lcsc: C96333
+    price_usd: 0.646
+    datasheet: https://www.ti.com/lit/gpn/tps3839
+    symbol: Power_Supervisor:TPS3839DBZ
+    footprint: thermostat:SOT-23_Back
+    pins:
+      '1': GND
+      '2': EN_RST_N
+      '3': +3V3
+    group: front_mcu
+  Y1:
+    placement:
+      x: 60.5
+      y: 7.25
+      rot: 0.0
+      fixed: true
+    value: 32.768k
+    mpn: SC-32S 32.768kHz 12.5pF 20ppm
+    lcsc: C97606
+    price_usd: 0.2
+    symbol: Device:Crystal
+    footprint: thermostat:Crystal_SMD_3215_Back
+    pins:
+      '1': XTAL32_P
+      '2': XTAL32_N
+    group: front_mcu
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': +3V3
+    group: cutout_terminal
+    placement:
+      x: 44.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': ESP_EN
+    group: cutout_terminal
+    placement:
+      x: 58.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': LED_K
+    group: cutout_terminal
+    placement:
+      x: 68.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PROBE1
+    group: cutout_terminal
+    placement:
+      x: 14.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PROBE2
+    group: cutout_terminal
+    placement:
+      x: 11.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': RLY1_IN1
+    group: cutout_terminal
+    placement:
+      x: 61.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': RLY1_IN2
+    group: cutout_terminal
+    placement:
+      x: 55.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB16:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': RLY2_IN1
+    group: cutout_terminal
+    placement:
+      x: 41.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB17:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': RLY2_IN2
+    group: cutout_terminal
+    placement:
+      x: 38.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB18:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': UART_TX
+    group: cutout_terminal
+    placement:
+      x: 40.7672
+      y: 4.9
+      rot: 0
+      fixed: true
+  TPB19:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': USB_DN
+    group: cutout_terminal
+    placement:
+      x: 36.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AIN1P
+    group: cutout_terminal
+    placement:
+      x: 33.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB20:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': USB_DP
+    group: cutout_terminal
+    placement:
+      x: 30.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB21:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBAT_SENSE
+    group: cutout_terminal
+    placement:
+      x: 33.4934
+      y: 4.9
+      rot: 0
+      fixed: true
+  TPB22:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': XTAL32_N
+    group: cutout_terminal
+    placement:
+      x: 27.75
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB23:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': XTAL32_P
+    group: cutout_terminal
+    placement:
+      x: 30.7344
+      y: 4.9
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AIN2P
+    group: cutout_terminal
+    placement:
+      x: 25.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AVDD_EN_N
+    group: cutout_terminal
+    placement:
+      x: 27.9754
+      y: 4.9
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': AVDD_SW
+    group: cutout_terminal
+    placement:
+      x: 22.25
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL1_A
+    group: cutout_terminal
+    placement:
+      x: 19.5
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL1_B
+    group: cutout_terminal
+    placement:
+      x: 24.2131
+      y: 4.9
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL2_A
+    group: cutout_terminal
+    placement:
+      x: 9.0
+      y: 2.25
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': COIL2_B
+    group: cutout_terminal
+    placement:
+      x: 6.25
+      y: 2.25
+      rot: 0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  VBAT:
+    class: power
+    current_a: 1.2
+    external_supply: true
+  SW:
+    class: switching
+    current_a: 1.0
+    width_mm: 0.4
+  +3V3:
+    class: power
+    current_a: 0.5
+  AVDD_SW:
+    class: power
+    current_a: 0.2
+    external_supply: true
+  COIL1_A:
+    class: switching
+    current_a: 0.1
+  COIL1_B:
+    class: switching
+    current_a: 0.1
+  COIL2_A:
+    class: switching
+    current_a: 0.1
+  COIL2_B:
+    class: switching
+    current_a: 0.1
+  RLY1_IN1:
+    class: signal
+    width_mm: 0.15
+  PROBE1:
+    class: signal
+    sensitive: true
+  PROBE2:
+    class: signal
+    sensitive: true
+  AIN1P:
+    class: signal
+    sensitive: true
+  AIN2P:
+    class: signal
+    sensitive: true
+  VBAT_SENSE:
+    class: signal
+    sensitive: true
+  XTAL32_P:
+    class: signal
+    sensitive: true
+  XTAL32_N:
+    class: signal
+    sensitive: true
+  BAT_N:
+    class: power
+    current_a: 1.2

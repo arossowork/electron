@@ -1,0 +1,34 @@
+source: 'sensor_preamp (examples/sensor_preamp) placed on a 13 x 10 mm board: deliberately over-full'
+source_project: sensor_preamp
+placement: kept in this cutout (source placement file not in the repository)
+selection:
+  parts: null
+  region: 0,0,13,10
+  nets: null
+window:
+- 0.0
+- 0.0
+- 13.0
+- 10.0
+frame_mm: 3.0
+offset:
+- -0.0
+- -0.0
+board_mm:
+- 13.0
+- 10.0
+free:
+- C1
+- C2
+- C3
+- C4
+- D1
+- J1
+- R1
+- R2
+- R3
+- U1
+- U2
+dropped_neighbors: []
+terminals: []
+warnings: []

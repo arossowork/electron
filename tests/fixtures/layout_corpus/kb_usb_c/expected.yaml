@@ -1,0 +1,131 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region usb_c
+source_failure: 'usb_c route group: 16 nets, 6 USB SuperSpeed nets open after 1671 s (C1_TX1_N, C1_TX2_N, C2_RX2_P, C2_TX1_N,
+  C2_TX2_N, C2_TX2_P; notes/layout.md lay9)'
+reproduces: 'yes: 30 unconnected items, 17 open nets, among them the SuperSpeed lanes C1_TX1_N, C1_TX2_N, C1_TX2_P, C2_RX2_P,
+  C2_TX1_N, C2_TX2_P (5 of the 6 named in the source run plus siblings); the cutout also routes the 25 interface nets to border
+  terminals, so it has more open nets than the 16-net source group'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 37
+  nets: 42
+  board_mm:
+  - 36.0
+  - 27.15
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 1037.4
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 145
+    nets_no_exit_at_width:
+    - C1_RTN
+    - C2_RTN
+    - GND
+    necked:
+    - C1_RTN
+    - C2_RTN
+    no_access:
+    - U311.21
+    - U312.21
+  seconds:
+    check: 5.8
+    pin_access: 0.7
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 12
+  violations: []
+  seconds: 2.7
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 30
+  open_nets:
+  - C1_RTN
+  - C1_RX_P
+  - C1_TX1_N
+  - C1_TX2_N
+  - C1_TX2_P
+  - C1_TX_P
+  - C2_DP
+  - C2_RTN
+  - C2_RX1_P
+  - C2_RX2_P
+  - C2_RX_P
+  - C2_TX1_N
+  - C2_TX2_P
+  - C2_TX_P
+  - CC2_C2
+  - GND
+  - VBUS_C2
+  drc_errors: 30
+  drc_types: {}
+  placement_violations: 0
+  router: '20 unrouted, krt 3 pass(es) in 2 route groups (usb_c miss, interface miss); retried in another net order (0.25
+    mm: default order 7 unrouted, --ordering inside_out 7 unrouted; 0.25 mm: neck-down to 0.15 mm: C1_TX1_N, C1_TX2_N, C1_TX2_P,
+    C2_RX1_P, C2_RX2_P, C2_TX1_N, C2_TX2_P still open; 1.4 mm: C1_RT'
+  route_groups:
+  - name: usb_c
+    nets:
+    - C1_RX1_N
+    - C1_RX1_P
+    - C1_RX2_N
+    - C1_RX2_P
+    - C1_TX1_N
+    - C1_TX1_P
+    - C1_TX2_N
+    - C1_TX2_P
+    - C2_RX1_N
+    - C2_RX1_P
+    - C2_RX2_N
+    - C2_RX2_P
+    - C2_TX1_N
+    - C2_TX1_P
+    - C2_TX2_N
+    - C2_TX2_P
+    unrouted: 7
+    seconds: 343.0
+  - name: interface
+    nets:
+    - 3V3_D
+    - C1_DM
+    - C1_DP
+    - C1_ORIENT
+    - C1_RTN
+    - C1_RX_N
+    - C1_RX_P
+    - C1_SHELL
+    - C1_TX_N
+    - C1_TX_P
+    - C2_DM
+    - C2_DP
+    - C2_ORIENT
+    - C2_RTN
+    - C2_RX_N
+    - C2_RX_P
+    - C2_SHELL
+    - C2_TX_N
+    - C2_TX_P
+    - CC1_C1
+    - CC1_C2
+    - CC2_C1
+    - CC2_C2
+    - VBUS_C1
+    - VBUS_C2
+    unrouted: 13
+    seconds: 792.9
+  seconds: 1293.9
+  timing:
+    drc_s: 22.9
+    place_s: 0.1
+    repair_s: 120.1
+    route_s: 1136.1

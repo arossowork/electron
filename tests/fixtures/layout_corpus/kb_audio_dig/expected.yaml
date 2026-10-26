@@ -1,0 +1,353 @@
+source: keyboard-audio-hub-v2 (worktree electron-keyboard-v2, projects/keyboard-audio-hub-v2), build/placement.json of the
+  2026-10-25 layout run (lay9), region audio_dig
+source_failure: 'audio_dig MCU/QSPI region: 27 of 39 nets open'
+reproduces: 'yes (stronger): 65 nets open (source 27 of 39); 7 placement violations, 65 necked nets'
+fast:
+  check:
+    ok: false
+    errors: 1
+    warnings: 1
+    codes:
+    - barrier
+  parts: 127
+  nets: 87
+  board_mm:
+  - 54.5
+  - 29.0
+  placement_violations:
+  - courtyard overlap C401/C414
+  - courtyard overlap M933/R1101
+  - courtyard overlap M933/R938
+  - courtyard overlap M933/U1100
+  - courtyard overlap R405/SW402
+  - courtyard overlap SW402/TP401
+  - courtyard overlap TP1105/Y401
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 23730.1
+  rudy:
+    congestion: 26.2
+    max_overflow: 2.57
+  pin_access:
+    pads: 320
+    nets_no_exit_at_width:
+    - 0V9_CORE
+    - 1V8_D
+    - 3V3_D
+    - ADC_EN
+    - ADC_PWR_EN
+    - AUDIO_UNMUTE
+    - AUD_DM
+    - AUD_DP
+    - COL1
+    - COL10
+    - COL2
+    - COL3
+    - COL4
+    - COL7
+    - COL8
+    - COL9
+    - DAC_EN
+    - ENC_A
+    - ENC_B
+    - ENC_SW
+    - GND
+    - I2C_SCL
+    - I2C_SDA
+    - I2S_DIN
+    - JACK_DET
+    - MCLK
+    - MCU_1V1
+    - MCU_RUN
+    - MCU_XIN
+    - MCU_XOUT
+    - MIC_DET
+    - MIC_GAIN
+    - OSC44_EN
+    - QSPI_SCLK
+    - QSPI_SD0
+    - QSPI_SD1
+    - QSPI_SD2
+    - QSPI_SD3
+    - ROW0
+    - ROW1
+    - ROW10
+    - ROW2
+    - ROW3
+    - ROW4
+    - ROW5
+    - ROW6
+    - ROW7
+    - ROW8
+    - ROW9
+    - RP_DM
+    - RP_DP
+    - SWCLK
+    - SWDIO
+    - XI2S_BCLK
+    - XI2S_LRCK
+    - XQ_CLK
+    - XQ_CS
+    - XQ_D0
+    - XQ_D3
+    - XU_PLL
+    - XU_RST_N
+    - XU_TCK
+    - XU_TDI
+    - XU_TDO
+    - XU_TMS
+    necked:
+    - 0V9_CORE
+    - 1V8_D
+    - 3V3_D
+    - ADC_EN
+    - ADC_PWR_EN
+    - AUDIO_UNMUTE
+    - AUD_DM
+    - AUD_DP
+    - COL1
+    - COL10
+    - COL2
+    - COL3
+    - COL4
+    - COL7
+    - COL8
+    - COL9
+    - DAC_EN
+    - ENC_A
+    - ENC_B
+    - ENC_SW
+    - GND
+    - I2C_SCL
+    - I2C_SDA
+    - I2S_DIN
+    - JACK_DET
+    - MCLK
+    - MCU_1V1
+    - MCU_RUN
+    - MCU_XIN
+    - MCU_XOUT
+    - MIC_DET
+    - MIC_GAIN
+    - OSC44_EN
+    - QSPI_SCLK
+    - QSPI_SD0
+    - QSPI_SD1
+    - QSPI_SD2
+    - QSPI_SD3
+    - ROW0
+    - ROW1
+    - ROW10
+    - ROW2
+    - ROW3
+    - ROW4
+    - ROW5
+    - ROW6
+    - ROW7
+    - ROW8
+    - ROW9
+    - RP_DM
+    - RP_DP
+    - SWCLK
+    - SWDIO
+    - XI2S_BCLK
+    - XI2S_LRCK
+    - XQ_CLK
+    - XQ_CS
+    - XQ_D0
+    - XQ_D3
+    - XU_PLL
+    - XU_RST_N
+    - XU_TCK
+    - XU_TDI
+    - XU_TDO
+    - XU_TMS
+    no_access:
+    - TP1105.1
+  seconds:
+    check: 60.4
+    pin_access: 3.0
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-26'
+route:
+  ok: false
+  unrouted: 151
+  open_nets:
+  - 0V9_CORE
+  - 1V8_D
+  - 3V3_D
+  - ADC_EN
+  - ADC_PWR_EN
+  - AUDIO_UNMUTE
+  - AUD_DM
+  - AUD_DP
+  - COL1
+  - COL10
+  - COL2
+  - COL3
+  - COL4
+  - COL7
+  - COL8
+  - COL9
+  - DAC_EN
+  - ENC_A
+  - ENC_B
+  - ENC_SW
+  - GND
+  - I2C_SCL
+  - I2C_SDA
+  - I2S_DIN
+  - JACK_DET
+  - MCLK
+  - MCU_1V1
+  - MCU_RUN
+  - MCU_XIN
+  - MCU_XOUT
+  - MIC_DET
+  - MIC_GAIN
+  - OSC44_EN
+  - QSPI_SCLK
+  - QSPI_SD0
+  - QSPI_SD1
+  - QSPI_SD2
+  - QSPI_SD3
+  - ROW0
+  - ROW1
+  - ROW10
+  - ROW2
+  - ROW3
+  - ROW4
+  - ROW5
+  - ROW6
+  - ROW7
+  - ROW8
+  - ROW9
+  - RP_DM
+  - RP_DP
+  - SWCLK
+  - SWDIO
+  - XI2S_BCLK
+  - XI2S_LRCK
+  - XQ_CLK
+  - XQ_CS
+  - XQ_D0
+  - XQ_D3
+  - XU_PLL
+  - XU_RST_N
+  - XU_TCK
+  - XU_TDI
+  - XU_TDO
+  - XU_TMS
+  drc_errors: 176
+  drc_types:
+    solder_mask_bridge: 4
+    courtyards_overlap: 7
+    clearance: 12
+    shorting_items: 2
+  placement_violations: 7
+  router: '64 unrouted, krt 4 pass(es) in 2 route groups (audio_dig miss, interface miss); retried in another net order (0.25
+    mm: AUDIO_UNMUTE, MCU_1V1, MCU_RUN, MCU_XIN, MCU_XOUT, OSC44_EN, QSPI_SCLK, QSPI_SD0, QSPI_SD1, QSPI_SD2, QSPI_SD3, RP_DM,
+    RP_DP, SWCLK, SWDIO, XI2S_BCLK, XI2S_LRCK, XQ_CLK, XQ_CS, XQ_D'
+  route_groups:
+  - name: audio_dig
+    nets:
+    - AUDIO_UNMUTE
+    - BOOT_N
+    - MCLK44_O
+    - MCLK48_O
+    - MCU_1V1
+    - MCU_RUN
+    - MCU_XIN
+    - MCU_XOUT
+    - MCU_XOUT_X
+    - OSC44_EN
+    - OSC48_EN
+    - QSPI_SCLK
+    - QSPI_SD0
+    - QSPI_SD1
+    - QSPI_SD2
+    - QSPI_SD3
+    - QSPI_SS
+    - RP_DM
+    - RP_DP
+    - SWCLK
+    - SWDIO
+    - XI2S_BCLK
+    - XI2S_DOUT
+    - XI2S_LRCK
+    - XQ_CLK
+    - XQ_CS
+    - XQ_D0
+    - XQ_D1
+    - XQ_D2
+    - XQ_D3
+    - XU_PLL
+    - XU_RST_N
+    - XU_TCK
+    - XU_TDI
+    - XU_TDO
+    - XU_TMS
+    - XU_XI
+    - XU_XO
+    - XU_XOR
+    unrouted: 27
+    seconds: 234.0
+  - name: interface
+    nets:
+    - 0V9_CORE
+    - 1V8_D
+    - 3V3_D
+    - ADC_EN
+    - ADC_PWR_EN
+    - AUD_DM
+    - AUD_DP
+    - COL0
+    - COL1
+    - COL10
+    - COL2
+    - COL3
+    - COL4
+    - COL5
+    - COL6
+    - COL7
+    - COL8
+    - COL9
+    - DAC_EN
+    - ENC_A
+    - ENC_B
+    - ENC_SW
+    - HP_MUTE
+    - I2C_SCL
+    - I2C_SDA
+    - I2S_BCLK
+    - I2S_DIN
+    - I2S_DOUT
+    - I2S_LRCK
+    - JACK_DET
+    - MCLK
+    - MCU_DM
+    - MCU_DP
+    - MIC_DET
+    - MIC_GAIN
+    - ROW0
+    - ROW1
+    - ROW10
+    - ROW11
+    - ROW2
+    - ROW3
+    - ROW4
+    - ROW5
+    - ROW6
+    - ROW7
+    - ROW8
+    - ROW9
+    unrouted: 37
+    seconds: 372.3
+  seconds: 684.1
+  timing:
+    drc_s: 13.1
+    place_s: 0.2
+    repair_s: 0.0
+    route_s: 606.7
