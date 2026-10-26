@@ -155,6 +155,7 @@ strategy diversity, fixed ht4. On sensor_preamp (area search, base first) it was
 | `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
+| `HWFLOW_FIRSTPASS=1` or a list of `roads,hot,quick` (or `placement: {firstpass: ...}`), `HWFLOW_FIRSTPASS_QUICK_S`, `HWFLOW_FIRSTPASS_HOT_W` | routable first pass (experiment, off): roads reserved and routed first, the window cuts as a local placer penalty, a quick truncated route that drives a local placement fix (`layout/route/firstpass.py`; measurements in `docs/asic-ideas.md`, "Routable first pass") |
 | `HWFLOW_ROUTAB_PREDICT=0` | the routability prediction and its run log off |
 | `HWFLOW_ROUTAB_RANK=1`, `HWFLOW_ROUTAB_FEEDBACK=1`, `HWFLOW_ROUTAB_RETRY=1` (or `placement: {routability_rank, routability_feedback, routability_retry: true}`) | the prediction-driven options (off by default). The route cache key includes them (settings group `layout`). |
 
