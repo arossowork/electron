@@ -103,6 +103,15 @@ retrying with more than 3 nets open).
    route for corridor nets (`HWFLOW_SEEDROUTE`). The route groups are split by region and cached (`regionroute`).
    After routing, DRC repair (`repair.py`) and pruning of dangling vias and tracks (`prune.py`) run. Nets with
    `nets.<n>.min_width_mm` never neck below that width.
+8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net,
+   so a GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads
+   and vias. Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the
+   repair, every pour group other than the main one (most pads), and every pad no fill touches, is joined by the
+   first of: a via in the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most
+   2.5 mm to a via that lands in the main fill, and once more the same stub where it displaces at most 3 routed
+   nets (never isolation members or layer-rule nets), which are routed again within the repair budget. Every via
+   and stub keeps the clearances, the isolation distances and the rule areas; a round is kept only with fewer DRC
+   errors and no more errors of any type other than unconnected.
 
 ## Roads first and the layout portfolio (both off by default)
 
@@ -153,6 +162,7 @@ strategy diversity, fixed ht4. On sensor_preamp (area search, base first) it was
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
 | `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
 | `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
+| `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
 | `HWFLOW_ROUTAB_PREDICT=0` | the routability prediction and its run log off |

@@ -70,6 +70,10 @@ class LayoutSettings(_Group):
     roads: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROADS"))
     roads_power: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROADS_POWER"))  # every power net a road
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
+    # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
+    # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
+    # HWFLOW_POUR_STITCH=1
+    pour_stitch: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_STITCH"))
     # layout portfolio (pipeline.portfolio): off by default, on with HWFLOW_PORTFOLIO=1
     portfolio: bool = Field(False, validation_alias=AliasChoices("HWFLOW_PORTFOLIO"))
     portfolio_workers: int = Field(0, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_WORKERS"))  # 0: cpu count - 2

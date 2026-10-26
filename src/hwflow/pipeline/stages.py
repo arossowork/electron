@@ -216,6 +216,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
     h.update(Path(regionroute.__file__).read_bytes())  # route groups and their cache
+    from ..layout.route import pourstitch
+    h.update(Path(pourstitch.__file__).read_bytes())  # pour stitching after routing (settings.layout.pour_stitch)
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
@@ -360,7 +362,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pcb.write_project(out, name, d)  # the .kicad_dru with board.drc_rules and board.isolation, for the router and DRC
     key = _route_key(d, libs, parts, out, passes)
     hit = json.loads((cache / f"{key}.json").read_text()) if (cache / f"{key}.json").exists() else None
-    rep, island, groups = None, 0, []
+    rep, island, groups, stitch = None, 0, [], None
     if hit:
         d.route_budget_exhausted = False  # the cached complete route replaces any partial area-search result
         tracks, vias, summary, island, rep = hit["tracks"], hit["vias"], hit["summary"] + " (route cache)", hit["island"], hit["rep"]
@@ -384,6 +386,17 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             from ..layout.route import regionroute
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
                                                      groups, route_check, deadline=deadline)
+        if (get_settings().layout.pour_stitch and d.board["gnd_pour"] and not d.route_budget_exhausted
+                and d.board.get("router", "krt") == "krt"):
+            from ..layout.route import pourstitch
+            t = time.time()
+            ps = pourstitch.stitch(d, libs, parts, board, tracks, vias, drc, route_check, deadline=deadline)
+            tracks, vias, drc = ps["tracks"], ps["vias"], ps["drc"]
+            tm["stitch_s"] = round(time.time() - t, 1)
+            for line in ps["log"]:
+                print(f"[layout] pour stitch: {line}")
+            summary += f"; pour stitch: {ps['added'][1]} vias, {ps['added'][0]} stubs"
+            stitch = {"vias": ps["added"][1], "stubs": ps["added"][0], "log": ps["log"]}
         rounds = int(d.board.get("repair_rounds", 3))
         if (not d.route_budget_exhausted and any(x["sev"] == "error" for x in drc) and rounds > 0
                 and d.board.get("router", "krt") == "krt"
@@ -463,7 +476,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "corridors": corridors, "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
-            "route_cache": key if hit else None, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
+            "route_cache": key if hit else None, "pour_stitch": stitch, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
             "timing": tm, "seconds": round(time.time() - t0, 1)}
