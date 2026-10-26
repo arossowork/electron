@@ -23,6 +23,7 @@ from shapely.ops import unary_union
 
 from ...core.floorplan import EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, depth, fixed_pad_isolation, members, parse, region_distances, resolve
 from ...core.floorplan import *  # noqa: F401,F403  (the data model moved to core.floorplan; its public names stay here)
+from ...core.settings import get_settings
 
 
 def _fits(w, h, poly) -> bool:
@@ -310,9 +311,22 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True) 
         for msg in place_out["fixed_violations"]:
             add("fixed-placement", False, msg)
         v = place_out["violations"]
-        if v:  # an estimate: a short anneal leaves overlaps that the stage-7 placer (more seeds and moves) removes
-            add("placement", None, f"quick placement left {len(v)} violations: {'; '.join(v[:5])}"
-                + ("; ..." if len(v) > 5 else ""))
+        if v:  # an illegal placement is no placement: the floorplan fails (the stage-7 placer would stop there too)
+            from .legality import placement_verdict
+            pv = placement_verdict(d2, parts, place_out["W"], place_out["H"], v)
+            place_out["verdict"] = pv
+            add("placement", False, f"quick placement is illegal, {pv['msg'][len('placement illegal: '):]}"
+                + "".join(f"; region {g['name']} {g['fill']:.0%} full ({g['load_mm2']:.0f} of {g['area_mm2']:.0f} mm2)"
+                          for g in pv["regions"]), pv["back_to"] if pv["back_to"] != "layout" else None)
+        if not v:  # the routability prediction of the quick placement (routability.py; a legal placement only)
+            from . import routability
+            try:
+                rp = routability.predict(d2, libs, parts=parts)
+                place_out["routability"] = routability.public(rp)
+                # a report, not a gate: a prediction short of `routable` is a risk, never a FAIL
+                add("routability-prediction", True if rp["verdict"] == "routable" else None, rp["message"])
+            except Exception as e:  # noqa: BLE001 - an estimate; the other checks stand without it
+                add("routability-prediction", None, f"not run: {type(e).__name__}: {e}")
         c = place_out["congestion"]
         ok = True if c["util"] <= UTIL_RISK and c["peak"] <= PEAK_RISK else (False if c["util"] > UTIL_FAIL else None)
         add("routability", ok, f"{design.board.get('layers', 2)} layers: estimated wire {c['demand_mm']:.0f} mm on "
@@ -413,6 +427,10 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
             if _region_viol(v) >= _region_viol(vb):
                 pl._restore(before)
                 cost, v = pl.cost(), vb
+        if v and get_settings().layout.settle:  # what is left: the placer's settle legalizer
+            v2 = pl.settle()
+            if len(v2) < len(v):
+                cost, v = pl.cost(), v2
         key = (_region_viol(v), len(v), cost)
         if best is None or key < best[0]:
             best = (key, pl._state(), v, seed)

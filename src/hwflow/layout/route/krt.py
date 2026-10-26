@@ -205,8 +205,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         base = [sys.executable, str(route_py), str(pass_input(cur, tag, pnets)), None, "--nets", *pnets, *args, *common]
         if i or keep_first:
             base.append("--keep-input-copper")
-        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants,
-                                        **({"keep_partial": True} if keep_partial else {}))
+        from ..place import routability
+        stop = routability.retry_stop(design, args, len(pnets)) if variants is None else None
+        kw = {"stop": stop} if stop is not None else {}  # the retry policy only when it is on (HWFLOW_ROUTAB_RETRY)
+        if keep_partial:
+            kw["keep_partial"] = True
+        best, tried, logs = route_class(base, workdir / f"{stem}{tag}", retries, run, variants, **kw)
         log.extend(logs)
         if best is None:
             with (workdir / "krt.log").open("a") as f:
@@ -436,12 +440,16 @@ def krt_unrouted(summary: dict) -> int:
 
 
 def route_class(base: list, stem: Path, retries: int, run, variants: list | None = None,
-                keep_partial: bool = False) -> tuple:
+                keep_partial: bool = False, stop=None) -> tuple:
     """Route one width class; while nets stay unrouted, retry in another net order (up to `retries` times).
-    Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
+    `stop(unrouted, tries)`: True when another net order cannot help (routability.retry_stop), so the class keeps its
+    best try. Returns ((board, summary, unrouted) of the best attempt or None, [(order, unrouted)], logs)."""
     import json as _json
     best, tried, logs = None, [], []
     for j, extra in enumerate(variants or KRT_VARIANTS[:1 + max(retries, 0)]):
+        if j and best is not None and stop is not None and stop(best[2], j):
+            tried.append(("further net orders", f"skipped ({stop.why})"))
+            break
         out = stem.with_name(stem.name + (f"_r{j}" if j else "") + ".kicad_pcb")
         args = [str(out) if a is None else a for a in base] + extra  # None marks the output board
         out.unlink(missing_ok=True)

@@ -37,6 +37,59 @@ on a violation: over the part's floorplan region (else the board), at most `plac
 rotation (a board up to about 58 x 58 mm keeps the 1.5 mm step) and the `placer.UNSTICK_UNITS` worst parts per round.
 The layout budget (`HWFLOW_LAYOUT_BUDGET_S`) reaches placement: `stage_layout` gives `place` half of the time left;
 past it no new seed starts and `unstick` stops.
+Then `Placer.settle` runs on what is left (`HWFLOW_SETTLE=0`: off). Settle takes every unit in a violation
+out and puts it back, largest first, on the free spot nearest to where it was, in the four rotations, on an occupancy
+raster of the board (courtyards per side, a through-hole part on both, keep-outs, the board margin, the copper-edge
+distance of the pads, rectangular and polygon floorplan regions). When a unit finds no spot it repacks every unit
+(near, then from the corner) and keeps the result with the fewest violations; it is never worse than its input.
+With the routability ranking on (`HWFLOW_ROUTAB_RANK=1`), `place` keeps, among the legal seeds, the one with the
+fewest predicted hard nets.
+
+## Placement legality gate
+
+A placement with a violation (courtyard overlap, a part off the board or in a keep-out, a floorplan region broken,
+isolation) is invalid. `stage_layout` never routes it: it stops in seconds with `legality.placement_verdict`
+(`layout/place/legality.py`, also `diagnose.placement_verdict`), which names the fill of each board face and of each region the violations touch (placer courtyards with their margin,
+over the area inside `margin_mm`), and the board or region that would hold them. Above `PLACE_FILL_MAX` (95 %) it
+sends the build back to architecture; under it, the area allows a legal placement and the verdict is a placer
+failure (layout). `hwflow floorplan` fails the same way on an illegal quick placement. `HWFLOW_ROUTE_ILLEGAL=1`
+routes it anyway, for debugging only.
+
+Measured (scripts/legal_bench.py, 2 seeds x 10000 iterations; violations before settle -> after):
+see "Calibration and measurements" below.
+
+## Routability prediction (`layout/place/routability.py`, every legal placement, seconds, no routing)
+
+A deterministic raster model of the copper (numpy and scipy.ndimage only), per copper layer at 0.05 mm or coarser
+(at most 3 M cells): pad copper labelled by net, hard areas (outside the outline, track keep-outs, holes), the
+Euclidean distance transform of the free space (the corridor half-width map), its ridge (channel centre lines),
+connected components, and via sites. `Raster` is the reusable primitive (`.edt`, `.free(li, w, clr)`, `.ridge`,
+`.components`, `.via_free`).
+
+- **Window cuts** (the estimate). Every square window of 2, 4 and 8 mm at every 0.5 mm position: the nets with pads
+  inside and outside must cross its border (demand, sum of w + c), against the track centre lines that fit along
+  the border's free runs on the pad layer plus the other layers up to the via sites inside. The worst ratio per
+  0.5 mm cell is the overflow map. A net with a pad at ratio >= `RATIO_HARD` (3.0) is hard. Pads with at most one
+  exit (`pinaccess`) and constrained nets whose widest no-neck corridor is less than 0.3 mm wider than the net
+  (`corridor.margin`) are listed in the message but do not make a net hard (see the calibration).
+- **Exact bounds** (proofs: when one fails, no router can route the placement): channel density across every
+  straight line of the board (x and y), a min-cut ring around every part with 8 or more signal pads (inner layers
+  limited by the via sites and pads inside), forced corridors (a constrained net whose widest corridor is narrower
+  than its width), and 2D packing per floorplan region (area, and a member that fits the region's box in neither
+  orientation). A failed bound is reported with the prediction; it does not stop the layout (the
+  prediction is a report and a run log, never a gate).
+- **Verdict**: 0 hard nets `routable`; under 25 % of the routed nets `marginal`; from 25 % (or a proof) `not
+  routable`. `hwflow floorplan` reports it as the check `routability-prediction` (pass when `routable`, else a
+  risk, never a FAIL); REPORT.md shows the prediction and, after routing, how it compared with the router.
+- **Run log** (a dataset, never in git): each layout run appends (cheap features, outcome) to
+  `build/routab/runs.jsonl` and saves the raster channels as `build/routab/run_<n>.npz`; the format is in
+  `scripts/routab_bench.py`.
+
+The prediction also drives three options, off by default (see "Calibration and measurements" for why):
+`HWFLOW_ROUTAB_RANK=1` (seed ranking above), `HWFLOW_ROUTAB_FEEDBACK=1` (the global placement's density feedback
+also inflates the courtyards under escape hot spots: `asicflow.escape_map`) and `HWFLOW_ROUTAB_RETRY=1` (a pass wider
+than the board track keeps its first net order, since the neck-down routes its open nets; a board-width pass stops
+retrying with more than 3 nets open).
 
 ## Routing (every `krt.krt_route` call, including the repair's reroutes)
 
@@ -59,6 +112,10 @@ past it no new seed starts and `unstick` stops.
 | `HWFLOW_FLOW=legacy`, or `placement: {flow: legacy}` in design.yaml | plain annealing from a random start plus the refine pass, with no pin-access hint. **This is a temporary escape hatch, to be removed after two more routed designs confirm this flow.** |
 | `HWFLOW_SEED0` | the first placer seed of `--auto` (attempt k uses seed0 + 4k) |
 | `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0` | router fallbacks off |
+| `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
+| `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
+| `HWFLOW_ROUTAB_PREDICT=0` | the routability prediction and its run log off |
+| `HWFLOW_ROUTAB_RANK=1`, `HWFLOW_ROUTAB_FEEDBACK=1`, `HWFLOW_ROUTAB_RETRY=1` (or `placement: {routability_rank, routability_feedback, routability_retry: true}`) | the prediction-driven options (off by default). The route cache key includes them (settings group `layout`). |
 
 Regression corpus: `tests/fixtures/layout_corpus/` (README there) holds cutouts of real placed boards (`hwflow
 cutout`) with their measured outcome; `tests/test_layout_corpus.py` checks the pre-routing estimates in the fast tier
@@ -66,6 +123,64 @@ and routes every case in the slow tier.
 
 `placer.STAGES` records each placement stage (seconds, HPWL, overflow, overlap), and `asicflow.FEEDBACK` records
 each density feedback. `scripts/asic_flow_bench.py` measures the placement proxies of the flow and its ablations.
+
+## Calibration and measurements (routability branch, October 2026)
+
+**Legality** (`scripts/legal_bench.py`, 2 seeds x 10000 iterations; usable fill = placer courtyards over the area
+inside the board margin; violations without settle -> with it): sensor_preamp 18 x 13 (0.79) 0 -> 0;
+home-thermostat-3 and -4 (0.89) 0 -> 0; synth60 x0.55 (0.87) 1 -> 0 on seeds 1 and 5; synth150 x0.6 (0.89)
+22 -> 0. Over-full boards stay illegal and get the architecture verdict: sensor_preamp 16 x 12 (0.99) 2 -> 2,
+12 x 9 (1.97) 8 -> 8; synth60 x0.5 (1.07) 20 -> 20, x0.45 (1.34) 18 -> 18; synth150 x0.55 (1.07) 92 -> 92,
+x0.5 (1.31) 138 -> 129. Settle inside each seed (before `unstick`) made x0.45 worse (44), so it runs once, after.
+
+**Prediction against KRT** (`scripts/routab_bench.py`, `scripts/routab_eval.py`; one fixed placement per case,
+the current routing flow with repair; 13 cases on 6 designs, plus the R8 experiment below in the per-net counts).
+The thresholds were chosen on 6 cases (sensor_preamp, synth24, synth60, synth60 x0.85, home-thermostat-4 seeds 1
+and 11) and kept for the other 7.
+
+| case | layers | hard nets | max ratio | verdict | open signal nets | unrouted | DRC |
+|---|---|---|---|---|---|---|---|
+| sensor_preamp 18x13 | 2 | 0 / 6 | 1.3 | routable | 0 | 0 | 0 |
+| synth24 | 2 | 0 / 8 | 2.0 | routable | 0 | 0 | 0 |
+| synth24 x0.7 | 2 | 0 / 8 | 2.0 | routable | 0 | 0 | 0 |
+| home-thermostat-3 | 4 | 2 / 39 | 3.6 | marginal | 0 | 0 | 0 |
+| home-thermostat-4 seed 1 | 4 | 2 / 39 | 3.6 | marginal | 1 | 1 | 1 |
+| home-thermostat-4 seed 11 | 4 | 2 / 39 | 3.6 | marginal | 1 | 1 | 1 |
+| home-thermostat-4, 2 layers | 2 | 2 / 39 | 3.6 | marginal | 1 | 3 | 3 |
+| home-thermostat v1 | 4 | 7 / 42 | 4.8 | marginal | 8 | 15 | 49 |
+| home-thermostat v1, 2 layers | 2 | 7 / 42 | 4.8 | marginal | 7 | 19 | 38 |
+| synth60 | 2 | 47 / 77 | 8.0 | not routable | 23 | 31 | 31 |
+| synth60 x0.85 | 2 | 47 / 77 | 8.0 | not routable | 20 | 28 | 28 |
+| synth60 x1.3 | 2 | 47 / 77 | 8.0 | not routable | 18 | 22 | 22 |
+| synth60, 4 layers | 4 | 47 / 77 | 8.3 | not routable | 18 | 25 | 25 |
+
+What it predicts: the clean boards and the hopeless ones apart (every `routable` case routed clean, every `not
+routable` case left 18+ signal nets open); Spearman 0.96 between the hard-net share and the open signal nets (0.85
+against unrouted + DRC). Per net (609 nets, 16 % open): hard (ratio >= 3) precision 0.44, recall 0.95; pad access
+<= 1 exit precision 0.40, recall 0.92. What it does not: the `marginal` class holds both a clean board and boards
+with 1-15 open nets, and the layer count does not change the prediction (the other layers count only up to the via
+sites near the pads), while 2 layers did route worse. The honest global router (`global_overflow`, built on the
+guide-driven router's PathFinder, which was not adopted, so it is not on main) found almost no overflow on the failing
+boards (precision 0.21, recall 0.05 per net): g-cell capacity does not predict KRT, as in
+docs/asic-ideas.md. The exact bounds never fired on these cases (worst line ratio 0.20, ring 0.39): they prove only
+gross over-subscription. The corridor margin flagged one failure (AC_ROOM1, 0.15 mm on seed 11); with R8 moved
+0.8 mm the margin rises to 0.73 mm and AC_ROOM1 still stays open, so the margin is listed, not a hard-net rule.
+synth60's failure is caught earlier by `hwflow check` (its +3V3 0.4 mm track cannot leave the QFN pads).
+
+**Builds before (asic-router) and after** (`hwflow build --until layout --auto --attempts 2 --mc 0`; "all" adds
+`HWFLOW_ROUTAB_RANK=1 FEEDBACK=1 RETRY=1`; wall times on a shared, loaded machine vary by up to 2x):
+
+| design | run | attempts | wall s | route s | unrouted | DRC | vias | track mm | requirements |
+|---|---|---|---|---|---|---|---|---|---|
+| sensor_preamp | before / after / all | 1 / 1 / 1 | 737 / 772 / 333 | - | 0 | 0 | 3 | 45.1 | 7/7 |
+| sensor_preamp 13 x 10 (over-full) | before / after | 2 / 1 | 757 / 22 | 198 / 0 | 10 / - | 17 / - | 0 / - | 19.6 / - | illegal board routed / stopped: fill 157 %, a board of at least 17 x 13 mm |
+| synth24 | before / after / all | 1 / 1 / 1 | 105 / 111 / 145 | 38 / 52 / 53 | 0 | 0 | 4 | 130.1 | - |
+| home-thermostat-4 | before / after / all | 2 / 2 / 2 | 1595 / 1228 / 880 | 355 / 256 / 204 | 0 | 0 | 73 | 1197.1 | 35/35 |
+| synth60 (`--force`) | before / all | 1 / 1 | 2123 / 926 | 1859 / 519 | 28 / 36 | 28 / 36 | 91 / 100 | 1073 / 1100 | - |
+
+The legality gate turns an over-full board from 13 minutes of routing an invalid placement into a 22 s verdict. On
+the routable designs the options changed nothing in the result (same boards). The retry policy cut synth60's route
+time 3.6x but left 8 more nets open (the board fails either way, back to parts), so the options stay off.
 
 ## Removed after the experiments
 

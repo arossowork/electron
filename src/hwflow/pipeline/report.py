@@ -142,6 +142,11 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - budget {r['name']} width: {r['msg']}")
         for r in c.get("budgets") or []:
             L.append(f"  - {r['msg']}")
+        if c.get("routability"):
+            ra = c["routability"]
+            L.append(f"  - routability prediction ({ra['seconds']} s, no routing): {ra['message']}")
+            if ra.get("outcome"):
+                L.append(f"  - prediction against the router: {ra['outcome']}")
         for x in c.get("corridors") or []:
             L.append(f"  - corridor {x['msg']}")
         for v in c["placement_violations"][:5]:

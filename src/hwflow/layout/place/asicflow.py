@@ -111,9 +111,60 @@ def _feedback(pl):
 
     def fb(g):
         ts = time.perf_counter()
-        _inflate(g, *rudy_map(pl), "rudy")
+        R, cell, over = rudy_map(pl)
+        src = "rudy"
+        if routab_feedback(pl.d):
+            W = escape_map(pl, R.shape, cell)
+            if W is not None:
+                R, src = np.maximum(R, W), "rudy+escape"
+        _inflate(g, R, cell, over, src)
         FEEDBACK[-1]["s"] = round(time.perf_counter() - ts, 2)
     return fb
+
+
+def routab_feedback(design=None) -> bool:
+    """HWFLOW_ROUTAB_FEEDBACK (or placement: {routability_feedback: true}): the density feedback also inflates the
+    courtyards under the escape hot spots of the routability window cuts (escape_map)."""
+    v = get_settings().layout.routab_feedback
+    if v is None:
+        v = str(((getattr(design, "raw", None) or {}).get("placement") or {}).get("routability_feedback", FEEDBACK_DEFAULT))
+    return v.strip().lower() not in ("0", "false", "no", "off", "")
+
+
+FEEDBACK_DEFAULT = "0"
+
+
+def escape_map(pl, shape, cell):
+    """The routability window-cut ratio (routability.window_map) of the current placement on the placer grid
+    `shape` (cells of side `cell`), divided by routability.RATIO_HARD, so 1 is the calibrated hard level and the
+    inflation acts above it. None when it cannot be built."""
+    from . import routability
+    try:
+        R = routability.Raster(pl.d, pl.parts.libs if getattr(pl.parts, "libs", None) else _libs(pl.d), parts=pl.parts)
+        wm = routability.window_map(R, pl.d)
+    except Exception:  # noqa: BLE001 - a density hint; RUDY stands without it
+        return None
+    r = wm["ratio"] / routability.RATIO_HARD
+    k = max(1, int(round(cell / routability.POS_MM)))
+    nx, ny = shape
+    out = np.zeros(shape)
+    for i in range(nx):
+        for j in range(ny):
+            blk = r[i * k:(i + 1) * k, j * k:(j + 1) * k]
+            if blk.size:
+                out[i, j] = blk.max()
+    return out
+
+
+_LIBS: dict = {}
+
+
+def _libs(design):
+    from ...core.libs import Libs
+    key = id(design)
+    if key not in _LIBS:
+        _LIBS[key] = Libs(design=design)
+    return _LIBS[key]
 
 
 def rudy_map(pl):

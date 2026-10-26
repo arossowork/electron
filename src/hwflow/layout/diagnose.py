@@ -29,6 +29,7 @@ import math
 import re
 from pathlib import Path
 
+from .place.legality import PLACE_FILL_MAX, board_fill, placement_verdict  # noqa: F401  (diagnose's public names)
 from .place.partescape import ESCAPE_PINS
 
 ATTRIB_MM = 1.5       # a failure without a pad is put on the parts with a pad this close to it
@@ -87,20 +88,14 @@ def escape(fp: dict, classes: dict, clearance: float, default_w: float) -> list[
     return pad_escape(fp, classes, clearance, default_w)
 
 
-def _side(design, ref) -> str:
-    c = design.components.get(ref)
-    return str(c.get("side", "front")) if c else "front"
-
-
-def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
-    out = {"front": 0.0, "back": 0.0}
-    for r, p in parts.items():
-        if r in design.components:
-            x0, y0, x1, y1 = p.box()
-            out[_side(design, r) if _side(design, r) in out else "front"] += (x1 - x0) * (y1 - y0)
-    from ..core import floorplan
-    area = floorplan.outline(design).area if floorplan.cuts(design) else W * H  # cut regions take board area away
-    return {k: v / area if area > 0 else 0.0 for k, v in out.items()}
+def placement_diagnosis(design, verdict: dict, attempts: int = 1) -> dict:
+    """The layout diagnosis of a build stopped on an illegal placement (placement_verdict): blocked, back to its
+    `back_to`, unless that is `layout` (the placer failed on an area that allows a legal placement)."""
+    back = verdict["back_to"]
+    return {"structure": structure_key(design), "attempts": attempts, "persistent": [], "parts": [],
+            "fill": {k: round(v, 2) for k, v in verdict["fill"].items()}, "back_to": back, "stage": STAGES.get(back),
+            "reasons": [verdict["msg"]], "repeat": False, "proofs": [], "placement": verdict,
+            "blocked": back != "layout"}
 
 
 # ------------------------------------------------------------------ structure key and history

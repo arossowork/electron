@@ -203,7 +203,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
     h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
     from ..layout.place import asicflow
-    for m in (corridor, barrier, pinaccess, asicflow):  # which nets route narrow first
+    from ..layout.place import routability
+    for m in (corridor, barrier, pinaccess, asicflow, routability):  # which nets route narrow first
         h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
     h.update(Path(regionroute.__file__).read_bytes())  # route groups and their cache
@@ -277,6 +278,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
         pl.legalize()
         viol, cost = pl.violations(), pl.cost()
+        if viol and get_settings().layout.settle:  # a saved placement with violations: settle them
+            viol, cost = pl.settle(), pl.cost()
     else:
         # placement gets half of the time left, so routing and repair still run inside the budget
         pdl = None if deadline is None else t0 + max(0.0, deadline - t0) / 2
@@ -294,7 +297,14 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     for c in corridors:
         print(f"[layout] corridor {c['msg']}")
     blocks = [v for v in viol if v.startswith("corridor ")]
-    if blocks:  # a channel the fixed parts close: no router run can join the net, so none is started
+    verdict = None
+    if viol and not blocks and not get_settings().layout.route_illegal:
+        # an illegal placement is never routed: hours of routing cannot make it a valid board (HWFLOW_ROUTE_ILLEGAL=1
+        # routes it anyway, for debugging only)
+        from ..layout.place.legality import placement_verdict
+        verdict = placement_verdict(d, parts, d.board["width_mm"], d.board["height_mm"], viol)
+        blocks = [verdict["msg"]]
+    if blocks:  # a channel the fixed parts close, or an illegal placement: no router run is started
         msg = "not routed: " + "; ".join(blocks)
         print(f"[layout] {msg}")
         pcb.write_project(out, name, d)
@@ -303,8 +313,23 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                 "budget_widths": bud_w, "budgets": [], "board_mm": [d.board["width_mm"], d.board["height_mm"]],
                 "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
                 "corridors": corridors, "router": "-", "segments": 0, "vias": 0, "drc_errors": 0, "drc_warnings": 0,
-                "unrouted": 0, "drc": [], "repair": None, "route_cache": None, "fixed_parts_only": blocks,
-                "seconds": round(time.time() - t0, 1)}
+                "unrouted": 0, "drc": [], "repair": None, "route_cache": None,
+                "fixed_parts_only": blocks if verdict is None or verdict["back_to"] == "architecture" else [],
+                "placement_verdict": verdict, "timing": tm, "seconds": round(time.time() - t0, 1)}
+
+    # the routability prediction of this legal placement (seconds, no routing): a report and a run log
+    # (build/routab/), never a gate; HWFLOW_ROUTAB_PREDICT=0 turns it off
+    routab, routab_full = None, None
+    if get_settings().layout.routab_predict and not pre:
+        from ..layout.place import routability
+        t = time.time()
+        try:
+            routab_full = routability.predict(d, libs, parts=parts)
+            routab = routability.brief(routab_full)
+            print(f"[layout] {routab['message']} ({routab['seconds']} s)")
+        except Exception as e:  # noqa: BLE001 - an estimate: the router runs without it
+            print(f"[layout] routability prediction skipped: {type(e).__name__}: {e}")
+        tm["predict_s"] = round(time.time() - t, 1)
 
     def route_check(tr, vi, island=0, fast=False):
         t = time.time()
@@ -395,7 +420,14 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     bud = budgets.measure(d, postlayout.Extraction(d, board)) if budgets.budgets(d) else []
     from ..layout import diagnose
     failing = diagnose.failing_parts(drc, pcb.read_board(board))  # the parts each error touches (layout diagnosis)
-    return {"failing": failing, "budget_exhausted": d.route_budget_exhausted,
+    if routab_full is not None:  # the (cheap features, outcome) row of this run: build/routab/ (a dataset)
+        from ..layout.place import routability
+        routab["outcome"] = routability.outcome_check(routab, unrouted, errs)
+        routability.log_run(_out(d), d, routab_full, {"unrouted": len(unrouted), "drc_errors": len(errs),
+                                                     "vias": len(vias), "route_s": tm.get("route_s"),
+                                                     "repair_s": tm.get("repair_s"), "open": unrouted, "drc": errs,
+                                                     "placement_violations": viol})
+    return {"failing": failing, "budget_exhausted": d.route_budget_exhausted, "routability": routab,
             "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
             and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
@@ -638,7 +670,8 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
             continue
         log.append(res["line"])
         r = res["r"]
-        key = (not r["ok"], r["drc_errors"] + r["unrouted"], sum(not b["ok"] for b in r.get("budgets") or []),
+        key = (not r["ok"], bool(r.get("blocked")), r["drc_errors"] + r["unrouted"],
+               sum(not b["ok"] for b in r.get("budgets") or []),
                r.get("post_warnings", 0),
                len(r["placement_violations"]), r["vias"], k)
         if best is None or key < best[0]:
@@ -660,7 +693,9 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
             shutil.rmtree(x, ignore_errors=True)
     d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = r["board_mm"]
     stopped = None
-    if cutoff is not None and results[cutoff].get("r", {}).get("fixed_parts_only") and not results[cutoff]["r"]["ok"]:
+    if cutoff is not None and (results[cutoff].get("r") or {}).get("placement_verdict"):
+        stopped = "stopped: " + results[cutoff]["r"]["placement_verdict"]["msg"] + " (more seeds cannot fix it)"
+    elif cutoff is not None and results[cutoff].get("r", {}).get("fixed_parts_only") and not results[cutoff]["r"]["ok"]:
         stopped = ("stopped: remaining errors are on fixed parts: "
                    + ", ".join(results[cutoff]["r"]["fixed_parts_only"]))
     elif hopeless:
@@ -684,6 +719,14 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
 def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
     """diagnose.diagnose on the kept board in build/ and the failing parts of every attempt."""
     from ..layout import diagnose
+    pv = next((a["placement_verdict"] for a in attempts if a.get("placement_verdict")), None)
+    if pv and all(a.get("placement_verdict") for a in attempts):  # no attempt got past the placement check
+        g = diagnose.placement_diagnosis(d, pv, len(attempts))
+        if g["back_to"] == "layout" and len(attempts) > 1:
+            g = dict(g, back_to="architecture", stage=diagnose.STAGES["architecture"], blocked=True,
+                     reasons=g["reasons"] + [f"no legal placement in {len(attempts)} attempts: give the parts more "
+                                             "room (board size, parts, or region sizes)"])
+        return g
     out = _out(d)
     if libs is None or not (out / f"{d.name}.kicad_pcb").exists():
         return {}  # no board to read (an attempt that crashed): no diagnosis
