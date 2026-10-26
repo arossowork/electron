@@ -146,6 +146,7 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
         from hwflow.layout.place import cutout
         cutout.unfix(w / "design.yaml")
     t0 = time.time()
+    c0 = os.times()
     env = dict(os.environ)
     try:
         p = subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(w)], capture_output=True, text=True,
@@ -154,6 +155,8 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"timeout after {timeout:.0f} s", "seconds": round(time.time() - t0, 1)}
     wall = time.time() - t0
+    c1 = os.times()
+    cpu = (c1.children_user + c1.children_system) - (c0.children_user + c0.children_system)
     st = w / "build" / "status.json"
     if not st.exists():
         return {"ok": False, "error": log[-800:], "seconds": round(wall, 1)}
@@ -179,7 +182,7 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
            "track_mm": round(sum(v.get("length_mm", 0) for v in (L.get("nets") or {}).values()), 1),
            "route_groups": [{k: g.get(k) for k in ("name", "nets", "unrouted", "seconds")}
                             for g in L.get("route_groups") or []],
-           "seconds": round(wall, 1), "timing": L.get("timing")}
+           "seconds": round(wall, 1), "cpu_s": round(cpu, 1), "timing": L.get("timing")}
     if tmp:
         shutil.rmtree(tmp, ignore_errors=True)
     return out
