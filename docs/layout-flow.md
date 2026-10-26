@@ -173,6 +173,22 @@ strategy diversity, fixed ht4. On sensor_preamp (area search, base first) it was
 
 Measurements: "Escape-aware placement" in `docs/asic-ideas.md`.
 
+## Fast preset
+
+`HWFLOW_FAST=1` (settings `layout.fast`, off by default) turns on, in one variable, the switches chosen for the timed
+end-to-end run (integration branch `fast-flow`; measurements of each in `docs/asic-ideas.md`, "Escape-aware
+placement" and "Routable first pass", and step 8 for the pour stitch):
+
+| switch | value under the preset |
+|---|---|
+| `HWFLOW_POUR_STITCH` | `1` |
+| `HWFLOW_PLACE_ESCAPE` | `1` (step 1, the slot term; `_INFL` and `_ROT` stay off) |
+| `HWFLOW_FIRSTPASS` | `roads` (the `hot` and `quick` steps stay off) |
+
+A switch set explicitly wins over the preset (`HWFLOW_FAST=1 HWFLOW_POUR_STITCH=0` runs without the stitch). The
+preset sets the settings, so the route cache key and `status.json` `settings` show the resolved values. The layout
+portfolio stays off.
+
 ## Switches
 
 | switch | effect |
@@ -184,6 +200,8 @@ Measurements: "Escape-aware placement" in `docs/asic-ideas.md`.
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
 | `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
 | `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
+| `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_FIRSTPASS=roads` (above); an explicit switch wins |
+| `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |

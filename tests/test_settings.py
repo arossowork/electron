@@ -89,3 +89,27 @@ def test_from_snapshot_and_use(monkeypatch, tmp_path):
 def test_cas_dir_default(monkeypatch):
     monkeypatch.delenv("HWFLOW_CAS_DIR", raising=False)
     assert get_settings().paths.cas_dir.endswith(".cache/hwflow/cas")
+
+
+def test_fast_preset(monkeypatch):
+    from hwflow.core.settings import Settings, with_layout_env
+    keys = ("HWFLOW_FAST", "HWFLOW_POUR_STITCH", "HWFLOW_PLACE_ESCAPE", "HWFLOW_PLACE_ESCAPE_INFL",
+            "HWFLOW_PLACE_ESCAPE_ROT", "HWFLOW_FIRSTPASS", "HWFLOW_PORTFOLIO")
+    for k in keys:
+        monkeypatch.delenv(k, raising=False)
+    L = get_settings().layout
+    assert (L.fast, L.pour_stitch, L.place_escape, L.firstpass) == (False, False, None, None)  # all off by default
+    monkeypatch.setenv("HWFLOW_FAST", "1")
+    L = get_settings().layout
+    assert (L.pour_stitch, L.place_escape, L.firstpass) == (True, "1", "roads")
+    assert L.place_escape_infl is None and L.place_escape_rot is None and not L.portfolio
+    monkeypatch.setenv("HWFLOW_POUR_STITCH", "0")  # an explicit switch wins over the preset
+    monkeypatch.setenv("HWFLOW_FIRSTPASS", "1")
+    L = get_settings().layout
+    assert (L.pour_stitch, L.place_escape, L.firstpass) == (False, "1", "1")
+    s = get_settings()
+    assert Settings.from_snapshot(s.snapshot()).layout == s.layout  # a run's snapshot keeps the resolved values
+    for k in keys:
+        monkeypatch.delenv(k, raising=False)
+    f = with_layout_env(get_settings(), {"HWFLOW_FAST": "1"}).layout
+    assert (f.pour_stitch, f.place_escape, f.firstpass) == (True, "1", "roads")

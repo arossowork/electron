@@ -48,6 +48,10 @@ class _Group(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True, env_prefix="")
 
 
+# HWFLOW_FAST=1: layout fields and their values under the preset (only where the field is not given explicitly)
+FAST_PRESET: dict[str, Any] = {"pour_stitch": True, "place_escape": "1", "firstpass": "roads"}
+
+
 class LayoutSettings(_Group):
     asic: dict[str, str] = Field(default_factory=dict)  # HWFLOW_ASIC_<NAME> stage switches, raw values by lower-case name
 
@@ -92,6 +96,10 @@ class LayoutSettings(_Group):
     portfolio: bool = Field(False, validation_alias=AliasChoices("HWFLOW_PORTFOLIO"))
     portfolio_workers: int = Field(0, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_WORKERS"))  # 0: cpu count - 2
     portfolio_grace: float = Field(1.5, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_GRACE"))
+    # fast preset (docs/layout-flow.md "Fast preset"): HWFLOW_FAST=1 turns on the switches that measured faster to a
+    # clean first placement: pour_stitch, place_escape=1 (step 1 only) and firstpass=roads. A switch given explicitly
+    # (env or field) wins over the preset. Off by default.
+    fast: bool = Field(False, validation_alias=AliasChoices("HWFLOW_FAST"))
 
     @model_validator(mode="before")
     @classmethod
@@ -101,6 +109,14 @@ class LayoutSettings(_Group):
             data.setdefault("asic", {k[len("HWFLOW_ASIC_"):].lower(): v for k, v in os.environ.items()
                                      if k.startswith("HWFLOW_ASIC_")})
         return data
+
+    @model_validator(mode="after")
+    def _fast(self):
+        if self.fast:
+            for name, value in FAST_PRESET.items():
+                if name not in self.model_fields_set:
+                    setattr(self, name, value)
+        return self
 
     def asic_on(self, name: str) -> bool:
         """Stage switch: HWFLOW_ASIC_<NAME>=0 (false, no, off) turns the stage off; all on by default."""
@@ -240,7 +256,10 @@ def with_layout_env(settings: Settings, env: Mapping[str, Any]) -> Settings:
                 fields[name] = env[alias]
     if not fields:
         return settings
-    layout = LayoutSettings(**{**settings.layout.model_dump(), **fields})
+    base = settings.layout.model_dump()
+    if "fast" in fields:  # the preset fills its switches again unless `env` gives them
+        base = {k: v for k, v in base.items() if k not in FAST_PRESET}
+    layout = LayoutSettings(**{**base, **fields})
     return settings.model_copy(update={"layout": layout})
 
 
