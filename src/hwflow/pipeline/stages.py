@@ -250,7 +250,7 @@ def _cache_save(cache: Path, key: str, data: dict):
 
 
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
-                 passes: int = 30, seed0: int = 1, workdir: Path | None = None, deadline: float | None = None,
+                 passes: int = 30, seed0: int | None = None, workdir: Path | None = None, deadline: float | None = None,
                  shared: bool = False) -> dict:
     """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
     (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
@@ -259,6 +259,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     hard whole-command timeout. A truncated candidate is checked and kept, but never saved to the board cache.
     `shared`: the placement.json in `workdir` was placed for this call (the layout portfolio's shared placement,
     place_shared) and is taken as it is, at the declared board size."""
+    if seed0 is None:  # a plain `hwflow layout` starts at HWFLOW_SEED0 (default 1), as attempt 1 of --auto does
+        seed0 = get_settings().layout.seed0
     out = workdir or _out(d)
     cache = _out(d) / "routecache"
     pj = out / "placement.json"

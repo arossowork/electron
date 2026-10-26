@@ -27,6 +27,8 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.routab_rank`, `layout.routab_feedback`, `layout.routab_retry` | `HWFLOW_ROUTAB_RANK`, `_FEEDBACK`, `_RETRY` | none (design `placement.routability_rank` etc., then off) | Prediction-driven seed ranking, density feedback, router retry policy (docs/layout-flow.md) |
 | `layout.roads` | `HWFLOW_ROADS` | none (design `placement.roads`, then `0`) | Roads first: `route` routes the planned roads first, `1` also reserves them in placement |
 | `layout.roads_power` | `HWFLOW_ROADS_POWER` | off | Every power-class net is a road too (experiment) |
+| `layout.place_escape`, `layout.place_escape_infl`, `layout.place_escape_rot` | `HWFLOW_PLACE_ESCAPE`, `_INFL`, `_ROT` | none (design `placement.escape`, `escape_infl`, `escape_rot`, then off) | Escape-aware placement prototype (layout/place/escape.py): slot term, demand inflation + channel check, rotation forward check |
+| `layout.place_escape_w` | `HWFLOW_PLACE_ESCAPE_W` | 10 | Weight of the escape slot term (mm of wire per blocked pad) |
 | `layout.krt_rotate` | `HWFLOW_KRT_ROTATE` | 0 | The router's net-order retries start from `KRT_VARIANTS[k]` |
 | `layout.portfolio` | `HWFLOW_PORTFOLIO` | off | Attempt 1 of `--auto` as the layout portfolio (pipeline/portfolio.py) |
 | `layout.portfolio_workers` | `HWFLOW_PORTFOLIO_WORKERS` | 0 (CPU count - 2) | Portfolio strategies at once |

@@ -231,6 +231,11 @@ class Placer:
         self._init_rules(getattr(parts, "areas", ()))
         self._init_seps()
         self._init_corridors()
+        from . import escape
+        self.esc = escape.Escape(self) if escape.on(design) else None  # escape slots (prototype, off by default)
+        self.rot_ok: dict = {}  # ref -> allowed rotations (escape.forward, step 3); absent: all four
+        if self.esc is not None:
+            self.wt.setdefault("escape", get_settings().layout.place_escape_w)
 
     # ---- separation terms (L12): aggressor/sensitive, heat/sensor, antenna/relay+mains --------------------------
 
@@ -955,6 +960,11 @@ class Placer:
         for k in range(len(self.cor)):
             self.cor_val[k], _, self.cor_zone[k] = self._cor_eval(k, self.buckets)
         self.t_cor = sum(self.cor_val)
+        self.part_esc, self.t_esc = {}, 0.0
+        if self.esc is not None:
+            self.esc.move(self.esc.refs)
+            self.part_esc = {r: self.esc.part_cost(r) for r in self.esc.refs}
+            self.t_esc = sum(self.part_esc.values())
 
     def _pair_scan(self, r, log, skip=()):
         for q in {q for bk in self.part_buckets[r] for q in self.buckets[bk]}:
@@ -975,7 +985,7 @@ class Placer:
         """Recompute only what the parts in `moved` touch. Returns the new cost; `_undo` reverts it."""
         log = []
         saved = (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-                 self.t_iso, self.t_sep, self.t_cor)
+                 self.t_iso, self.t_sep, self.t_cor, self.t_esc)
         old_bk = {r: self.part_buckets[r] for r in moved} if self.cor else {}
         nets, decs, groups, seps = set(), set(), set(), set()
         for r in moved:
@@ -1057,6 +1067,13 @@ class Placer:
                     log.append(("cor", k, self.cor_val[k], self.cor_zone[k]))
                     self.cor_val[k], _, self.cor_zone[k] = self._cor_eval(k, self.buckets)
                     self.t_cor += self.cor_val[k] - log[-1][2]
+        if self.esc is not None:
+            log.append(("esc_pos", self.esc.save(moved)))
+            for r in self.esc.move(moved):
+                old = self.part_esc[r]
+                self.part_esc[r] = self.esc.part_cost(r)
+                self.t_esc += self.part_esc[r] - old
+                log.append(("esc", r, old))
         self._log, self._saved = log, saved
         return self._total()
 
@@ -1091,6 +1108,10 @@ class Placer:
                 self.grp_cost[e[1]] = e[2]
             elif kind == "cor":
                 self.cor_val[e[1]], self.cor_zone[e[1]] = e[2], e[3]
+            elif kind == "esc":
+                self.part_esc[e[1]] = e[2]
+            elif kind == "esc_pos":
+                self.esc.load(e[1])
             elif kind == "pair_add":
                 key = e[1]
                 del self.pairs[key]
@@ -1109,14 +1130,14 @@ class Placer:
                 for bk in e[2]:
                     self.buckets.setdefault(bk, set()).add(r)
         (self.t_wire, self.t_cong, self.t_ov, self.t_bnd, self.t_edge, self.t_dec, self.t_grp, self.t_ko,
-         self.t_iso, self.t_sep, self.t_cor) = self._saved
+         self.t_iso, self.t_sep, self.t_cor, self.t_esc) = self._saved
 
     def _total(self) -> float:
         w = self.wt
         return (w["wire"] * self.t_wire + w["overlap"] * self.t_ov + w["bounds"] * self.t_bnd
                 + w["edge"] * self.t_edge + w["decouple"] * self.t_dec + w["group"] * self.t_grp
                 + w["congestion"] * self.t_cong + w["keepout"] * self.t_ko + w["isolation"] * self.t_iso
-                + self.t_sep + w["corridor"] * self.t_cor)
+                + self.t_sep + w["corridor"] * self.t_cor + w.get("escape", 0.0) * self.t_esc)
 
     def cost(self) -> float:
         """Cost of the current placement; rebuilds the incremental state from scratch."""
@@ -1153,6 +1174,9 @@ class Placer:
                 c += self.wt["isolation"] * self._iso_short(a, b)
         bk = self._bucket_map() if self.cor else {}
         c += self.wt["corridor"] * sum(self._cor_eval(k, bk)[0] for k in range(len(self.cor)))
+        if self.esc is not None:
+            self.esc.move(self.esc.refs)
+            c += self.wt.get("escape", 0.0) * sum(self.esc.part_cost(r) for r in self.esc.refs)
         return c + self.wt["congestion"] * self.congestion()
 
     def run(self, iters: int = 30000) -> float:
@@ -1235,7 +1259,8 @@ class Placer:
                     for dx, dy in ((d, 0), (-d, 0), (0, d), (0, -d)):
                         trial([u], [(min(self.W, max(0.0, u.x + dx)), min(self.H, max(0.0, u.y + dy)), u.r)])
                 for dr in (90, 180, 270):
-                    trial([u], [(u.x, u.y, (u.r + dr) % 360)])
+                    if self._rot_ok(u, (u.r + dr) % 360):
+                        trial([u], [(u.x, u.y, (u.r + dr) % 360)])
                 for v in movable:
                     if v is not u and same(u, v) and near(u, v):
                         trial([u, v], [(v.x, v.y, u.r), (u.x, u.y, v.r)])
@@ -1293,6 +1318,8 @@ class Placer:
                 p.y = min(self.H, max(0, p.y + self.rng.gauss(0, s)))
             elif mv < 0.9:
                 p.r = (p.r + self.rng.choice((90, 180, 270))) % 360
+                if not self._rot_ok(p, p.r):
+                    p.r = old[2]
             else:
                 other = self.rng.choice(movable)
                 oold = (other.x, other.y)
@@ -1310,6 +1337,10 @@ class Placer:
                     self._refs(other)
                 self._undo()
         self._restore(best_state)
+
+    def _rot_ok(self, u, r) -> bool:
+        ok = self.rot_ok.get(getattr(u, "ref", None))
+        return ok is None or (r % 360) in ok
 
     def _finish(self, movable):
         self.legalize()
@@ -1386,7 +1417,8 @@ class Placer:
                                   or (0.0, 0.0, self.W, self.H))
                 st = max(step, math.sqrt((x1 - x0) * (y1 - y0) / UNSTICK_POINTS))
                 scan([x0 + i * st for i in range(int((x1 - x0) / st) + 1)],
-                     [y0 + j * st for j in range(int((y1 - y0) / st) + 1)], (0.0, 90.0, 180.0, 270.0))
+                     [y0 + j * st for j in range(int((y1 - y0) / st) + 1)],
+                     tuple(a for a in (0.0, 90.0, 180.0, 270.0) if self._rot_ok(p, a)) or (p.r,))
                 scan([best[1] + i * polish for i in range(-6, 7)], [best[2] + j * polish for j in range(-6, 7)], (best[3],))
                 p.x, p.y, p.r = best[1], best[2], best[3]
                 self._update(self._refs(p))
