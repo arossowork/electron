@@ -178,6 +178,10 @@ run it and update `expected.yaml`: `tests/fixtures/layout_corpus/README.md`. Tes
   kb_audio 84 -> 96 unrouted on the same code); a count of 0, the DRC clearance and creepage counts and the isolation
   rows have none. A better result passes and is printed.
 - `uv run python scripts/layout_corpus.py summary --jobs 6` prints case, expected, actual and time for another branch.
+- The placement legality gate stops `kb_audio`, `kb_audio_dig`, `kb_hub` and `sp_overfull` before the router (their
+  fixed placements have violations, verdict architecture); their `route` rows record the stop, the routed numbers of
+  the table below are kept as `route_routed`. So these four no longer exercise the router in the slow tier
+  (`HWFLOW_ROUTE_ILLEGAL=1` routes them).
 
 | case | source (region) | parts / nets | routed on main (wall s) | reproduces |
 |---|---|---|---|---|
@@ -213,7 +217,7 @@ margin of a fixed state.
 | footprint keep-out zone written at the origin (ht3, a86a3a6) | `test_footprint_keepout_zone_follows_part` |
 | placer tests a round keep-out as a box (ht3, F1 vs notch) | `test_keepout_circle_is_not_a_box` |
 | route cache key ignores the router environment (ht3) | `tests/test_layout_perf.py` (existing) |
-| crash on a KiCad `(at x y unlocked)` footprint (keyboard) | `kb_audio` routes (slow), `tests/test_core.py` |
+| crash on a KiCad `(at x y unlocked)` footprint (keyboard) | `tests/test_core.py` (`kb_audio` stops at the legality gate now) |
 | check takes 54 min with region nets under the corridor proof (keyboard) | `test_check_dense[kb_hub]` and the other dense cases: budget (slow) |
 | SuperSpeed lanes and QFN fan-out open (keyboard usb_c, hub) | `kb_usb_c`, `kb_hub`, `kb_audio_dig` (slow); pin access in the fast tier |
 | dense front strip: placement violations, no pin exit at the net width (keyboard) | `kb_audio` (fast and slow) |

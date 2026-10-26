@@ -52,5 +52,10 @@ uv run python scripts/layout_corpus.py measure <case> --route --write     # rout
 uv run python scripts/layout_corpus.py measure <case> --fast --write      # after a deliberate change of the estimates
 ```
 
+The placement legality gate (docs/layout-flow.md) stops a layout on a placement with violations before the router:
+`kb_audio`, `kb_audio_dig`, `kb_hub` and `sp_overfull` (all fixed parts, violations in the cut placement) record that
+stop (`route.blocked`, `route.placement_verdict`: architecture), with main 30fa4c4's routed numbers kept under
+`route_routed` (`HWFLOW_ROUTE_ILLEGAL=1` routes them that way).
+
 Commit the new `expected.yaml` with the change that caused it, and say in the commit message which numbers moved.
 Routing times are wall times on a shared machine (load noted in `expected.yaml`); they are not asserted.

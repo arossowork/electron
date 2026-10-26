@@ -62,7 +62,32 @@ replace:
 measured: '2026-10-26'
 route:
   ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 6
+  isolation: []
+  router: '-'
+  route_groups: []
+  seconds: 1.5
+  timing:
+    place_s: 0.1
+  blocked: 'not routed: placement illegal: 6 violations (C3 pad 1 copper closer than 0.3 mm to the board edge; J1 pad 4 copper
+    closer than 0.3 mm to the board edge; R1 pad 2 copper closer than 0.3 mm to the board edge; R2 pad 1 copper closer than
+    0.3 mm to the board edge; ...); the courtyards (with the placer margin) fill 157% of the front face of 13 x 10 mm inside
+    the 1 mm board margin (at most 95% places): '
+  placement_verdict:
+    back_to: architecture
+    fill:
+      back: 0.0
+      front: 1.569
+  note: 'placement legality gate (layout-port): the fixed placement has placement violations, so the layout stops before the
+    router with an architecture verdict; main 30fa4c4 routed it anyway (11 unrouted, 21 DRC errors, 6 open nets, 343.8 s;
+    route_routed below)'
+route_routed:
   unrouted: 11
+  drc_errors: 21
   open_nets:
   - +3V3
   - AMP_OUT
@@ -70,17 +95,7 @@ route:
   - GND
   - LED_A
   - SENS_IN
-  drc_errors: 21
   drc_types:
     copper_edge_clearance: 10
-  placement_violations: 6
-  router: '7 unrouted, krt 3 completed pass(es); retried in another net order (0.4 mm: +3V3 routed narrow first (corridor
-    proof, exact spacings; the router keeps 0.1 mm more from isolation keep-outs: +3V3 0 mm without a neck); 0.4 mm: neck-down
-    to 0.25 mm: +3V3 still open; 0.4 mm: neck-down to 0.15 mm: +3V3 st'
-  route_groups: []
   seconds: 343.8
-  timing:
-    drc_s: 19.7
-    place_s: 0.0
-    repair_s: 120.0
-    route_s: 200.7
+  how: main 30fa4c4, before the legality gate; HWFLOW_ROUTE_ILLEGAL=1 routes it the same way

@@ -173,7 +173,31 @@ tiers:
 measured: '2026-10-26'
 route:
   ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 7
+  isolation: []
+  router: '-'
+  route_groups: []
+  seconds: 3.8
+  timing:
+    place_s: 0.2
+  blocked: 'not routed: placement illegal: 7 violations (courtyard overlap C401/C414; courtyard overlap M933/R1101; courtyard
+    overlap M933/R938; courtyard overlap M933/U1100; ...); only fixed parts are involved: their positions in design.yaml must
+    change'
+  placement_verdict:
+    back_to: architecture
+    fill:
+      back: 0.0
+      front: 0.731
+  note: 'placement legality gate (layout-port): the fixed placement has placement violations, so the layout stops before the
+    router with an architecture verdict; main 30fa4c4 routed it anyway (151 unrouted, 176 DRC errors, 65 open nets, 684.1
+    s; route_routed below)'
+route_routed:
   unrouted: 151
+  drc_errors: 176
   open_nets:
   - 0V9_CORE
   - 1V8_D
@@ -240,114 +264,10 @@ route:
   - XU_TDI
   - XU_TDO
   - XU_TMS
-  drc_errors: 176
   drc_types:
     solder_mask_bridge: 4
     courtyards_overlap: 7
     clearance: 12
     shorting_items: 2
-  placement_violations: 7
-  router: '64 unrouted, krt 4 pass(es) in 2 route groups (audio_dig miss, interface miss); retried in another net order (0.25
-    mm: AUDIO_UNMUTE, MCU_1V1, MCU_RUN, MCU_XIN, MCU_XOUT, OSC44_EN, QSPI_SCLK, QSPI_SD0, QSPI_SD1, QSPI_SD2, QSPI_SD3, RP_DM,
-    RP_DP, SWCLK, SWDIO, XI2S_BCLK, XI2S_LRCK, XQ_CLK, XQ_CS, XQ_D'
-  route_groups:
-  - name: audio_dig
-    nets:
-    - AUDIO_UNMUTE
-    - BOOT_N
-    - MCLK44_O
-    - MCLK48_O
-    - MCU_1V1
-    - MCU_RUN
-    - MCU_XIN
-    - MCU_XOUT
-    - MCU_XOUT_X
-    - OSC44_EN
-    - OSC48_EN
-    - QSPI_SCLK
-    - QSPI_SD0
-    - QSPI_SD1
-    - QSPI_SD2
-    - QSPI_SD3
-    - QSPI_SS
-    - RP_DM
-    - RP_DP
-    - SWCLK
-    - SWDIO
-    - XI2S_BCLK
-    - XI2S_DOUT
-    - XI2S_LRCK
-    - XQ_CLK
-    - XQ_CS
-    - XQ_D0
-    - XQ_D1
-    - XQ_D2
-    - XQ_D3
-    - XU_PLL
-    - XU_RST_N
-    - XU_TCK
-    - XU_TDI
-    - XU_TDO
-    - XU_TMS
-    - XU_XI
-    - XU_XO
-    - XU_XOR
-    unrouted: 27
-    seconds: 234.0
-  - name: interface
-    nets:
-    - 0V9_CORE
-    - 1V8_D
-    - 3V3_D
-    - ADC_EN
-    - ADC_PWR_EN
-    - AUD_DM
-    - AUD_DP
-    - COL0
-    - COL1
-    - COL10
-    - COL2
-    - COL3
-    - COL4
-    - COL5
-    - COL6
-    - COL7
-    - COL8
-    - COL9
-    - DAC_EN
-    - ENC_A
-    - ENC_B
-    - ENC_SW
-    - HP_MUTE
-    - I2C_SCL
-    - I2C_SDA
-    - I2S_BCLK
-    - I2S_DIN
-    - I2S_DOUT
-    - I2S_LRCK
-    - JACK_DET
-    - MCLK
-    - MCU_DM
-    - MCU_DP
-    - MIC_DET
-    - MIC_GAIN
-    - ROW0
-    - ROW1
-    - ROW10
-    - ROW11
-    - ROW2
-    - ROW3
-    - ROW4
-    - ROW5
-    - ROW6
-    - ROW7
-    - ROW8
-    - ROW9
-    unrouted: 37
-    seconds: 372.3
   seconds: 684.1
-  timing:
-    drc_s: 13.1
-    place_s: 0.2
-    repair_s: 0.0
-    route_s: 606.7
+  how: main 30fa4c4, before the legality gate; HWFLOW_ROUTE_ILLEGAL=1 routes it the same way
