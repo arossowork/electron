@@ -28,6 +28,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.roads` | `HWFLOW_ROADS` | none (design `placement.roads`, then `0`) | Roads first: `route` routes the planned roads first, `1` also reserves them in placement |
 | `layout.roads_power` | `HWFLOW_ROADS_POWER` | off | Every power-class net is a road too (experiment) |
 | `layout.krt_rotate` | `HWFLOW_KRT_ROTATE` | 0 | The router's net-order retries start from `KRT_VARIANTS[k]` |
+| `layout.pour_stitch` | `HWFLOW_POUR_STITCH` | off | Join a split GND pour after routing: vias in the fill, in exposed pads, pad stubs to a via, stubs that displace routed nets (layout/route/pourstitch.py) |
 | `layout.portfolio` | `HWFLOW_PORTFOLIO` | off | Attempt 1 of `--auto` as the layout portfolio (pipeline/portfolio.py) |
 | `layout.portfolio_workers` | `HWFLOW_PORTFOLIO_WORKERS` | 0 (CPU count - 2) | Portfolio strategies at once |
 | `layout.portfolio_grace` | `HWFLOW_PORTFOLIO_GRACE` | 1.5 | Running strategies get this x the first converged one's time; `inf` waits for all |
