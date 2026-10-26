@@ -54,7 +54,10 @@ def stage_sch(d: Design, libs: Libs) -> dict:
 
 def stage_sim(d: Design, mc: int = 0) -> dict:
     w = _out(d) / "sim"
+    t = time.time()
     res = spice.run_all(d, w, cache=_out(d) / "simcache")
+    tm = {"sim_s": round(time.time() - t, 1)}  # wall time per step (build/status.json timing, `hwflow time`)
+    t = time.time()
     allrows = [dict(r, analysis=a["name"]) for a in res for r in a["rows"]]
     rows = [r for r in allrows if not r.get("debug")]  # dbg_* probes never count (backlog 19)
     audit_errors = []
@@ -66,6 +69,7 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
         audit_errors.append(str(e))
         if isinstance(e, spice.DeratingTimeoutError):
             audit_timeout = str(e)
+    tm["derating_s"] = round(time.time() - t, 1)
     out = {"analyses": res, "passed": sum(r["pass"] for r in rows), "total": len(rows),
            "fails": [r for r in rows if not r["pass"]], "derating": der,
            "derating_status": "failed" if audit_errors else "ok",
@@ -85,13 +89,16 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
         out["monte_carlo"], out["mc_runs"] = prev["monte_carlo"], mc  # Monte Carlo once per design (backlog 27)
         print(f"[sim] Monte Carlo {mc} runs reused: inputs unchanged since the last run")
     elif mc:
+        t = time.time()
         out["monte_carlo"], out["mc_runs"] = spice.monte_carlo(d, w, runs=mc), mc
+        tm["mc_s"] = round(time.time() - t, 1)
     else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
         if prev.get("monte_carlo") and prev.get("design_hash") == _design_hash(d):
             out["monte_carlo"] = prev["monte_carlo"]
             if prev.get("mc_runs"):
                 out["mc_runs"] = prev["mc_runs"]
     out["ok"] = out["passed"] == out["total"] and not out["errors"]
+    out["timing"] = tm
     return out
 
 
@@ -882,15 +889,19 @@ def stage_post(d: Design) -> dict:
     _apply_layout_size(d)
     out = _out(d)
     board = out / f"{d.name}.kicad_pcb"
+    t = time.time()
     ex = postlayout.Extraction(d, board)
     checks = postlayout.layout_checks(d, ex)
     w = out / "post"
     ir = postlayout.ir_drop(d, ex, w)
     nm = postlayout.PostLayoutNodeMap(d, ex)
+    tm = {"extract_s": round(time.time() - t, 1)}  # extraction, layout checks, IR drop
+    t = time.time()
     pre = _fresh_pre_results(d)
     if pre is None:
         pre = spice.run_all(d, out / "sim", cache=out / "simcache")
     post = spice.run_all(d, w, nm, tag="_post", cache=out / "simcache")
+    tm["post_sim_s"] = round(time.time() - t, 1)
     deltas = []
     for a, b in zip(pre, post):
         for r1, r2 in zip(a["rows"], b["rows"]):
@@ -908,7 +919,8 @@ def stage_post(d: Design) -> dict:
     return {"ok": not errs and not regress and all(x["pass_post"] for x in deltas), "checks": checks,
             "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex),
             "runs": _run_summary(post), "scope": _post_scope(d, nm), "lump_check": _lump_check(d, ex, w, post),
-            "distances": {"decap": postlayout.decap_paths(d, ex), "clearance": postlayout.group_clearances(d, ex)}}
+            "distances": {"decap": postlayout.decap_paths(d, ex), "clearance": postlayout.group_clearances(d, ex)},
+            "timing": tm}
 
 
 def _post_scope(d: Design, nm) -> str:

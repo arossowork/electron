@@ -135,3 +135,44 @@ def test_block_holding_an_allowed_part_is_allowed(tmp_path):
     parts = placer.build_parts(d, Libs(design=d))
     rules, _ = corefp.placer_regions(d, parts)
     assert "block:mcu" in rules[0]["allow"] and "U1" in rules[0]["allow"]
+
+
+# ---------------------------------------------------------------- stage timing (`hwflow time`)
+
+
+def test_flow_marks_count_rework(tmp_path):
+    import json
+
+    from hwflow.pipeline import timing
+    h, t0 = 3600.0, 1_700_000_000.0
+    for at, st in ((0, "1-requirements"), (1 * h, "2-architecture"), (2 * h, "3-parts"), (3 * h, "4-circuit"),
+                   (5 * h, "7-layout"), (8 * h, "2-architecture"), (9 * h, "7-layout"), (10 * h, "done")):
+        timing.mark(tmp_path, st, at=t0 + at)
+    f = timing.flow(tmp_path)
+    assert f["total_h"] == 10.0 and not f["open"]
+    assert f["stages"]["2-architecture"] == {"h": 2.0, "entries": 2, "rework_h": 1.0}
+    assert f["stages"]["7-layout"]["rework_h"] == 0.0 and f["rework_h"] == 1.0
+    (tmp_path / "build" / "history.jsonl").write_text("\n".join(json.dumps(r) for r in [
+        {"ts": "a", "verdict": "FAIL: x", "timing": {"wall_s": 100, "stages": {"sim": 40, "layout": 0.0},
+                                                      "steps": {"sim.mc_s": 30}}},
+        {"ts": "b", "verdict": "PASS", "timing": {"wall_s": 900, "stages": {"sim": 0.0, "layout": 800},
+                                                   "steps": {"layout.route_s": 600}}},
+        {"ts": "c", "verdict": "PASS"}]) + "\n")
+    b = timing.builds(tmp_path)
+    assert b["n"] == 2 and b["layout_builds"] == 1 and b["stages"] == {"sim": 40.0, "layout": 800.0}
+    text = timing.summary(tmp_path)
+    assert "rework 1.00 h" in text and "| layout | 13.3 min | 95% |" in text and "layout.route_s" in text
+
+
+def test_build_records_stage_timing(tmp_path):
+    import json
+    import shutil
+
+    from hwflow.cli import main
+    proj = tmp_path / "p"
+    shutil.copytree("examples/sensor_preamp", proj, ignore=shutil.ignore_patterns("build"))
+    main(["build", str(proj), "--until", "check"])
+    st = json.loads((proj / "build" / "status.json").read_text())
+    assert st["timing"]["stages"]["check"]["s"] >= 0 and st["timing"]["wall_s"] > 0
+    line = json.loads((proj / "build" / "history.jsonl").read_text().splitlines()[-1])
+    assert "check" in line["timing"]["stages"] and line["timing"]["run_id"] == st["timing"]["run_id"]

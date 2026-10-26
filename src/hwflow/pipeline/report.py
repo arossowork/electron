@@ -260,6 +260,12 @@ def _append_history(d: Design, text: str, verdict: list[str], stale: list[str], 
     line = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "design_hash": _design_hash(d),
             "verdict": "PASS" if not verdict else "FAIL: " + "; ".join(verdict), "stale": stale,
             **{k: data.get(k) for h, data in extras for k in h.history_keys}, "report": f"history/{name}"}
+    tm = _status(d).get("timing")
+    if isinstance(tm, dict):  # where this build's time went (`hwflow time`): stage spans and step seconds
+        line["timing"] = {"run_id": tm.get("run_id"), "wall_s": tm.get("wall_s"),
+                          "stages": {k: v.get("s") if not v.get("cached") else 0.0
+                                     for k, v in (tm.get("stages") or {}).items()},
+                          "steps": tm.get("steps") or {}}
     with open(out / "history.jsonl", "a") as fh:
         fh.write(json.dumps(line, default=str) + "\n")
     for old in sorted(hd.glob("*.md"), key=lambda p: (p.stat().st_mtime, p.name))[:-HISTORY_KEEP]:
