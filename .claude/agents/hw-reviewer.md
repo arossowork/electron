@@ -22,6 +22,14 @@ Read datasheets as text (`pdftotext` and `grep`), never as PDF page images. Chec
 - Realism of each testbench scenario: it has a `realism:` note with who produces it, how often, the timing, and the source of each limit. Challenge scenarios that no user can reach (compare the timing with how long stored charge lasts). Report an unreachable scenario as a stress case at `nit` level, not as a `must`, and do not ask for hardware to pass it without a product decision.
 - Requirements with no verification, or verified only by a weak method.
 - Decisions taken on the product person's behalf (`conflicts.md`, "on the PM's behalf"): each one that changes a requirement's acceptance, a spec number or a safety margin is a must finding until the product person confirms it.
+- Layout-facing points before layout (each one cost a layout round when found late):
+  - isolation groups: creepage to the other zone and `between_mm` between their own nets;
+  - hazardous nets: `layers` and `min_width_mm` against the fuse I2t;
+  - through-hole pads of hazardous parts on the user-accessible face;
+  - connector bodies, mating plugs and cable bends against cuts, posts and the enclosure wall (`envelope_mm`, `wall_mm`);
+  - footprints checked against a cited drawing, no placeholders;
+  - the assembly side and method of each part, for the component placement list.
+  `uv run hwflow floorplan <proj>` gives the numbers; a risk it lists that nobody answered is a `should` finding.
 - `layout?` rows in `uv run hwflow trace` (a layout requirement with evidence text only): check the claim against the routed board (`uv run hwflow nets <proj>`, `build/status.json`).
 
 Report each finding as `severity (must|should|nit) | ref | problem | evidence (datasheet page or number) | fix`. Do not edit files. Return 15 findings or fewer, the most severe first.

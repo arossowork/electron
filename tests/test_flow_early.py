@@ -105,6 +105,23 @@ def test_isolation_group_lint_and_bubble(tmp_path):
     assert any(n == "isolation" and "isolation bubble" in m for n, m in names(run(d))), names(run(d))
 
 
+def test_isolation_neck_and_through_hole_lint(tmp_path):
+    comps = {"J1": {"value": "x", "symbol": "Device:R", "footprint": HDR,
+                    "pins": {"1": "AC_L", "2": "AC_N", "3": "AC_L", "4": "AC_N"}}}
+    iso = [{"name": "mains", "nets": ["AC_L", "AC_N"], "creepage_mm": 6.0, "between_mm": 1.5}]
+    fp = {"construction": "double", "regions": [{"name": "hv", "kind": "mains", "rect": [0, 0, 15, 30], "side": "front",
+                                                 "nets": ["AC_*"], "isolation_mm": 6}]}
+    nets = {"AC_L": {"current_a": 3}, "AC_N": {"current_a": 3, "min_width_mm": 1.0}}
+    text = " | ".join(m for n, m in names(run(make(tmp_path, fp, board={"isolation": iso}, comps=comps, nets=nets)),
+                                          ok=None) if n == "isolation")
+    assert "AC_L carry current but have no min_width_mm" in text and "AC_N" not in text.split("min_width_mm")[0]
+    assert "through-hole pads of J1" in text
+    fp["regions"][0]["side"] = "both"
+    nets["AC_L"]["min_width_mm"] = 1.0
+    assert not [m for n, m in names(run(make(tmp_path, fp, board={"isolation": iso}, comps=comps, nets=nets)), ok=None)
+                if n == "isolation"]
+
+
 def test_placer_fill_fails_before_any_placement(tmp_path):
     comps = {f"J{i}": {"value": "x", "symbol": "Device:R", "footprint": HDR,
                        "pins": {"1": f"N{i}", "2": f"M{i}", "3": f"N{i}", "4": f"M{i}"}} for i in range(12)}

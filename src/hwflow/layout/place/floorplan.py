@@ -524,8 +524,21 @@ def _isolation_checks(d2, parts, fp, area) -> list[tuple]:
                 out.append(("isolation", None, f"isolation group {g['name']} on {layers} layers: {', '.join(free[:6])} "
                             f"may route on the inner layers, under the other zone; give each member net `layers:` "
                             f"(nets.<net>.layers) or a rule area that keeps them out", None))
+        wide = [n for n in mem if (nets_raw.get(n) or {}).get("current_a") and not (nets_raw.get(n) or {}).get("min_width_mm")]
+        if wide:
+            out.append(("isolation", None, f"isolation group {g['name']}: {', '.join(wide[:6])} carry current but have no "
+                        f"min_width_mm, so the router may neck them down at a fine pad; set the narrowest track the "
+                        f"protection allows (a neck must not melt before the fuse opens: its I2t against the fuse's)",
+                        None))
         regs = [r for r in fp["regions"] if r["nets"] and r["kind"] != "keepout"
                 and all(any(fnmatch.fnmatchcase(n, p) for p in r["nets"]) for n in mem)]
+        tht = sorted({x for x in parts if x in d2.components and getattr(parts[x], "tht", None)
+                      and any(net in mem for pin, net in d2.components[x].pins.items() if pin in parts[x].tht)})
+        if tht and (not regs or all(len(r["sides"]) == 1 for r in regs)):
+            out.append(("isolation", None, f"isolation group {g['name']}: the through-hole pads of {', '.join(tht[:6])} "
+                        f"on its nets come through to both faces, but no region of the group covers both: the "
+                        f"isolation (and the accessible face) must hold on the other face too (region side: both, "
+                        f"or an insulating barrier item)", None))
         if regs:
             continue
         out.append(("isolation", None, f"isolation group {g['name']} ({names}) has no floorplan region with its nets: "
