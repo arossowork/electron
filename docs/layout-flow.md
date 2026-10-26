@@ -151,6 +151,28 @@ the wall time of the sequential attempts to a converged board (2.5-3.3 x the CPU
 never gave a better board. The converged boards came from the fallback to other placement seeds: seed diversity, not
 strategy diversity, fixed ht4. On sensor_preamp (area search, base first) it was within 10 % of sequential.
 
+## Escape-aware placement (prototype, off by default)
+
+`layout/place/escape.py`, three switches (each also `placement: {escape, escape_infl, escape_rot: true}`):
+
+1. **Escape slots** (`HWFLOW_PLACE_ESCAPE=1`, weight `HWFLOW_PLACE_ESCAPE_W`, default 10). Per part, once, in
+   footprint coordinates: for each pad whose net leaves the part, 4 axis slots, each the box a track of the net's
+   width needs from the pad centre to via_dia + clearance beyond the pad hull, grown by the clearance. A slot that a
+   foreign pad of the same part enters is dropped (own-blocked). At a placement a slot is blocked by 3 x the share of
+   it that foreign copper covers: other parts' pads on a shared layer (grown by the isolation distance), other parts'
+   slots of another net (half), rule areas without tracks, the board outside the copper edge. A pad costs its least
+   blocked slot; the term is incremental (`Placer._update` / `_undo`) and acts in the detailed moves and the anneal.
+2. **Demand** (`HWFLOW_PLACE_ESCAPE_INFL=1`). The density feedback of the global placement adds 2 x the slot depth of
+   wire per escaping pad to the RUDY demand, and inflates a unit by 1 + the share of its pads without a free slot. The
+   part cost adds a channel check: the pads that leave through one side need ceil(n / 2) pitches of free room in front
+   of it (to the nearest foreign pad or the board edge); the shortfall in pitches is added.
+3. **Forward check** (`HWFLOW_PLACE_ESCAPE_ROT=1`). Before the global placement each movable part's 4 rotations are
+   checked: the courtyard fits its region box, an `edge` part keeps a free slot for every pad on its edge line, a part
+   with pads of a net region (e.g. mains) turns them towards that region. Pruned rotations are never tried; a part
+   with none left is printed (`[place] forward check: ... has no legal rotation`) and recorded in `escape.FORWARD`.
+
+Measurements: "Escape-aware placement" in `docs/asic-ideas.md`.
+
 ## Switches
 
 | switch | effect |

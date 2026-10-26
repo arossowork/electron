@@ -133,15 +133,20 @@ def replace(case: Path, seeds: int = 1, iters: int = 4000) -> dict:
 _NET = re.compile(r"\[([^\]]+)\]")
 
 
-def route(case: Path, workdir: Path | None = None, timeout: float = 3600) -> dict:
-    """`hwflow layout` on a scratch copy (placement fixed, every flow stage as on a real board). Returns
+def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: bool = False) -> dict:
+    """`hwflow layout` on a scratch copy (placement fixed, every flow stage as on a real board; `free`: the parts the
+    source placer could move (cutout.yaml `free`) are placed again first, the placement test). Returns
     {ok, unrouted, open_nets, drc_errors, drc_types, placement_violations, router, route_groups, seconds}."""
     tmp = None
     if workdir is None:
         tmp = tempfile.mkdtemp(prefix="corpus-")
         workdir = Path(tmp)
     w = stage(case, Path(workdir))
+    if free:
+        from hwflow.layout.place import cutout
+        cutout.unfix(w / "design.yaml")
     t0 = time.time()
+    c0 = os.times()
     env = dict(os.environ)
     try:
         p = subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(w)], capture_output=True, text=True,
@@ -150,6 +155,8 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600) -> dic
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"timeout after {timeout:.0f} s", "seconds": round(time.time() - t0, 1)}
     wall = time.time() - t0
+    c1 = os.times()
+    cpu = (c1.children_user + c1.children_system) - (c0.children_user + c0.children_system)
     st = w / "build" / "status.json"
     if not st.exists():
         return {"ok": False, "error": log[-800:], "seconds": round(wall, 1)}
@@ -171,10 +178,11 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600) -> dic
            "isolation": [{"rule": r.get("rule"), "ok": bool(r.get("ok")), "mm": r.get("mm"), "limit": r.get("limit"),
                           "drc_clearance": r.get("drc_clearance"), "drc_creepage": r.get("drc_creepage")}
                          for r in L.get("isolation") or []],
-           "router": str(L.get("router", ""))[:300],
+           "router": str(L.get("router", ""))[:300], "vias": L.get("vias"),
+           "track_mm": round(sum(v.get("length_mm", 0) for v in (L.get("nets") or {}).values()), 1),
            "route_groups": [{k: g.get(k) for k in ("name", "nets", "unrouted", "seconds")}
                             for g in L.get("route_groups") or []],
-           "seconds": round(wall, 1), "timing": L.get("timing")}
+           "seconds": round(wall, 1), "cpu_s": round(cpu, 1), "timing": L.get("timing")}
     if tmp:
         shutil.rmtree(tmp, ignore_errors=True)
     return out
@@ -230,8 +238,10 @@ def improvements(exp: dict, got: dict) -> list[str]:
 
 
 def _route_one(args):
-    case, timeout = args
-    return case.name, route(case, timeout=timeout)
+    case, timeout, free, workdir = args
+    if workdir:
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+    return case.name, route(case, workdir=Path(workdir) if workdir else None, timeout=timeout, free=free)
 
 
 def _fmt(r: dict) -> str:
@@ -253,6 +263,10 @@ def main(argv=None) -> int:
     ap.add_argument("--route", action="store_true")
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--json")
+    ap.add_argument("--free", action="store_true",
+                    help="place the cutout.yaml `free` parts again before routing (the placement test; compare runs "
+                         "with --json, not with expected.yaml)")
+    ap.add_argument("--workdir", help="keep each case's scratch copy under this directory")
     a = ap.parse_args(argv)
     cases = case_dirs(a.cases)
     if not cases:
@@ -276,7 +290,7 @@ def main(argv=None) -> int:
                   + (f"re-placement {r['seconds']} s {len(r['violations'])} violations" if r else "no re-placement"))
     if do_route:
         with ProcessPoolExecutor(max_workers=max(1, a.jobs)) as ex:
-            for name, r in ex.map(_route_one, [(c, a.timeout) for c in cases]):
+            for name, r in ex.map(_route_one, [(c, a.timeout, a.free, a.workdir) for c in cases]):
                 rows.setdefault(name, {})["route"] = r
                 print(f"{name}: {_fmt(r)} {r.get('seconds')} s open {r.get('open_nets')}", flush=True)
     if a.write:

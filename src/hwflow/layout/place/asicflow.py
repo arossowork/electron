@@ -78,7 +78,10 @@ def macros(pl, movable) -> list:
 
 def place(pl, movable, iters: int, t0: float) -> float:
     """The placement stages of the layout flow on placer `pl` (Placer.run)."""
-    from . import gplace
+    from . import escape, gplace
+    if escape.on_step(pl.d, "rot"):  # step 3: forward check of the rotations (prototype, off by default)
+        pl.rot_ok = escape.forward(pl, movable)
+        pl.cost()
     fb = _feedback(pl)
     big = macros(pl, movable) if opt("macro") else []
     ts = time.perf_counter()
@@ -109,15 +112,19 @@ def _feedback(pl):
     if not opt("density"):
         return None
 
+    from . import escape
+    infl = escape.on_step(pl.d, "infl")
+
     def fb(g):
         ts = time.perf_counter()
-        R, cell, over = rudy_map(pl)
-        src = "rudy"
+        extra, shares = (escape.demand(pl) if infl else (None, None))
+        R, cell, over = rudy_map(pl, extra)
+        src = "rudy+pins" if infl else "rudy"
         if routab_feedback(pl.d):
             W = escape_map(pl, R.shape, cell)
             if W is not None:
-                R, src = np.maximum(R, W), "rudy+escape"
-        _inflate(g, R, cell, over, src)
+                R, src = np.maximum(R, W), src + "+escape"
+        _inflate(g, R, cell, over, src, shares)
         FEEDBACK[-1]["s"] = round(time.perf_counter() - ts, 2)
     return fb
 
@@ -167,10 +174,11 @@ def _libs(design):
     return _LIBS[key]
 
 
-def rudy_map(pl):
-    """(ratio grid [nx, ny], cell mm, overflow): RUDY wire demand / (capacity minus pad blockage) per 1 mm cell."""
+def rudy_map(pl, extra=None):
+    """(ratio grid [nx, ny], cell mm, overflow): RUDY wire demand / (capacity minus pad blockage) per 1 mm cell.
+    `extra(nx, ny, cell)`: more demand per cell (escape.demand: the pin escapes)."""
     pl._init_grid()
-    grid = np.zeros((pl.nx, pl.ny))
+    grid = np.zeros((pl.nx, pl.ny)) if extra is None else extra(pl.nx, pl.ny, pl.cell)
     for k, (_, conns) in enumerate(pl.nets):
         if pl._net_rudy[k]:
             xs, ys = zip(*(pl.parts[r].pad(p) for r, p in conns))
@@ -187,9 +195,10 @@ def rudy_map(pl):
     return grid / np.maximum(ecap, floor), pl.cell, over
 
 
-def _inflate(g, R, cell, over, source):
+def _inflate(g, R, cell, over, source, shares=None):
     """Area inflation per courtyard box of global placement `g`: the mean of max(1, ratio) over the cells under it,
-    clipped to INFL_MAX, at most INFL_BUDGET of the free area in total, never below the last one."""
+    clipped to INFL_MAX, at most INFL_BUDGET of the free area in total, never below the last one. `shares` (ref ->
+    share of the part's escaping pads without a free slot, escape.demand): at least 1 + share."""
     ts = time.perf_counter()
     pl = g.pl
     n = g.n
@@ -203,6 +212,9 @@ def _inflate(g, R, cell, over, source):
         j0, j1 = max(0, int((cy - hh) // cell)), min(ny, int(math.ceil((cy + hh) / cell)))
         if i1 > i0 and j1 > j0:
             f[k] = min(INFL_MAX, float(Rm[i0:i1, j0:j1].mean()))
+        if shares:
+            refs = u.refs() if hasattr(u, "refs") else [u.ref]
+            f[k] = min(INFL_MAX, max(f[k], 1.0 + max((shares.get(r, 0.0) for r in refs), default=0.0)))
     area = 4 * g.mhw * g.mhh
     free = pl.W * pl.H - area.sum() - float(sum((b[3] - b[1]) * (b[4] - b[2]) for b in g.fbox if b[0] == "front"))
     add = ((f - 1) * area).sum()

@@ -917,3 +917,48 @@ Options:
   1, base@seed group 2), so the fallback's seed diversity starts at once;
 - (c) drop roads and the order variants from the default list.
 Measurements on a machine without a power cap may favour parallel lanes more. The table above does not show that.
+
+## Escape-aware placement (2026-10-26, branch `place-escape`, prototype off by default)
+
+Code: `layout/place/escape.py` (docs/layout-flow.md "Escape-aware placement"), `HWFLOW_PLACE_ESCAPE` (step 1: escape
+slot term in the detailed moves and the anneal), `_INFL` (step 2: pin demand in the RUDY feedback, inflation of units
+with blocked slots, channel check), `_ROT` (step 3: forward check of the rotations). Tests: `tests/test_place_escape.py`.
+Harness: `scripts/layout_corpus.py summary ... --free` (the cutout's free parts are placed again, then routed);
+plain `hwflow layout` now starts at `HWFLOW_SEED0`. Machine load 40-65 on 16 cores (5 agents), so wall times are
+noisy; CPU is given next to wall; pairs ran at the same time.
+
+**Corpus, re-placed** (ht3_mains, ht4_s1_k2in, sp_control; ht4_s1_mains and ht4_s11_mains, one free part each, were
+clean in every run). Unrouted (= DRC errors) per placer seed 1 / 5 / 9; 0 placement violations and isolation kept
+in every run:
+
+| case | base | step 1 | steps 1+2 | steps 1+2+3 |
+|---|---|---|---|---|
+| ht3_mains | 1 / 0 / 0 | 0 / 0 / 0 | 0 / - / - | 0 / - / - |
+| ht4_s1_k2in | 5 / 0 / 0 | 3 / 1 / 0 | 0 / 1 / 2 | 0 / 1 / 2 |
+| sp_control | 1 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| failing runs / unrouted | 3 of 9 / 7 | 2 of 9 / 4 | 2 of 7 / 3 | 2 of 7 / 3 |
+
+The open nets are GND pour islands and K2_COIL_B/K2_IN2 in every configuration: the corpus does not separate the
+variants beyond noise. Placement takes 2-4 x longer with step 1 (place_s 25-48 s -> 54-121 s per case).
+
+**Full boards** (`hwflow layout --auto`, budget 3000 s, `--workers 1` for s11 and s21, 3 for s1):
+
+| design, seed0 | variant | attempts to converged | wall s | CPU s | vias | track mm |
+|---|---|---|---|---|---|---|
+| ht4 s1 | base | 2 | 1828 | 3548 | 76 | 1205 |
+| ht4 s1 | step 1 | **1** | 1659 | 1587 | 89 | 1408 |
+| ht4 s1 | steps 1+2 (= 1+2+3: step 3 prunes nothing on ht4) | 2 | 2242 | 2733 | 81 | 1262 |
+| ht4 s11 | base | none in 3 (budget) | 3029 | 3619 | 83 | 1246 |
+| ht4 s11 | step 1 | none in 1 (budget) | 3031 | 3294 | 75 | 1265 |
+| ht4 s21 | base | 3 | 2501 | 3197 | 82 | 1296 |
+| ht4 s21 | step 1 | **1** | 743 | 980 | 84 | 1404 |
+| sensor_preamp | base | 1 | 345 | 737 | 3 | 42.6 |
+| sensor_preamp | step 1 | 1 | 756 | 1083 | 1 | 45.2 |
+| sensor_preamp | steps 1+2 | 1 | 454 | 827 | 5 | 47.4 |
+| sensor_preamp | steps 1+2+3 | 1 | 380 | 677 | 3 | 49.2 |
+
+On ht4 the first placement routed clean with step 1 on seeds 1 and 21 (base: attempt 2 and 3); the mains group
+(AC_ROOM1) routed in 41-83 s where the base's first placement left AC_ROOM1 open. Seed 11 fails both ways on AC_ROOM1
+in the mains group (the corridor between fixed F1/J1 pads, the roads-first domain). Track length grows 7-17 % with
+step 1. Step 2 lost the step-1 gain on ht4 s1 and changed nothing measurable elsewhere; step 3 only acts on edge
+parts (sensor_preamp J1: 2 of 4 rotations pruned), no part had an empty rotation set, and it changed no outcome.

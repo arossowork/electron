@@ -69,6 +69,13 @@ class LayoutSettings(_Group):
     # None: the design's placement.roads, then off
     roads: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROADS"))
     roads_power: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROADS_POWER"))  # every power net a road
+    # escape-aware placement (layout.place.escape, prototype): 1 = escape slot term in the detailed moves and the
+    # anneal; None: the design's placement.escape, then off. place_escape_infl / _rot: steps 2 and 3 (same values)
+    place_escape: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE"))
+    place_escape_infl: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_INFL"))
+    place_escape_rot: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_ROT"))
+    place_escape_w: float = Field(10.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_W"))
+    place_escape_conn: float = Field(1.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_CONN"))
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
