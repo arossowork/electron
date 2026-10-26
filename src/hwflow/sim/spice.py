@@ -718,6 +718,23 @@ def _pkg_power(fp: str) -> float | None:
     return None
 
 
+def _derating_vals(net: str, out: str, rc: int, log: str) -> tuple[dict[str, float], str | None]:
+    """The printed OP values of an ammeter netlist, and the error when the OP is not valid: an ngspice error, or a
+    pin current or voltage missing or nonfinite."""
+    if rc or ABORT_RE.search(out) or re.search(r"^\s*error:", out, re.I | re.M):
+        return {}, f"derating: no valid operating point (ngspice exit {rc}); see sim/{log}.log"
+    vals = {m.group(1).lower(): float(m.group(2))
+            for m in re.finditer(rf"^\s*(\S+)\s*=\s*({NUM_PATTERN})\s*$", out, re.M)}
+    ammeters = re.findall(r"^(Vam_\S+)\s+\S+\s+(\S+)\s", net, re.M)
+    expected = {key.lower() for name, node in ammeters for key in (f"{name}#branch", node)}
+    missing = expected - vals.keys()
+    if missing:
+        return vals, f"derating: missing {len(missing)} pin-current/voltage results; see sim/{log}.log"
+    if any(not math.isfinite(vals[key]) for key in expected):
+        return vals, f"derating: nonfinite pin-current/voltage results; see sim/{log}.log"
+    return vals, None
+
+
 class DeratingTimeoutError(RuntimeError):
     """The operating-point audit ran out of time; this tool failure must not enter stage caches."""
 
@@ -733,18 +750,24 @@ def derating_audit(design: Design, workdir: Path) -> list[dict]:
     out, rc, _, timed_out = run_cached(net, workdir, "derating", timeout=timeout)
     if timed_out:
         raise DeratingTimeoutError(f"derating: ngspice timed out after {timeout:g} s; see sim/derating.log")
-    if rc or ABORT_RE.search(out) or re.search(r"^\s*error:", out, re.I | re.M):
-        raise RuntimeError(f"derating: no valid operating point (ngspice exit {rc}); see sim/derating.log")
-    vals = {}
-    for m in re.finditer(rf"^\s*(\S+)\s*=\s*({NUM_PATTERN})\s*$", out, re.M):
-        vals[m.group(1).lower()] = float(m.group(2))
-    ammeters = re.findall(r"^(Vam_\S+)\s+\S+\s+(\S+)\s", net, re.M)
-    expected = {key.lower() for name, node in ammeters for key in (f"{name}#branch", node)}
-    missing = expected - vals.keys()
-    if missing:
-        raise RuntimeError(f"derating: missing {len(missing)} pin-current/voltage results; see sim/derating.log")
-    if any(not math.isfinite(vals[key]) for key in expected):
-        raise RuntimeError("derating: nonfinite pin-current/voltage results; see sim/derating.log")
+    vals, err = _derating_vals(net, out, rc, "derating")
+    if err:
+        # the OP failed: the convergence fallback of the analyses (nodeset / stepping, plausibility-checked against
+        # a clean reference OP of the same netlist), then the ammeter netlist again from that OP
+        from . import simrobust
+        rung, mod, p, _chk, _tried = simrobust.find_op(design, dict(op, timeout_s=timeout), nm, None, workdir, None,
+                                                       tag="_derating")
+        if rung is not None:
+            fb = NetMod(lines=simrobust.nodeset_lines(p), pre=mod.pre if mod else [])
+            net, _ = build_netlist(design, op, nm, ammeters=True, mod=fb)
+            out, rc, _, timed_out = run_cached(net, workdir, "derating_fallback", timeout=timeout)
+            if not timed_out:
+                vals, err2 = _derating_vals(net, out, rc, "derating_fallback")
+                if not err2:
+                    err = None
+                    print(f"[sim] derating operating point: convergence fallback ({rung})")
+        if err:
+            raise RuntimeError(err)
     ta = float(sim.get("ambient_c", 25))
     rows = []
     for c in design.components.values():

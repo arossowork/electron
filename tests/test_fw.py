@@ -149,6 +149,14 @@ def test_unknown_family(tmp_path):
     assert "mcu-family" in codes(errors(findings))
 
 
+def test_rp2040_family_table():
+    """The RP2040 symbol names its pins GPIO<n> (GPIO26_ADC0 .. GPIO29_ADC3): GPIO and ADC channel from the name."""
+    assert fw.detect_family({"value": "RP2040", "symbol": "MCU_RaspberryPi:RP2040"}) == "rp2040"
+    fam = fw.FAMILIES["rp2040"]
+    g = int(re.search(fam["gpio_from_pin_name"], "GPIO26_ADC0").group(1))
+    assert g == 26 and fam["adc"][g] == "ADC_CH0" and not re.search(fam["gpio_from_pin_name"], "QSPI_SS")
+
+
 def test_scaffold_never_overwrites(tmp_path):
     d = tiny(tmp_path)
     fw_dir = d.dir / "fw"

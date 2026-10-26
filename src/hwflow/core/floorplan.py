@@ -362,6 +362,25 @@ def net_regions(design) -> list[dict]:
     return out
 
 
+def member_net_regions(design) -> list[dict]:
+    """With `board.route_groups: members`: every region with local nets (local_nets) as a route-group seed
+    [{region, nets, poly}], without the constraints of a declared `nets:` (no corridor proof, no region-nets
+    checks). A large board then routes as cached groups of its own (regionroute)."""
+    if design.board.get("route_groups") != "members":
+        return []
+    try:
+        fp = parse(design)
+    except FloorplanError:
+        return []
+    if fp is None:
+        return []
+    from shapely import affinity
+    bd = {b["name"]: b for b in fp["boards"]}
+    loc = local_nets(design)
+    return [{"region": r["name"], "nets": loc[r["name"]],
+             "poly": affinity.translate(r["geom"], bd[r["board"]]["x"], bd[r["board"]]["y"])}
+            for r in fp["regions"] if r["kind"] != "keepout" and loc.get(r["name"])]
+
 def cut_pad_findings(design, parts: dict, edge_mm: float) -> list[str]:
     """Pads of fixed parts closer than `edge_mm` (the copper-to-edge clearance) to a cut region, or inside one."""
     cs = cuts(design)
@@ -465,6 +484,31 @@ def members(fp: dict, design, refs) -> dict[str, set]:
             out[r["name"]] |= set(res[e]) if e in res else {x for x in refs if fnmatch.fnmatchcase(x, e)}
     return out
 
+
+def routed_nets(design) -> list[str]:
+    """Nets with two or more pads that the router routes (poured ground left out)."""
+    gnd = design.ground_nets() if design.board.get("gnd_pour") else set()
+    return sorted(n for n, conns in design.nets().items() if n not in gnd and len(conns) > 1)
+
+
+def local_nets(design) -> dict[str, list[str]]:
+    """Region -> the routed nets whose every pad is on a member of that region only: the candidates for the region's
+    `nets:`, which make route groups (regionroute). A net on members of two overlapping regions is in neither."""
+    fp = parse(design)
+    if fp is None:
+        return {}
+    mem = members(fp, design, list(design.components))
+    owner: dict[str, set] = {}
+    for r, refs in mem.items():
+        for ref in refs:
+            owner.setdefault(ref, set()).add(r)
+    out = {r["name"]: [] for r in fp["regions"]}
+    conns = design.nets()
+    for net in routed_nets(design):
+        common = set.intersection(*(owner.get(ref, set()) for ref, _ in conns[net]))
+        if len(common) == 1:
+            out[next(iter(common))].append(net)
+    return {r: v for r, v in out.items() if v}
 
 def placer_regions(design, parts) -> tuple[list, dict]:
     """Rules for the placer: ([{name, poly, rect, sides, members, excl, pads}], {ref: start box}). A member keeps its

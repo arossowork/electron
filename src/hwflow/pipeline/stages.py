@@ -278,7 +278,9 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
         pl.legalize()
         viol, cost = pl.violations(), pl.cost()
     else:
-        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0)
+        # placement gets half of the time left, so routing and repair still run inside the budget
+        pdl = None if deadline is None else t0 + max(0.0, deadline - t0) / 2
+        parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0, deadline=pdl)
     tm = {"place_s": round(time.time() - t0, 1)}  # wall time per step (experiment metrics, docs/asic-ideas.md)
     pj.write_text(json.dumps({"__design_board__": list(declared),
                               "__board_mm__": [d.board["width_mm"], d.board["height_mm"]],

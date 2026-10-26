@@ -108,7 +108,7 @@ def violations(pcb: Path | str) -> list[dict]:
         at = sexpr.find(fp, "at")
         if not at:
             continue
-        fx, fy, fr = float(at[1]), float(at[2]), float(at[3]) if len(at) > 3 else 0.0
+        fx, fy, fr = float(at[1]), float(at[2]), sexpr.at_angle(at)
         side = str(sexpr.value(fp, "layer", "F.Cu"))
         yard = "B.CrtYd" if side == "B.Cu" else "F.CrtYd"
         local = _courtyard(fp, yard) or _courtyard(fp, "B.CrtYd" if yard == "F.CrtYd" else "F.CrtYd")
@@ -146,7 +146,7 @@ def _pad_violations(t: list, areas: list[dict]) -> list[dict]:
         at = sexpr.find(fp, "at")
         if not at:
             continue
-        fx, fy, fr = float(at[1]), float(at[2]), float(at[3]) if len(at) > 3 else 0.0
+        fx, fy, fr = float(at[1]), float(at[2]), sexpr.at_angle(at)
         for p in sexpr.find_all(fp, "pad"):
             lay = [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]
             cu = [l for l in lay if l.endswith(".Cu")]
@@ -154,7 +154,7 @@ def _pad_violations(t: list, areas: list[dict]) -> list[dict]:
             if not cu or not pa or not sz:
                 continue
             w, h = float(sz[1]) / 2, float(sz[2]) / 2
-            ang = float(pa[3]) if len(pa) > 3 else 0.0
+            ang = sexpr.at_angle(pa)
             ox, oy = float(pa[1]), float(pa[2])
             corners = [rot(ox + rot(cx, cy, ang)[0], oy + rot(cx, cy, ang)[1], fr)
                        for cx, cy in ((-w, -h), (w, -h), (w, h), (-w, h))]

@@ -42,6 +42,15 @@ FAMILIES = {
         "source": "ESP32-C3 datasheet: ADC1 on GPIO0-4 (ADC2 not usable), deep-sleep GPIO wake on GPIO0-5 "
                   "(VDD3P3_RTC domain), strapping pins GPIO2/8/9",
     },
+    "rp2040": {
+        "match": r"RP2040",
+        "gpio_from_pin_name": r"^GPIO(\d+)",
+        "adc": {26: "ADC_CH0", 27: "ADC_CH1", 28: "ADC_CH2", 29: "ADC_CH3"},
+        "deep_sleep_wake": list(range(30)),
+        "strapping": {},
+        "source": "RP2040 datasheet: ADC inputs on GPIO26-29 (ADC0-3), DORMANT wake on any GPIO edge or level, "
+                  "no GPIO strapping pins (boot select is QSPI_SS)",
+    },
 }
 
 SYSTEM_EVENTS = {"INIT", "TIMER"}      # fwk built-ins, never in the contract's event list

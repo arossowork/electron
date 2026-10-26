@@ -127,7 +127,7 @@ class Design:
     def bom(self) -> list[dict]:
         groups: dict[tuple, dict] = {}
         for c in self.components.values():
-            if c.get("dnp") or c.get("virtual"):
+            if c.get("dnp") or c.get("virtual") or not in_bom(c):
                 continue
             key = (c.get("value"), c.get("footprint"), c.get("mpn"), c.get("lcsc"))
             g = groups.setdefault(key, {"refs": [], "value": c.get("value"), "footprint": c.get("footprint"),
@@ -149,6 +149,15 @@ class Design:
             else:
                 total += float(r["unit_price_usd"]) * r["qty"]
         return total, missing
+
+
+def in_bom(c) -> bool:
+    """False for parts that are copper, not a purchased part: `bom: false`, or a net tie (KiCad NetTie symbol or
+    footprint, which KiCad itself excludes from BOM and position files)."""
+    if c.get("bom") is not None:
+        return bool(c.get("bom"))
+    sym, fp = str(c.get("symbol") or ""), str(c.get("footprint") or "")
+    return not (sym.split(":")[-1].lower().startswith("nettie") or fp.split(":")[0].lower() == "nettie")
 
 
 def natkey(s: str):

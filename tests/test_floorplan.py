@@ -180,6 +180,25 @@ def test_parts_end_inside_their_regions(tmp_path):
     assert any(v.startswith("R6 inside floorplan region 'hv'") for v in pl.violations())
 
 
+def test_local_nets_are_the_nets_on_one_regions_members(tmp_path):
+    """local_nets (hwflow floorplan --local-nets): a net is a candidate for a region's `nets:` when every pad is on a
+    member of that region alone; a net into a second region, a one-pad net and the poured ground are not."""
+    fp = {"construction": "single", "regions": [{"name": "a", "kind": "other", "rect": [0, 0, 40, 46], "items": ["U*"]},
+                                                {"name": "b", "kind": "other", "rect": [40, 0, 88, 46], "items": ["R*"]}]}
+    comps = {"U1": {"pins": {"1": "IN", "2": "X", "3": "GND", "4": "NC1"}}, "U2": {"pins": {"1": "IN", "2": "GND"}},
+             "R1": {"pins": {"1": "X", "2": "Y"}}, "R2": {"pins": {"1": "Y", "2": "GND"}}}
+    d = make(tmp_path, fp, board={"gnd_pour": True}, comps=comps)
+    assert floorplan.local_nets(d) == {"a": ["IN"], "b": ["Y"]}
+    assert floorplan.routed_nets(d) == ["IN", "X", "Y"]
+    # board.route_groups: members seeds route groups from them, without making the nets constrained (corridor proof)
+    from hwflow.layout.place import corridor
+    from hwflow.layout.route import regionroute
+    assert floorplan.member_net_regions(d) == [] and regionroute.seeds(d) == []
+    d = make(tmp_path, fp, board={"gnd_pour": True, "route_groups": "members"}, comps=comps)
+    assert [(s["name"], s["members"]) for s in regionroute.seeds(d)] == [("a", {"IN"}), ("b", {"Y"})]
+    assert corridor.constrained(d) == []
+
+
 def test_no_floorplan_no_regions(tmp_path):
     raw = {"project": "x", "board": {"width_mm": 20, "height_mm": 20},
            "components": {"R1": {"value": "1k", "symbol": "Device:R", "footprint": RS, "pins": {"1": "A", "2": "B"}},

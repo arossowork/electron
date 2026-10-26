@@ -54,7 +54,9 @@ def cmd_parts(a) -> int:
     from .core import parts
     filters = dict(f.split("=", 1) for f in a.filters)
     for r in parts.search(a.category, filters, a.text, a.limit):
-        print(f"{r['lcsc']:>10} {r['mpn']:<28} {r['package']:<14} stock={r['stock']:<9} ${_fmt(r['price_usd'])}"
+        price = _fmt(r["price_usd"])
+        r = {k: ("" if v is None else v) for k, v in r.items()}  # a catalogue row may lack mpn, package or stock
+        print(f"{r['lcsc']:>10} {r['mpn']:<28} {r['package']:<14} stock={r['stock']:<9} ${price}"
               f"{' basic' if r['basic'] else ''}  {r['desc']}")
     return 0
 
@@ -133,6 +135,12 @@ def cmd_fw(d: Design, a) -> int:
 
 def cmd_floorplan(d: Design, a) -> int:
     from .layout.place import floorplan
+    if a.local_nets:
+        loc = floorplan.local_nets(d)
+        for r, nets in loc.items():
+            print(f"{r}: {len(nets)} nets: {', '.join(nets)}")
+        print(f"other: {len(floorplan.routed_nets(d)) - sum(len(v) for v in loc.values())} nets (several regions or none)")
+        return 0
     text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds)
     _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
     print(text)
@@ -217,6 +225,8 @@ def main(argv=None):
     p = sub.add_parser("floorplan", help="early layout feasibility of the floorplan: field (area, depth, regions, quick "
                                          "placement and congestion); no simulation or routing")
     p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
+    p.add_argument("--local-nets", action="store_true",
+                   help="only list, per region, the nets whose pads are all on its members (candidates for `nets:`)")
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")
     p = sub.add_parser("em", help="optional openEMS field-solver run on nets with `em:` set (prototype)")
     p.add_argument("project"); p.add_argument("--net", action="append")

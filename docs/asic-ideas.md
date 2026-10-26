@@ -749,3 +749,46 @@ because `pcb.py` changed.
 On ht4 the kept board is the same as in the earlier ablation without the pin-access term: that ablation ran the same
 configuration. The wall times are lower than in the earlier runs, partly because the machine was quiet. The router
 tries, repair rounds, vias and track length are not affected by load.
+
+## Guide-driven routing (2026-10-25, branch `asic-router`, not merged)
+
+A two-level router as in ASIC flows: the PathFinder global router (recovered from f3096be, on branch `asic-router` as
+`src/hwflow/guideroute.py`, with the copper already on the board as capacity) gives every net a guide (its g-cells
+and pad cells plus one ring), and KRT routes every net only inside its guide. This corrects (c) above: KRT can confine
+each net separately within one multi-net call. Confinement: per net, a fence of rule-area rectangles around the guide
+plus `(rule ... (constraint disallow track via) (condition "A.intersectsArea('hwflow_iso_gK') && A.NetName == 'N'"))`.
+KRT stamps a region only while the net it binds routes, also when its own rip-up reroutes that net; it rasterises no
+polygon holes, so the fence is rectangles, not the board minus the guide. The fence is hard (a detour guide is
+followed). It costs about 35 s per router call on the keyboard (19 000 rule areas, 503 rules) and 51 s of global
+routing there; on ht4 1 s. Freerouting is not in tools/, so KRT is the only detailed engine. `ladder` mode: per pass,
+the nets in their guides, the open ones in guides one ring wider (the routed ones rippable inside theirs), then the
+open ones with no guide on top. `guides=1` (hybrid): the two guided steps, then with nets open the pass from scratch
+with no guide in the usual net orders, keeping the result with fewer open nets.
+
+Routing only (`scripts/route_bench.py`: fixed placement, route + repair + prune + DRC), load 5-15 on 16 cores:
+
+| design (placement) | flow | unrouted | DRC errors | vias | track mm | route s |
+|---|---|---|---|---|---|---|
+| ht4 (seed 1) | current | 1 | 1 | 80 | 1251 | 525 |
+| | ladder | 0 | 0 | 93 | 1281 | 433 |
+| | guides=1 | 0 | 0 | 93 | 1281 | 659 |
+| ht4 (seed 11) | current | 1 | 1 | 80 | 1266 | 654 |
+| | ladder | 3 | 3 | 84 | 1299 | 1392 |
+| | guides=1 | 1 | 1 | 81 | 1288 | 2014 |
+| synth60 | current | 31 | 31 | 101 | 1133 | 930 |
+| | ladder | 34 | 34 | 140 | 1183 | 1993 |
+| | guides=1 | 30 | 30 | 132 | 1178 | 2663 |
+| keyboard (a1 placement) | current | layout fails: the 159-net necked pass runs over the 1800 s router timeout (as in the design run) | | | | |
+| | ladder | layout fails the same way (the guided call of that pass also exceeds 1800 s) | | | | |
+| keyboard, that pass alone, no timeout | current | 115 of 159 nets fail (44 routed) | | 394 | | 1796 |
+| | guides | 117 of 159 nets fail (42 routed) | | 421 | | 2050 |
+
+The global router found no final overflow on any design (PathFinder resolves it in 1-7 iterations), so the guides
+only forbid detours. Inside one pass the guides sometimes help (synth60 signal pass: 11 open in the guides against
+23-24 in every unguided net order) and sometimes not (ht4 seed 11, 0.25 mm pass: 2 against 0 for
+`--ordering inside_out`), and the end result moves by at most 1-3 nets either way, within the spread of the net
+orders. They add 10-40 % vias and 2-5 % track. The pure ladder loses where the unguided retry from scratch wins; the
+hybrid is never worse than the current flow on these runs but costs 1.3-3x the routing time. On the keyboard the
+problem is not channel congestion (pin access: 178 nets have no exit at their width): guides do not make its bulk
+pass tractable. Not adopted: the router stays on branch `asic-router`; `scripts/route_bench.py` here benchmarks the
+current flow and environment variants of it (`--mode NAME:KEY=VALUE`), without the guided modes.
