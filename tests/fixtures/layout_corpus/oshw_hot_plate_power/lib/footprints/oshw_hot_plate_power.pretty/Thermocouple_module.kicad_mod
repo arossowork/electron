@@ -1,0 +1,74 @@
+(footprint "Thermocouple_module"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (tedit 6234139A)
+  (descr "Pololu Breakout 16-pin 15.2x20.3mm 0.6x0.8\\")
+  (tags "Pololu Breakout")
+  (attr through_hole)
+  (fp_text reference "U3"
+    (at -7 -6)
+    (layer "F.SilkS")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_text value "MAX6675"
+    (at -1.079632 10)
+    (layer "F.Fab")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_text user "${REFERENCE}"
+    (at -7 -3.46)
+    (layer "F.Fab")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_circle
+    (center -0.079632 -0.072661)
+    (end 1.720368 -0.072661)
+    (layer "Edge.Cuts")
+    (width 0.12)
+    (fill none)
+  )
+  (fp_rect
+    (start -17.079632 -7.572661)
+    (end 14.920368 8.427339)
+    (layer "F.Fab")
+    (width 0.1)
+    (fill none)
+  )
+  (pad "1" thru_hole rect
+    (at 13.420368 5.427339 180)
+    (size 1.6 1.6)
+    (drill 0.8)
+    (layers *.Cu *.Mask)
+  )
+  (pad "2" thru_hole oval
+    (at 13.420368 2.887339 180)
+    (size 1.6 1.6)
+    (drill 0.8)
+    (layers *.Cu *.Mask)
+  )
+  (pad "3" thru_hole oval
+    (at 13.420368 0.347339 180)
+    (size 1.6 1.6)
+    (drill 0.8)
+    (layers *.Cu *.Mask)
+  )
+  (pad "4" thru_hole oval
+    (at 13.420368 -2.192661 180)
+    (size 1.6 1.6)
+    (drill 0.8)
+    (layers *.Cu *.Mask)
+  )
+  (pad "5" thru_hole oval
+    (at 13.420368 -4.732661 180)
+    (size 1.6 1.6)
+    (drill 0.8)
+    (layers *.Cu *.Mask)
+  )
+)

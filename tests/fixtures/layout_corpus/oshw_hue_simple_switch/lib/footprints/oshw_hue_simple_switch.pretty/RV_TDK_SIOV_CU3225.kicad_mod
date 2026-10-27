@@ -1,0 +1,54 @@
+(footprint "RV_TDK_SIOV_CU3225"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (property "Reference" "RV1"
+    (at 0 -4.65)
+    (layer "F.SilkS")
+    (effects
+      (font (size 0.8 0.8) (thickness 0.12))
+    )
+  )
+  (property "Value" "275VAC"
+    (at 0 4.65)
+    (layer "F.Fab")
+    (hide yes)
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (attr smd)
+  (fp_rect
+    (start -4.12 -3.27)
+    (end 4.12 3.27)
+    (stroke (width 0.12) (type solid))
+    (fill no)
+    (layer "F.SilkS")
+  )
+  (fp_rect
+    (start -5.3 -3.4)
+    (end 5.3 3.4)
+    (stroke (width 0.05) (type solid))
+    (fill no)
+    (layer "F.CrtYd")
+  )
+  (fp_rect
+    (start -4 -3.15)
+    (end 4 3.15)
+    (stroke (width 0.1) (type solid))
+    (fill no)
+    (layer "F.Fab")
+  )
+  (pad "1" smd roundrect
+    (at -3.65 0)
+    (size 2.8 3.5)
+    (layers "F.Cu" "F.Mask" "F.Paste")
+    (roundrect_rratio 0.1)
+  )
+  (pad "2" smd roundrect
+    (at 3.65 0)
+    (size 2.8 3.5)
+    (layers "F.Cu" "F.Mask" "F.Paste")
+    (roundrect_rratio 0.1)
+  )
+)

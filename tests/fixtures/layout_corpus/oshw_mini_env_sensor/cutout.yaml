@@ -1,0 +1,86 @@
+source:
+  url: https://github.com/MbFredys/PCB-Mini-Environmental-Sensor
+  commit: 2066cfccaf9175812ac58f30f8d5b0e9ccc67c56
+  file: Kicad Files/Mini_Environmental_Sensor.kicad_pcb
+  license: CERN-OHL-W-2.0
+  attribution: MbFredys
+  oshwa: null
+  category: battery-iot
+source_project: Mini_Environmental_Sensor
+importer: hwflow.layout.board.kicad_import
+source_format: 20241229
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -126.14
+- -51.81
+board_mm:
+- 25.14
+- 25.18
+outline_fill: 1.0
+free:
+- C1
+- C10
+- C11
+- C12
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- C8
+- C9
+- D1
+- L1
+- R1
+- R10
+- R2
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- U1
+- U2
+- U3
+- U4
+- U5
+dropped_footprints:
+- G***
+- REF**
+net_renames:
+  /BME280_SCL: BME280_SCL
+  /BME280_SDA: BME280_SDA
+  /SGP40_SCL: SGP40_SCL
+  /SGP40_SDA: SGP40_SDA
+  Net-(C2-Pad1): Net-_C2-Pad1
+  Net-(D1-K): Net-_D1-K
+  Net-(J2-CC1): Net-_J2-CC1
+  Net-(J2-CC2): Net-_J2-CC2
+  Net-(U1-EN): Net-_U1-EN
+  Net-(U2-PROG): Net-_U2-PROG
+  Net-(U2-STAT): Net-_U2-STAT
+  Net-(U5-SW): Net-_U5-SW
+  unconnected-(U1-IO0-Pad18): unconnected-_U1-IO0-Pad18
+  unconnected-(U1-IO1-Pad17): unconnected-_U1-IO1-Pad17
+  unconnected-(U1-IO10-Pad10): unconnected-_U1-IO10-Pad10
+  unconnected-(U1-IO18-Pad13): unconnected-_U1-IO18-Pad13
+  unconnected-(U1-IO19-Pad14): unconnected-_U1-IO19-Pad14
+  unconnected-(U1-IO2-Pad16): unconnected-_U1-IO2-Pad16
+  unconnected-(U1-IO20{slash}RXD-Pad11): unconnected-_U1-IO20_slash_RXD-Pad11
+  unconnected-(U1-IO21{slash}TXD-Pad12): unconnected-_U1-IO21_slash_TXD-Pad12
+  unconnected-(U1-IO3-Pad15): unconnected-_U1-IO3-Pad15
+  unconnected-(U1-IO8-Pad7): unconnected-_U1-IO8-Pad7
+  unconnected-(U1-IO9-Pad8): unconnected-_U1-IO9-Pad8
+not_imported:
+  zones:
+    GND: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: Mini_Environmental_Sensor.kicad_pro
+terminals: []
+warnings: []

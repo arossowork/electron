@@ -1,0 +1,60 @@
+source:
+  url: https://github.com/zemonkey/INA228_Simple
+  commit: f4b6b695c2e28af747aa7a0e627ee536828d63db
+  file: INA228_Simple.kicad_pcb
+  license: Apache-2.0
+  attribution: zemonkey
+  oshwa: null
+  category: analog-front-end
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+human:
+  copper:
+    track_mm: 268.0
+    per_layer_mm:
+      F.Cu: 268.0
+    segments: 133
+    vias: 48
+    nets_with_copper: 14
+  drc_source_rules:
+    errors: 4
+    unconnected: 0
+    types:
+      zones_intersect: 4
+  drc_hwflow_rules:
+    errors: 5
+    unconnected: 0
+    types:
+      clearance: 1
+      zones_intersect: 4
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 24
+  nets: 14
+  board_mm:
+  - 52.705
+  - 28.143
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 5914.0
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 58
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.3
+    pin_access: 0.0
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

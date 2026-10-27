@@ -1,0 +1,77 @@
+source:
+  url: https://github.com/kikeelectronico/ac-relay
+  commit: d67c1fd08081ecb9e325fde66a5afc58906ce2a8
+  file: KiCad/AC Relay/AC Relay.kicad_pcb
+  license: GPL-3.0
+  attribution: kikeelectronico (Enrique Gomez)
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 491.7
+    per_layer_mm:
+      B.Cu: 166.1
+      F.Cu: 325.6
+    segments: 157
+    vias: 5
+    nets_with_copper: 15
+  drc_source_rules:
+    errors: 5
+    unconnected: 0
+    types:
+      clearance: 1
+      courtyards_overlap: 1
+      malformed_courtyard: 2
+      starved_thermal: 1
+  drc_hwflow_rules:
+    errors: 5
+    unconnected: 0
+    types:
+      clearance: 1
+      courtyards_overlap: 1
+      malformed_courtyard: 2
+      starved_thermal: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 17
+  nets: 15
+  board_mm:
+  - 49.53
+  - 49.53
+  placement_violations:
+  - courtyard overlap D1/Q1
+  - courtyard overlap J2/Q1
+  fixed_violations:
+  - D1 inside floorplan region 'outline_cut1' (1.3 mm2)
+  - K1 inside floorplan region 'outline_cut1' (0.3 mm2)
+  - U3 inside floorplan region 'outline_cut1' (58.0 mm2)
+  corridors: {}
+  placement_cost: 32098.6
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.15
+  pin_access:
+    pads: 55
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.4
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 12
+  violations:
+  - U3 pad 3 copper closer than 0.3 mm to the board edge
+  seconds: 8.0
+measured: '2026-10-27'

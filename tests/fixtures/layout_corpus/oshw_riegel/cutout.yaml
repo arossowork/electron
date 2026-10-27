@@ -1,0 +1,264 @@
+source:
+  url: https://github.com/machdyne/riegel
+  commit: 1798614648631feab1eb1a84eec278fcc91fae87
+  file: pcb/riegel_v4/riegel.kicad_pcb
+  license: BSD-1-Clause
+  attribution: Machdyne (Lone Dynamics Corporation)
+  oshwa: null
+  category: dense-4-layer
+source_project: riegel
+importer: hwflow.layout.board.kicad_import
+source_format: 20211014
+copper_layers:
+- F.Cu
+- In1.Cu
+- In2.Cu
+- B.Cu
+offset:
+- -100.0
+- -100.0
+board_mm:
+- 90.0
+- 40.0
+outline_fill: 0.999
+free:
+- C1
+- C10
+- C11
+- C12
+- C13
+- C14
+- C15
+- C16
+- C17
+- C18
+- C19
+- C2
+- C20
+- C21
+- C22
+- C23
+- C24
+- C25
+- C26
+- C27
+- C28
+- C29
+- C3
+- C30
+- C31
+- C32
+- C33
+- C34
+- C35
+- C36
+- C37
+- C4
+- C5
+- C6
+- C7
+- C8
+- C9
+- D1
+- D2
+- FB1
+- L1
+- L2
+- MMOD1
+- PMOD1
+- PMOD2
+- PROG1
+- Q1
+- Q2
+- R1
+- R10
+- R11
+- R12
+- R13
+- R14
+- R15
+- R16
+- R17
+- R18
+- R19
+- R2
+- R20
+- R21
+- R22
+- R23
+- R24
+- R25
+- R26
+- R27
+- R28
+- R29
+- R3
+- R30
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- U1
+- U2
+- U3
+- U4
+- U5
+- U6
+- U7
+- VGA1
+- Y1
+dropped_footprints:
+- CONFIG-MMOD
+- G***
+net_renames:
+  /CDONE: CDONE
+  /CLK48: CLK48
+  /CRESET: CRESET
+  /CSPI_SCK: CSPI_SCK
+  /CSPI_SI: CSPI_SI
+  /CSPI_SO: CSPI_SO
+  /CSPI_SS: CSPI_SS
+  /HRAM_ADQ0: HRAM_ADQ0
+  /HRAM_ADQ1: HRAM_ADQ1
+  /HRAM_ADQ2: HRAM_ADQ2
+  /HRAM_ADQ3: HRAM_ADQ3
+  /HRAM_ADQ4: HRAM_ADQ4
+  /HRAM_ADQ5: HRAM_ADQ5
+  /HRAM_ADQ6: HRAM_ADQ6
+  /HRAM_ADQ7: HRAM_ADQ7
+  /HRAM_CE: HRAM_CE
+  /HRAM_CK: HRAM_CK
+  /HRAM_DQ10: HRAM_DQ10
+  /HRAM_DQ11: HRAM_DQ11
+  /HRAM_DQ12: HRAM_DQ12
+  /HRAM_DQ13: HRAM_DQ13
+  /HRAM_DQ14: HRAM_DQ14
+  /HRAM_DQ15: HRAM_DQ15
+  /HRAM_DQ8: HRAM_DQ8
+  /HRAM_DQ9: HRAM_DQ9
+  /HRAM_DQS0: HRAM_DQS0
+  /HRAM_DQS1: HRAM_DQS1
+  /LED: LED
+  /PMOD_A1: PMOD_A1
+  /PMOD_A10: PMOD_A10
+  /PMOD_A2: PMOD_A2
+  /PMOD_A3: PMOD_A3
+  /PMOD_A4: PMOD_A4
+  /PMOD_A7: PMOD_A7
+  /PMOD_A8: PMOD_A8
+  /PMOD_A9: PMOD_A9
+  /PMOD_B1: PMOD_B1
+  /PMOD_B10: PMOD_B10
+  /PMOD_B2: PMOD_B2
+  /PMOD_B3: PMOD_B3
+  /PMOD_B4: PMOD_B4
+  /PMOD_B7: PMOD_B7
+  /PMOD_B8: PMOD_B8
+  /PMOD_B9: PMOD_B9
+  /PS2_CLK: PS2_CLK
+  /PS2_CLK5V: PS2_CLK5V
+  /PS2_DATA: PS2_DATA
+  /PS2_DATA5V: PS2_DATA5V
+  /PWR1V2: PWR1V2
+  /PWR1V8: PWR1V8
+  /PWR2V5: PWR2V5
+  /PWR3V3: PWR3V3
+  /PWR3V3EN: PWR3V3EN
+  /PWR5V0: PWR5V0
+  /SD_SS: SD_SS
+  /SRAM_A0: SRAM_A0
+  /SRAM_A1: SRAM_A1
+  /SRAM_A10: SRAM_A10
+  /SRAM_A11: SRAM_A11
+  /SRAM_A12: SRAM_A12
+  /SRAM_A13: SRAM_A13
+  /SRAM_A14: SRAM_A14
+  /SRAM_A15: SRAM_A15
+  /SRAM_A16: SRAM_A16
+  /SRAM_A17: SRAM_A17
+  /SRAM_A2: SRAM_A2
+  /SRAM_A3: SRAM_A3
+  /SRAM_A4: SRAM_A4
+  /SRAM_A5: SRAM_A5
+  /SRAM_A6: SRAM_A6
+  /SRAM_A7: SRAM_A7
+  /SRAM_A8: SRAM_A8
+  /SRAM_A9: SRAM_A9
+  /SRAM_CS: SRAM_CS
+  /SRAM_D0: SRAM_D0
+  /SRAM_D1: SRAM_D1
+  /SRAM_D10: SRAM_D10
+  /SRAM_D11: SRAM_D11
+  /SRAM_D12: SRAM_D12
+  /SRAM_D13: SRAM_D13
+  /SRAM_D14: SRAM_D14
+  /SRAM_D15: SRAM_D15
+  /SRAM_D2: SRAM_D2
+  /SRAM_D3: SRAM_D3
+  /SRAM_D4: SRAM_D4
+  /SRAM_D5: SRAM_D5
+  /SRAM_D6: SRAM_D6
+  /SRAM_D7: SRAM_D7
+  /SRAM_D8: SRAM_D8
+  /SRAM_D9: SRAM_D9
+  /SRAM_LB: SRAM_LB
+  /SRAM_OE: SRAM_OE
+  /SRAM_UB: SRAM_UB
+  /SRAM_WE: SRAM_WE
+  /USB_CONN_DN: USB_CONN_DN
+  /USB_CONN_DP: USB_CONN_DP
+  /USB_DN: USB_DN
+  /USB_DP: USB_DP
+  /USB_DP_PU: USB_DP_PU
+  /VGA_B: VGA_B
+  /VGA_B_CONN: VGA_B_CONN
+  /VGA_G: VGA_G
+  /VGA_G_CONN: VGA_G_CONN
+  /VGA_HS: VGA_HS
+  /VGA_HS_CONN: VGA_HS_CONN
+  /VGA_R: VGA_R
+  /VGA_R_CONN: VGA_R_CONN
+  /VGA_VS: VGA_VS
+  /VGA_VS_CONN: VGA_VS_CONN
+  Net-(C12-Pad1): Net-_C12-Pad1
+  Net-(C12-Pad2): Net-_C12-Pad2
+  Net-(C13-Pad1): Net-_C13-Pad1
+  Net-(C13-Pad2): Net-_C13-Pad2
+  Net-(C32-Pad2): Net-_C32-Pad2
+  Net-(C33-Pad2): Net-_C33-Pad2
+  Net-(D2-Pad1): Net-_D2-Pad1
+  Net-(FB1-Pad2): Net-_FB1-Pad2
+  Net-(J2-PadA5): Net-_J2-PadA5
+  Net-(J2-PadB5): Net-_J2-PadB5
+  Net-(L1-Pad1): Net-_L1-Pad1
+  Net-(L2-Pad1): Net-_L2-Pad1
+  Net-(R14-Pad2): Net-_R14-Pad2
+  Net-(R15-Pad2): Net-_R15-Pad2
+  unconnected-(J2-PadA8): unconnected-_J2-PadA8
+  unconnected-(J2-PadB8): unconnected-_J2-PadB8
+  unconnected-(J3-Pad1): unconnected-_J3-Pad1
+  unconnected-(J3-Pad8): unconnected-_J3-Pad8
+  unconnected-(J3-Pad9): unconnected-_J3-Pad9
+  unconnected-(U1-PadB10): unconnected-_U1-PadB10
+  unconnected-(U1-PadG8): unconnected-_U1-PadG8
+  unconnected-(U5-Pad4): unconnected-_U5-Pad4
+  unconnected-(U7-Pad5): unconnected-_U7-Pad5
+  unconnected-(VGA1-Pad11): unconnected-_VGA1-Pad11
+  unconnected-(VGA1-Pad12): unconnected-_VGA1-Pad12
+  unconnected-(VGA1-Pad15): unconnected-_VGA1-Pad15
+  unconnected-(VGA1-Pad4): unconnected-_VGA1-Pad4
+  unconnected-(VGA1-Pad9): unconnected-_VGA1-Pad9
+not_imported:
+  zones:
+    GND: 1
+    PWR3V3: 1
+    PWR1V2: 3
+    PWR5V0: 2
+    __keepout__: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: riegel.kicad_pro
+terminals: []
+warnings: []

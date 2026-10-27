@@ -1,0 +1,67 @@
+source:
+  url: https://github.com/adeboni/eurorack
+  commit: 22bce2b4b55096834bf2a0f689ee1f9858de5689
+  file: ecg-2hp/ecg.kicad_pcb
+  license: GPL-3.0
+  attribution: adeboni (Andrew DeBoni)
+  oshwa: null
+  category: analog-front-end
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 518.4
+    per_layer_mm:
+      B.Cu: 209.0
+      F.Cu: 309.4
+    segments: 216
+    vias: 19
+    nets_with_copper: 30
+  drc_source_rules:
+    errors: 3
+    unconnected: 0
+    types:
+      courtyards_overlap: 1
+      footprint_type_mismatch: 1
+      starved_thermal: 1
+  drc_hwflow_rules:
+    errors: 13
+    unconnected: 0
+    types:
+      clearance: 2
+      copper_edge_clearance: 9
+      courtyards_overlap: 1
+      starved_thermal: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 1
+    codes: []
+  parts: 41
+  nets: 30
+  board_mm:
+  - 10.0
+  - 100.0
+  placement_violations:
+  - courtyard overlap U1/R1
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 19560.1
+  rudy:
+    congestion: 19.6
+    max_overflow: 1.81
+  pin_access:
+    pads: 115
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 1.9
+    pin_access: 0.2
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

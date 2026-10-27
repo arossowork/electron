@@ -1,0 +1,133 @@
+(footprint "R_Array_Convex_4x0603_back"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "B.Cu")
+  (descr "Chip Resistor Network, ROHM MNR14 (see mnr_g.pdf)")
+  (tags "resistor array")
+  (property "Reference" "RN1"
+    (at 0 2.8 180)
+    (layer "B.SilkS")
+    (hide yes)
+    (effects
+      (font (size 1 1) (thickness 0.15))
+      (justify mirror)
+    )
+  )
+  (property "Value" "5K1"
+    (at 0 -2.8 180)
+    (layer "B.Fab")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+      (justify mirror)
+    )
+  )
+  (attr smd)
+  (fp_line
+    (start -0.5 1.68)
+    (end 0.5 1.68)
+    (stroke (width 0.12) (type solid))
+    (layer "B.SilkS")
+  )
+  (fp_line
+    (start -0.5 -1.68)
+    (end 0.5 -1.68)
+    (stroke (width 0.12) (type solid))
+    (layer "B.SilkS")
+  )
+  (fp_line
+    (start 1.55 1.85)
+    (end -1.55 1.85)
+    (stroke (width 0.05) (type solid))
+    (layer "B.CrtYd")
+  )
+  (fp_line
+    (start 1.55 1.85)
+    (end 1.55 -1.85)
+    (stroke (width 0.05) (type solid))
+    (layer "B.CrtYd")
+  )
+  (fp_line
+    (start -1.55 -1.85)
+    (end -1.55 1.85)
+    (stroke (width 0.05) (type solid))
+    (layer "B.CrtYd")
+  )
+  (fp_line
+    (start -1.55 -1.85)
+    (end 1.55 -1.85)
+    (stroke (width 0.05) (type solid))
+    (layer "B.CrtYd")
+  )
+  (fp_line
+    (start -0.8 1.6)
+    (end -0.8 -1.6)
+    (stroke (width 0.1) (type solid))
+    (layer "B.Fab")
+  )
+  (fp_line
+    (start 0.8 1.6)
+    (end -0.8 1.6)
+    (stroke (width 0.1) (type solid))
+    (layer "B.Fab")
+  )
+  (fp_line
+    (start -0.8 -1.6)
+    (end 0.8 -1.6)
+    (stroke (width 0.1) (type solid))
+    (layer "B.Fab")
+  )
+  (fp_line
+    (start 0.8 -1.6)
+    (end 0.8 1.6)
+    (stroke (width 0.1) (type solid))
+    (layer "B.Fab")
+  )
+  (fp_text user "${REFERENCE}"
+    (at 0 0 90)
+    (layer "B.Fab")
+    (effects
+      (font (size 0.5 0.5) (thickness 0.075))
+      (justify mirror)
+    )
+  )
+  (pad "1" smd rect
+    (at -0.9 1.2)
+    (size 0.8 0.5)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "2" smd rect
+    (at -0.9 0.4)
+    (size 0.8 0.4)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "3" smd rect
+    (at -0.9 -0.4)
+    (size 0.8 0.4)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "4" smd rect
+    (at -0.9 -1.2)
+    (size 0.8 0.5)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "5" smd rect
+    (at 0.9 -1.2)
+    (size 0.8 0.5)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "6" smd rect
+    (at 0.9 -0.4)
+    (size 0.8 0.4)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "7" smd rect
+    (at 0.9 0.4)
+    (size 0.8 0.4)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+  (pad "8" smd rect
+    (at 0.9 1.2)
+    (size 0.8 0.5)
+    (layers "B.Cu" "B.Paste" "B.Mask")
+  )
+)

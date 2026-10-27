@@ -1,0 +1,121 @@
+(footprint "PTS820J25KSMTRLFS"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (descr "PTS820J25KSMTRLFS-2")
+  (tags "Switch")
+  (property "Reference" "SW2"
+    (at -3.3 0 90)
+    (unlocked yes)
+    (layer "F.SilkS")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (property "Value" "PTS820 J25K SMTR LFS"
+    (at 0 0)
+    (layer "F.SilkS")
+    (hide yes)
+    (effects
+      (font (size 1.27 1.27) (thickness 0.254))
+    )
+  )
+  (attr smd)
+  (fp_line
+    (start -0.6 -1.45)
+    (end 0.6 -1.45)
+    (stroke (width 0.2) (type solid))
+    (layer "F.SilkS")
+  )
+  (fp_line
+    (start -0.6 1.45)
+    (end 0.6 1.45)
+    (stroke (width 0.2) (type solid))
+    (layer "F.SilkS")
+  )
+  (fp_line
+    (start -3.55 -2.9)
+    (end 3.55 -2.9)
+    (stroke (width 0.1) (type solid))
+    (layer "F.CrtYd")
+  )
+  (fp_line
+    (start -3.55 2.9)
+    (end -3.55 -2.9)
+    (stroke (width 0.1) (type solid))
+    (layer "F.CrtYd")
+  )
+  (fp_line
+    (start 3.55 -2.9)
+    (end 3.55 2.9)
+    (stroke (width 0.1) (type solid))
+    (layer "F.CrtYd")
+  )
+  (fp_line
+    (start 3.55 2.9)
+    (end -3.55 2.9)
+    (stroke (width 0.1) (type solid))
+    (layer "F.CrtYd")
+  )
+  (fp_line
+    (start -1.95 -1.45)
+    (end 1.95 -1.45)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start -1.95 1.45)
+    (end -1.95 -1.45)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start 1.95 -1.45)
+    (end 1.95 1.45)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start 1.95 1.45)
+    (end -1.95 1.45)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_text user "${REFERENCE}"
+    (at 0 0)
+    (layer "F.Fab")
+    (effects
+      (font (size 1.27 1.27) (thickness 0.254))
+    )
+  )
+  (pad "1" smd rect
+    (at -2.075 0)
+    (size 0.95 1.4)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "2" smd rect
+    (at 2.075 0)
+    (size 0.95 1.4)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "SH1" smd rect
+    (at -1.575 -1.525 90)
+    (size 0.75 1.15)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "SH1" smd rect
+    (at -1.575 1.525 90)
+    (size 0.75 1.15)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "SH2" smd rect
+    (at 1.575 -1.525 90)
+    (size 0.75 1.15)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "SH2" smd rect
+    (at 1.575 1.525 90)
+    (size 0.75 1.15)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+)

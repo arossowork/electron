@@ -1,0 +1,79 @@
+source:
+  url: https://github.com/gabeak2/milliohm_meter
+  commit: 37dd83114919016d0d2b463df305d851a62cbd93
+  file: milliohm_meter.kicad_pcb
+  license: GPL-3.0
+  attribution: gabeak2
+  oshwa: null
+  category: analog-front-end
+source_project: milliohm_meter
+importer: hwflow.layout.board.kicad_import
+source_format: 20240108
+copper_layers:
+- F.Cu
+- In1.Cu
+- In2.Cu
+- B.Cu
+offset:
+- -107.95
+- -53.34
+board_mm:
+- 59.69
+- 54.61
+outline_fill: 1.0
+free:
+- BAT1
+- C1
+- C2
+- C3
+- D1
+- D2
+- Q1
+- Q2
+- R1
+- R10
+- R11
+- R12
+- R13
+- R15
+- R2
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- U1
+- U2
+- U3
+dropped_footprints: []
+net_renames:
+  /FORCE-: FORCE-
+  /NMOS_GATE: NMOS_GATE
+  /SENSE+: SENSE+
+  /SENSE-: SENSE-
+  /VSENSE: VSENSE
+  /V_OUT: V_OUT
+  Net-(BAT1-+): Net-_BAT1-+
+  Net-(BAT1--): Net-_BAT1--
+  Net-(C3-Pad1): Net-_C3-Pad1
+  Net-(D1-K): Net-_D1-K
+  Net-(D2-A): Net-_D2-A
+  Net-(Q1-S): Net-_Q1-S
+  Net-(Q2-G): Net-_Q2-G
+  Net-(R4-Pad1): Net-_R4-Pad1
+  Net-(R4-Pad2): Net-_R4-Pad2
+  Net-(U1-K): Net-_U1-K
+  Net-(U2-+): Net-_U2-+
+  unconnected-(SW1-A-Pad1): unconnected-_SW1-A-Pad1
+not_imported:
+  zones:
+    GND: 4
+    Net-_Q1-S: 1
+    VCC: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: milliohm_meter.kicad_pro
+terminals: []
+warnings: []

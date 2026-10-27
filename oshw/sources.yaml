@@ -1,0 +1,165 @@
+# Open-hardware KiCad boards of the layout corpus (scripts/oshw_corpus.py). Each: name (case oshw_<name>), git URL,
+# the board file in the repo, the license (SPDX) and its file, the authors to credit, a category and a description.
+# Licenses checked in the repository; KiCad 6 or later; 2 or 4 copper layers.
+- name: ac_relay
+  url: https://github.com/kikeelectronico/ac-relay
+  pcb: KiCad/AC Relay/AC Relay.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: kikeelectronico (Enrique Gomez)
+  category: mains
+  description: ESP8266 (ESP-12E) relay board with an HLK-PM01 mains supply
+- name: espgaggia
+  url: https://github.com/rvt/espgaggia
+  pcb: kicad/gaggia_print/gaggia_print.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: R. van Twisk (rvt)
+  category: mains
+  description: espresso machine controller, ESP32 DevKitC, HLK-PM01, two G3MB-202P SSRs, MAX31855 thermocouples
+- name: openblind32
+  url: https://github.com/unterdrueckt/OpenBlind32
+  pcb: hardware/pcb/OpenBlindController.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: Markus (unterdrueckt)
+  category: mains
+  description: mains blind motor controller, ESP32-C3 SuperMini, HLK-5M05, two AQH3213 SSRs, ACS712
+- name: hot_plate_power
+  url: https://github.com/ikatkov/hot-plate
+  pcb: power-board/power-board.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: ikatkov (Igor Katkov)
+  category: mains
+  description: mains hot plate power board, HLK-PM01, G3MB-202P SSR, MAX6675, keep-out zones
+- name: hue_simple_switch
+  url: https://github.com/tineira/hue-simple-switch
+  pcb: hardware/kicad/hue-simple-switch-mains.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: Tomas Neira and contributors (tineira)
+  category: mains
+  description: mains smart switch (KiCad 10 format)
+- name: hestiapi_one
+  url: https://github.com/HestiaPi/hestia-touch-pcb-dev
+  pcb: HestiaPi-ONE/KiCAD/HestiaPiOneUniversal.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: HestiaPi
+  category: mains
+  description: thermostat relay board, five relays, PSU module, BME280, Raspberry Pi Zero header
+- name: mini_env_sensor
+  url: https://github.com/MbFredys/PCB-Mini-Environmental-Sensor
+  pcb: Kicad Files/Mini_Environmental_Sensor.kicad_pcb
+  license: CERN-OHL-W-2.0
+  license_file: LICENSE
+  attribution: MbFredys
+  category: battery-iot
+  description: battery environmental sensor node, ESP32-C3-WROOM-02, MCP73831 charger, TPS62203 buck, BME280, SGP40
+- name: b_parasite
+  url: https://github.com/rbaron/b-parasite
+  pcb: kicad/parasite.kicad_pcb
+  license: CC-BY-SA-4.0
+  license_file: null
+  license_text: "README.md, section License: The hardware and associated design files are released under the Creative
+    Commons CC BY-SA 4.0 license (https://creativecommons.org/licenses/by-sa/4.0/)."
+  attribution: rbaron (Raphael Baron)
+  category: battery-iot
+  description: coin-cell soil moisture sensor, nRF52840 module, SHTC3
+- name: rocketbeacon
+  url: https://github.com/ElvinC/rocketbeacon
+  pcb: Hardware/beacon/beacon.kicad_pcb
+  license: CERN-OHL-P-2.0
+  license_file: LICENSE.md
+  attribution: ElvinC (Elvin Chen)
+  category: battery-iot
+  description: LoRa beacon, STM32WLE5 with the sub-GHz matching network
+- name: esp32c3_devkit_lipo
+  url: https://github.com/OLIMEX/ESP32-C3-DevKit-Lipo
+  pcb: HARDWARE/ESP32-C3-DevKit-Lipo_Rev_D/ESP32-C3-DevKit-Lipo_Rev_D.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: OLIMEX Ltd
+  category: battery-iot
+  description: ESP32-C3 development board with LiPo charger
+- name: ch32v003_usbpd
+  url: https://github.com/eeucalyptus/ch32v003-usbpd
+  pcb: board/ch32v003_usbpd.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: eeucalyptus
+  category: usb-c-power
+  description: USB-PD sink built on a CH32V003
+- name: powerline_usbc
+  url: https://github.com/Andreas-Dorfner/Powerline-USB-C
+  pcb: Powerline-USB-C/Powerline-USB-C.kicad_pcb
+  license: CERN-OHL-P-2.0
+  license_file: LICENSE.md
+  attribution: Andreas Dorfner
+  category: usb-c-power
+  description: USB-C eurorack power supply, CH224K PD trigger, linear regulators
+- name: buck_tps54202
+  url: https://github.com/smkent/pcb
+  pcb: pcb-archived/power/buck-tps54202/buck-tps54202.kicad_pcb
+  license: CERN-OHL-P-2.0
+  license_file: LICENSE.hardware
+  attribution: Stephen Kent (smkent)
+  category: usb-c-power
+  description: TPS54202 buck converter breakout
+- name: rp2040_designguide
+  url: https://github.com/Sleepdealr/RP2040-designguide
+  pcb: PCB/RP2040-Guide.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: Sleepdealer (Sleepdealr)
+  category: mcu
+  description: minimal RP2040 reference board, QSPI flash, crystal, USB
+- name: ch32v003_usb_devboard
+  url: https://github.com/AlexanderMandera/CH32V003-USB-DevBoard
+  pcb: CH32V003-USB-DevBoard.kicad_pcb
+  license: CERN-OHL-W-2.0
+  license_file: LICENSE
+  attribution: Alexander Mandera
+  category: mcu
+  description: CH32V003 development board with USB
+- name: pico_ice
+  url: https://github.com/tinyvision-ai-inc/pico-ice
+  pcb: Board/Rev3/pico-ice.kicad_pcb
+  license: MIT
+  license_file: LICENSE
+  attribution: tinyVision.ai Inc.
+  category: dense-4-layer
+  description: RP2040 and iCE40UP5K FPGA in Pico form factor, 4 layers
+- name: riegel
+  url: https://github.com/machdyne/riegel
+  pcb: pcb/riegel_v4/riegel.kicad_pcb
+  license: BSD-1-Clause
+  license_file: LICENSE.md
+  attribution: Machdyne (Lone Dynamics Corporation)
+  category: dense-4-layer
+  description: small FPGA computer, iCE40HX4K BGA, SRAM, PSRAM, two TLV62568 bucks, 4 layers
+- name: milliohm_meter
+  url: https://github.com/gabeak2/milliohm_meter
+  pcb: milliohm_meter.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: gabeak2
+  category: analog-front-end
+  description: precision milliohm meter front end, INA333, OPA388, 4 layers
+- name: ina228_simple
+  url: https://github.com/zemonkey/INA228_Simple
+  pcb: INA228_Simple.kicad_pcb
+  license: Apache-2.0
+  license_file: LICENSE
+  attribution: zemonkey
+  category: analog-front-end
+  description: INA228 current sense board with input protection
+- name: eurorack_ecg
+  url: https://github.com/adeboni/eurorack
+  pcb: ecg-2hp/ecg.kicad_pcb
+  license: GPL-3.0
+  license_file: LICENSE
+  attribution: adeboni (Andrew DeBoni)
+  category: analog-front-end
+  description: ECG analog front end eurorack module, AD8232, TL072

@@ -1,0 +1,481 @@
+project: oshw_espgaggia
+revision: A
+description: imported KiCad board gaggia_print.kicad_pcb (https://github.com/rvt/espgaggia)
+board:
+  width_mm: 111.76
+  height_mm: 57.15
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  U7:
+    value: MAX31855K_print
+    spice: false
+    symbol: oshw_espgaggia:QS2016039-MAX31855K
+    footprint: oshw_espgaggia:QS2016039-MAX31855K
+    pins:
+      '1': GNDD
+      '5': perf_ck
+      '6': perf_brew_cs
+      '7': perf_do
+      '8': +5VD
+    nc:
+    - '4'
+    placement:
+      x: 71.755
+      y: 40.005
+      rot: 0.0
+      fixed: true
+  J5:
+    value: Misc 1234
+    spice: false
+    symbol: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': misc_1
+      '2': misc_2
+      '3': misc_3
+      '4': misc_4
+    placement:
+      x: 50.165
+      y: 19.685
+      rot: 90.0
+      fixed: true
+  U2:
+    value: MAX31855K_print
+    spice: false
+    symbol: oshw_espgaggia:CJMCU-MAX31855K
+    footprint: oshw_espgaggia:CJMCU-MAX31855K
+    pins:
+      '1': GNDD
+      '4': +3V3
+      '5': perf_ck
+      '6': perf_brew_cs
+      '7': perf_do
+    nc:
+    - '0'
+    placement:
+      x: 67.945
+      y: 40.005
+      rot: 0.0
+      fixed: true
+  U4:
+    value: G3MB-202P_DC5
+    spice: false
+    symbol: oshw_espgaggia:G3MC-201PL
+    footprint: oshw_espgaggia:G3MC-201PL
+    pins:
+      '1': Net-_J8-Pad2
+      '2': AC
+      '3': +5VD
+      '4': Net-_Q1-Pad2
+    placement:
+      x: 59.055
+      y: 5.645
+      rot: 0.0
+      fixed: true
+  F1:
+    value: Fuse
+    spice: false
+    symbol: oshw_espgaggia:Fuseholder_Cylinder-5x20mm_Stelvio-Kontek_PTF78_Horizontal_Open
+    footprint: oshw_espgaggia:Fuseholder_Cylinder-5x20mm_Stelvio-Kontek_PTF78_Horizontal_Open
+    pins:
+      '1': AC
+      '2': Net-_F1-Pad2
+    placement:
+      x: 74.549
+      y: 6.985
+      rot: 0.0
+      fixed: true
+  PS1:
+    value: HLK-PM01
+    spice: false
+    symbol: oshw_espgaggia:Converter_ACDC_HiLink_HLK-PMxx
+    footprint: oshw_espgaggia:Converter_ACDC_HiLink_HLK-PMxx
+    pins:
+      '1': AC
+      '2': GNDREF
+      '3': GNDD
+      '4': +5VD
+    placement:
+      x: 40.64
+      y: 13.462
+      rot: 180.0
+      fixed: true
+  J4:
+    value: GNDD
+    spice: false
+    symbol: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': GNDD
+      '2': GNDD
+      '3': GNDD
+      '4': GNDD
+    placement:
+      x: 50.165
+      y: 15.875
+      rot: 90.0
+      fixed: true
+  U5:
+    value: G3MB-202P_DC5
+    spice: false
+    symbol: oshw_espgaggia:G3MC-201PL
+    footprint: oshw_espgaggia:G3MC-201PL
+    pins:
+      '1': Net-_J9-Pad2
+      '2': AC
+      '3': +5VD
+      '4': Net-_Q2-Pad2
+    placement:
+      x: 59.055
+      y: 10.725
+      rot: 0.0
+      fixed: true
+  U6:
+    value: MAX31855K_print
+    spice: false
+    symbol: oshw_espgaggia:QS2016039-MAX31855K
+    footprint: oshw_espgaggia:QS2016039-MAX31855K
+    pins:
+      '1': GNDD
+      '5': perf_ck
+      '6': perf_ste_cs
+      '7': perf_do
+      '8': +5VD
+    nc:
+    - '4'
+    placement:
+      x: 71.755
+      y: 18.415
+      rot: 0.0
+      fixed: true
+  U3:
+    value: ESP32-DEVKITC-32D
+    spice: false
+    symbol: oshw_espgaggia:MODULE_ESP32-DEVKITC-32D
+    footprint: oshw_espgaggia:MODULE_ESP32-DEVKITC-32D
+    pins:
+      '1': +3V3
+      '5': misc_4
+      '6': misc_3
+      '7': ssr_pump
+      '8': ssr_boiler
+      '9': ssr_valve
+      '10': perf_brew_cs
+      '11': tft_irq
+      '12': perf_ck
+      '13': perf_do
+      '14': GNDD
+      '15': misc_2
+      '19': +5VD
+      '21': dsp_mosi
+      '22': perf_ste_cs
+      '25': dsp_led
+      '27': dsp_miso
+      '28': dsp_ck
+      '29': dsp_cs
+      '30': brew_btn_pin
+      '31': steam_btn_pin
+      '32': dsp_rst
+      '33': misc_1
+      '34': dsp_dc
+      '35': tft_cs
+    nc:
+    - '2'
+    - '3'
+    - '4'
+    - '16'
+    - '17'
+    - '18'
+    - '20'
+    - '23'
+    - '24'
+    - '26'
+    - '36'
+    - '37'
+    - '38'
+    placement:
+      x: 35.485
+      y: 40.005
+      rot: 270.0
+      fixed: true
+  J8:
+    value: Valve
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    pins:
+      '1': GNDREF
+      '2': Net-_J8-Pad2
+    placement:
+      x: 106.045
+      y: 18.415
+      rot: 90.0
+      fixed: true
+  J9:
+    value: Pump
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    pins:
+      '1': GNDREF
+      '2': Net-_J9-Pad2
+    placement:
+      x: 106.045
+      y: 28.575
+      rot: 90.0
+      fixed: true
+  J3:
+    value: 220V
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_MKDS-1_5-2-5.08_1x02_P5.08mm_Horizontal
+    pins:
+      '1': Net-_F1-Pad2
+      '2': GNDREF
+    placement:
+      x: 106.045
+      y: 8.255
+      rot: 90.0
+      fixed: true
+  U1:
+    value: MAX31855K_print
+    spice: false
+    symbol: oshw_espgaggia:CJMCU-MAX31855K
+    footprint: oshw_espgaggia:CJMCU-MAX31855K
+    pins:
+      '1': GNDD
+      '4': +3V3
+      '5': perf_ck
+      '6': perf_ste_cs
+      '7': perf_do
+    nc:
+    - '0'
+    placement:
+      x: 67.945
+      y: 18.415
+      rot: 0.0
+      fixed: true
+  M3:
+    value: M3
+    spice: false
+    symbol: oshw_espgaggia:MountingHole_3.2mm_M3
+    footprint: oshw_espgaggia:MountingHole_3.2mm_M3
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 94.615
+      y: 17.78
+      rot: 0.0
+      fixed: true
+  M3_2:
+    value: M3
+    spice: false
+    symbol: oshw_espgaggia:MountingHole_3.2mm_M3
+    footprint: oshw_espgaggia:MountingHole_3.2mm_M3
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 3.81
+      y: 52.705
+      rot: 0.0
+      fixed: true
+  M3_3:
+    value: M3
+    spice: false
+    symbol: oshw_espgaggia:MountingHole_3.2mm_M3
+    footprint: oshw_espgaggia:MountingHole_3.2mm_M3
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 3.81
+      y: 4.445
+      rot: 0.0
+      fixed: true
+  J2:
+    value: Steam Btn
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    pins:
+      '1': steam_btn_pin
+      '2': GNDD
+    placement:
+      x: 106.045
+      y: 52.07
+      rot: 90.0
+      fixed: true
+  C1:
+    value: '1'
+    source_value: CP
+    spice: false
+    symbol: oshw_espgaggia:CP_Radial_D5.0mm_P2.50mm
+    footprint: oshw_espgaggia:CP_Radial_D5.0mm_P2.50mm
+    pins:
+      '1': +5VD
+      '2': GNDD
+    placement:
+      x: 14.986
+      y: 32.512
+      rot: 0.0
+      fixed: true
+  J7:
+    value: Display
+    spice: false
+    symbol: oshw_espgaggia:PinHeader_1x14_P2.54mm_Vertical
+    footprint: oshw_espgaggia:PinHeader_1x14_P2.54mm_Vertical
+    pins:
+      '1': +5VD
+      '2': GNDD
+      '3': dsp_cs
+      '4': dsp_rst
+      '5': dsp_dc
+      '6': dsp_mosi
+      '7': dsp_ck
+      '8': dsp_led
+      '9': dsp_miso
+      '10': dsp_ck
+      '11': tft_cs
+      '12': dsp_mosi
+      '13': dsp_miso
+      '14': tft_irq
+    placement:
+      x: 3.175
+      y: 12.065
+      rot: 0.0
+      fixed: true
+  J1:
+    value: Brew Btn
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    pins:
+      '1': brew_btn_pin
+      '2': GNDD
+    placement:
+      x: 106.045
+      y: 45.085
+      rot: 90.0
+      fixed: true
+  J6:
+    value: 3V3
+    spice: false
+    symbol: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': +3V3
+      '2': +3V3
+      '3': +3V3
+      '4': +3V3
+    placement:
+      x: 50.165
+      y: 23.495
+      rot: 90.0
+      fixed: true
+  Q1:
+    value: 2N2222
+    spice: false
+    symbol: oshw_espgaggia:TO-18-3
+    footprint: oshw_espgaggia:TO-18-3
+    pins:
+      '1': Net-_Q1-Pad1
+      '2': Net-_Q1-Pad2
+      '3': GNDD
+    placement:
+      x: 43.942
+      y: 44.196
+      rot: 270.0
+      fixed: true
+  R3:
+    value: 10K
+    spice: false
+    symbol: oshw_espgaggia:R_Axial_DIN0411_L9.9mm_D3.6mm_P12.70mm_Horizontal
+    footprint: oshw_espgaggia:R_Axial_DIN0411_L9.9mm_D3.6mm_P12.70mm_Horizontal
+    pins:
+      '1': ssr_valve
+      '2': Net-_Q1-Pad1
+    placement:
+      x: 40.132
+      y: 39.37
+      rot: 0.0
+      fixed: true
+  R4:
+    value: 10K
+    spice: false
+    symbol: oshw_espgaggia:R_Axial_DIN0411_L9.9mm_D3.6mm_P12.70mm_Horizontal
+    footprint: oshw_espgaggia:R_Axial_DIN0411_L9.9mm_D3.6mm_P12.70mm_Horizontal
+    pins:
+      '1': ssr_pump
+      '2': Net-_Q2-Pad1
+    placement:
+      x: 40.132
+      y: 35.306
+      rot: 0.0
+      fixed: true
+  J10:
+    value: SSR Boiler
+    spice: false
+    symbol: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    footprint: oshw_espgaggia:TerminalBlock_Phoenix_PT-1_5-2-3.5-H_1x02_P3.50mm_Horizontal
+    pins:
+      '1': GNDD
+      '2': ssr_boiler
+    placement:
+      x: 106.045
+      y: 38.1
+      rot: 90.0
+      fixed: true
+  Q2:
+    value: 2N2222
+    spice: false
+    symbol: oshw_espgaggia:TO-18-3
+    footprint: oshw_espgaggia:TO-18-3
+    pins:
+      '1': Net-_Q2-Pad1
+      '2': Net-_Q2-Pad2
+      '3': GNDD
+    placement:
+      x: 50.546
+      y: 44.196
+      rot: 270.0
+      fixed: true
+  J11:
+    value: 5VD
+    spice: false
+    symbol: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_espgaggia:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': +5VD
+      '2': +5VD
+      '3': +5VD
+      '4': +5VD
+    placement:
+      x: 11.43
+      y: 23.368
+      rot: 90.0
+      fixed: true
+  M3_4:
+    value: M3
+    spice: false
+    symbol: oshw_espgaggia:MountingHole_3.2mm_M3
+    footprint: oshw_espgaggia:MountingHole_3.2mm_M3
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 94.615
+      y: 52.705
+      rot: 0.0
+      fixed: true
+nets:
+  GNDD:
+    class: ground
+  GNDREF:
+    class: ground

@@ -1,0 +1,323 @@
+project: oshw_ac_relay
+revision: A
+description: imported KiCad board AC Relay.kicad_pcb (https://github.com/kikeelectronico/ac-relay)
+board:
+  width_mm: 49.53
+  height_mm: 49.53
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  U3:
+    value: HLK-PM01
+    spice: false
+    symbol: oshw_ac_relay:HLK-PM01
+    footprint: oshw_ac_relay:HLK-PM01
+    pins:
+      '1': Net-_J1-Pad2
+      '2': Net-_J1-Pad1
+      '3': GND
+      '4': +5V
+    placement:
+      x: 14.478
+      y: 21.082
+      rot: 0.0
+      fixed: true
+  J1:
+    value: Screw_Terminal_01x02
+    spice: false
+    symbol: oshw_ac_relay:TerminalBlock_Altech_AK300-2_P5.00mm
+    footprint: oshw_ac_relay:TerminalBlock_Altech_AK300-2_P5.00mm
+    pins:
+      '1': Net-_J1-Pad1
+      '2': Net-_J1-Pad2
+    placement:
+      x: 6.72
+      y: 13.462
+      rot: 90.0
+      fixed: true
+  J3:
+    value: Screw_Terminal_01x02
+    spice: false
+    symbol: oshw_ac_relay:TerminalBlock_Altech_AK300-2_P5.00mm_v2
+    footprint: oshw_ac_relay:TerminalBlock_Altech_AK300-2_P5.00mm_v2
+    pins:
+      '1': Net-_J3-Pad1
+      '2': Net-_J3-Pad2
+    placement:
+      x: 6.72
+      y: 24.875
+      rot: 90.0
+      fixed: true
+  R4:
+    value: '82.5'
+    spice: false
+    symbol: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    footprint: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    pins:
+      '1': Net-_D2-Pad2
+      '2': +3V3
+    placement:
+      x: 27.051
+      y: 37.592
+      rot: 180.0
+      fixed: true
+  R3:
+    value: 10k
+    spice: false
+    symbol: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v2
+    footprint: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v2
+    pins:
+      '1': Button
+      '2': +3V3
+    placement:
+      x: 27.051
+      y: 33.528
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 10k
+    spice: false
+    symbol: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v3
+    footprint: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v3
+    pins:
+      '1': +3V3
+      '2': Flash
+    placement:
+      x: 27.051
+      y: 31.496
+      rot: 0.0
+      fixed: true
+  R1:
+    value: 10k
+    spice: false
+    symbol: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v4
+    footprint: oshw_ac_relay:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder_v4
+    pins:
+      '1': Rst
+      '2': +3V3
+    placement:
+      x: 27.051
+      y: 35.56
+      rot: 180.0
+      fixed: true
+  U2:
+    value: ESP-12E
+    spice: false
+    symbol: oshw_ac_relay:ESP-12E
+    footprint: oshw_ac_relay:ESP-12E
+    pins:
+      '1': Rst
+      '3': +3V3
+      '4': Relay
+      '8': +3V3
+      '15': GND
+      '16': GND
+      '17': +3V3
+      '18': Flash
+      '19': Button
+      '21': RX
+      '22': TX
+    nc:
+    - '2'
+    - '5'
+    - '6'
+    - '7'
+    - '9'
+    - '10'
+    - '11'
+    - '12'
+    - '13'
+    - '14'
+    - '20'
+    placement:
+      x: 38.461
+      y: 36.028
+      rot: 180.0
+      fixed: true
+  U1:
+    value: BU33SD5WG-TR
+    spice: false
+    symbol: oshw_ac_relay:TSOP-5_1.65x3.05mm_P0.95mm
+    footprint: oshw_ac_relay:TSOP-5_1.65x3.05mm_P0.95mm
+    pins:
+      '1': +5V
+      '2': GND
+      '3': +5V
+      '5': +3V3
+    nc:
+    - '4'
+    placement:
+      x: 26.797
+      y: 25.527
+      rot: 180.0
+      fixed: true
+  D2:
+    value: LED_verde
+    spice: false
+    symbol: oshw_ac_relay:LED_0603_1608Metric
+    footprint: oshw_ac_relay:LED_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_D2-Pad2
+    placement:
+      x: 26.924
+      y: 39.624
+      rot: 0.0
+      fixed: true
+  D1:
+    value: RGF1B
+    spice: false
+    symbol: oshw_ac_relay:D_0603_1608Metric
+    footprint: oshw_ac_relay:D_0603_1608Metric
+    pins:
+      '1': Net-_D1-Pad1
+      '2': +5V
+    placement:
+      x: 15.82
+      y: 40.86
+      rot: 90.0
+      fixed: true
+  J2:
+    value: Conn_01x06_Female
+    spice: false
+    symbol: oshw_ac_relay:PinHeader_1x06_P2.54mm_Vertical
+    footprint: oshw_ac_relay:PinHeader_1x06_P2.54mm_Vertical
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': Flash
+      '4': Rst
+      '5': RX
+      '6': TX
+    placement:
+      x: 21.336
+      y: 26.797
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 0.47uF
+    spice: false
+    symbol: oshw_ac_relay:C_0603_1608Metric
+    footprint: oshw_ac_relay:C_0603_1608Metric
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 26.924
+      y: 22.606
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 0.47uF
+    spice: false
+    symbol: oshw_ac_relay:C_0603_1608Metric_v2
+    footprint: oshw_ac_relay:C_0603_1608Metric_v2
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 27.051
+      y: 28.448
+      rot: 0.0
+      fixed: true
+  SW1:
+    value: SW_Push
+    spice: false
+    symbol: oshw_ac_relay:SW_SPST_EVQP2
+    footprint: oshw_ac_relay:SW_SPST_EVQP2
+    pins:
+      '1': Button
+      '2': GND
+    placement:
+      x: 27.178
+      y: 44.704
+      rot: 270.0
+      fixed: true
+  Q1:
+    value: FDN537N
+    spice: false
+    symbol: oshw_ac_relay:SOT-223
+    footprint: oshw_ac_relay:SOT-223
+    pins:
+      '1': Relay
+      '2': Net-_D1-Pad1
+      '3': GND
+      '4': Net-_D1-Pad1
+    placement:
+      x: 19.812
+      y: 44.831
+      rot: 180.0
+      fixed: true
+  K1:
+    value: 1461492-2
+    spice: false
+    symbol: oshw_ac_relay:Rele-1461492-2
+    footprint: oshw_ac_relay:Rele-1461492-2
+    pins:
+      '1': Net-_D1-Pad1
+      '2': +5V
+      '3': Net-_J3-Pad1
+      '4': Net-_J3-Pad2
+    placement:
+      x: 14.1125
+      y: 46.403
+      rot: 90.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 20.346
+      - 18.542
+    - - 15.52
+      - 23.368
+    - - 15.52
+      - 33.909
+    - - 15.537
+      - 34.08
+    - - 15.668
+      - 34.396
+    - - 15.909
+      - 34.637
+    - - 16.225
+      - 34.768
+    - - 16.567
+      - 34.768
+    - - 16.883
+      - 34.637
+    - - 17.124
+      - 34.396
+    - - 17.255
+      - 34.08
+    - - 17.272
+      - 33.909
+    - - 17.272
+      - 23.876
+    - - 22.098
+      - 19.05
+    - - 22.098
+      - 6.477
+    - - 22.031
+      - 6.142
+    - - 21.841
+      - 5.858
+    - - 21.557
+      - 5.668
+    - - 21.222
+      - 5.601
+    - - 20.887
+      - 5.668
+    - - 20.603
+      - 5.858
+    - - 20.413
+      - 6.142
+    - - 20.346
+      - 6.477

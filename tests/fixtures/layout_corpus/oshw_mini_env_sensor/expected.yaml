@@ -1,0 +1,64 @@
+source:
+  url: https://github.com/MbFredys/PCB-Mini-Environmental-Sensor
+  commit: 2066cfccaf9175812ac58f30f8d5b0e9ccc67c56
+  file: Kicad Files/Mini_Environmental_Sensor.kicad_pcb
+  license: CERN-OHL-W-2.0
+  attribution: MbFredys
+  oshwa: null
+  category: battery-iot
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 330.2
+    per_layer_mm:
+      B.Cu: 254.7
+      F.Cu: 75.4
+    segments: 347
+    vias: 15
+    nets_with_copper: 16
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 32
+  nets: 16
+  board_mm:
+  - 25.14
+  - 25.18
+  placement_violations:
+  - courtyard overlap C1/U1
+  - courtyard overlap C2/U1
+  - courtyard overlap C5/J1
+  - courtyard overlap J1/C7
+  - courtyard overlap R1/U1
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 27713.4
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 92
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.6
+    pin_access: 0.2
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

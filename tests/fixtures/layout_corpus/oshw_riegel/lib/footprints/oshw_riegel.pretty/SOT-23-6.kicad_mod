@@ -1,0 +1,74 @@
+(footprint "SOT-23-6"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (tedit 5A02FF57)
+  (descr "6-pin SOT-23 package")
+  (tags "SOT-23-6")
+  (attr smd)
+  (fp_text reference "U6"
+    (at 0 -2.9)
+    (layer "F.SilkS")
+    hide
+    (effects
+      (font (size 0.5 0.5) (thickness 0.1))
+    )
+  )
+  (fp_text value "TLV62568DDC"
+    (at -0.2528 -20.4766)
+    (layer "F.Fab")
+    hide
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_text user "${REFERENCE}"
+    (at 0 0 90)
+    (layer "F.Fab")
+    hide
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_line (start 0.9 -1.61) (end -1.55 -1.61) (layer "F.SilkS") (width 0.12))
+  (fp_line (start -0.9 1.61) (end 0.9 1.61) (layer "F.SilkS") (width 0.12))
+  (fp_line (start 1.9 -1.8) (end -1.9 -1.8) (layer "F.CrtYd") (width 0.05))
+  (fp_line (start -1.9 1.8) (end 1.9 1.8) (layer "F.CrtYd") (width 0.05))
+  (fp_line (start 1.9 1.8) (end 1.9 -1.8) (layer "F.CrtYd") (width 0.05))
+  (fp_line (start -1.9 -1.8) (end -1.9 1.8) (layer "F.CrtYd") (width 0.05))
+  (fp_line (start 0.9 -1.55) (end 0.9 1.55) (layer "F.Fab") (width 0.1))
+  (fp_line (start -0.9 -0.9) (end -0.9 1.55) (layer "F.Fab") (width 0.1))
+  (fp_line (start -0.9 -0.9) (end -0.25 -1.55) (layer "F.Fab") (width 0.1))
+  (fp_line (start 0.9 1.55) (end -0.9 1.55) (layer "F.Fab") (width 0.1))
+  (fp_line (start 0.9 -1.55) (end -0.25 -1.55) (layer "F.Fab") (width 0.1))
+  (pad "1" smd rect locked
+    (at -1.1 -0.95)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "2" smd rect locked
+    (at -1.1 0)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "3" smd rect locked
+    (at -1.1 0.95)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "4" smd rect locked
+    (at 1.1 0.95)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "5" smd rect locked
+    (at 1.1 0)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "6" smd rect locked
+    (at 1.1 -0.95)
+    (size 1.06 0.65)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+)

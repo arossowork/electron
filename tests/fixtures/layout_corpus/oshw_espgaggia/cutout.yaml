@@ -1,0 +1,92 @@
+source:
+  url: https://github.com/rvt/espgaggia
+  commit: 9c1e82d372343871f555d4e18a19b2f75ea00521
+  file: kicad/gaggia_print/gaggia_print.kicad_pcb
+  license: MIT
+  attribution: R. van Twisk (rvt)
+  oshwa: null
+  category: mains
+source_project: gaggia_print
+importer: hwflow.layout.board.kicad_import
+source_format: 20221018
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -69.215
+- -34.925
+board_mm:
+- 111.76
+- 57.15
+outline_fill: 1.0
+free:
+- C1
+- F1
+- PS1
+- Q1
+- Q2
+- R3
+- R4
+- U1
+- U2
+- U3
+- U4
+- U5
+- U6
+- U7
+dropped_footprints: []
+net_renames:
+  /brew_btn_pin: brew_btn_pin
+  /dsp_ck: dsp_ck
+  /dsp_cs: dsp_cs
+  /dsp_dc: dsp_dc
+  /dsp_led: dsp_led
+  /dsp_miso: dsp_miso
+  /dsp_mosi: dsp_mosi
+  /dsp_rst: dsp_rst
+  /misc_1: misc_1
+  /misc_2: misc_2
+  /misc_3: misc_3
+  /misc_4: misc_4
+  /perf_brew_cs: perf_brew_cs
+  /perf_ck: perf_ck
+  /perf_do: perf_do
+  /perf_ste_cs: perf_ste_cs
+  /ssr_boiler: ssr_boiler
+  /ssr_pump: ssr_pump
+  /ssr_valve: ssr_valve
+  /steam_btn_pin: steam_btn_pin
+  /tft_cs: tft_cs
+  /tft_irq: tft_irq
+  Net-(F1-Pad2): Net-_F1-Pad2
+  Net-(J8-Pad2): Net-_J8-Pad2
+  Net-(J9-Pad2): Net-_J9-Pad2
+  Net-(Q1-Pad1): Net-_Q1-Pad1
+  Net-(Q1-Pad2): Net-_Q1-Pad2
+  Net-(Q2-Pad1): Net-_Q2-Pad1
+  Net-(Q2-Pad2): Net-_Q2-Pad2
+  Net-(U3-Pad16): Net-_U3-Pad16
+  Net-(U3-Pad17): Net-_U3-Pad17
+  Net-(U3-Pad18): Net-_U3-Pad18
+  Net-(U3-Pad2): Net-_U3-Pad2
+  Net-(U3-Pad20): Net-_U3-Pad20
+  Net-(U3-Pad23): Net-_U3-Pad23
+  Net-(U3-Pad24): Net-_U3-Pad24
+  Net-(U3-Pad26): Net-_U3-Pad26
+  Net-(U3-Pad3): Net-_U3-Pad3
+  Net-(U3-Pad36): Net-_U3-Pad36
+  Net-(U3-Pad37): Net-_U3-Pad37
+  Net-(U3-Pad38): Net-_U3-Pad38
+  Net-(U3-Pad4): Net-_U3-Pad4
+  Net-(U6-Pad4): Net-_U6-Pad4
+  Net-(U7-Pad4): Net-_U7-Pad4
+not_imported:
+  zones: {}
+  custom_rules: false
+  blind_vias: 0
+  rules_source: gaggia_print.kicad_pro
+terminals: []
+warnings:
+- reference 'M3' -> M3_2
+- reference 'M3' -> M3_3
+- reference 'M3' -> M3_4

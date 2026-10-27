@@ -1,0 +1,213 @@
+source:
+  url: https://github.com/tinyvision-ai-inc/pico-ice
+  commit: 00e13360969d01fbb9663e4ea17f723c1a8e8400
+  file: Board/Rev3/pico-ice.kicad_pcb
+  license: MIT
+  attribution: tinyVision.ai Inc.
+  oshwa: null
+  category: dense-4-layer
+source_project: pico-ice
+importer: hwflow.layout.board.kicad_import
+source_format: 20240108
+copper_layers:
+- F.Cu
+- In1.Cu
+- In2.Cu
+- B.Cu
+offset:
+- -60.96
+- -73.66
+board_mm:
+- 22.86
+- 60.96
+outline_fill: 0.9909
+free:
+- C1
+- C10
+- C11
+- C12
+- C13
+- C14
+- C15
+- C16
+- C17
+- C18
+- C19
+- C2
+- C21
+- C22
+- C24
+- C25
+- C26
+- C27
+- C28
+- C29
+- C3
+- C30
+- C31
+- C32
+- C33
+- C34
+- C36
+- C37
+- C4
+- C42
+- C5
+- C6
+- C7
+- C8
+- C9
+- D1
+- D2
+- D3
+- D4
+- D5
+- D6
+- PTC1
+- Q1
+- R1
+- R10
+- R11
+- R12
+- R13
+- R14
+- R15
+- R16
+- R17
+- R18
+- R19
+- R2
+- R20
+- R21
+- R22
+- R23
+- R24
+- R25
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- RN1
+- SJ1
+- SJ2
+- SJ4
+- SJ5
+- U1
+- U2
+- U3
+- U4
+- U5
+- U6
+- U8
+- Y1
+dropped_footprints:
+- LOGO1
+- LOGO2
+- LOGO3
+- LOGO4
+net_renames:
+  /+1.2V_CORE: +1.2V_CORE
+  /+3V3_STDBY: +3V3_STDBY
+  /ADC2|PB: ADC2_PB
+  /ADC3: ADC3
+  /ICE_10|PB: ICE_10_PB
+  /ICE_11: ICE_11
+  /ICE_18: ICE_18
+  /ICE_19: ICE_19
+  /ICE_2: ICE_2
+  /ICE_20_G3: ICE_20_G3
+  /ICE_21: ICE_21
+  /ICE_23: ICE_23
+  /ICE_25: ICE_25
+  /ICE_26: ICE_26
+  /ICE_27: ICE_27
+  /ICE_28: ICE_28
+  /ICE_3: ICE_3
+  /ICE_31: ICE_31
+  /ICE_32: ICE_32
+  /ICE_34: ICE_34
+  /ICE_35_G0: ICE_35_G0
+  /ICE_36: ICE_36
+  /ICE_38: ICE_38
+  /ICE_4: ICE_4
+  /ICE_42: ICE_42
+  /ICE_43: ICE_43
+  /ICE_44_G6: ICE_44_G6
+  /ICE_45: ICE_45
+  /ICE_46: ICE_46
+  /ICE_47: ICE_47
+  /ICE_48: ICE_48
+  /ICE_6: ICE_6
+  /ICE_9: ICE_9
+  /ICE_CLK: ICE_CLK
+  /ICE_DONE: ICE_DONE
+  /ICE_DONE_ADC0: ICE_DONE_ADC0
+  /ICE_FLASH_IO2: ICE_FLASH_IO2
+  /ICE_FLASH_IO3: ICE_FLASH_IO3
+  /ICE_SCK: ICE_SCK
+  /ICE_SI: ICE_SI
+  /ICE_SO: ICE_SO
+  /ICE_SSN: ICE_SSN
+  /LED_B: LED_B
+  /LED_G: LED_G
+  /LED_R: LED_R
+  /PICO_CLKOUT: PICO_CLKOUT
+  /PICO_PMOD_A1: PICO_PMOD_A1
+  /PICO_PMOD_A2: PICO_PMOD_A2
+  /PICO_PMOD_A3: PICO_PMOD_A3
+  /PICO_PMOD_A4: PICO_PMOD_A4
+  /PICO_PMOD_B1: PICO_PMOD_B1
+  /PICO_PMOD_B2: PICO_PMOD_B2
+  /PICO_PMOD_B3: PICO_PMOD_B3
+  /PICO_PMOD_B4: PICO_PMOD_B4
+  /PWR_EN: PWR_EN
+  /QSPI_SCLK: QSPI_SCLK
+  /QSPI_SD0: QSPI_SD0
+  /QSPI_SD1: QSPI_SD1
+  /QSPI_SD2: QSPI_SD2
+  /QSPI_SD3: QSPI_SD3
+  /QSPI_SS: QSPI_SS
+  /SRAM_SS: SRAM_SS
+  /SWCLK: SWCLK
+  /SWD: SWD
+  /USB_D+: USB_D+
+  /USB_D-: USB_D-
+  /USB_N: USB_N
+  /USB_P: USB_P
+  /VCC_PLL: VCC_PLL
+  /VIO_BANK_2: VIO_BANK_2
+  /XIN: XIN
+  /XOUT: XOUT
+  /~{ICE_RST}: ICE_RST
+  /~{RESET}: RESET
+  /~{USB_BOOT}: USB_BOOT
+  Net-(C2-Pad1): Net-_C2-Pad1
+  Net-(D1-K): Net-_D1-K
+  Net-(D2-A): Net-_D2-A
+  Net-(D2-BK): Net-_D2-BK
+  Net-(D2-GK): Net-_D2-GK
+  Net-(D2-RK): Net-_D2-RK
+  Net-(D5-K): Net-_D5-K
+  Net-(D6-A): Net-_D6-A
+  Net-(J1-CC1): Net-_J1-CC1
+  Net-(J1-CC2): Net-_J1-CC2
+  Net-(J4-Pin_2): Net-_J4-Pin_2
+  Net-(Q1-D): Net-_Q1-D
+  Net-(U3-GPIO10): Net-_U3-GPIO10
+  Net-(U3-GPIO25): Net-_U3-GPIO25
+  unconnected-(J1-SBU1-PadA8): unconnected-_J1-SBU1-PadA8
+  unconnected-(J1-SBU2-PadB8): unconnected-_J1-SBU2-PadB8
+not_imported:
+  zones:
+    VBUS: 2
+    GND: 3
+    +3V3: 2
+    VDC: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: pico-ice.kicad_pro
+terminals: []
+warnings: []

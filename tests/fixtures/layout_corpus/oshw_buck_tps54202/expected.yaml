@@ -1,0 +1,66 @@
+source:
+  url: https://github.com/smkent/pcb
+  commit: 6cab466a73cdbfd0aa05449146948c3da97524f6
+  file: pcb-archived/power/buck-tps54202/buck-tps54202.kicad_pcb
+  license: CERN-OHL-P-2.0
+  attribution: Stephen Kent (smkent)
+  oshwa: null
+  category: usb-c-power
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 96.3
+    per_layer_mm:
+      B.Cu: 29.4
+      F.Cu: 66.8
+    segments: 68
+    vias: 19
+    nets_with_copper: 16
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 27
+  nets: 16
+  board_mm:
+  - 36.068
+  - 15.748
+  placement_violations:
+  - courtyard overlap D1/SW1
+  - courtyard overlap SW1/R0
+  - courtyard overlap SW1/R10
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 20813.3
+  rudy:
+    congestion: 0.1
+    max_overflow: 0.28
+  pin_access:
+    pads: 66
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.5
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 20
+  violations: []
+  seconds: 1.4
+measured: '2026-10-27'

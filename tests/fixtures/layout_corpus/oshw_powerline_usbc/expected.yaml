@@ -1,0 +1,67 @@
+source:
+  url: https://github.com/Andreas-Dorfner/Powerline-USB-C
+  commit: babfa13f31358b1ee5db901dc36f5ab42458eb86
+  file: Powerline-USB-C/Powerline-USB-C.kicad_pcb
+  license: CERN-OHL-P-2.0
+  attribution: Andreas Dorfner
+  oshwa: null
+  category: usb-c-power
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+human:
+  copper:
+    track_mm: 105.5
+    per_layer_mm:
+      B.Cu: 55.5
+      F.Cu: 50.0
+    segments: 59
+    vias: 9
+    nets_with_copper: 11
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 1
+    unconnected: 0
+    types:
+      hole_clearance: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 21
+  nets: 13
+  board_mm:
+  - 14.0
+  - 100.0
+  placement_violations: []
+  fixed_violations:
+  - H1 inside floorplan region 'outline_cut3' (1.0 mm2)
+  - H1 inside floorplan region 'outline_cut4' (1.0 mm2)
+  - H2 inside floorplan region 'outline_cut1' (1.0 mm2)
+  - H2 inside floorplan region 'outline_cut2' (1.0 mm2)
+  corridors: {}
+  placement_cost: 8593.7
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 64
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.4
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 17
+  violations: []
+  seconds: 0.9
+measured: '2026-10-27'

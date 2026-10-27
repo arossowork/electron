@@ -15,3 +15,7 @@ projects/*/scratch/
 .usage*.json*
 .session
 deploy/compose/.env
+
+# open-hardware clones (untrusted data) and scratch of scripts/oshw_corpus.py
+oshw/src/
+oshw/work/

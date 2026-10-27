@@ -1,0 +1,111 @@
+Third-party open-hardware designs in this corpus
+================================================
+
+The cases named oshw_* are derived from the open-hardware KiCad projects listed below. Each case holds data
+extracted from the project's .kicad_pcb (component placement, pad-to-net connections, footprints as placed on the
+board, net-class rules, board outline) by scripts/oshw_corpus.py (hwflow.layout.board.kicad_import). Changes from
+the source: the tracks, vias and zones are removed; net names are rewritten (sheet paths and punctuation as `_`);
+the schematic symbols are replaced by generated pin boxes; component values of R, C and L are cut to their
+number; 3D models and footprints without pads are dropped. Each case keeps the source license file as
+LICENSE.source, and its expected.yaml `source` names the URL, the commit, the license and the authors. A case is
+distributed under the license of its source (share-alike licenses: the same license applies to the case).
+
+oshw_ac_relay
+  source:  https://github.com/kikeelectronico/ac-relay (commit d67c1fd08081ecb9e325fde66a5afc58906ce2a8, file KiCad/AC Relay/AC Relay.kicad_pcb)
+  license: GPL-3.0
+  authors: kikeelectronico (Enrique Gomez)
+
+oshw_b_parasite
+  source:  https://github.com/rbaron/b-parasite (commit bf15ebdea04510444007a2cd30b709951ef62fd7, file kicad/parasite.kicad_pcb)
+  license: CC-BY-SA-4.0
+  authors: rbaron (Raphael Baron)
+
+oshw_buck_tps54202
+  source:  https://github.com/smkent/pcb (commit 6cab466a73cdbfd0aa05449146948c3da97524f6, file pcb-archived/power/buck-tps54202/buck-tps54202.kicad_pcb)
+  license: CERN-OHL-P-2.0
+  authors: Stephen Kent (smkent)
+
+oshw_ch32v003_usb_devboard
+  source:  https://github.com/AlexanderMandera/CH32V003-USB-DevBoard (commit 9b4265b8d1ed3585bf91e9c1dcd9d60b6ae63412, file CH32V003-USB-DevBoard.kicad_pcb)
+  license: CERN-OHL-W-2.0
+  authors: Alexander Mandera
+
+oshw_ch32v003_usbpd
+  source:  https://github.com/eeucalyptus/ch32v003-usbpd (commit b27d3e4057642c0790ce5910f0c49cac60bf25cb, file board/ch32v003_usbpd.kicad_pcb)
+  license: MIT
+  authors: eeucalyptus
+
+oshw_esp32c3_devkit_lipo
+  source:  https://github.com/OLIMEX/ESP32-C3-DevKit-Lipo (commit 5d93e79d46cf3b05782d9fe0f95a8a2e1ca6abbe, file HARDWARE/ESP32-C3-DevKit-Lipo_Rev_D/ESP32-C3-DevKit-Lipo_Rev_D.kicad_pcb)
+  license: GPL-3.0
+  authors: OLIMEX Ltd
+
+oshw_espgaggia
+  source:  https://github.com/rvt/espgaggia (commit 9c1e82d372343871f555d4e18a19b2f75ea00521, file kicad/gaggia_print/gaggia_print.kicad_pcb)
+  license: MIT
+  authors: R. van Twisk (rvt)
+
+oshw_eurorack_ecg
+  source:  https://github.com/adeboni/eurorack (commit 22bce2b4b55096834bf2a0f689ee1f9858de5689, file ecg-2hp/ecg.kicad_pcb)
+  license: GPL-3.0
+  authors: adeboni (Andrew DeBoni)
+
+oshw_hestiapi_one
+  source:  https://github.com/HestiaPi/hestia-touch-pcb-dev (commit 725689d9022e10b02885dba630e0b67cc9612d1a, file HestiaPi-ONE/KiCAD/HestiaPiOneUniversal.kicad_pcb)
+  license: GPL-3.0
+  authors: HestiaPi
+
+oshw_hot_plate_power
+  source:  https://github.com/ikatkov/hot-plate (commit 64dd3a2080835d71bf633feca275eedc34838a98, file power-board/power-board.kicad_pcb)
+  license: GPL-3.0
+  authors: ikatkov (Igor Katkov)
+
+oshw_hue_simple_switch
+  source:  https://github.com/tineira/hue-simple-switch (commit 7bfafc8f883c6a2fddda198a506b93c1a5f59a4b, file hardware/kicad/hue-simple-switch-mains.kicad_pcb)
+  license: MIT
+  authors: Tomas Neira and contributors (tineira)
+
+oshw_ina228_simple
+  source:  https://github.com/zemonkey/INA228_Simple (commit f4b6b695c2e28af747aa7a0e627ee536828d63db, file INA228_Simple.kicad_pcb)
+  license: Apache-2.0
+  authors: zemonkey
+
+oshw_milliohm_meter
+  source:  https://github.com/gabeak2/milliohm_meter (commit 37dd83114919016d0d2b463df305d851a62cbd93, file milliohm_meter.kicad_pcb)
+  license: GPL-3.0
+  authors: gabeak2
+
+oshw_mini_env_sensor
+  source:  https://github.com/MbFredys/PCB-Mini-Environmental-Sensor (commit 2066cfccaf9175812ac58f30f8d5b0e9ccc67c56, file Kicad Files/Mini_Environmental_Sensor.kicad_pcb)
+  license: CERN-OHL-W-2.0
+  authors: MbFredys
+
+oshw_openblind32
+  source:  https://github.com/unterdrueckt/OpenBlind32 (commit 8969056d430f98f1c549a2461eb753295cddde82, file hardware/pcb/OpenBlindController.kicad_pcb)
+  license: MIT
+  authors: Markus (unterdrueckt)
+
+oshw_pico_ice
+  source:  https://github.com/tinyvision-ai-inc/pico-ice (commit 00e13360969d01fbb9663e4ea17f723c1a8e8400, file Board/Rev3/pico-ice.kicad_pcb)
+  license: MIT
+  authors: tinyVision.ai Inc.
+
+oshw_powerline_usbc
+  source:  https://github.com/Andreas-Dorfner/Powerline-USB-C (commit babfa13f31358b1ee5db901dc36f5ab42458eb86, file Powerline-USB-C/Powerline-USB-C.kicad_pcb)
+  license: CERN-OHL-P-2.0
+  authors: Andreas Dorfner
+
+oshw_riegel
+  source:  https://github.com/machdyne/riegel (commit 1798614648631feab1eb1a84eec278fcc91fae87, file pcb/riegel_v4/riegel.kicad_pcb)
+  license: BSD-1-Clause
+  authors: Machdyne (Lone Dynamics Corporation)
+
+oshw_rocketbeacon
+  source:  https://github.com/ElvinC/rocketbeacon (commit 405957578e98e7582a6a6f67ac73d233a4f5690d, file Hardware/beacon/beacon.kicad_pcb)
+  license: CERN-OHL-P-2.0
+  authors: ElvinC (Elvin Chen)
+
+oshw_rp2040_designguide
+  source:  https://github.com/Sleepdealr/RP2040-designguide (commit a9afaa2ea5ee9d859ef126d919c607737a75eb30, file PCB/RP2040-Guide.kicad_pcb)
+  license: MIT
+  authors: Sleepdealer (Sleepdealr)

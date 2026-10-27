@@ -1,0 +1,70 @@
+source:
+  url: https://github.com/Sleepdealr/RP2040-designguide
+  commit: a9afaa2ea5ee9d859ef126d919c607737a75eb30
+  file: PCB/RP2040-Guide.kicad_pcb
+  license: MIT
+  attribution: Sleepdealer (Sleepdealr)
+  oshwa: null
+  category: mcu
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+human:
+  copper:
+    track_mm: 1814.6
+    per_layer_mm:
+      B.Cu: 1767.1
+      F.Cu: 47.5
+    segments: 433
+    vias: 32
+    nets_with_copper: 56
+  drc_source_rules:
+    errors: 6
+    unconnected: 0
+    types:
+      clearance: 4
+      footprint_type_mismatch: 2
+  drc_hwflow_rules:
+    errors: 34
+    unconnected: 0
+    types:
+      clearance: 28
+      hole_clearance: 2
+      starved_thermal: 4
+fast:
+  check:
+    ok: false
+    errors: 1
+    warnings: 0
+    codes:
+    - escape
+  parts: 36
+  nets: 56
+  board_mm:
+  - 45.212
+  - 93.424
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 5188.8
+  rudy:
+    congestion: 210.2
+    max_overflow: 2.25
+  pin_access:
+    pads: 183
+    nets_no_exit_at_width:
+    - +1V1
+    - +3V3
+    - GND
+    necked:
+    - +1V1
+    - +3V3
+    - GND
+    no_access: []
+  seconds:
+    check: 5.4
+    pin_access: 0.4
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

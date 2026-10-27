@@ -1,0 +1,61 @@
+source:
+  url: https://github.com/AlexanderMandera/CH32V003-USB-DevBoard
+  commit: 9b4265b8d1ed3585bf91e9c1dcd9d60b6ae63412
+  file: CH32V003-USB-DevBoard.kicad_pcb
+  license: CERN-OHL-W-2.0
+  attribution: Alexander Mandera
+  oshwa: null
+  category: mcu
+source_project: CH32V003-USB-DevBoard
+importer: hwflow.layout.board.kicad_import
+source_format: 20221018
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -141.183
+- -90.169
+board_mm:
+- 15.75
+- 26.059
+outline_fill: 0.9979
+free:
+- C1
+- C2
+- C3
+- C4
+- C5
+- C6
+- D1
+- D2
+- JP1
+- JP2
+- R1
+- R2
+- R3
+- R4
+- R5
+- R8
+- R9
+- U1
+- U3
+- Y1
+dropped_footprints: []
+net_renames:
+  Net-(D1-A): Net-_D1-A
+  Net-(D2-A): Net-_D2-A
+  Net-(J1-CC1): Net-_J1-CC1
+  Net-(J1-CC2): Net-_J1-CC2
+  Net-(J1-D+-PadA6): Net-_J1-D+-PadA6
+  Net-(J1-D--PadA7): Net-_J1-D--PadA7
+  unconnected-(J1-SBU1-PadA8): unconnected-_J1-SBU1-PadA8
+  unconnected-(J1-SBU2-PadB8): unconnected-_J1-SBU2-PadB8
+  unconnected-(J1-SHIELD-PadS1): unconnected-_J1-SHIELD-PadS1
+not_imported:
+  zones:
+    GND: 1
+  custom_rules: true
+  blind_vias: 0
+  rules_source: CH32V003-USB-DevBoard.kicad_pro
+terminals: []
+warnings: []

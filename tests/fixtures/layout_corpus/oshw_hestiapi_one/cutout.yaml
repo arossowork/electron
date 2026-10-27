@@ -1,0 +1,94 @@
+source:
+  url: https://github.com/HestiaPi/hestia-touch-pcb-dev
+  commit: 725689d9022e10b02885dba630e0b67cc9612d1a
+  file: HestiaPi-ONE/KiCAD/HestiaPiOneUniversal.kicad_pcb
+  license: GPL-3.0
+  attribution: HestiaPi
+  oshwa: null
+  category: mains
+source_project: HestiaPiOneUniversal
+importer: hwflow.layout.board.kicad_import
+source_format: 20241229
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -72.7
+- -34.946
+board_mm:
+- 89.8
+- 72.054
+outline_fill: 0.8665
+free:
+- BME280
+- PSU-EU_100-240V_AC1
+- RL1
+- RL2
+- RL3
+- RL4
+- RL5
+- TerminalBlock1
+dropped_footprints:
+- G***
+- REF**
+net_renames:
+  /Net-(TerminalBlock1-Pad1): Net-_TerminalBlock1-Pad1
+  /Net-(TerminalBlock1-Pad3): Net-_TerminalBlock1-Pad3
+  /Net-(TerminalBlock1-Pad4): Net-_TerminalBlock1-Pad4
+  /Net-(TerminalBlock1-Pad7): Net-_TerminalBlock1-Pad7
+  A{slash}C-L: A_slash_C-L
+  Net-(BME280-Pad1): Net-_BME280-Pad1
+  Net-(BME280-Pad2): Net-_BME280-Pad2
+  Net-(BME280-Pad4): Net-_BME280-Pad4
+  Net-(J0-Pad10): Net-_J0-Pad10
+  Net-(J0-Pad11): Net-_J0-Pad11
+  Net-(J0-Pad12): Net-_J0-Pad12
+  Net-(J0-Pad16): Net-_J0-Pad16
+  Net-(J0-Pad17): Net-_J0-Pad17
+  Net-(J0-Pad18): Net-_J0-Pad18
+  Net-(J0-Pad19): Net-_J0-Pad19
+  Net-(J0-Pad2): Net-_J0-Pad2
+  Net-(J0-Pad21): Net-_J0-Pad21
+  Net-(J0-Pad22): Net-_J0-Pad22
+  Net-(J0-Pad23): Net-_J0-Pad23
+  Net-(J0-Pad24): Net-_J0-Pad24
+  Net-(J0-Pad26): Net-_J0-Pad26
+  Net-(J0-Pad32): Net-_J0-Pad32
+  Net-(J0-Pad36): Net-_J0-Pad36
+  Net-(J0-Pad4): Net-_J0-Pad4
+  Net-(J7-Pad1): Net-_J7-Pad1
+  Net-(RL3-Pad1): Net-_RL3-Pad1
+  Net-(RL4-Pad1): Net-_RL4-Pad1
+  unconnected-(J0-Pad13): unconnected-_J0-Pad13
+  unconnected-(J0-Pad15): unconnected-_J0-Pad15
+  unconnected-(J0-Pad27): unconnected-_J0-Pad27
+  unconnected-(J0-Pad28): unconnected-_J0-Pad28
+  unconnected-(J0-Pad29): unconnected-_J0-Pad29
+  unconnected-(J0-Pad30): unconnected-_J0-Pad30
+  unconnected-(J0-Pad31): unconnected-_J0-Pad31
+  unconnected-(J0-Pad33): unconnected-_J0-Pad33
+  unconnected-(J0-Pad35): unconnected-_J0-Pad35
+  unconnected-(J0-Pad37): unconnected-_J0-Pad37
+  unconnected-(J0-Pad38): unconnected-_J0-Pad38
+  unconnected-(J0-Pad39): unconnected-_J0-Pad39
+  unconnected-(J0-Pad40): unconnected-_J0-Pad40
+  unconnected-(J0-Pad7): unconnected-_J0-Pad7
+  unconnected-(J0-Pad8): unconnected-_J0-Pad8
+  unconnected-(J3-Pad14): unconnected-_J3-Pad14
+  unconnected-(J3-Pad15): unconnected-_J3-Pad15
+  unconnected-(J3-Pad16): unconnected-_J3-Pad16
+  unconnected-(J3-Pad4): unconnected-_J3-Pad4
+  unconnected-(J3-Pad6): unconnected-_J3-Pad6
+  unconnected-(J3-Pad7): unconnected-_J3-Pad7
+  unconnected-(J3-Pad8): unconnected-_J3-Pad8
+  unconnected-(J3-Pad9): unconnected-_J3-Pad9
+  unconnected-(RL5-Pad3): unconnected-_RL5-Pad3
+  unconnected-(SW1-Pad3): unconnected-_SW1-Pad3
+not_imported:
+  zones:
+    GND: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: HestiaPiOneUniversal.kicad_pro
+terminals: []
+warnings: []

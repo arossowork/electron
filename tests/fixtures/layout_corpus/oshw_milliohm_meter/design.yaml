@@ -1,0 +1,586 @@
+project: oshw_milliohm_meter
+revision: A
+description: imported KiCad board milliohm_meter.kicad_pcb (https://github.com/gabeak2/milliohm_meter)
+board:
+  width_mm: 59.69
+  height_mm: 54.61
+  layers: 4
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.2
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  R6:
+    value: 47k
+    lcsc: C358418
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_U2-+
+    placement:
+      x: 16.99
+      y: 8.1788
+      rot: 180.0
+      fixed: true
+  J8:
+    value: '72918'
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': GND
+    placement:
+      x: 39.624
+      y: 37.338
+      rot: 0.0
+      fixed: true
+  J4:
+    value: Conn_01x02
+    spice: false
+    symbol: oshw_milliohm_meter:PinSocket_1x02_P2.54mm_Vertical
+    footprint: oshw_milliohm_meter:PinSocket_1x02_P2.54mm_Vertical
+    pins:
+      '1': VCC
+      '2': GND
+    placement:
+      x: 28.473
+      y: 45.8162
+      rot: 0.0
+      fixed: true
+  U2:
+    value: OPA388
+    lcsc: C154118
+    spice: false
+    symbol: oshw_milliohm_meter:SOIC-8_3.9x4.9mm_P1.27mm
+    footprint: oshw_milliohm_meter:SOIC-8_3.9x4.9mm_P1.27mm
+    pins:
+      '2': VSENSE
+      '3': Net-_U2-+
+      '4': GND
+      '6': Net-_C3-Pad1
+      '7': VCC
+    nc:
+    - '1'
+    - '5'
+    - '8'
+    placement:
+      x: 22.541
+      y: 10.287
+      rot: 0.0
+      fixed: true
+  H2:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    bom: false
+    pins:
+      '1': GND
+    placement:
+      x: 55.88
+      y: 3.81
+      rot: 0.0
+      fixed: true
+  J2:
+    value: Conn_01x01
+    spice: false
+    symbol: oshw_milliohm_meter:CT3149
+    footprint: oshw_milliohm_meter:CT3149
+    pins:
+      '1': Net-_D1-K
+    placement:
+      x: 8.89
+      y: 30.48
+      rot: 0.0
+      fixed: true
+  R7:
+    value: '220'
+    lcsc: C25091
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': VCC
+      '2': Net-_U1-K
+    placement:
+      x: 16.256
+      y: 14.224
+      rot: 180.0
+      fixed: true
+  SW1:
+    value: JS102011SAQN
+    lcsc: C221660
+    spice: false
+    symbol: oshw_milliohm_meter:SW_SPDT_CK_JS102011SAQN
+    footprint: oshw_milliohm_meter:SW_SPDT_CK_JS102011SAQN
+    pins:
+      '2': Net-_BAT1-+
+      '3': VCC
+    nc:
+    - '1'
+    placement:
+      x: 2.7452
+      y: 16.1
+      rot: 270.0
+      fixed: true
+  D2:
+    value: LED_RED
+    lcsc: C84256
+    spice: false
+    symbol: oshw_milliohm_meter:LED_0805_2012Metric
+    footprint: oshw_milliohm_meter:LED_0805_2012Metric
+    pins:
+      '1': GND
+      '2': Net-_D2-A
+    placement:
+      x: 21.3129
+      y: 3.937
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 100nF
+    lcsc: C307331
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': VCC
+      '2': GND
+    placement:
+      x: 21.872
+      y: 13.716
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 100nF
+    lcsc: C307331
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': VCC
+      '2': GND
+    placement:
+      x: 40.132
+      y: 15.621
+      rot: 180.0
+      fixed: true
+  FID3:
+    value: Fiducial
+    spice: false
+    symbol: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    footprint: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 4.191
+      y: 37.9476
+      rot: 0.0
+      fixed: true
+  U3:
+    value: INA333xxDGK
+    lcsc: C19450
+    spice: false
+    symbol: oshw_milliohm_meter:VSSOP-8_3.0x3.0mm_P0.65mm
+    footprint: oshw_milliohm_meter:VSSOP-8_3.0x3.0mm_P0.65mm
+    pins:
+      '1': Net-_R4-Pad1
+      '2': SENSE-
+      '3': SENSE+
+      '4': GND
+      '5': GND
+      '6': V_OUT
+      '7': VCC
+      '8': Net-_R4-Pad2
+    placement:
+      x: 40.386
+      y: 13.208
+      rot: 0.0
+      fixed: true
+  R13:
+    value: 1k
+    lcsc: C11702
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_D2-A
+      '2': VCC
+    placement:
+      x: 24.3078
+      y: 3.9116
+      rot: 0.0
+      fixed: true
+  J3:
+    value: Conn_01x02
+    spice: false
+    symbol: oshw_milliohm_meter:PinSocket_1x02_P2.54mm_Vertical
+    footprint: oshw_milliohm_meter:PinSocket_1x02_P2.54mm_Vertical
+    pins:
+      '1': V_OUT
+      '2': GND
+    placement:
+      x: 32.537
+      y: 45.8162
+      rot: 0.0
+      fixed: true
+  H4:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    bom: false
+    pins:
+      '1': GND
+    placement:
+      x: 40.6908
+      y: 48.9204
+      rot: 0.0
+      fixed: true
+  R1:
+    value: '100'
+    lcsc: C705656
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_Q1-S
+      '2': GND
+    placement:
+      x: 29.591
+      y: 15.1104
+      rot: 270.0
+      fixed: true
+  R3:
+    value: '0'
+    lcsc: C17168
+    spice: false
+    symbol: oshw_milliohm_meter:R_0402_1005Metric
+    footprint: oshw_milliohm_meter:R_0402_1005Metric
+    pins:
+      '1': NMOS_GATE
+      '2': Net-_C3-Pad1
+    placement:
+      x: 27.43
+      y: 11.176
+      rot: 180.0
+      fixed: true
+  R8:
+    value: '0'
+    lcsc: C17168
+    spice: false
+    symbol: oshw_milliohm_meter:R_0402_1005Metric
+    footprint: oshw_milliohm_meter:R_0402_1005Metric
+    pins:
+      '1': Net-_Q1-S
+      '2': VSENSE
+    placement:
+      x: 25.273
+      y: 15.113
+      rot: 180.0
+      fixed: true
+  R5:
+    value: 47k
+    lcsc: C358418
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_U2-+
+    placement:
+      x: 16.99
+      y: 9.2456
+      rot: 180.0
+      fixed: true
+  C3:
+    value: '1'
+    source_value: DNS
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_C3-Pad1
+      '2': VSENSE
+    placement:
+      x: 23.876
+      y: 13.716
+      rot: 180.0
+      fixed: true
+  U1:
+    value: CJ431
+    lcsc: C3113
+    spice: false
+    symbol: oshw_milliohm_meter:SOT-23
+    footprint: oshw_milliohm_meter:SOT-23
+    pins:
+      '1': Net-_U1-K
+      '2': Net-_U1-K
+      '3': GND
+    placement:
+      x: 16.764
+      y: 11.938
+      rot: 0.0
+      fixed: true
+  R4:
+    value: '100.0'
+    lcsc: C705656
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_R4-Pad1
+      '2': Net-_R4-Pad2
+    placement:
+      x: 40.259
+      y: 10.541
+      rot: 0.0
+      fixed: true
+  Q1:
+    value: AO3400A
+    lcsc: C20917
+    spice: false
+    symbol: oshw_milliohm_meter:SOT-23
+    footprint: oshw_milliohm_meter:SOT-23
+    pins:
+      '1': NMOS_GATE
+      '2': Net-_Q1-S
+      '3': FORCE-
+    placement:
+      x: 30.5585
+      y: 12.192
+      rot: 0.0
+      fixed: true
+  R11:
+    value: 47k
+    lcsc: C358418
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_U2-+
+    placement:
+      x: 16.99
+      y: 7.112
+      rot: 180.0
+      fixed: true
+  FID2:
+    value: Fiducial
+    spice: false
+    symbol: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    footprint: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 34.6202
+      y: 8.1788
+      rot: 0.0
+      fixed: true
+  R12:
+    value: 47k
+    lcsc: C358418
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_U2-+
+    placement:
+      x: 16.99
+      y: 6.0452
+      rot: 180.0
+      fixed: true
+  Q2:
+    value: AO3400A
+    lcsc: C20917
+    spice: false
+    symbol: oshw_milliohm_meter:SOT-23
+    footprint: oshw_milliohm_meter:SOT-23
+    pins:
+      '1': Net-_Q2-G
+      '2': GND
+      '3': Net-_BAT1--
+    placement:
+      x: 44.5793
+      y: 8.1534
+      rot: 0.0
+      fixed: true
+  J6:
+    value: Conn_01x01
+    spice: false
+    symbol: oshw_milliohm_meter:CT3149
+    footprint: oshw_milliohm_meter:CT3149
+    pins:
+      '1': SENSE-
+    placement:
+      x: 52.07
+      y: 45.466
+      rot: 0.0
+      fixed: true
+  D1:
+    value: D_Schottky
+    lcsc: C191023
+    spice: false
+    symbol: oshw_milliohm_meter:D_SOD-323
+    footprint: oshw_milliohm_meter:D_SOD-323
+    pins:
+      '1': Net-_D1-K
+      '2': FORCE-
+    placement:
+      x: 20.4978
+      y: 25.6286
+      rot: 270.0
+      fixed: true
+  J7:
+    value: '72918'
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': V_OUT
+    placement:
+      x: 20.574
+      y: 37.338
+      rot: 0.0
+      fixed: true
+  R10:
+    value: '10'
+    lcsc: C25077
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': VCC
+      '2': Net-_D1-K
+    placement:
+      x: 19.9898
+      y: 23.2156
+      rot: 0.0
+      fixed: true
+  R2:
+    value: '100'
+    lcsc: C705656
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_Q1-S
+      '2': GND
+    placement:
+      x: 30.734
+      y: 15.113
+      rot: 270.0
+      fixed: true
+  J5:
+    value: Conn_01x01
+    spice: false
+    symbol: oshw_milliohm_meter:CT3149
+    footprint: oshw_milliohm_meter:CT3149
+    pins:
+      '1': SENSE+
+    placement:
+      x: 52.07
+      y: 30.48
+      rot: 0.0
+      fixed: true
+  R15:
+    value: 47k
+    lcsc: C358418
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_U1-K
+      '2': Net-_U2-+
+    placement:
+      x: 13.462
+      y: 8.664
+      rot: 90.0
+      fixed: true
+  H1:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    bom: false
+    pins:
+      '1': GND
+    placement:
+      x: 3.81
+      y: 3.81
+      rot: 0.0
+      fixed: true
+  R9:
+    value: '10'
+    lcsc: C25077
+    spice: false
+    symbol: oshw_milliohm_meter:C_0402_1005Metric
+    footprint: oshw_milliohm_meter:C_0402_1005Metric
+    pins:
+      '1': Net-_Q2-G
+      '2': VCC
+    placement:
+      x: 41.6052
+      y: 7.1882
+      rot: 180.0
+      fixed: true
+  FID1:
+    value: Fiducial
+    spice: false
+    symbol: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    footprint: oshw_milliohm_meter:Fiducial_1mm_Mask2mm
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 48.3108
+      y: 16.4084
+      rot: 0.0
+      fixed: true
+  J1:
+    value: Conn_01x01
+    spice: false
+    symbol: oshw_milliohm_meter:CT3149
+    footprint: oshw_milliohm_meter:CT3149
+    pins:
+      '1': FORCE-
+    placement:
+      x: 8.89
+      y: 45.466
+      rot: 0.0
+      fixed: true
+  H3:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    footprint: oshw_milliohm_meter:MountingHole_3.2mm_M3_Pad_v2
+    bom: false
+    pins:
+      '1': GND
+    placement:
+      x: 19.9136
+      y: 48.9204
+      rot: 0.0
+      fixed: true
+  BAT1:
+    value: BH123A
+    spice: false
+    symbol: oshw_milliohm_meter:BH123A_back
+    footprint: oshw_milliohm_meter:BH123A_back
+    pins:
+      '1': Net-_BAT1--
+      '2': Net-_BAT1-+
+    placement:
+      x: 48.972
+      y: 9.906
+      rot: 180.0
+      fixed: true
+nets:
+  GND:
+    class: ground

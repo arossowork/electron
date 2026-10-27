@@ -1,0 +1,67 @@
+source:
+  url: https://github.com/tineira/hue-simple-switch
+  commit: 7bfafc8f883c6a2fddda198a506b93c1a5f59a4b
+  file: hardware/kicad/hue-simple-switch-mains.kicad_pcb
+  license: MIT
+  attribution: Tomas Neira and contributors (tineira)
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 403.8
+    per_layer_mm:
+      B.Cu: 289.2
+      F.Cu: 114.6
+    segments: 98
+    vias: 27
+    nets_with_copper: 19
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 28
+  nets: 19
+  board_mm:
+  - 42.0
+  - 52.0
+  placement_violations:
+  - courtyard overlap J1/F1
+  fixed_violations:
+  - C2 inside floorplan region 'outline_cut2' (0.2 mm2)
+  - F1 inside floorplan region 'outline_cut3' (0.6 mm2)
+  - J1 inside floorplan region 'outline_cut3' (2.2 mm2)
+  - PS1 inside floorplan region 'outline_cut1' (1.6 mm2)
+  - PS1 inside floorplan region 'outline_cut2' (1.6 mm2)
+  - PS1 inside floorplan region 'outline_cut5' (56.2 mm2)
+  - RV1 inside floorplan region 'outline_cut1' (2.8 mm2)
+  corridors: {}
+  placement_cost: 29600.3
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 68
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.6
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

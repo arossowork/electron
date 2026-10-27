@@ -1,0 +1,424 @@
+project: oshw_ch32v003_usb_devboard
+revision: A
+description: imported KiCad board CH32V003-USB-DevBoard.kicad_pcb (https://github.com/AlexanderMandera/CH32V003-USB-DevBoard)
+board:
+  width_mm: 15.75
+  height_mm: 26.059
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.127
+  track_mm: 0.2032
+  via_dia_mm: 0.4572
+  via_drill_mm: 0.3048
+components:
+  SW1:
+    value: SW_Push
+    lcsc: C2905188
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:SW_SPST_B3U-1000P-B
+    footprint: oshw_ch32v003_usb_devboard:SW_SPST_B3U-1000P-B
+    pins:
+      '1': GND
+      '2': PD7
+    placement:
+      x: 7.9302
+      y: 22.9286
+      rot: 180.0
+      fixed: true
+  C5:
+    value: 20p
+    lcsc: C2941937
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': PA1
+    placement:
+      x: 3.8322
+      y: 18.161
+      rot: 0.0
+      fixed: true
+  R3:
+    value: 5k1
+    lcsc: C325524
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': Net-_J1-CC2
+      '2': GND
+    placement:
+      x: 6.4236
+      y: 10.1896
+      rot: 270.0
+      fixed: true
+  R8:
+    value: '1'
+    source_value: 120R
+    lcsc: C203112
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': Net-_D1-A
+    placement:
+      x: 6.1102
+      y: 25.1536
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 5k1
+    lcsc: C325524
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': Net-_J1-CC1
+      '2': GND
+    placement:
+      x: 9.4716
+      y: 10.1896
+      rot: 270.0
+      fixed: true
+  R9:
+    value: '1'
+    source_value: 120R
+    lcsc: C203112
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': Net-_D2-A
+    placement:
+      x: 9.6702
+      y: 25.1536
+      rot: 0.0
+      fixed: true
+  C4:
+    value: 20p
+    lcsc: C2941937
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v2
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v2
+    pins:
+      '1': GND
+      '2': PA2
+    placement:
+      x: 3.8322
+      y: 19.181
+      rot: 0.0
+      fixed: true
+  R4:
+    value: '1'
+    source_value: 33R
+    lcsc: C25105
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': Net-_J1-D--PadA7
+      '2': USB_DN
+    placement:
+      x: 7.407
+      y: 10.181
+      rot: 270.0
+      fixed: true
+  C2:
+    value: 1u
+    lcsc: C52923
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 4.7402
+      y: 15.5736
+      rot: 180.0
+      fixed: true
+  U1:
+    value: ME6211A33M3G-N
+    lcsc: C168807
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:SOT-23-3
+    footprint: oshw_ch32v003_usb_devboard:SOT-23-3
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': VBUS
+    placement:
+      x: 4.8302
+      y: 13.0036
+      rot: 90.0
+      fixed: true
+  JP1:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:SolderJumper_0402
+    footprint: oshw_ch32v003_usb_devboard:SolderJumper_0402
+    bom: false
+    pins:
+      '1': PA1
+      '2': PA1_H
+    placement:
+      x: 3.832
+      y: 16.881
+      rot: 180.0
+      fixed: true
+  J1:
+    value: USB_C_Receptacle_USB2.0
+    lcsc: C2927039
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    footprint: oshw_ch32v003_usb_devboard:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    pins:
+      A1: GND
+      A4: VBUS
+      A5: Net-_J1-CC1
+      A6: Net-_J1-D+-PadA6
+      A7: Net-_J1-D--PadA7
+      A9: VBUS
+      A12: GND
+      B1: GND
+      B4: VBUS
+      B5: Net-_J1-CC2
+      B6: Net-_J1-D+-PadA6
+      B7: Net-_J1-D--PadA7
+      B9: VBUS
+      B12: GND
+    nc:
+    - A8
+    - B8
+    - S1
+    placement:
+      x: 7.8752
+      y: 2.776
+      rot: 180.0
+      fixed: true
+  Y1:
+    value: 24MHz
+    lcsc: C2875241
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:Crystal_SMD_2016-4Pin_2.0x1.6mm
+    footprint: oshw_ch32v003_usb_devboard:Crystal_SMD_2016-4Pin_2.0x1.6mm
+    pins:
+      '1': PA2
+      '2': GND
+      '3': PA1
+      '4': GND
+    placement:
+      x: 6.3302
+      y: 18.1536
+      rot: 90.0
+      fixed: true
+  D2:
+    value: LED_Small
+    lcsc: C165980
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:LED_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:LED_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_D2-A
+    placement:
+      x: 11.6302
+      y: 25.1536
+      rot: 180.0
+      fixed: true
+  J4:
+    value: Conn_01x01
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:TestPoint_01x02
+    footprint: oshw_ch32v003_usb_devboard:TestPoint_01x02
+    bom: false
+    pins:
+      '1': USB_DP
+      '2': USB_DN
+    placement:
+      x: 10.9072
+      y: 10.7096
+      rot: 270.0
+      fixed: true
+  D1:
+    value: LED_Small
+    lcsc: C165980
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:LED_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:LED_0402_1005Metric
+    pins:
+      '1': PC0
+      '2': Net-_D1-A
+    placement:
+      x: 4.1502
+      y: 25.1536
+      rot: 0.0
+      fixed: true
+  R1:
+    value: 1k5
+    lcsc: C25867
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': DPU
+      '2': USB_DN
+    placement:
+      x: 10.71
+      y: 13.804
+      rot: 180.0
+      fixed: true
+  U3:
+    value: CH32V003F4U6
+    lcsc: C5299908
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:QFN-20-1EP_3x3mm_P0.4mm_EP1.65x1.65mm
+    footprint: oshw_ch32v003_usb_devboard:QFN-20-1EP_3x3mm_P0.4mm_EP1.65x1.65mm
+    pins:
+      '1': PD7
+      '2': PA1
+      '3': PA2
+      '4': GND
+      '5': PD0
+      '6': +3V3
+      '7': PC0
+      '8': PC1
+      '9': PC2
+      '10': PC3
+      '11': PC4
+      '12': PC5
+      '13': PC6
+      '14': PC7
+      '15': SWIO
+      '16': DPU
+      '17': USB_DP
+      '18': USB_DN
+      '19': PD5
+      '20': PD6
+      '21': GND
+    placement:
+      x: 9.9002
+      y: 17.2636
+      rot: 0.0
+      fixed: true
+  R5:
+    value: '1'
+    source_value: 33R
+    lcsc: C25105
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    footprint: oshw_ch32v003_usb_devboard:R_0402_1005Metric
+    pins:
+      '1': Net-_J1-D+-PadA6
+      '2': USB_DP
+    placement:
+      x: 8.417
+      y: 10.181
+      rot: 270.0
+      fixed: true
+  C6:
+    value: 100n
+    lcsc: C100072
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    pins:
+      '1': GND
+      '2': PD7
+    placement:
+      x: 4.9702
+      y: 23.3036
+      rot: 90.0
+      fixed: true
+  C3:
+    value: 100n
+    lcsc: C100072
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.2702
+      y: 20.1936
+      rot: 180.0
+      fixed: true
+  C1:
+    value: 1u
+    lcsc: C52923
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    footprint: oshw_ch32v003_usb_devboard:C_0402_1005Metric_v3
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 4.3302
+      y: 10.2036
+      rot: 180.0
+      fixed: true
+  JP2:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:SolderJumper_0402
+    footprint: oshw_ch32v003_usb_devboard:SolderJumper_0402
+    bom: false
+    pins:
+      '1': PA2
+      '2': PA2_H
+    placement:
+      x: 3.832
+      y: 20.431
+      rot: 180.0
+      fixed: true
+  J2:
+    value: Conn_01x10
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:PinHeader_1x10_Small_back
+    footprint: oshw_ch32v003_usb_devboard:PinHeader_1x10_Small_back
+    bom: false
+    pins:
+      '1': VBUS
+      '2': PD5
+      '3': PD6
+      '4': PD7
+      '5': PA1_H
+      '6': PA2_H
+      '7': GND
+      '8': PD0
+      '9': +3V3
+      '10': PC0
+    placement:
+      x: 1.5202
+      y: 1.7236
+      rot: 180.0
+      fixed: true
+  J3:
+    value: Conn_01x10
+    spice: false
+    symbol: oshw_ch32v003_usb_devboard:PinHeader_1x10_Small_back
+    footprint: oshw_ch32v003_usb_devboard:PinHeader_1x10_Small_back
+    bom: false
+    pins:
+      '1': +3V3
+      '2': SWIO
+      '3': GND
+      '4': PC7
+      '5': PC6
+      '6': PC5
+      '7': PC4
+      '8': PC3
+      '9': PC2
+      '10': PC1
+    placement:
+      x: 14.2302
+      y: 1.7236
+      rot: 180.0
+      fixed: true
+nets:
+  GND:
+    class: ground

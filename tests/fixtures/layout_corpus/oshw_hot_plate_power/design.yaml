@@ -1,0 +1,409 @@
+project: oshw_hot_plate_power
+revision: A
+description: imported KiCad board power-board.kicad_pcb (https://github.com/ikatkov/hot-plate)
+board:
+  width_mm: 100.0
+  height_mm: 50.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  R2:
+    value: 10k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': +3V3
+      '2': BUTTON_DOWN
+    placement:
+      x: 75.5515
+      y: 8.7038
+      rot: 0.0
+      fixed: true
+  K1:
+    value: G3MB-202P
+    manufacturer: Omron
+    spice: false
+    symbol: oshw_hot_plate_power:RELAY_G3MB-202P
+    footprint: oshw_hot_plate_power:RELAY_G3MB-202P
+    pins:
+      '1': AC_FUSED
+      '2': LOAD_HOT
+      '3': +5V
+      '4': Net-_K1-Pad4
+    placement:
+      x: 31.0
+      y: 7.0
+      rot: 180.0
+      fixed: true
+  J2:
+    value: DISPLAY
+    spice: false
+    symbol: oshw_hot_plate_power:IDC-Header_2x04_P2.54mm_Vertical
+    footprint: oshw_hot_plate_power:IDC-Header_2x04_P2.54mm_Vertical
+    pins:
+      '1': BUTTON_TIMER
+      '2': GND
+      '3': BUTTON_DOWN
+      '4': +3V3
+      '5': BUTTON_UP
+      '6': SLC
+      '7': BUTTON_X
+      '8': SDA
+    placement:
+      x: 94.7525
+      y: 21.6569
+      rot: 180.0
+      fixed: true
+  R1:
+    value: 10k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': +3V3
+      '2': BUTTON_X
+    placement:
+      x: 75.53
+      y: 11.246
+      rot: 0.0
+      fixed: true
+  F1:
+    value: Temp Fuse 85C
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical
+    footprint: oshw_hot_plate_power:R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical
+    pins:
+      '1': AC_FUSED
+      '2': Net-_F1-Pad2
+    placement:
+      x: 16.348
+      y: 14.057
+      rot: 270.0
+      fixed: true
+  R3:
+    value: 10k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': +3V3
+      '2': BUTTON_UP
+    placement:
+      x: 75.5444
+      y: 6.1759
+      rot: 0.0
+      fixed: true
+  D1:
+    value: LED
+    spice: false
+    symbol: oshw_hot_plate_power:LED_D5.0mm
+    footprint: oshw_hot_plate_power:LED_D5.0mm
+    pins:
+      '1': Net-_D1-Pad1
+      '2': +5V
+    placement:
+      x: 48.352
+      y: 8.198
+      rot: 180.0
+      fixed: true
+  F2:
+    value: Fuse 2A
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical
+    footprint: oshw_hot_plate_power:R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical
+    pins:
+      '1': AC_HOT
+      '2': AC_FUSED
+    placement:
+      x: 5.0
+      y: 18.015
+      rot: 90.0
+      fixed: true
+  U3:
+    value: MAX6675
+    spice: false
+    symbol: oshw_hot_plate_power:Thermocouple_module
+    footprint: oshw_hot_plate_power:Thermocouple_module
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': Net-_U2-Pad10
+      '4': Net-_U2-Pad11
+      '5': Net-_U2-Pad12
+    placement:
+      x: 52.0
+      y: 40.0
+      rot: 0.0
+      fixed: true
+  RV1:
+    value: 10D391K
+    spice: false
+    symbol: oshw_hot_plate_power:RV_Disc_D12mm_W3.9mm_P7.5mm
+    footprint: oshw_hot_plate_power:RV_Disc_D12mm_W3.9mm_P7.5mm
+    pins:
+      '1': AC_FUSED
+      '2': AC_NEUTRAL
+    placement:
+      x: 11.7
+      y: 11.25
+      rot: 270.0
+      fixed: true
+  R5:
+    value: 1k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': Net-_D1-Pad1
+      '2': Net-_K1-Pad4
+    placement:
+      x: 51.654
+      y: 10.484
+      rot: 90.0
+      fixed: true
+  H2:
+    value: MountingHole
+    spice: false
+    symbol: oshw_hot_plate_power:MountingHole_3.2mm_M3
+    footprint: oshw_hot_plate_power:MountingHole_3.2mm_M3
+    pins:
+      '1': NC
+    placement:
+      x: 91.786
+      y: 44.266
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 220uF
+    spice: false
+    symbol: oshw_hot_plate_power:CP_Radial_D8.0mm_P5.00mm
+    footprint: oshw_hot_plate_power:CP_Radial_D8.0mm_P5.00mm
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 59.0
+      y: 25.4027
+      rot: 90.0
+      fixed: true
+  BZ1:
+    value: Buzzer
+    spice: false
+    symbol: oshw_hot_plate_power:Buzzer-GT-0905A
+    footprint: oshw_hot_plate_power:Buzzer-GT-0905A
+    pins:
+      '1': Net-_BZ1-Pad1
+      '2': GND
+    placement:
+      x: 93.75
+      y: 32.75
+      rot: 0.0
+      fixed: true
+  R4:
+    value: 10k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': +3V3
+      '2': BUTTON_TIMER
+    placement:
+      x: 75.5624
+      y: 3.8385
+      rot: 0.0
+      fixed: true
+  U2:
+    value: Arduino_pro_mini
+    spice: false
+    symbol: oshw_hot_plate_power:ARDUINO_PRO_MINI
+    footprint: oshw_hot_plate_power:ARDUINO_PRO_MINI
+    pins:
+      '4': Net-_BZ1-Pad1
+      '5': Net-_R6-Pad2
+      '6': BUTTON_X
+      '7': BUTTON_DOWN
+      '8': BUTTON_UP
+      '9': BUTTON_TIMER
+      '10': Net-_U2-Pad10
+      '11': Net-_U2-Pad11
+      '12': Net-_U2-Pad12
+      A4: SDA
+      A5: SLC
+      DTR: DTR
+      GND: GND
+      RAW: +5V
+      RXI: RXI
+      TXO: TXO
+      VCC: +3V3
+    nc:
+    - RST
+    placement:
+      x: 78.69
+      y: 18.975
+      rot: 180.0
+      fixed: true
+  Q1:
+    value: 2N2222A
+    spice: false
+    symbol: oshw_hot_plate_power:TO-92L_Wide
+    footprint: oshw_hot_plate_power:TO-92L_Wide
+    pins:
+      '1': Net-_K1-Pad4
+      '2': Net-_Q1-Pad2
+      '3': GND
+    placement:
+      x: 56.392
+      y: 4.378
+      rot: 270.0
+      fixed: true
+  U1:
+    value: HLK-PM01
+    spice: false
+    symbol: oshw_hot_plate_power:HLK-PM01
+    footprint: oshw_hot_plate_power:HLK-PM01
+    pins:
+      '1': Net-_F1-Pad2
+      '2': AC_NEUTRAL
+      '3': GND
+      '4': +5V
+    placement:
+      x: 37.0
+      y: 22.0
+      rot: 0.0
+      fixed: true
+  R6:
+    value: 1k
+    spice: false
+    symbol: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    footprint: oshw_hot_plate_power:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+    pins:
+      '1': Net-_Q1-Pad2
+      '2': Net-_R6-Pad2
+    placement:
+      x: 75.53
+      y: 13.532
+      rot: 0.0
+      fixed: true
+  H1:
+    value: MountingHole
+    spice: false
+    symbol: oshw_hot_plate_power:MountingHole_3.2mm_M3
+    footprint: oshw_hot_plate_power:MountingHole_3.2mm_M3
+    pins:
+      '1': NC
+    placement:
+      x: 4.0
+      y: 6.674
+      rot: 0.0
+      fixed: true
+  J1:
+    value: LINE/LOAD
+    spice: false
+    symbol: oshw_hot_plate_power:WAGO_250-204_4_terminalblock
+    footprint: oshw_hot_plate_power:WAGO_250-204_4_terminalblock
+    pins:
+      '1': AC_HOT
+      '2': AC_NEUTRAL
+      '3': LOAD_HOT
+      '4': AC_NEUTRAL
+    placement:
+      x: 9.998
+      y: 28.01
+      rot: 90.0
+      fixed: true
+  J3:
+    value: PROG
+    spice: false
+    symbol: oshw_hot_plate_power:Connector_Mini-DIN_Female_6Pin_2rows
+    footprint: oshw_hot_plate_power:Connector_Mini-DIN_Female_6Pin_2rows
+    pins:
+      '2': GND
+      '3': +3V3
+      '4': RXI
+      '5': TXO
+      '6': DTR
+    nc:
+    - '1'
+    - '7'
+    placement:
+      x: 80.0
+      y: 41.0
+      rot: 0.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 53.705
+      - 39.692
+    - - 53.659
+      - 39.461
+    - - 53.479
+      - 39.027
+    - - 53.193
+      - 38.655
+    - - 53.016
+      - 38.499
+    - - 52.609
+      - 38.264
+    - - 52.386
+      - 38.189
+    - - 51.92
+      - 38.127
+    - - 51.685
+      - 38.143
+    - - 51.232
+      - 38.264
+    - - 51.02
+      - 38.368
+    - - 50.825
+      - 38.499
+    - - 50.492
+      - 38.832
+    - - 50.257
+      - 39.239
+    - - 50.182
+      - 39.461
+    - - 50.12
+      - 39.927
+    - - 50.136
+      - 40.162
+    - - 50.257
+      - 40.616
+    - - 50.362
+      - 40.827
+    - - 50.492
+      - 41.023
+    - - 50.825
+      - 41.355
+    - - 51.02
+      - 41.486
+    - - 51.454
+      - 41.666
+    - - 51.685
+      - 41.712
+    - - 52.155
+      - 41.712
+    - - 52.386
+      - 41.666
+    - - 52.82
+      - 41.486
+    - - 53.193
+      - 41.2
+    - - 53.348
+      - 41.023
+    - - 53.479
+      - 40.827
+    - - 53.659
+      - 40.393
+    - - 53.705
+      - 40.162

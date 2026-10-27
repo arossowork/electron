@@ -1,0 +1,132 @@
+(footprint "SW_DIP_SPSTx04_Slide_P1.27mm_simple"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (descr "SMD 4x-dip-switch SPST KingTek_DSHP04TS, Slide, row spacing 7.62 mm (300 mils), body size  (see http://www.kingtek.net.cn/pic/201601201417455112.pdf)")
+  (tags "SMD DIP Switch SPST Slide 7.62mm 300mil")
+  (property "Reference" "SW1"
+    (at 0 -4.4 180)
+    (layer "F.SilkS")
+    (hide yes)
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (property "Value" "SW_DIP_x04"
+    (at 0 4.4 180)
+    (layer "F.Fab")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (attr smd)
+  (fp_poly
+    (pts (xy -3.81 -2.57) (xy -4.05 -2.9) (xy -3.57 -2.9) (xy -3.81 -2.57))
+    (stroke (width 0.12) (type solid))
+    (fill solid)
+    (layer "F.SilkS")
+  )
+  (fp_poly
+    (pts
+      (xy -3.2 -3.7)
+      (xy 3.2 -3.7)
+      (xy 3.2 -2.7)
+      (xy 4.7 -2.7)
+      (xy 4.7 2.7)
+      (xy 3.2 2.7)
+      (xy 3.2 3.7)
+      (xy -3.2 3.7)
+      (xy -3.2 2.7)
+      (xy -4.7 2.7)
+      (xy -4.7 -2.7)
+      (xy -3.2 -2.7)
+    )
+    (stroke (width 0.05) (type solid))
+    (fill none)
+    (layer "F.CrtYd")
+  )
+  (fp_line
+    (start -2.7 3.34)
+    (end -2.7 -2.34)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start 2.7 3.34)
+    (end -2.7 3.34)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start -2.7 -2.34)
+    (end -1.7 -3.34)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start -1.7 -3.34)
+    (end 2.7 -3.34)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_line
+    (start 2.7 -3.34)
+    (end 2.7 3.34)
+    (stroke (width 0.1) (type solid))
+    (layer "F.Fab")
+  )
+  (fp_text user "on"
+    (at -0.055 -2.8225 180)
+    (layer "F.Fab")
+    (effects
+      (font (size 0.8 0.8) (thickness 0.12))
+    )
+  )
+  (fp_text user "${REFERENCE}"
+    (at 1.85 0 90)
+    (layer "F.Fab")
+    (effects
+      (font (size 0.8 0.8) (thickness 0.12))
+    )
+  )
+  (pad "1" smd rect
+    (at -3.81 -1.905)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "2" smd rect
+    (at -3.81 -0.635)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "3" smd rect
+    (at -3.81 0.635)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "4" smd rect
+    (at -3.81 1.905)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "5" smd rect
+    (at 3.81 1.905)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "6" smd rect
+    (at 3.81 0.635)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "7" smd rect
+    (at 3.81 -0.635)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+  (pad "8" smd rect
+    (at 3.81 -1.905)
+    (size 1.27 0.76)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+  )
+)

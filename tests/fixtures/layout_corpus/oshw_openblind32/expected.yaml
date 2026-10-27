@@ -1,0 +1,68 @@
+source:
+  url: https://github.com/unterdrueckt/OpenBlind32
+  commit: 8969056d430f98f1c549a2461eb753295cddde82
+  file: hardware/pcb/OpenBlindController.kicad_pcb
+  license: MIT
+  attribution: Markus (unterdrueckt)
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+human:
+  copper:
+    track_mm: 683.9
+    per_layer_mm:
+      B.Cu: 177.1
+      F.Cu: 506.8
+    segments: 103
+    vias: 4
+    nets_with_copper: 19
+  drc_source_rules:
+    errors: 4
+    unconnected: 0
+    types:
+      clearance: 4
+  drc_hwflow_rules:
+    errors: 4
+    unconnected: 0
+    types:
+      clearance: 4
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 20
+  nets: 19
+  board_mm:
+  - 75.0
+  - 50.0
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 7880.3
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 69
+    nets_no_exit_at_width:
+    - Main_L+
+    - Main_L-
+    necked:
+    - Main_L+
+    - Main_L-
+    no_access: []
+  seconds:
+    check: 1.0
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+replace:
+  free: 17
+  violations: []
+  seconds: 32.5
+measured: '2026-10-27'

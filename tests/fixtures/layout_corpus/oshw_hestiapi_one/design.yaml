@@ -1,0 +1,380 @@
+project: oshw_hestiapi_one
+revision: A
+description: imported KiCad board HestiaPiOneUniversal.kicad_pcb (https://github.com/HestiaPi/hestia-touch-pcb-dev)
+board:
+  width_mm: 89.8
+  height_mm: 72.054
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  BME280:
+    value: BME280_pins
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': Net-_BME280-Pad1
+      '2': Net-_BME280-Pad2
+      '3': GND
+      '4': Net-_BME280-Pad4
+    placement:
+      x: 87.574
+      y: 48.483
+      rot: 180.0
+      fixed: true
+  RL2:
+    value: RL
+    spice: false
+    symbol: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    footprint: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    pins:
+      '1': Net-_TerminalBlock1-Pad4
+      '2': A_slash_C-L
+      '3': Net-_J0-Pad16
+      '4': GND
+    placement:
+      x: 73.456
+      y: 6.277
+      rot: 270.0
+      fixed: true
+  J6:
+    value: wire
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    pins:
+      '1': GND
+    placement:
+      x: 47.95
+      y: 69.004
+      rot: 270.0
+      fixed: true
+  RL4:
+    value: RL
+    spice: false
+    symbol: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    footprint: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    pins:
+      '1': Net-_RL4-Pad1
+      '2': A_slash_C-L
+      '3': Net-_J0-Pad36
+      '4': GND
+    placement:
+      x: 84.886
+      y: 6.202
+      rot: 270.0
+      fixed: true
+  RL3:
+    value: RL
+    spice: false
+    symbol: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    footprint: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    pins:
+      '1': Net-_RL3-Pad1
+      '2': A_slash_C-L
+      '3': Net-_J0-Pad12
+      '4': GND
+    placement:
+      x: 79.044
+      y: 6.277
+      rot: 270.0
+      fixed: true
+  RL5:
+    value: RL
+    spice: false
+    symbol: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    footprint: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    pins:
+      '1': Net-_TerminalBlock1-Pad7
+      '2': A_slash_C-L
+      '4': GND
+    nc:
+    - '3'
+    placement:
+      x: 63.952
+      y: 5.44
+      rot: 0.0
+      fixed: true
+  J7:
+    value: wire
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    pins:
+      '1': Net-_J7-Pad1
+    placement:
+      x: 47.95
+      y: 64.354
+      rot: 270.0
+      fixed: true
+  RL1:
+    value: RL
+    spice: false
+    symbol: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    footprint: oshw_hestiapi_one:Panasonic_AQ-G_relay
+    pins:
+      '1': Net-_TerminalBlock1-Pad3
+      '2': A_slash_C-L
+      '3': Net-_J0-Pad32
+      '4': GND
+    placement:
+      x: 67.868
+      y: 6.277
+      rot: 270.0
+      fixed: true
+  PSU-EU_100-240V_AC1:
+    value: HLK-PM01
+    spice: false
+    symbol: oshw_hestiapi_one:Converter_ACDC_HiLink_HLK-PMxx
+    footprint: oshw_hestiapi_one:Converter_ACDC_HiLink_HLK-PMxx
+    pins:
+      '1': A_slash_C-L
+      '2': Net-_TerminalBlock1-Pad1
+      '3': GND
+      '4': Net-_J7-Pad1
+    placement:
+      x: 32.6625
+      y: 63.554
+      rot: 180.0
+      fixed: true
+  J5:
+    value: wire
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    pins:
+      '1': A_slash_C-L
+    placement:
+      x: 48.1
+      y: 60.054
+      rot: 270.0
+      fixed: true
+  J4:
+    value: wire
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_1x01_P2.54mm_Vertical
+    pins:
+      '1': Net-_TerminalBlock1-Pad1
+    placement:
+      x: 48.1
+      y: 56.154
+      rot: 270.0
+      fixed: true
+  SW1:
+    value: PB400EEQX
+    spice: false
+    symbol: oshw_hestiapi_one:PB400_series
+    footprint: oshw_hestiapi_one:PB400_series
+    pins:
+      '1': Net-_J0-Pad2
+      '2': Net-_J7-Pad1
+    nc:
+    - '3'
+    - '4'
+    placement:
+      x: 70.3
+      y: 35.666
+      rot: 0.0
+      fixed: true
+  J0:
+    value: RPi_GPIO
+    spice: false
+    symbol: oshw_hestiapi_one:Raspberry_Pi_Zero_Socketed_THT_FaceDown_MountingHoles
+    footprint: oshw_hestiapi_one:Raspberry_Pi_Zero_Socketed_THT_FaceDown_MountingHoles
+    pins:
+      '1': Net-_BME280-Pad4
+      '2': Net-_J0-Pad2
+      '3': Net-_BME280-Pad1
+      '4': Net-_J0-Pad4
+      '5': Net-_BME280-Pad2
+      '6': GND
+      '9': GND
+      '10': Net-_J0-Pad10
+      '11': Net-_J0-Pad11
+      '12': Net-_J0-Pad12
+      '14': GND
+      '16': Net-_J0-Pad16
+      '17': Net-_J0-Pad17
+      '18': Net-_J0-Pad18
+      '19': Net-_J0-Pad19
+      '20': GND
+      '21': Net-_J0-Pad21
+      '22': Net-_J0-Pad22
+      '23': Net-_J0-Pad23
+      '24': Net-_J0-Pad24
+      '25': GND
+      '26': Net-_J0-Pad26
+      '32': Net-_J0-Pad32
+      '34': GND
+      '36': Net-_J0-Pad36
+    nc:
+    - '7'
+    - '8'
+    - '13'
+    - '15'
+    - '27'
+    - '28'
+    - '29'
+    - '30'
+    - '31'
+    - '33'
+    - '35'
+    - '37'
+    - '38'
+    - '39'
+    - '40'
+    placement:
+      x: 8.871
+      y: 34.475
+      rot: 90.0
+      fixed: true
+  J3:
+    value: LCD_pins
+    spice: false
+    symbol: oshw_hestiapi_one:PinHeader_2x13_P2.54mm_Vertical
+    footprint: oshw_hestiapi_one:PinHeader_2x13_P2.54mm_Vertical
+    pins:
+      '1': Net-_J0-Pad2
+      '2': Net-_BME280-Pad4
+      '3': Net-_J0-Pad4
+      '5': GND
+      '10': GND
+      '11': Net-_J0-Pad10
+      '12': Net-_J0-Pad11
+      '13': GND
+      '17': Net-_J0-Pad18
+      '18': Net-_J0-Pad17
+      '19': GND
+      '20': Net-_J0-Pad19
+      '21': Net-_J0-Pad22
+      '22': Net-_J0-Pad21
+      '23': Net-_J0-Pad24
+      '24': Net-_J0-Pad23
+      '25': Net-_J0-Pad26
+      '26': GND
+    nc:
+    - '4'
+    - '6'
+    - '7'
+    - '8'
+    - '9'
+    - '14'
+    - '15'
+    - '16'
+    placement:
+      x: 8.849
+      y: 29.067
+      rot: 90.0
+      fixed: true
+  TerminalBlock1:
+    value: Screw_Terminal_01x07
+    spice: false
+    symbol: oshw_hestiapi_one:TerminalBlock_Phoenix_PT-1_5-7-5.0-H_1x07_P5.00mm_Horizontal
+    footprint: oshw_hestiapi_one:TerminalBlock_Phoenix_PT-1_5-7-5.0-H_1x07_P5.00mm_Horizontal
+    pins:
+      '1': Net-_TerminalBlock1-Pad1
+      '2': A_slash_C-L
+      '3': Net-_TerminalBlock1-Pad3
+      '4': Net-_TerminalBlock1-Pad4
+      '5': Net-_RL3-Pad1
+      '6': Net-_RL4-Pad1
+      '7': Net-_TerminalBlock1-Pad7
+    placement:
+      x: 52.1
+      y: 44.554
+      rot: 0.0
+      fixed: true
+nets:
+  A_slash_C-L:
+    width_mm: 0.5
+    source_class: 240VAC
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 89.8
+      - 72.054
+    - - 89.8
+      - 50.454
+    - - 50.1
+      - 50.454
+    - - 50.1
+      - 72.054
+  - name: outline_cut2
+    cut: true
+    poly:
+    - - 82.691
+      - 33.335
+    - - 82.566
+      - 32.966
+    - - 82.309
+      - 32.673
+    - - 81.959
+      - 32.5
+    - - 81.569
+      - 32.475
+    - - 81.2
+      - 32.6
+    - - 80.907
+      - 32.857
+    - - 80.734
+      - 33.207
+    - - 80.709
+      - 33.597
+    - - 80.834
+      - 33.966
+    - - 81.091
+      - 34.259
+    - - 81.441
+      - 34.432
+    - - 81.831
+      - 34.457
+    - - 82.2
+      - 34.332
+    - - 82.493
+      - 34.075
+    - - 82.666
+      - 33.725
+  - name: outline_cut3
+    cut: true
+    poly:
+    - - 82.691
+      - 37.735
+    - - 82.566
+      - 37.366
+    - - 82.309
+      - 37.073
+    - - 81.959
+      - 36.9
+    - - 81.569
+      - 36.875
+    - - 81.2
+      - 37.0
+    - - 80.907
+      - 37.257
+    - - 80.734
+      - 37.607
+    - - 80.709
+      - 37.997
+    - - 80.834
+      - 38.366
+    - - 81.091
+      - 38.659
+    - - 81.441
+      - 38.832
+    - - 81.831
+      - 38.857
+    - - 82.2
+      - 38.732
+    - - 82.493
+      - 38.475
+    - - 82.666
+      - 38.125

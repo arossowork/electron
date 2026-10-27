@@ -1,0 +1,674 @@
+project: oshw_b_parasite
+revision: A
+description: imported KiCad board parasite.kicad_pcb (https://github.com/rbaron/b-parasite)
+board:
+  width_mm: 22.0
+  height_mm: 126.414
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  C1:
+    value: 1n
+    lcsc: C1523
+    spice: false
+    symbol: oshw_b_parasite:C_0402_1005Metric
+    footprint: oshw_b_parasite:C_0402_1005Metric
+    pins:
+      '1': SENS_OUT
+      '2': GND
+    placement:
+      x: 12.762
+      y: 32.069
+      rot: 270.0
+      fixed: true
+  R6:
+    value: 1M
+    lcsc: C26083
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': SENS_OUT
+      '2': GND
+    placement:
+      x: 14.54
+      y: 32.069
+      rot: 270.0
+      fixed: true
+  R4:
+    value: 10k
+    lcsc: C25744
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': Net-_Q1-B
+      '2': PWM
+    placement:
+      x: 4.53
+      y: 30.822
+      rot: 180.0
+      fixed: true
+  Q1:
+    value: MMBT3906
+    spice: false
+    symbol: oshw_b_parasite:SOT-23
+    footprint: oshw_b_parasite:SOT-23
+    pins:
+      '1': Net-_Q1-B
+      '2': CPARA
+      '3': GND
+    placement:
+      x: 7.936
+      y: 31.568
+      rot: 180.0
+      fixed: true
+  R1:
+    value: 10k
+    lcsc: C25744
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': PWM
+      '2': CPARA
+    placement:
+      x: 4.53
+      y: 28.663
+      rot: 0.0
+      fixed: true
+  TP1:
+    value: IO
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': SWDIO
+    placement:
+      x: 20.382
+      y: 7.708
+      rot: 270.0
+      fixed: true
+  TP2:
+    value: CLK
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': SWDCLK
+    placement:
+      x: 20.382
+      y: 10.248
+      rot: 270.0
+      fixed: true
+  TP5:
+    value: CPARA
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': CPARA
+    placement:
+      x: 10.984
+      y: 31.838
+      rot: 180.0
+      fixed: true
+  TP6:
+    value: PWM
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': PWM
+    placement:
+      x: 4.38
+      y: 32.473
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 1k
+    lcsc: C11702
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': Net-_D2-A
+      '2': LED
+    placement:
+      x: 4.38
+      y: 23.202
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 100n
+    lcsc: C1525
+    spice: false
+    symbol: oshw_b_parasite:C_0402_1005Metric
+    footprint: oshw_b_parasite:C_0402_1005Metric
+    pins:
+      '1': +3V0
+      '2': GND
+    placement:
+      x: 13.524
+      y: 28.432
+      rot: 90.0
+      fixed: true
+  Y1:
+    value: 32.768kHz
+    lcsc: C32346
+    spice: false
+    symbol: oshw_b_parasite:Crystal_SMD_3215-2Pin_3.2x1.5mm
+    footprint: oshw_b_parasite:Crystal_SMD_3215-2Pin_3.2x1.5mm
+    pins:
+      '1': Net-_U1B-P0.01_slash_XL2
+      '2': Net-_U1B-P0.00_slash_XL1
+    placement:
+      x: 10.8885
+      y: 22.694
+      rot: 0.0
+      fixed: true
+  D2:
+    value: LED
+    lcsc: C2286
+    spice: false
+    symbol: oshw_b_parasite:LED_0603_1608Metric
+    footprint: oshw_b_parasite:LED_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_D2-A
+    placement:
+      x: 3.618
+      y: 25.869
+      rot: 180.0
+      fixed: true
+  C4:
+    value: 12p
+    lcsc: C1547
+    spice: false
+    symbol: oshw_b_parasite:C_0402_1005Metric
+    footprint: oshw_b_parasite:C_0402_1005Metric
+    pins:
+      '1': Net-_U1B-P0.01_slash_XL2
+      '2': GND
+    placement:
+      x: 11.8845
+      y: 26.019
+      rot: 270.0
+      fixed: true
+  C3:
+    value: 12p
+    lcsc: C1547
+    spice: false
+    symbol: oshw_b_parasite:C_0402_1005Metric
+    footprint: oshw_b_parasite:C_0402_1005Metric
+    pins:
+      '1': GND
+      '2': Net-_U1B-P0.00_slash_XL1
+    placement:
+      x: 10.1065
+      y: 25.996
+      rot: 90.0
+      fixed: true
+  R7:
+    value: 10k
+    lcsc: C25744
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': SDA
+      '2': +3V0
+    placement:
+      x: 17.588
+      y: 26.019
+      rot: 270.0
+      fixed: true
+  R8:
+    value: 10k
+    lcsc: C25744
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': +3V0
+      '2': SCL
+    placement:
+      x: 19.239
+      y: 26.019
+      rot: 90.0
+      fixed: true
+  U2:
+    value: SHTC3
+    lcsc: C194656
+    spice: false
+    symbol: oshw_b_parasite:Sensirion_DFN-4-1EP_2x2mm_P1mm_EP0.7x1.6mm
+    footprint: oshw_b_parasite:Sensirion_DFN-4-1EP_2x2mm_P1mm_EP0.7x1.6mm
+    pins:
+      '1': +3V0
+      '2': SCL
+      '3': SDA
+      '4': GND
+    nc:
+    - '5'
+    placement:
+      x: 17.08
+      y: 29.044
+      rot: 180.0
+      fixed: true
+  D1:
+    value: LL4148
+    lcsc: C3011166
+    spice: false
+    symbol: oshw_b_parasite:D_MiniMELF
+    footprint: oshw_b_parasite:D_MiniMELF
+    pins:
+      '1': SENS_OUT
+      '2': CPARA
+    placement:
+      x: 9.742
+      y: 28.536
+      rot: 180.0
+      fixed: true
+  TP4:
+    value: RST
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': RST
+    placement:
+      x: 20.382
+      y: 15.328
+      rot: 270.0
+      fixed: true
+  U1:
+    value: E73-2G4M08S1C
+    spice: false
+    symbol: oshw_b_parasite:E73-2G4M08S1C
+    footprint: oshw_b_parasite:E73-2G4M08S1C
+    pins:
+      '3': SENS_OUT
+      '4': LED
+      '5': GND
+      '7': PHOTO_OUT
+      '8': PHOTO_V
+      '10': BTN1
+      '11': Net-_U1B-P0.00_slash_XL1
+      '13': Net-_U1B-P0.01_slash_XL2
+      '15': PWM
+      '19': +3V0
+      '21': GND
+      '23': +3V0
+      '26': RST
+      '33': SCL
+      '35': SDA
+      '37': SWDIO
+      '39': SWDCLK
+      '43': '0.10'
+    nc:
+    - '1'
+    - '2'
+    - '6'
+    - '9'
+    - '12'
+    - '14'
+    - '16'
+    - '17'
+    - '18'
+    - '20'
+    - '22'
+    - '24'
+    - '25'
+    - '27'
+    - '28'
+    - '29'
+    - '30'
+    - '31'
+    - '32'
+    - '34'
+    - '36'
+    - '38'
+    - '40'
+    - '41'
+    - '42'
+    placement:
+      x: 9.968
+      y: 9.5725
+      rot: 0.0
+      fixed: true
+  R10:
+    value: '470'
+    lcsc: C25117
+    spice: false
+    symbol: oshw_b_parasite:R_0402_1005Metric
+    footprint: oshw_b_parasite:R_0402_1005Metric
+    pins:
+      '1': GND
+      '2': PHOTO_OUT
+    placement:
+      x: 1.84
+      y: 2.882
+      rot: 180.0
+      fixed: true
+  Q4:
+    value: Q_Photo_NPN
+    lcsc: C146233
+    spice: false
+    symbol: oshw_b_parasite:TR8
+    footprint: oshw_b_parasite:TR8
+    pins:
+      '1': PHOTO_V
+      '2': PHOTO_OUT
+    placement:
+      x: 1.078
+      y: 5.676
+      rot: 90.0
+      fixed: true
+  TP7:
+    value: VCC
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': +3V0
+    placement:
+      x: 20.382
+      y: 5.168
+      rot: 270.0
+      fixed: true
+  RST1:
+    value: B3U-1000P
+    lcsc: C231329
+    spice: false
+    symbol: oshw_b_parasite:SW_B3U-1000P
+    footprint: oshw_b_parasite:SW_B3U-1000P
+    pins:
+      '1': RST
+      '2': GND
+    placement:
+      x: 15.302
+      y: 23.202
+      rot: 270.0
+      fixed: true
+  SW1:
+    value: B3U-1000P
+    lcsc: C231329
+    spice: false
+    symbol: oshw_b_parasite:SW_B3U-1000P
+    footprint: oshw_b_parasite:SW_B3U-1000P
+    pins:
+      '1': BTN1
+      '2': GND
+    placement:
+      x: 6.92
+      y: 23.202
+      rot: 270.0
+      fixed: true
+  TP8:
+    value: '0.10'
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': '0.10'
+    placement:
+      x: 20.382
+      y: 2.628
+      rot: 270.0
+      fixed: true
+  TP3:
+    value: GND
+    spice: false
+    symbol: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    footprint: oshw_b_parasite:TestPoint_Pad_D1.0mm
+    bom: false
+    pins:
+      '1': GND
+    placement:
+      x: 20.362
+      y: 12.788
+      rot: 270.0
+      fixed: true
+  BT1:
+    value: Battery_Cell
+    spice: false
+    symbol: oshw_b_parasite:BatteryHolder_Keystone_3002_1x2032_back
+    footprint: oshw_b_parasite:BatteryHolder_Keystone_3002_1x2032_back
+    pins:
+      '1': +3V0
+      '2': GND
+    placement:
+      x: 10.1
+      y: 28.155
+      rot: 270.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 0.0
+      - 126.414
+    - - 11.0
+      - 126.414
+    - - 10.724
+      - 126.387
+    - - 10.459
+      - 126.307
+    - - 10.214
+      - 126.176
+    - - 10.0
+      - 126.0
+    - - 0.0
+      - 116.0
+  - name: outline_cut2
+    cut: true
+    poly:
+    - - 22.0
+      - 126.414
+    - - 22.0
+      - 116.0
+    - - 12.0
+      - 126.0
+    - - 11.786
+      - 126.176
+    - - 11.541
+      - 126.307
+    - - 11.276
+      - 126.387
+    - - 11.0
+      - 126.414
+  - name: outline_cut3
+    cut: true
+    poly:
+    - - 5.402
+      - 40.815
+    - - 5.307
+      - 40.459
+    - - 5.225
+      - 40.293
+    - - 5.122
+      - 40.139
+    - - 4.861
+      - 39.878
+    - - 4.541
+      - 39.693
+    - - 4.366
+      - 39.634
+    - - 4.185
+      - 39.598
+    - - 3.815
+      - 39.598
+    - - 3.459
+      - 39.693
+    - - 3.293
+      - 39.775
+    - - 3.139
+      - 39.878
+    - - 2.878
+      - 40.139
+    - - 2.693
+      - 40.459
+    - - 2.634
+      - 40.634
+    - - 2.598
+      - 40.815
+    - - 2.598
+      - 41.185
+    - - 2.693
+      - 41.541
+    - - 2.775
+      - 41.707
+    - - 2.878
+      - 41.861
+    - - 3.139
+      - 42.122
+    - - 3.459
+      - 42.307
+    - - 3.634
+      - 42.366
+    - - 3.815
+      - 42.402
+    - - 4.185
+      - 42.402
+    - - 4.541
+      - 42.307
+    - - 4.707
+      - 42.225
+    - - 4.861
+      - 42.122
+    - - 5.122
+      - 41.861
+    - - 5.307
+      - 41.541
+    - - 5.366
+      - 41.366
+    - - 5.402
+      - 41.185
+  - name: outline_cut4
+    cut: true
+    poly:
+    - - 19.402
+      - 40.815
+    - - 19.307
+      - 40.459
+    - - 19.225
+      - 40.293
+    - - 19.122
+      - 40.139
+    - - 18.861
+      - 39.878
+    - - 18.541
+      - 39.693
+    - - 18.366
+      - 39.634
+    - - 18.185
+      - 39.598
+    - - 17.815
+      - 39.598
+    - - 17.459
+      - 39.693
+    - - 17.293
+      - 39.775
+    - - 17.139
+      - 39.878
+    - - 16.878
+      - 40.139
+    - - 16.693
+      - 40.459
+    - - 16.634
+      - 40.634
+    - - 16.598
+      - 40.815
+    - - 16.598
+      - 41.185
+    - - 16.693
+      - 41.541
+    - - 16.775
+      - 41.707
+    - - 16.878
+      - 41.861
+    - - 17.139
+      - 42.122
+    - - 17.459
+      - 42.307
+    - - 17.634
+      - 42.366
+    - - 17.815
+      - 42.402
+    - - 18.185
+      - 42.402
+    - - 18.541
+      - 42.307
+    - - 18.707
+      - 42.225
+    - - 18.861
+      - 42.122
+    - - 19.122
+      - 41.861
+    - - 19.307
+      - 41.541
+    - - 19.366
+      - 41.366
+    - - 19.402
+      - 41.185
+  - name: outline_cut5
+    cut: true
+    poly:
+    - - 22.0
+      - 0.0
+    - - 19.0
+      - 0.0
+    - - 19.585
+      - 0.058
+    - - 20.148
+      - 0.228
+    - - 20.667
+      - 0.506
+    - - 21.121
+      - 0.879
+    - - 21.494
+      - 1.333
+    - - 21.772
+      - 1.852
+    - - 21.942
+      - 2.415
+    - - 22.0
+      - 3.0
+  - name: outline_cut6
+    cut: true
+    poly:
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 3.0
+    - - 0.058
+      - 2.415
+    - - 0.228
+      - 1.852
+    - - 0.506
+      - 1.333
+    - - 0.879
+      - 0.879
+    - - 1.333
+      - 0.506
+    - - 1.852
+      - 0.228
+    - - 2.415
+      - 0.058
+    - - 3.0
+      - 0.0

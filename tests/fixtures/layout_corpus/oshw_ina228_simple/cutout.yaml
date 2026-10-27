@@ -1,0 +1,70 @@
+source:
+  url: https://github.com/zemonkey/INA228_Simple
+  commit: f4b6b695c2e28af747aa7a0e627ee536828d63db
+  file: INA228_Simple.kicad_pcb
+  license: Apache-2.0
+  attribution: zemonkey
+  oshwa: null
+  category: analog-front-end
+source_project: INA228_Simple
+importer: hwflow.layout.board.kicad_import
+source_format: 20211014
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -75.184
+- -75.946
+board_mm:
+- 52.705
+- 28.143
+outline_fill: 1.0
+free:
+- C1
+- D1
+- D2
+- FB1
+- FB2
+- JP1
+- JP2
+- JP3
+- JP4
+- JP5
+- JP6
+- JP7
+- JP8
+- R1
+- R2
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- U1
+dropped_footprints: []
+net_renames:
+  /A0_Sel: A0_Sel
+  /A1_Sel: A1_Sel
+  /Alert: Alert
+  /IN_N: IN_N
+  /IN_P: IN_P
+  /I_P: I_P
+  /SCL: SCL
+  /SDA: SDA
+  /VBUS: VBUS
+  Net-(D1-Pad1): Net-_D1-Pad1
+  Net-(D2-Pad1): Net-_D2-Pad1
+  Net-(FB1-Pad1): Net-_FB1-Pad1
+  Net-(FB2-Pad1): Net-_FB2-Pad1
+not_imported:
+  zones:
+    GND: 6
+    VCC: 1
+    I_P: 3
+    __keepout__: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: INA228_Simple.kicad_pro
+terminals: []
+warnings: []

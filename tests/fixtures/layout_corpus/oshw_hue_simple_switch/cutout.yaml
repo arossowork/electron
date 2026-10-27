@@ -1,0 +1,63 @@
+source:
+  url: https://github.com/tineira/hue-simple-switch
+  commit: 7bfafc8f883c6a2fddda198a506b93c1a5f59a4b
+  file: hardware/kicad/hue-simple-switch-mains.kicad_pcb
+  license: MIT
+  attribution: Tomas Neira and contributors (tineira)
+  oshwa: null
+  category: mains
+source_project: hue-simple-switch-mains
+importer: hwflow.layout.board.kicad_import
+source_format: 20260206
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -79.0
+- -74.0
+board_mm:
+- 42.0
+- 52.0
+outline_fill: 0.8673
+free:
+- C1
+- C11
+- C12
+- C13
+- C14
+- C15
+- C16
+- C2
+- D1
+- F1
+- PS1
+- R1
+- R11
+- R12
+- R13
+- R14
+- R15
+- R16
+- R2
+- R3
+- R4
+- R5
+- R6
+- RV1
+- U1
+dropped_footprints: []
+net_renames:
+  unconnected-(U1-D10-Pad11): unconnected-_U1-D10-Pad11
+  unconnected-(U1-D6-Pad7): unconnected-_U1-D6-Pad7
+  unconnected-(U1-D7-Pad8): unconnected-_U1-D7-Pad8
+  unconnected-(U1-D8-Pad9): unconnected-_U1-D8-Pad9
+  unconnected-(U1-D9-Pad10): unconnected-_U1-D9-Pad10
+not_imported:
+  zones:
+    GND: 2
+    __keepout__: 1
+  custom_rules: true
+  blind_vias: 0
+  rules_source: hue-simple-switch-mains.kicad_pro
+terminals: []
+warnings: []

@@ -1,0 +1,80 @@
+source:
+  url: https://github.com/gabeak2/milliohm_meter
+  commit: 37dd83114919016d0d2b463df305d851a62cbd93
+  file: milliohm_meter.kicad_pcb
+  license: GPL-3.0
+  attribution: gabeak2
+  oshwa: null
+  category: analog-front-end
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 278.6
+    per_layer_mm:
+      B.Cu: 47.0
+      F.Cu: 231.6
+    segments: 121
+    vias: 30
+    nets_with_copper: 19
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 41
+  nets: 19
+  board_mm:
+  - 59.69
+  - 54.61
+  placement_violations:
+  - courtyard overlap C1/BAT1
+  - courtyard overlap C2/BAT1
+  - courtyard overlap C3/BAT1
+  - courtyard overlap FID1/BAT1
+  - courtyard overlap FID2/BAT1
+  - courtyard overlap FID3/J1
+  - courtyard overlap J2/FID3
+  - courtyard overlap Q1/BAT1
+  - courtyard overlap Q2/BAT1
+  - courtyard overlap R1/BAT1
+  - courtyard overlap R15/BAT1
+  - courtyard overlap R2/BAT1
+  - courtyard overlap R3/BAT1
+  - courtyard overlap R4/BAT1
+  - courtyard overlap R5/BAT1
+  - courtyard overlap R6/BAT1
+  - courtyard overlap R7/BAT1
+  - courtyard overlap R8/BAT1
+  - courtyard overlap U1/BAT1
+  - courtyard overlap U2/BAT1
+  - courtyard overlap U3/BAT1
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 73537.8
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 78
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 1.4
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'

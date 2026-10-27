@@ -1,0 +1,1004 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (generator "hwflow-import")
+  (symbol "C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "C_0805_2012Metric_Pad1.18x1.45mm_HandSolder_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder_simple"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder_simple"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder_simple_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "SW_DIP_SPSTx04_Slide_P1.27mm_simple"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "SW_DIP_SPSTx04_Slide_P1.27mm_simple"
+      (at 0 -8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "SW_DIP_SPSTx04_Slide_P1.27mm_simple_1_1"
+      (rectangle
+        (start -5.08 6.35)
+        (end 5.08 -6.35)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 3.81 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -3.81 0)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 3.81 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -3.81 180)
+        (length 2.54)
+        (name "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "SOT-23-6_Handsoldering_simple"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 6.81 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "SOT-23-6_Handsoldering_simple"
+      (at 0 -6.81 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "SOT-23-6_Handsoldering_simple_1_1"
+      (rectangle
+        (start -5.08 5.08)
+        (end 5.08 -5.08)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 2.54 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -2.54 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 2.54 180)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -2.54 180)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "Inductor_Multi_7.0x6.6_plus"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "Inductor_Multi_7.0x6.6_plus"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "Inductor_Multi_7.0x6.6_plus_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "PinHeader_1x01_P2.54mm_simple_square_back"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "PinHeader_1x01_P2.54mm_simple_square_back"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "PinHeader_1x01_P2.54mm_simple_square_back_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "PinHeader_1x01_P2.54mm_simple_back"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "PinHeader_1x01_P2.54mm_simple_back"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "PinHeader_1x01_P2.54mm_simple_back_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "R_Array_Convex_4x0603_back"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "R_Array_Convex_4x0603_back"
+      (at 0 -8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "R_Array_Convex_4x0603_back_1_1"
+      (rectangle
+        (start -5.08 6.35)
+        (end 5.08 -6.35)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 3.81 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -3.81 0)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 3.81 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -3.81 180)
+        (length 2.54)
+        (name "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+)

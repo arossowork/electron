@@ -1,0 +1,1513 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (generator "hwflow-import")
+  (symbol "R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "RELAY_G3MB-202P"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "RELAY_G3MB-202P"
+      (at 0 -5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "RELAY_G3MB-202P_1_1"
+      (rectangle
+        (start -5.08 3.81)
+        (end 5.08 -3.81)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "IDC-Header_2x04_P2.54mm_Vertical"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "IDC-Header_2x04_P2.54mm_Vertical"
+      (at 0 -8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "IDC-Header_2x04_P2.54mm_Vertical_1_1"
+      (rectangle
+        (start -5.08 6.35)
+        (end 5.08 -6.35)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 3.81 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -3.81 0)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 3.81 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -3.81 180)
+        (length 2.54)
+        (name "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "R_Axial_DIN0414_L11.9mm_D4.5mm_P5.08mm_Vertical_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "LED_D5.0mm"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "LED_D5.0mm"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "LED_D5.0mm_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "Thermocouple_module"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 6.81 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "Thermocouple_module"
+      (at 0 -6.81 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "Thermocouple_module_1_1"
+      (rectangle
+        (start -5.08 5.08)
+        (end 5.08 -5.08)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 2.54 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -2.54 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 2.54 180)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "RV_Disc_D12mm_W3.9mm_P7.5mm"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "RV_Disc_D12mm_W3.9mm_P7.5mm"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "RV_Disc_D12mm_W3.9mm_P7.5mm_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "MountingHole_3.2mm_M3"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "MountingHole_3.2mm_M3"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "MountingHole_3.2mm_M3_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "CP_Radial_D8.0mm_P5.00mm"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "CP_Radial_D8.0mm_P5.00mm"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "CP_Radial_D8.0mm_P5.00mm_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "Buzzer-GT-0905A"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "Buzzer-GT-0905A"
+      (at 0 -4.27 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "Buzzer-GT-0905A_1_1"
+      (rectangle
+        (start -5.08 2.54)
+        (end 5.08 -2.54)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "ARDUINO_PRO_MINI"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 14.43 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "ARDUINO_PRO_MINI"
+      (at 0 -14.43 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "ARDUINO_PRO_MINI_1_1"
+      (rectangle
+        (start -5.08 12.7)
+        (end 5.08 -12.7)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 10.16 0)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 7.62 0)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 5.08 0)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 2.54 0)
+        (length 2.54)
+        (name "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 0 0)
+        (length 2.54)
+        (name "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "8"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -2.54 0)
+        (length 2.54)
+        (name "9"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "9"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -5.08 0)
+        (length 2.54)
+        (name "10"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "10"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -7.62 0)
+        (length 2.54)
+        (name "11"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "11"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -10.16 0)
+        (length 2.54)
+        (name "12"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "12"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 10.16 180)
+        (length 2.54)
+        (name "A4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "A4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 7.62 180)
+        (length 2.54)
+        (name "A5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "A5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 5.08 180)
+        (length 2.54)
+        (name "DTR"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "DTR"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 2.54 180)
+        (length 2.54)
+        (name "GND"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "GND"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 0 180)
+        (length 2.54)
+        (name "RAW"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "RAW"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -2.54 180)
+        (length 2.54)
+        (name "RST"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "RST"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -5.08 180)
+        (length 2.54)
+        (name "RXI"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "RXI"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -7.62 180)
+        (length 2.54)
+        (name "TXO"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "TXO"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -10.16 180)
+        (length 2.54)
+        (name "VCC"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "VCC"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "TO-92L_Wide"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "TO-92L_Wide"
+      (at 0 -5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "TO-92L_Wide_1_1"
+      (rectangle
+        (start -5.08 3.81)
+        (end 5.08 -3.81)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "HLK-PM01"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "HLK-PM01"
+      (at 0 -5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "HLK-PM01_1_1"
+      (rectangle
+        (start -5.08 3.81)
+        (end 5.08 -3.81)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "WAGO_250-204_4_terminalblock"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "WAGO_250-204_4_terminalblock"
+      (at 0 -5.54 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "WAGO_250-204_4_terminalblock_1_1"
+      (rectangle
+        (start -5.08 3.81)
+        (end 5.08 -3.81)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+  (symbol "Connector_Mini-DIN_Female_6Pin_2rows"
+    (exclude_from_sim yes)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Value" "Connector_Mini-DIN_Female_6Pin_2rows"
+      (at 0 -8.08 0)
+      (effects
+        (font (size 1.27 1.27))
+      )
+    )
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (property "Datasheet" ""
+      (at 0 0 0)
+      (effects
+        (font (size 1.27 1.27))
+        (hide yes)
+      )
+    )
+    (symbol "Connector_Mini-DIN_Female_6Pin_2rows_1_1"
+      (rectangle
+        (start -5.08 6.35)
+        (end 5.08 -6.35)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+      (pin passive line
+        (at -7.62 3.81 0)
+        (length 2.54)
+        (name "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "1"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 1.27 0)
+        (length 2.54)
+        (name "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "2"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -1.27 0)
+        (length 2.54)
+        (name "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "3"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at -7.62 -3.81 0)
+        (length 2.54)
+        (name "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "4"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 3.81 180)
+        (length 2.54)
+        (name "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "5"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 1.27 180)
+        (length 2.54)
+        (name "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "6"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+      (pin passive line
+        (at 7.62 -1.27 180)
+        (length 2.54)
+        (name "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+        (number "7"
+          (effects
+            (font (size 1.27 1.27))
+          )
+        )
+      )
+    )
+  )
+)

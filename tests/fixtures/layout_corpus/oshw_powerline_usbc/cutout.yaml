@@ -1,0 +1,75 @@
+source:
+  url: https://github.com/Andreas-Dorfner/Powerline-USB-C
+  commit: babfa13f31358b1ee5db901dc36f5ab42458eb86
+  file: Powerline-USB-C/Powerline-USB-C.kicad_pcb
+  license: CERN-OHL-P-2.0
+  attribution: Andreas Dorfner
+  oshwa: null
+  category: usb-c-power
+source_project: Powerline-USB-C
+importer: hwflow.layout.board.kicad_import
+source_format: 20241229
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -73.0
+- -42.5
+board_mm:
+- 14.0
+- 100.0
+outline_fill: 0.9944
+free:
+- C1
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- C8
+- D1
+- L1
+- R1
+- R2
+- U1
+- U2
+- U3
+- U4
+- U5
+dropped_footprints:
+- REF**
+net_renames:
+  Net-(D1-K): Net-_D1-K
+  Net-(J1-CC1): Net-_J1-CC1
+  Net-(J1-CC2): Net-_J1-CC2
+  Net-(U1-DM): Net-_U1-DM
+  Net-(U1-DP): Net-_U1-DP
+  Net-(U1-VBUS): Net-_U1-VBUS
+  Net-(U3-VIN): Net-_U3-VIN
+  unconnected-(H1-Pad1): unconnected-_H1-Pad1
+  unconnected-(H2-Pad1): unconnected-_H2-Pad1
+  unconnected-(J1-PadS2): unconnected-_J1-PadS2
+  unconnected-(J1-Shield-PadS1): unconnected-_J1-Shield-PadS1
+  unconnected-(J1-Shield-PadS3): unconnected-_J1-Shield-PadS3
+  unconnected-(J1-Shield-PadS4): unconnected-_J1-Shield-PadS4
+  unconnected-(J2-CV-Pad5): unconnected-_J2-CV-Pad5
+  unconnected-(J2-CV-Pad5)_1: unconnected-_J2-CV-Pad5_1
+  unconnected-(J2-Gate-Pad6): unconnected-_J2-Gate-Pad6
+  unconnected-(J2-Gate-Pad6)_1: unconnected-_J2-Gate-Pad6_1
+  unconnected-(U1-PG-Pad10): unconnected-_U1-PG-Pad10
+not_imported:
+  zones:
+    VBUS: 1
+    +5V: 1
+    Net-_U3-VIN: 1
+    GND: 1
+    +12V: 1
+    -12V: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: Powerline-USB-C.kicad_pro
+terminals: []
+warnings:
+- 'J2: pads 5 on two nets (unconnected-(J2-CV-Pad5)_1, unconnected-(J2-CV-Pad5)); kept unconnected-(J2-CV-Pad5)_1'
+- 'J2: pads 6 on two nets (unconnected-(J2-Gate-Pad6), unconnected-(J2-Gate-Pad6)_1); kept unconnected-(J2-Gate-Pad6)'

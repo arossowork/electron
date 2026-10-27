@@ -1,0 +1,356 @@
+project: oshw_openblind32
+revision: A
+description: imported KiCad board OpenBlindController.kicad_pcb (https://github.com/unterdrueckt/OpenBlind32)
+board:
+  width_mm: 75.0
+  height_mm: 50.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.4
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  U2:
+    value: AQH3213
+    spice: false
+    symbol: oshw_openblind32:DIP-8-N7_W7.62mm
+    footprint: oshw_openblind32:DIP-8-N7_W7.62mm
+    pins:
+      '1': GND
+      '2': Net-_R1-Pad2
+      '3': GND
+      '4': GND
+      '6': Main_SSR_In
+      '8': Main_SSR_A_Out
+    nc:
+    - '5'
+    placement:
+      x: 49.0
+      y: 27.0
+      rot: 270.0
+      fixed: true
+  U4:
+    value: DS18B20
+    spice: false
+    symbol: oshw_openblind32:TO-92_Inline
+    footprint: oshw_openblind32:TO-92_Inline
+    pins:
+      '1': GND
+      '2': GPIO9_slash_SCL
+      '3': +5V
+    placement:
+      x: 3.0
+      y: 13.04
+      rot: 90.0
+      fixed: true
+  C5:
+    value: 100nF
+    spice: false
+    symbol: oshw_openblind32:C_0603_1608Metric
+    footprint: oshw_openblind32:C_0603_1608Metric
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 41.0
+      y: 12.9935
+      rot: 90.0
+      fixed: true
+  PS1:
+    value: HLK-5M05
+    spice: false
+    symbol: oshw_openblind32:Converter_ACDC_Hi-Link_HLK-5Mxx
+    footprint: oshw_openblind32:Converter_ACDC_Hi-Link_HLK-5Mxx
+    pins:
+      '1': LINE
+      '2': NEUT
+      '3': GND
+      '4': +5V
+    placement:
+      x: 23.0
+      y: 38.0475
+      rot: 90.0
+      fixed: true
+  D3:
+    value: BZT52B3V3
+    spice: false
+    symbol: oshw_openblind32:D_SOD-123F
+    footprint: oshw_openblind32:D_SOD-123F
+    pins:
+      '1': GPIO0
+      '2': GND
+    placement:
+      x: 43.0
+      y: 5.5
+      rot: 90.0
+      fixed: true
+  D2:
+    value: D25XB80
+    spice: false
+    symbol: oshw_openblind32:D25XB80
+    footprint: oshw_openblind32:D25XB80
+    pins:
+      '1': Main_L+
+      '2': Main_SSR_In
+      '3': LINE
+      '4': Main_L-
+    placement:
+      x: 41.5
+      y: 44.0
+      rot: 180.0
+      fixed: true
+  C8:
+    value: 100nF
+    spice: false
+    symbol: oshw_openblind32:C_0603_1608Metric
+    footprint: oshw_openblind32:C_0603_1608Metric
+    pins:
+      '1': GPIO0
+      '2': GND
+    placement:
+      x: 45.0
+      y: 6.0
+      rot: 90.0
+      fixed: true
+  U1:
+    value: ESP32-C3_SUPERMINI_TH
+    manufacturer: Espressif
+    spice: false
+    symbol: oshw_openblind32:MODULE_ESP32-C3_SUPERMINI
+    footprint: oshw_openblind32:MODULE_ESP32-C3_SUPERMINI
+    pins:
+      '0': GPIO0
+      '4': GPIO4
+      '5': GPIO5
+      5V: +5V
+      '7': GPIO7
+      '9': GPIO9_slash_SCL
+      G: GND
+    nc:
+    - '1'
+    - '2'
+    - '3'
+    - '3.3'
+    - '6'
+    - '8'
+    - '10'
+    - '20'
+    - '21'
+    placement:
+      x: 61.84
+      y: 10.12
+      rot: 270.0
+      fixed: true
+  J1:
+    value: AC IN/OUT
+    spice: false
+    symbol: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-3-5.08_1x03_P5.08mm_Horizontal
+    footprint: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-3-5.08_1x03_P5.08mm_Horizontal
+    pins:
+      '1': LINE
+      '2': Earth
+      '3': NEUT
+    placement:
+      x: 6.8275
+      y: 36.5495
+      rot: 270.0
+      fixed: true
+  U5:
+    value: ACS712xLCTR-05B
+    spice: false
+    symbol: oshw_openblind32:SOIC-8_3.9x4.9mm_P1.27mm
+    footprint: oshw_openblind32:SOIC-8_3.9x4.9mm_P1.27mm
+    pins:
+      '1': Main_L-
+      '2': Main_L-
+      '3': Main_L+
+      '4': Main_L+
+      '5': GND
+      '6': Net-_U5-FILTER
+      '7': Net-_U5-VIOUT
+      '8': +5V
+    placement:
+      x: 43.0
+      y: 19.0
+      rot: 90.0
+      fixed: true
+  U3:
+    value: AQH3213
+    spice: false
+    symbol: oshw_openblind32:DIP-8-N7_W7.62mm
+    footprint: oshw_openblind32:DIP-8-N7_W7.62mm
+    pins:
+      '1': GND
+      '2': Net-_R2-Pad2
+      '3': GND
+      '4': GND
+      '6': Main_SSR_In
+      '8': Main_SSR_B_Out
+    nc:
+    - '5'
+    placement:
+      x: 60.12
+      y: 27.0
+      rot: 270.0
+      fixed: true
+  R1:
+    value: '220'
+    spice: false
+    symbol: oshw_openblind32:R_0603_1608Metric
+    footprint: oshw_openblind32:R_0603_1608Metric
+    pins:
+      '1': GPIO4
+      '2': Net-_R1-Pad2
+    placement:
+      x: 58.5
+      y: 22.0
+      rot: 180.0
+      fixed: true
+  R2:
+    value: '220'
+    spice: false
+    symbol: oshw_openblind32:R_0603_1608Metric
+    footprint: oshw_openblind32:R_0603_1608Metric
+    pins:
+      '1': GPIO5
+      '2': Net-_R2-Pad2
+    placement:
+      x: 58.5
+      y: 24.0
+      rot: 180.0
+      fixed: true
+  J2:
+    value: AC IN/OUT
+    spice: false
+    symbol: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-3-5.08_1x03_P5.08mm_Horizontal
+    footprint: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-3-5.08_1x03_P5.08mm_Horizontal
+    pins:
+      '1': NEUT
+      '2': Earth
+      '3': LINE
+    placement:
+      x: 6.8275
+      y: 19.915
+      rot: 270.0
+      fixed: true
+  C6:
+    value: 1nF
+    spice: false
+    symbol: oshw_openblind32:C_0603_1608Metric
+    footprint: oshw_openblind32:C_0603_1608Metric
+    pins:
+      '1': Net-_U5-FILTER
+      '2': GND
+    placement:
+      x: 44.7711
+      y: 12.9935
+      rot: 90.0
+      fixed: true
+  D1:
+    value: SK6812/WS2812B
+    spice: false
+    symbol: oshw_openblind32:LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm
+    footprint: oshw_openblind32:LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm
+    pins:
+      '1': GND
+      '2': GPIO7
+      '3': +5V
+    nc:
+    - '4'
+    placement:
+      x: 3.0
+      y: 4.0
+      rot: 90.0
+      fixed: true
+  C4:
+    value: 16V
+    source_value: 16V 330uF
+    spice: false
+    symbol: oshw_openblind32:CP_Radial_D6.3mm_P2.50mm
+    footprint: oshw_openblind32:CP_Radial_D6.3mm_P2.50mm
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 9.0
+      y: 10.5
+      rot: 270.0
+      fixed: true
+  J3:
+    value: MOTOR OUT
+    spice: false
+    symbol: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-4-5.08_1x04_P5.08mm_Horizontal
+    footprint: oshw_openblind32:TerminalBlock_Phoenix_MKDS-1_5-4-5.08_1x04_P5.08mm_Horizontal
+    pins:
+      '1': Earth
+      '2': NEUT
+      '3': Main_SSR_A_Out
+      '4': Main_SSR_B_Out
+    placement:
+      x: 68.0
+      y: 46.5
+      rot: 90.0
+      fixed: true
+  R3:
+    value: '220'
+    spice: false
+    symbol: oshw_openblind32:R_0603_1608Metric
+    footprint: oshw_openblind32:R_0603_1608Metric
+    pins:
+      '1': Net-_U5-VIOUT
+      '2': GPIO0
+    placement:
+      x: 42.8855
+      y: 12.9935
+      rot: 90.0
+      fixed: true
+  C7:
+    value: 10uF
+    spice: false
+    symbol: oshw_openblind32:C_0603_1608Metric
+    footprint: oshw_openblind32:C_0603_1608Metric
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 7.0
+      y: 4.0
+      rot: 270.0
+      fixed: true
+nets:
+  Earth:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    class: ground
+    source_class: MAINS_HV
+  GND:
+    class: ground
+  LINE:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  NEUT:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  Main_L+:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  Main_L-:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  Main_SSR_A_Out:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  Main_SSR_B_Out:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
+  Main_SSR_In:
+    width_mm: 1.0
+    clearance_mm: 1.0
+    source_class: MAINS_HV
