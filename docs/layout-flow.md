@@ -51,9 +51,19 @@ A placement with a violation (courtyard overlap, a part off the board or in a ke
 isolation) is invalid. `stage_layout` never routes it: it stops in seconds with `legality.placement_verdict`
 (`layout/place/legality.py`, also `diagnose.placement_verdict`), which names the fill of each board face and of each region the violations touch (placer courtyards with their margin,
 over the area inside `margin_mm`), and the board or region that would hold them. Above `PLACE_FILL_MAX` (95 %) it
-sends the build back to architecture; under it, the area allows a legal placement and the verdict is a placer
-failure (layout). `hwflow floorplan` fails the same way on an illegal quick placement. `HWFLOW_ROUTE_ILLEGAL=1`
-routes it anyway, for debugging only.
+sends the build back to architecture. Under it, each violating movable part is tested alone (`Placer.infeasible`: a
+dry run of the settle search with every other movable part off the board, under the rules `violations` counts): a
+part with no legal spot even then has constraints that exclude each other, and the verdict names them (its regions
+and their area, the fixed parts and keep-outs over it) and sends the build back to architecture. Otherwise a legal
+placement exists and the verdict is a placer failure (back to layout, `placer_failure` in the diagnosis): an hwflow
+defect, never a design blockage, however many `--auto` attempts failed. `hwflow floorplan` fails the same way on an
+illegal quick placement. `HWFLOW_ROUTE_ILLEGAL=1` routes it anyway, for debugging only.
+
+The last repairs before the gate: on a saved or shared placement, `legalize(tht=True)` also pushes a courtyard off a
+through-hole pad of a part on the other side (the overlap `violations` counts across sides); `settle` puts each violating unit at the nearest free spot, then, when
+the free area around it is fragmented, takes its neighbours out too (the movable units of its regions and those within
+`SETTLE_WINDOW` unit sizes) and repacks them (the violating units first, then largest first, then packed from the
+neighbourhood's corner), and only then repacks every unit.
 
 ### Budgets and block copper in placement
 

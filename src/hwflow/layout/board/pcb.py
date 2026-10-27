@@ -12,6 +12,7 @@ from shapely.geometry import box
 
 from ...core import sexpr
 from ...core.design import Design
+from ...core.current import current_width_mm, ipc2221_width_mm  # noqa: F401 - re-exported
 from ...core.geometry import Part, cu_layers, rot
 from .routing import pad_layers
 from ...core.sexpr import Q
@@ -24,13 +25,6 @@ def uid() -> Q:
 
 
 # ------------------------------------------------------------------ track sizing
-
-def ipc2221_width_mm(current_a: float, copper_oz: float = 1.0, dtemp: float = 10.0, external: bool = True) -> float:
-    k = 0.048 if external else 0.024
-    area_mil2 = (current_a / (k * dtemp ** 0.44)) ** (1 / 0.725)
-    thick_mil = 1.378 * copper_oz
-    return area_mil2 / thick_mil * 0.0254
-
 
 def net_classes(design: Design) -> dict[str, dict]:
     """net -> {width, clearance, class}, and min_width for a net with `min_width_mm` (net_min_widths)"""

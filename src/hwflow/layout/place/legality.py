@@ -38,9 +38,10 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
     """Why a placement with violations `viol` is illegal and where to go back to: the fill of each board face (placer
     courtyards with their margin) and of each floorplan region the violations touch, against PLACE_FILL_MAX, the
     fill above which the parts do not place, and the smallest board (same aspect ratio) or region that would hold
-    them at that fill. back_to: `architecture` when a face or region is over the limit or the violations involve only
-    fixed parts (board size, part count or sizes, or the fixed positions must change), else `layout` (the area allows
-    a legal placement; the placer did not find it)."""
+    them at that fill. back_to: `architecture` when a face or region is over the limit, the violations involve only
+    fixed parts (board size, part count or sizes, or the fixed positions must change) or a violating part has no legal
+    spot even alone (infeasible_parts: its region, the fixed parts and the keep-outs exclude each other; named), else
+    `layout` (the area allows a legal placement; the placer did not find it: a placer failure, an hwflow defect)."""
     fmax = PLACE_FILL_MAX
     mg = float(design.board.get("margin_mm", 0.0))
     outline = floorplan.outline(design)
@@ -89,12 +90,43 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
     elif fixed_only:
         back = "architecture"
         msg = f"{head}; only fixed parts are involved: their positions in design.yaml must change"
+    elif (stuck := infeasible_parts(design, parts, W, H, viol)):
+        back = "architecture"
+        msg = f"{head}; " + "; ".join(_stuck_msg(x) for x in stuck) + \
+              " (design.yaml floorplan: a larger region, other fixed positions or smaller keep-outs)"
     else:
         back = "layout"
-        msg = f"{head}; {face}, so a legal placement should exist: the placer did not find one (another seed, or " \
-              f"report it as a placer failure)"
+        msg = f"{head}; {face} and every violating part has a legal spot of its own, so a legal placement should " \
+              f"exist: the placer did not find one (a placer failure: an hwflow defect, not a design problem; " \
+              f"another seed may find it)"
     bud = [v for v in viol if v.startswith("budget ")]
     if bud:  # distance legs (placer.budget_violations): named in full, whatever the other violations are
         msg += "; copper_len budgets and decap_max_mm limits the placement already breaks (never routed): " + "; ".join(bud)
     return {"ok": False, "violations": len(viol), "fill": {s: round(v, 3) for s, v in fill.items()}, "regions": regs,
             "back_to": back, "msg": msg, "first": viol[:20]}
+
+
+def infeasible_parts(design, parts: dict, W: float, H: float, viol: list[str]) -> list[dict]:
+    """Placer.infeasible on the placement `parts`: the violating movable units with no legal spot even with every
+    other movable part off the board ([] when it cannot be computed). The parts keep their positions."""
+    from . import placer
+    keep = {r: (p.x, p.y, p.r) for r, p in parts.items()}
+    try:
+        return placer.Placer(design, parts, W, H).infeasible(viol)
+    except Exception:  # noqa: BLE001 - a hint for the verdict: without it the area rule decides
+        return []
+    finally:
+        for r, (x, y, a) in keep.items():
+            parts[r].x, parts[r].y, parts[r].r = x, y, a
+
+
+def _stuck_msg(x: dict) -> str:
+    where = (f"inside floorplan region{'s' if len(x['regions']) > 1 else ''} {', '.join(x['regions'])}"
+             if x["regions"] else "on the board")
+    a = x["area"]
+    cover = [f"fixed {', '.join(x['fixed'])}"] if x["fixed"] else []
+    cover += [f"keep-out{'s' if len(x['keepouts']) > 1 else ''} {', '.join(x['keepouts'])}"] if x["keepouts"] else []
+    return (f"{x['ref']} ({x['size_mm'][0]:g} x {x['size_mm'][1]:g} mm with the placer margin) has no legal spot "
+            f"{where} (x {a[0]:g}-{a[2]:g}, y {a[1]:g}-{a[3]:g} mm) even with every other movable part removed: "
+            + (" and ".join(cover) + " take the room it needs" if cover else "the area is smaller than the part")
+            + ": its constraints exclude each other, no placer can place it")

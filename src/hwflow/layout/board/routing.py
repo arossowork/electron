@@ -25,6 +25,8 @@ from shapely.ops import unary_union
 
 from ...core import sexpr
 from ...core.sexpr import Q
+# NECK_MAX_MM: longest continuous narrow stretch (a pad escape) after widening; a longer one leaves the net open
+from ...core.current import NECK_MAX_MM  # noqa: F401 - used here and by its importers
 
 ISO_ZONE = "hwflow_iso"  # name prefix of the rule areas in a pass input
 # The router keeps track and via copper `clearance` away from a rule-area edge, so an area grown by
@@ -33,7 +35,6 @@ ISO_ZONE = "hwflow_iso"  # name prefix of the rule areas in a pass input
 ISO_SLACK = 0.1
 PIECE_MM = 0.5  # widening tests a track that does not fit as a whole in pieces of at most this length
 NECK_FLOOR = 0.15  # second neck width: the min_track_width pcb.write_project gives KiCad DRC
-NECK_MAX_MM = 3.0  # longest continuous narrow stretch (a pad escape) after widening; a longer one leaves the net open
 GRID_MM = 5.0  # cell of the shape index `widen` looks up the copper near a segment in
 
 
@@ -211,12 +212,14 @@ class _Grid:
 
 
 def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: list[str], via_dia: float,
-          outline, keepouts: dict[str, list], floor: float = NECK_FLOOR) -> dict[str, tuple[float, float]]:
+          outline, keepouts: dict[str, list], floor: float = NECK_FLOOR,
+          floors: dict[str, float] | None = None) -> dict[str, tuple[float, float]]:
     """Fit every track of the nets of `widths`, in place in the board file `path`: each piece gets the widest of
     (the net's width, its own width, `floor`) that keeps its clearances, so narrow copper is widened where it
     fits and copper the router shipped too wide at a pinch is narrowed. `clearance(a, b)` is the copper distance
     two nets keep; `outline` the area copper may use (board inset by the edge clearance); `keepouts` layer ->
-    geometries no track may enter. A segment that does not fit as a whole is split into pieces of at most
+    geometries no track may enter; `floors` net -> the narrowest width of that net (its min_width_mm,
+    pcb.net_min_widths), never narrowed under it. A segment that does not fit as a whole is split into pieces of at most
     PIECE_MM. Returns net -> (length narrower than the net's width, total length, longest narrow stretch) in mm."""
     shapes = copper_shapes(board, copper, via_dia)
     grid = _Grid()
@@ -240,7 +243,8 @@ def widen(path: Path, board: dict, widths: dict[str, float], clearance, copper: 
         layer = str(sexpr.value(node, "layer"))
         st, en = sexpr.find(node, "start"), sexpr.find(node, "end")
         x1, y1, x2, y2 = float(st[1]), float(st[2]), float(en[1]), float(en[2])
-        cands = sorted({w, cur} | {f for f in (floor,) if f < cur}, reverse=True)
+        f = max(floor, (floors or {}).get(net, 0.0))
+        cands = sorted({w, cur} | ({f} if f < cur else set()), reverse=True)
         if net not in reach:
             reach[net] = max((clearance(net, n) for n in others if n != net), default=0.0)
         r = cands[0] / 2 + reach[net] + 0.01

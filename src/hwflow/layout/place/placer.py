@@ -85,6 +85,23 @@ def part_pad_box(p: "Part", n):
     return x - w / 2, y - h / 2, x + w / 2, y + h / 2
 
 
+def _tht_pair(pa: "Part", pb: "Part"):
+    """(box of pa, box of pb) of the deepest through-hole pad of one part inside a courtyard of the other (on either
+    side), or None: the overlap `_side_overlap` counts across sides, as boxes `legalize` can push apart."""
+    best = None
+    for a, b, flip in ((pa, pb, False), (pb, pa, True)):
+        if not a.tht or not b.sides:
+            continue
+        yards = [y for y in (b.side_box("front"), b.side_box("back")) if y]
+        for n in a.tht:
+            pad = part_pad_box(a, n)
+            for y in yards:
+                o = _overlap(pad, y)
+                if o > 0 and (best is None or o > best[0]):
+                    best = (o, (y, pad) if flip else (pad, y))
+    return best[1] if best else None
+
+
 def _corners(b):
     return [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])]
 
@@ -1719,9 +1736,11 @@ class Placer:
                 break
         return self.cost()
 
-    def legalize(self, rounds: int = 200, refs=None):
+    def legalize(self, rounds: int = 200, refs=None, tht: bool = False):
         """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board. `refs`: only
-        these parts move and only they and the fixed parts count (the macro legalization of asicflow)."""
+        these parts move and only they and the fixed parts count (the macro legalization of asicflow). `tht`: also
+        push a courtyard off a through-hole pad of a part on the other side (an overlap `violations` counts; off in
+        the placer's own passes, whose trajectories it would change, on for a placement taken as it is)."""
         P = [p for p in self.parts.values() if refs is None or p.ref in refs or self._unit(p).fixed]
         m = self.d.board["margin_mm"]
         for _ in range(rounds):
@@ -1752,6 +1771,8 @@ class Placer:
                         if ba and bb and _overlap(ba, bb) > 0:
                             pair = (ba, bb)
                             break
+                    if pair is None and tht:  # a through-hole pad of one inside a courtyard of the other, on
+                        pair = _tht_pair(a, b)  # either side (violations counts it: _side_overlap, pth_inside_courtyard)
                     if pair is None:
                         continue
                     ba, bb = pair
@@ -1876,8 +1897,29 @@ class Placer:
                 break
             v = v2
         if v and self._violators(v):
-            # a unit found no free spot among the parts left in place: repack every unit, near where it is, then from
-            # the corner; the result with the fewest violations is kept
+            # a unit found no free spot among the parts left in place (the free area around it is fragmented): take
+            # out its neighbours too (the movable units of its floorplan regions and those near it) and put them back,
+            # the violating units first (their spot is the scarce one), then largest first
+            start = self._state()
+            bad = self._violators(v)
+            local = self._neighbours(bad)
+            bx = [p.box() for u in local for p in self._unit_parts(u)]
+            corner = (min(b[0] for b in bx), min(b[1] for b in bx))  # packed from the neighbourhood's corner
+            best = (len(v), start, v)
+            for mode, first in (("near", bad), ("near", ()), ("corner", ())):
+                self._restore(start)
+                self._settle(local, mode, first=first, corner=corner)
+                self.legalize()
+                vv = self.violations()
+                if len(vv) < best[0]:
+                    best = (len(vv), self._state(), vv)
+                if not vv:
+                    break
+            self._restore(best[1])
+            v = best[2]
+        if v and self._violators(v):
+            # still no free spot: repack every unit, near where it is, then from the corner; the result with the
+            # fewest violations is kept
             start = self._state()
             best = (len(v), start, v)
             for mode in ("near", "corner"):
@@ -1896,6 +1938,69 @@ class Placer:
             v = v_in
         self.cost()
         return v
+
+    def infeasible(self, viol=None) -> list[dict]:
+        """The movable units of the violations `viol` (default: the current ones) that have no legal spot even with
+        every other movable part off the board: their own constraints (floorplan regions, fixed parts, keep-outs, the
+        board margin) exclude each other, so no placer can place them. [{ref, size_mm, regions, area, fixed,
+        keepouts}]: the region rectangles (else the board) they must sit in, and the fixed parts and keep-outs that
+        cover that area."""
+        viol = self.violations() if viol is None else viol
+        bad = self._violators(viol)
+        if not bad:
+            return []
+        s = self._state()
+        try:
+            none = self._settle(bad, dry=True)
+        finally:
+            self._restore(s)
+        P, out = self.parts, []
+        for u in none:
+            refs = set(self._refs(u))
+            regs = [g for g in self.regions if refs & set(g["members"])]
+            rects = [tuple(g["rect"]) if g["rect"] else tuple(g["poly"].bounds) for g in regs
+                     if g["rect"] or g.get("poly") is not None]
+            m = float(self.d.board["margin_mm"])
+            area = (max([r[0] for r in rects] + [m]), max([r[1] for r in rects] + [m]),
+                    min([r[2] for r in rects] + [self.W - m]), min([r[3] for r in rects] + [self.H - m]))
+            fixed = sorted({r for r, p in P.items() if p.fixed and r not in refs and any(
+                _overlap(b, area) > 0 for b in (p.side_box("front"), p.side_box("back")) if b)})
+            kos = sorted({n for bx, sides, o, n in self.ko_fp
+                          if not any(self._ko_skip(o, n, r) for r in refs) and _overlap(bx, area) > 0})
+            ps = self._unit_parts(u)
+            bx = [p.box() for p in ps]
+            out.append({"ref": u.ref, "size_mm": (round(max(b[2] for b in bx) - min(b[0] for b in bx), 2),
+                                                  round(max(b[3] for b in bx) - min(b[1] for b in bx), 2)),
+                        "regions": [g["name"] for g in regs], "area": tuple(round(v, 2) for v in area),
+                        "fixed": fixed, "keepouts": kos})
+        return out
+
+    def _neighbours(self, bad) -> list:
+        """The units `bad` and the movable units around them: the members of the floorplan regions a unit of `bad`
+        belongs to, and the units whose courtyard comes within SETTLE_WINDOW unit sizes of one of `bad`."""
+        out = {id(u): u for u in bad}
+        movable = self._movable()
+        for u in bad:
+            refs = set(self._refs(u))
+            regs = [g for g in self.regions if refs & set(g["members"])]
+            ps = self._unit_parts(u)
+            bx = [p.box() for p in ps]
+            x0, y0 = min(b[0] for b in bx), min(b[1] for b in bx)
+            x1, y1 = max(b[2] for b in bx), max(b[3] for b in bx)
+            R = SETTLE_WINDOW * max(x1 - x0, y1 - y0, 1.0) / 2
+            for w in movable:
+                if id(w) in out:
+                    continue
+                wr = set(self._refs(w))
+                if any(wr & set(g["members"]) for g in regs):
+                    out[id(w)] = w
+                    continue
+                for p in self._unit_parts(w):
+                    b = p.box()
+                    if b[2] >= x0 - R and b[0] <= x1 + R and b[3] >= y0 - R and b[1] <= y1 + R:
+                        out[id(w)] = w
+                        break
+        return list(out.values())
 
     def _unit_parts(self, u) -> list:
         """The parts that move with unit `u`: its members and, for a block, its courtyard part."""
@@ -1917,10 +2022,13 @@ class Placer:
                     out[t].append(b)
         return out
 
-    def _settle(self, bad, mode: str = "near") -> int:
-        """Put the units `bad` back one by one, largest first, on free spots of the occupancy raster (see `settle`).
-        mode `near`: the free spot nearest to where the unit was (searched in a window around it first, then the whole
-        board); `corner`: packed from the top left corner (the lowest y, then x), for a repack of every unit."""
+    def _settle(self, bad, mode: str = "near", first=(), dry: bool = False, corner=(0.0, 0.0)):
+        """Put the units `bad` back one by one, largest first (the units of `first` before the others), on free spots
+        of the occupancy raster (see `settle`). mode `near`: the free spot nearest to where the unit was (searched in a
+        window around it first, then the whole board); `corner`: packed from the top left corner (the lowest y, then
+        x; from `corner` (x, y) outward when given), for a repack. Returns the number of units moved. `dry`: a feasibility test that moves
+        nothing: only the fixed parts, keep-outs, the board margin and the regions count, and it returns the units of
+        `bad` with no free spot even then (their constraints exclude each other)."""
         import numpy as np
         m = float(self.d.board["margin_mm"])
         ce = float(self.d.board.get("copper_edge_mm", 0.3)) + 0.02
@@ -1934,6 +2042,8 @@ class Placer:
                     min(nx, int(math.ceil(b[2] / res - 1e-9))), min(ny, int(math.ceil(b[3] / res - 1e-9))))
 
         occ = {s: np.zeros((nx, ny), bool) for s in ("front", "back")}
+        if dry:  # the rules of `violations` only: no board margin for a courtyard (its pads keep copper_edge_mm)
+            m = 0.0
         i0, j0 = int(math.ceil(m / res - 1e-9)), int(math.ceil(m / res - 1e-9))
         i1, j1 = int(math.floor((W - m) / res + 1e-9)), int(math.floor((H - m) / res + 1e-9))
         for o in occ.values():  # outside the board margin
@@ -1942,14 +2052,26 @@ class Placer:
             o[:, :j0] = True
             o[:, j1:] = True
 
+        def boxes(p):
+            """side -> boxes of part p that block that side: its courtyards and, through-hole, its whole body on both
+            sides; in a dry run only what `violations` counts, its courtyards and its through-hole pads on both."""
+            if not (dry and p.tht):
+                return self._side_boxes(p)
+            out = {s: [b] if (b := p.side_box(s)) else [] for s in ("front", "back")}
+            for n in p.tht:
+                pb = part_pad_box(p, n)
+                out["front"].append(pb)
+                out["back"].append(pb)
+            return out
+
         def mark(p):
-            for s, bs in self._side_boxes(p).items():
+            for s, bs in boxes(p).items():
                 for b in bs:
                     a0, b0, a1, b1 = cells(b)
                     occ[s][a0:a1, b0:b1] = True
         seen = set()
         for p in list(self.parts.values()) + [u.yard for u in self.units]:
-            if id(p) not in out_ids and id(p) not in seen:
+            if id(p) not in out_ids and id(p) not in seen and (not dry or p.fixed):
                 seen.add(id(p))
                 mark(p)
         owners = {p.ref for u in bad for p in self._unit_parts(u)}
@@ -1987,7 +2109,7 @@ class Placer:
             need = {"front": [], "back": []}
             pads = []
             for p in self._unit_parts(u):
-                for s, bs in self._side_boxes(p).items():
+                for s, bs in boxes(p).items():
                     need[s] += bs
                 pads += [part_pad_box(p, n) for n in p.pads if n not in p.nocu]
             allb = need["front"] + need["back"]
@@ -2058,7 +2180,9 @@ class Placer:
             y = getattr(u, "yard", u)
             return y.w * y.h
         moved = 0
-        order = sorted(bad, key=area, reverse=True)
+        fid = {id(u) for u in first}
+        order = [u for u in bad if id(u) in fid] + sorted((u for u in bad if id(u) not in fid), key=area, reverse=True)
+        none = []
         for u in order:
             refs = {p.ref for p in self._unit_parts(u)}
             here = (u.x, u.y, u.r)
@@ -2086,22 +2210,25 @@ class Placer:
                     if mode == "near":
                         dist = np.abs(ox - here[0]) + np.abs(oy - here[1]) + SETTLE_TURN_MM * (k > 0)
                     else:
-                        dist = (oy + uy0) * (W + 1) + (ox + ux0) + SETTLE_TURN_MM * (k > 0)
+                        ax, ay = corner
+                        dist = np.abs(oy + uy0 - ay) * (W + 1) + np.abs(ox + ux0 - ax) + SETTLE_TURN_MM * (k > 0)
                     t = int(np.argmin(dist))
                     if best is None or dist[t] < best[0]:
                         best = (float(dist[t]), float(ox[t]), float(oy[t]), rot_)
                 if best is not None:
                     break
-            if best is None:  # no free window anywhere: it stays (the board is too full for it)
+            if best is None or dry:  # no free window anywhere: it stays (the board is too full for it)
                 u.x, u.y, u.r = here
                 self._refs(u)
+                if best is None:
+                    none.append(u)
                 continue
             u.x, u.y, u.r = best[1:]
             self._refs(u)
             for p in self._unit_parts(u):
                 mark(p)
             moved += 1
-        return moved
+        return none if dry else moved
 
     def violations(self) -> list[str]:
         P = self.parts

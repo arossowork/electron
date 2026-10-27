@@ -126,7 +126,9 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     neckdown = get_settings().layout.neckdown
     # nets the corridor proof connects only with a neck: a full-width pass cannot route them, so they route narrow
     # first (then widened), in a pass of their own ahead of the other nets of their isolation side
-    minw = pcb.net_min_widths(design)  # nets.<name>.min_width_mm: no neck under it
+    # nets.<name>.min_width_mm: no neck under it. A current_a net may neck under its IPC-2221 width only at a pad
+    # entry: `fit` accepts no narrow stretch over NECK_MAX_MM, the rule of post-layout's track-current check
+    minw = pcb.net_min_widths(design)
 
     def neckable(pnets, nw):
         """The nets of `pnets` that may neck to width `nw`."""
@@ -233,7 +235,8 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 ko.setdefault(L, []).append(a["poly"])
         outline = floorplan.outline(design).buffer(-pcb.EDGE_CLEARANCE_MM, join_style="mitre")
         stats = routing.widen(path, pcb.read_board(path), {n: w for n in fnets},
-                              _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko, floor)
+                              _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko, floor,
+                              floors=minw)
         # the widened width is the class width (never under the IPC width of its current), so a stretch under the
         # IPC width is part of a narrow stretch: a neck within NECK_MAX_MM keeps track-current a warning
         text = ", ".join(f"{n} {s[0]:.1f} of {s[1]:.1f} mm narrow, longest neck {s[2]:.1f} mm"
@@ -246,7 +249,10 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         corridor proof marks as needing a neck skip the full-width pass. `lays`: the only layers the nets may use
         (all when empty). Returns ((board, summary, unrouted), notes)."""
         wide = neckdown and w > neck + 1e-9
-        widths = [x for x in dict.fromkeys((neck, floor)) if x < w - 1e-9] if neckdown else []
+        # the neck widths: the track width, the floor, and the min_width_mm of a net of the pass between them (that
+        # net necks to it, never under it), widest first
+        nfl = {minw[n] for n in pnets if floor + 1e-9 < minw.get(n, 0.0) < w - 1e-9}
+        widths = sorted({x for x in (neck, floor, *nfl) if x < w - 1e-9}, reverse=True) if neckdown else []
         largs = layer_args(copper, lays)
 
         def run_pass(cur, tag, pnets, args, i):

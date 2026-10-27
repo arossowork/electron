@@ -12,7 +12,7 @@ import numpy as np
 from ..core import sexpr
 from ..sim import spice
 from ..core.design import Design
-from ..layout.board.pcb import ipc2221_width_mm, net_classes, net_layers, read_board
+from ..layout.board.pcb import net_classes, net_layers, read_board
 from ..sim.budgets import RHO_CU, leg_r
 from ..sim.spice import NodeMap
 
@@ -688,25 +688,11 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
         add("warn", "region-nets", f"{x['net']}: {x['items']} copper item(s) outside floorplan region {x['region']}, "
                                    f"up to {x['mm']:.2f} mm out ({x['item']} at ({x['at'][0]}, {x['at'][1]}))")
     # current capacity
-    for net in design.nets():
-        info = design.net_info(net)
-        if not info.get("current_a"):
-            continue
-        need = ipc2221_width_mm(float(info["current_a"]), b["copper_oz"], float(info.get("max_rise_c", 10)))
-        segs = [s for s in ex.segs if s["net"] == net]
-        if segs:
-            wmin = min(s["w"] for s in segs)
-            if wmin + 1e-6 < need:
-                from ..layout.board.routing import NECK_MAX_MM, longest_neck
-                thin = [s for s in segs if s["w"] + 1e-6 < need]
-                narrow = sum(s["len"] for s in thin)
-                neck = longest_neck([((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in thin])
-                # a short neck at a pad heats no more than the pad it enters (copper on both sides spreads the heat)
-                sev = "warn" if neck <= NECK_MAX_MM else "error"
-                add(sev, "track-current", f"{net}: narrowest track {wmin:.2f} mm < {need:.2f} mm needed for "
-                                          f"{info['current_a']} A at 10C rise (IPC-2221), for {narrow:.1f} mm"
-                                          + (f" (necks of at most {NECK_MAX_MM:g} mm each)" if sev == "warn"
-                                             else f" (a stretch of {neck:.1f} mm)"))
+    for x in current_shortfalls(design, ex.segs):
+        add(x["sev"], "track-current", f"{x['net']}: narrowest track {x['wmin']:.2f} mm < {x['need']:.2f} mm needed for "
+                                       f"{x['current_a']} A at {x['rise_c']:g}C rise (IPC-2221), for {x['narrow']:.1f} mm"
+                                       + (f" (necks of at most {x['neck_max']:g} mm each)" if x["sev"] == "warn"
+                                          else f" (a stretch of {x['neck']:.1f} mm)"))
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
     declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
@@ -1148,3 +1134,32 @@ def board_metrics(design: Design, ex: Extraction) -> dict:
     return {"area_mm2": b["width_mm"] * b["height_mm"], "layers": b["layers"],
             "track_len_mm": round(sum(s["len"] for s in segs), 1), "vias": len(ex.board["vias"]),
             "bottom_len_mm": round(sum(s["len"] for s in segs if s["layer"] == "B.Cu"), 1)}
+
+
+def current_shortfalls(design, segs) -> list[dict]:
+    """Nets with `current_a` whose routed tracks `segs` ({net, w, x1, y1, x2, y2, layer}) are narrower than the
+    IPC-2221 width of that current (pcb.current_width_mm, the width the router never necks under): {net, wmin, need,
+    current_a, rise_c, narrow (mm under it), neck (longest connected stretch under it), neck_max, sev}. A stretch of
+    at most routing.NECK_MAX_MM is a pad-entry neck that heats no more than the pad it enters (copper on both sides
+    spreads the heat): a warning; a longer one is an error (the layout stage fails on it too)."""
+    import math as _m
+    from ..layout.board.pcb import current_width_mm
+    from ..layout.board.routing import NECK_MAX_MM, longest_neck
+    out = []
+    by: dict = {}
+    for s in segs:
+        by.setdefault(s["net"], []).append(s)
+    for net, ss in sorted(by.items()):
+        need = current_width_mm(design, net)
+        if need <= 0:
+            continue
+        thin = [s for s in ss if float(s["w"]) + 1e-6 < need]
+        if not thin:
+            continue
+        narrow = sum(s.get("len", _m.hypot(s["x2"] - s["x1"], s["y2"] - s["y1"])) for s in thin)
+        neck = longest_neck([((s["x1"], s["y1"]), (s["x2"], s["y2"]), s["layer"]) for s in thin])
+        out.append({"net": net, "wmin": min(float(s["w"]) for s in ss), "need": need,
+                    "current_a": design.net_info(net)["current_a"],
+                    "rise_c": float(design.net_info(net).get("max_rise_c", 10)), "narrow": narrow, "neck": neck,
+                    "neck_max": NECK_MAX_MM, "sev": "warn" if neck <= NECK_MAX_MM else "error"})
+    return out

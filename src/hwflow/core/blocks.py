@@ -231,6 +231,20 @@ def findings(design, libs=None) -> list[dict]:
         brd = design.board
         if int(b.get("layers_min", 2)) > int(brd.get("layers", 2)):
             add("error", f"blocks.{name}: {b['name']} needs {b.get('layers_min')} layers, the board has {brd.get('layers')}")
+        from .current import piece_floors
+        segs = [{"net": nm[str(t["net"])], "w": float(t["w"]), "layer": str(t["layer"]), "x1": float(p[0]),
+                 "y1": float(p[1]), "x2": float(q[0]), "y2": float(q[1])}
+                for t in (b.get("copper") or {}).get("tracks") or [] if str(t["net"]) in nm
+                for p, q in zip(t["pts"], t["pts"][1:])]
+        thin: dict = {}
+        for sg, fl in zip(segs, piece_floors(design, segs)):
+            if sg["w"] < fl - 1e-9:
+                w0, f0 = thin.get(sg["net"], (math.inf, 0.0))
+                thin[sg["net"]] = (min(w0, sg["w"]), max(f0, fl))
+        for dn, (w, fl) in sorted(thin.items()):
+            add("warn", f"blocks.{name}: {b['name']} has {w:g} mm copper on {dn}, under its {fl:g} mm floor "
+                        f"(min_width_mm, or the IPC-2221 width of current_a on a stretch longer than a "
+                        f"pad-entry neck): the layout widens it to {fl:g} mm (DRC checks the widened block copper)")
         rules = b.get("rules") or {}
         for k in ("clearance_mm", "via_dia_mm"):
             if k in rules and float(brd[k]) > float(rules[k]) + 1e-9:
@@ -322,7 +336,11 @@ def anchor(design, ref: str) -> dict | None:
 
 
 def copper(design, parts) -> tuple[list[dict], list[dict]]:
-    """The blocks' copper in board coordinates and design nets: (tracks, vias) as the board writer takes them."""
+    """The blocks' copper in board coordinates and design nets: (tracks, vias) as the board writer takes them. A track
+    under the floor of its design net gets that floor (current.piece_floors: min_width_mm everywhere, the IPC-2221
+    width of current_a on a stretch longer than a pad-entry neck): block copper never carries a net's current on
+    less copper than the router may use."""
+    from .current import piece_floors
     tracks, vias = [], []
     for bnd in bindings(design):
         o = _origin(bnd, parts)
@@ -349,6 +367,8 @@ def copper(design, parts) -> tuple[list[dict], list[dict]]:
             if net is not None:
                 x, y = xy(v["x"], v["y"])
                 vias.append({"net": net, "x": x, "y": y, "block": bnd["name"]})
+    for t, f in zip(tracks, piece_floors(design, tracks)):
+        t["w"] = max(t["w"], f)
     return tracks, vias
 
 
@@ -362,14 +382,21 @@ def local_copper(design, name: str, via_dia: float = 0.6) -> list[tuple]:
             continue
         nm, _ = netmap(design, bnd)
         cu = bnd["block"].get("copper") or {}
+        from .current import piece_floors
+        ts = [dict(t, net=nm.get(str(t["net"]))) for t in cu.get("tracks") or []]
+        segs = [{"net": t["net"], "w": float(t["w"]), "layer": str(t["layer"]), "x1": float(a[0]), "y1": float(a[1]),
+                 "x2": float(c[0]), "y2": float(c[1])} for t in ts if t["net"] is not None
+                for a, c in zip(t["pts"], t["pts"][1:])]
+        wide = {(s["net"], s["layer"], s["x1"], s["y1"], s["x2"], s["y2"]): max(s["w"], f)
+                for s, f in zip(segs, piece_floors(design, segs))}  # the width copper() gives the piece
         out = []
-        for t in cu.get("tracks") or []:
-            net = nm.get(str(t["net"]))
+        for t in ts:
+            net = t["net"]
             if net is None:
                 continue
-            h = float(t["w"]) / 2
             pts = [(float(x), float(y)) for x, y in t["pts"]]
             for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+                h = wide.get((net, str(t["layer"]), x1, y1, x2, y2), float(t["w"])) / 2
                 out.append((net, (min(x1, x2) - h, min(y1, y2) - h, max(x1, x2) + h, max(y1, y2) + h)))
         for v in cu.get("vias") or []:
             net = nm.get(str(v["net"]))

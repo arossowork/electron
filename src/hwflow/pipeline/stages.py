@@ -301,7 +301,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             if r in saved and not p.fixed:  # a fixed part keeps the position the design gives it now
                 p.x, p.y, p.r = saved[r]
         pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
-        pl.legalize()
+        pl.legalize(tht=True)
         viol, cost = pl.violations(), pl.cost()
         if viol and get_settings().layout.settle:  # a saved placement with violations: settle them
             viol, cost = pl.settle(), pl.cost()
@@ -461,8 +461,12 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     minw = pcb.net_min_widths(d)  # nets.<name>.min_width_mm: a narrower track fails the layout
     too_narrow = sorted({f"{t['net']} {t['w']:g} mm (min {minw[t['net']]:g})" for t in tracks
                          if t["net"] in minw and float(t["w"]) < minw[t["net"]] - 1e-6})
+    # current_a: a stretch under its IPC-2221 width longer than a pad-entry neck (the post-layout track-current error)
+    too_narrow += [f"{x['net']} {x['wmin']:g} mm for {x['neck']:.1f} mm (IPC-2221 {x['need']:g} mm for "
+                   f"{x['current_a']} A; a neck of at most {x['neck_max']:g} mm)"
+                   for x in postlayout.current_shortfalls(d, tracks) if x["sev"] == "error"]
     for x in too_narrow:
-        print(f"[layout] track under its net's min_width_mm: {x}")
+        print(f"[layout] track under its net's min_width_mm or current width: {x}")
     nstats = net_stats(tracks, vias, pcb.net_classes(d))
     iso = isolation_distances(d, board, drc)
     # mains copper (tracks, vias, pads) near a conductive keep-out: the router keeps it out, this makes sure
@@ -823,13 +827,17 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
 def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict], kept: dict | None = None) -> dict:
     """diagnose.diagnose on the kept board in build/ and the failing parts of every attempt."""
     from ..layout import diagnose
-    pv = next((a["placement_verdict"] for a in attempts if a.get("placement_verdict")), None)
+    pvs = [a["placement_verdict"] for a in attempts if a.get("placement_verdict")]
+    # a verdict that names a design cause (over-full, fixed parts, an infeasible part) before a placer failure
+    pv = next((v for v in pvs if v.get("back_to") != "layout"), pvs[0] if pvs else None)
     if pv and all(a.get("placement_verdict") for a in attempts):  # no attempt got past the placement check
         g = diagnose.placement_diagnosis(d, pv, len(attempts))
         if g["back_to"] == "layout" and len(attempts) > 1:
-            g = dict(g, back_to="architecture", stage=diagnose.STAGES["architecture"], blocked=True,
-                     reasons=g["reasons"] + [f"no legal placement in {len(attempts)} attempts: give the parts more "
-                                             "room (board size, parts, or region sizes)"])
+            # the area allows a legal placement and no constraint of the violating parts is infeasible
+            # (legality.placement_verdict): a placer failure is an hwflow defect, never a design blockage
+            g = dict(g, reasons=g["reasons"] + [f"no legal placement in {len(attempts)} attempts although one should "
+                                             "exist: a placer failure (an hwflow defect, not a design blockage); "
+                                             "the design needs no change for it: report it"])
         return g
     out = _out(d)
     if libs is None or not (out / f"{d.name}.kicad_pcb").exists():

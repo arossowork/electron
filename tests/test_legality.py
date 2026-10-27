@@ -69,7 +69,9 @@ def test_layout_stage_never_routes_an_illegal_placement(tmp_path, monkeypatch):
     g = pl_stages.layout_diagnosis(d, libs, [r])
     assert g["placement"] and not g["blocked"]  # one attempt: another seed may find it
     g2 = pl_stages.layout_diagnosis(d, libs, [r, r])
-    assert g2["blocked"] and g2["back_to"] == "architecture"
+    # repeated attempts do not turn a placer failure into a design blockage: it is an hwflow defect
+    assert not g2["blocked"] and g2["back_to"] == "layout" and g2["placer_failure"]
+    assert "hwflow defect" in " ".join(g2["reasons"]) and diagnose.summary(g2).startswith("PLACER FAILURE")
 
 
 def test_floorplan_fails_on_an_illegal_quick_placement(tmp_path, monkeypatch):

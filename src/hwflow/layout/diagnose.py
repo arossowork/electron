@@ -90,12 +90,13 @@ def escape(fp: dict, classes: dict, clearance: float, default_w: float) -> list[
 
 def placement_diagnosis(design, verdict: dict, attempts: int = 1) -> dict:
     """The layout diagnosis of a build stopped on an illegal placement (placement_verdict): blocked, back to its
-    `back_to`, unless that is `layout` (the placer failed on an area that allows a legal placement)."""
+    `back_to`, unless that is `layout` (the placer failed on an area that allows a legal placement: `placer_failure`,
+    an hwflow defect, never a design blockage, however many attempts failed)."""
     back = verdict["back_to"]
     return {"structure": structure_key(design), "attempts": attempts, "persistent": [], "parts": [],
             "fill": {k: round(v, 2) for k, v in verdict["fill"].items()}, "back_to": back, "stage": STAGES.get(back),
             "reasons": [verdict["msg"]], "repeat": False, "proofs": [], "placement": verdict,
-            "blocked": back != "layout"}
+            "blocked": back != "layout", "placer_failure": back == "layout"}
 
 
 # ------------------------------------------------------------------ structure key and history
@@ -241,5 +242,8 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, 
 def summary(res: dict) -> str:
     if not res or not res.get("back_to"):
         return ""
+    if res.get("placer_failure") and not res["blocked"]:
+        return "PLACER FAILURE (an hwflow defect, not a design blockage; the design needs no change): " + \
+            " ".join(res["reasons"])
     head = ("BLOCKED: more layout attempts cannot fix this; go back to " if res["blocked"] else "next: ") + res["stage"]
     return head + ". " + " ".join(res["reasons"])
