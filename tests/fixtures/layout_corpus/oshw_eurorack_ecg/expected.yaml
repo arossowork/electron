@@ -59,9 +59,40 @@ fast:
     necked: []
     no_access: []
   seconds:
-    check: 1.9
+    check: 1.8
     pin_access: 0.2
 tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 8
+  open_nets:
+  - GND
+  - Net-_C5-Pad2
+  - Net-_R13-Pad1
+  - Net-_R16-Pad2
+  - Net-_R7-Pad2
+  - Net-_R9-Pad2
+  drc_errors: 9
+  drc_types:
+    courtyards_overlap: 1
+  placement_violations: 1
+  isolation: []
+  router: '4 unrouted, krt 1 completed pass(es); retried in another net order (0.25 mm: default order 1 unrouted, --ordering
+    inside_out 1 unrouted, --mps-reverse-rounds 1 unrouted, --direction backward 1 unrouted; 0.25 mm: neck-down to 0.15 mm:
+    Net-_R9-Pad2 still open; 0.25 mm: default order 7 unrouted, --orde'
+  vias: 26
+  track_mm: 400.3
+  route_groups: []
+  seconds: 281.3
+  cpu_s: 467.8
+  timing:
+    drc_s: 8.3
+    place_s: 0.1
+    predict_s: 0.3
+    repair_s: 54.9
+    route_s: 170.9
+    stitch_s: 47.2
+  firstpass: null

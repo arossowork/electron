@@ -58,5 +58,27 @@ tiers:
 replace:
   free: 18
   violations: []
-  seconds: 0.7
+  seconds: 0.8
 measured: '2026-10-27'
+route:
+  ok: true
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); retried in another net order (0.25 mm: default order 1 unrouted, --ordering
+    inside_out 0 unrouted); pour stitch: 1 vias, 1 stubs'
+  vias: 29
+  track_mm: 378.4
+  route_groups: []
+  seconds: 21.1
+  cpu_s: 47.4
+  timing:
+    drc_s: 4.6
+    place_s: 0.1
+    predict_s: 0.2
+    route_s: 12.9
+    stitch_s: 4.0
+  firstpass: null

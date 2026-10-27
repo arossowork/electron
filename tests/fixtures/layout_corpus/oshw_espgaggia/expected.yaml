@@ -57,7 +57,7 @@ fast:
   - courtyard overlap U7/U2
   fixed_violations: []
   corridors: {}
-  placement_cost: 237482.4
+  placement_cost: 237559.6
   rudy:
     congestion: 0.0
     max_overflow: 0.0
@@ -67,7 +67,7 @@ fast:
     necked: []
     no_access: []
   seconds:
-    check: 2.9
+    check: 2.6
     pin_access: 0.1
 tiers:
   check: fast
@@ -80,5 +80,29 @@ replace:
   - courtyard overlap J8/J3
   - courtyard overlap J8/J9
   - courtyard overlap PS1/U1
-  seconds: 45.0
+  seconds: 50.6
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 37
+  drc_types:
+    courtyards_overlap: 13
+    pth_inside_courtyard: 24
+  placement_violations: 13
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 49
+  track_mm: 1652.5
+  route_groups: []
+  seconds: 17.1
+  cpu_s: 35.9
+  timing:
+    drc_s: 3.4
+    place_s: 0.1
+    predict_s: 0.8
+    repair_s: 0.0
+    route_s: 8.6
+    stitch_s: 0.2
+  firstpass: null

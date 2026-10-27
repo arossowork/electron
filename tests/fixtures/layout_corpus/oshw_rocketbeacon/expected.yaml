@@ -84,9 +84,36 @@ fast:
     no_access:
     - U1.49
   seconds:
-    check: 0.6
-    pin_access: 0.2
+    check: 0.5
+    pin_access: 0.1
 tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 3
+  open_nets:
+  - GND
+  - OSC_IN
+  - VFBSMPS
+  drc_errors: 8
+  drc_types:
+    copper_edge_clearance: 5
+  placement_violations: 26
+  isolation: []
+  router: '1 unrouted, krt 1 completed pass(es); retried in another net order (0.15 mm: default order 4 unrouted, --ordering
+    inside_out 4 unrouted, --mps-reverse-rounds 2 unrouted, --direction backward 1 unrouted); pour stitch: 4 vias, 3 stubs'
+  vias: 19
+  track_mm: 182.8
+  route_groups: []
+  seconds: 93.9
+  cpu_s: 252.0
+  timing:
+    drc_s: 8.2
+    place_s: 0.1
+    predict_s: 0.2
+    repair_s: 29.4
+    route_s: 31.8
+    stitch_s: 27.5
+  firstpass: null

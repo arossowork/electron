@@ -73,5 +73,29 @@ replace:
   free: 12
   violations:
   - U3 pad 3 copper closer than 0.3 mm to the board edge
-  seconds: 8.0
+  seconds: 7.6
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 3
+  drc_types:
+    malformed_courtyard: 2
+    courtyards_overlap: 1
+  placement_violations: 2
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 11
+  track_mm: 278.7
+  route_groups: []
+  seconds: 7.0
+  cpu_s: 20.3
+  timing:
+    drc_s: 1.8
+    place_s: 0.1
+    predict_s: 0.4
+    repair_s: 0.0
+    route_s: 3.2
+    stitch_s: 0.1
+  firstpass: null

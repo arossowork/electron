@@ -322,7 +322,6 @@ nets:
   Earth:
     width_mm: 1.0
     clearance_mm: 1.0
-    class: ground
     source_class: MAINS_HV
   GND:
     class: ground

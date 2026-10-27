@@ -82,9 +82,37 @@ fast:
     necked: []
     no_access: []
   seconds:
-    check: 1.9
+    check: 1.7
     pin_access: 0.1
 tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 8
+  open_nets:
+  - +3.3V
+  - GND
+  - GPIO2_FSPIQ
+  - USB_DN
+  drc_errors: 14
+  drc_types:
+    hole_clearance: 6
+  placement_violations: 27
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); retried in another net order (0.127 mm: default order 2 unrouted, --ordering
+    inside_out 1 unrouted, --mps-reverse-rounds 0 unrouted); pour stitch: 3 vias, 1 stubs'
+  vias: 88
+  track_mm: 821.2
+  route_groups: []
+  seconds: 58.6
+  cpu_s: 101.1
+  timing:
+    drc_s: 7.2
+    place_s: 0.1
+    predict_s: 0.2
+    repair_s: 2.1
+    route_s: 40.9
+    stitch_s: 10.5
+  firstpass: null

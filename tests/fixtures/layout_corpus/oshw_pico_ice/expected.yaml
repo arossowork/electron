@@ -131,9 +131,56 @@ fast:
     no_access:
     - U6.49
   seconds:
-    check: 42.3
-    pin_access: 1.3
+    check: 36.4
+    pin_access: 1.2
 tiers:
   check: slow
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 45
+  open_nets:
+  - +1.2V_CORE
+  - ADC3
+  - GND
+  - ICE_10_PB
+  - ICE_18
+  - ICE_20_G3
+  - ICE_25
+  - ICE_26
+  - ICE_3
+  - ICE_32
+  - ICE_4
+  - ICE_46
+  - ICE_6
+  - ICE_SI
+  - ICE_SO
+  - LED_G
+  - PICO_PMOD_B4
+  - QSPI_SD2
+  - SRAM_SS
+  - XIN
+  drc_errors: 102
+  drc_types:
+    courtyards_overlap: 55
+    npth_inside_courtyard: 1
+    clearance: 1
+  placement_violations: 54
+  isolation: []
+  router: '25 unrouted, krt 1 completed pass(es); retried in another net order (0.1524 mm: default order 35 unrouted, --ordering
+    inside_out 37 unrouted, --mps-reverse-rounds 25 unrouted, --direction backward 32 unrouted; 0.1524 mm: neck-down to 0.15
+    mm: +1.2V_CORE, ADC3, ICE_10_PB, ICE_18, ICE_20_G3, ICE_25, I'
+  vias: 188
+  track_mm: 2121.6
+  route_groups: []
+  seconds: 2119.4
+  cpu_s: 2273.1
+  timing:
+    drc_s: 12.3
+    place_s: 0.3
+    predict_s: 1.5
+    repair_s: 0.0
+    route_s: 1942.7
+    stitch_s: 128.5
+  firstpass: null

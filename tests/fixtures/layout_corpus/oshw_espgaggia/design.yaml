@@ -477,5 +477,3 @@ components:
 nets:
   GNDD:
     class: ground
-  GNDREF:
-    class: ground

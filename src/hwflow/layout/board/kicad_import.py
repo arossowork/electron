@@ -38,7 +38,9 @@ from ...core import sexpr
 from ...core.geometry import rot
 from ...core.sexpr import Q
 
-GROUND_RE = re.compile(r"^(?:[ADP]?GND[A-Z0-9_]*|GND|VSS|0V|EARTH|PE)$", re.I)
+# the ground the board writer pours: the ground-named net with the most pins (one: the writer pours every ground
+# net over the whole board; protective earth is not a signal ground)
+GROUND_RE = re.compile(r"^(?:[ADP]?GND[A-Z0-9_]*|GND|VSS|0V)$", re.I)
 # reference prefixes the placer does not move in a placement benchmark: connectors, mechanical parts, switches, test
 # points, fiducials (their position is the product's, not the layout's)
 FIXED_PREFIXES = ("J", "P", "CN", "X", "H", "MH", "MK", "M", "SW", "S", "BT", "TP", "FID", "REF", "LOGO", "G", "K",
@@ -575,6 +577,8 @@ def import_board(pcb: Path, out: Path, *, name: str | None = None, pro: Path | N
         if dflt.get(k_src):
             board[k_dst] = round(float(dflt[k_src]), 4)
     nets_out = {}
+    grounds = [k for k, n in rename.items() if count.get(k, 0) >= 2 and GROUND_RE.match(n)]
+    ground = max(grounds, key=lambda k: (count[k], -len(k)), default=None)
     for n_kicad, n in rename.items():
         if count.get(n_kicad, 0) < 2:
             continue
@@ -589,7 +593,7 @@ def import_board(pcb: Path, out: Path, *, name: str | None = None, pro: Path | N
                 info["width_mm"] = round(float(cr["track_width"]), 4)
             if cr.get("clearance") and abs(float(cr["clearance"]) - board.get("clearance_mm", 0.2)) > 1e-6:
                 info["clearance_mm"] = round(float(cr["clearance"]), 4)
-        if GROUND_RE.match(n):
+        if n_kicad == ground:
             info["class"] = "ground"
         if cls and cls != "Default":
             info["source_class"] = cls

@@ -23,10 +23,9 @@ human:
     unconnected: 0
     types: {}
   drc_hwflow_rules:
-    errors: 1
+    errors: 0
     unconnected: 0
-    types:
-      hole_clearance: 1
+    types: {}
 fast:
   check:
     ok: true
@@ -65,3 +64,25 @@ replace:
   violations: []
   seconds: 0.9
 measured: '2026-10-27'
+route:
+  ok: true
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 8
+  track_mm: 255.7
+  route_groups: []
+  seconds: 11.3
+  cpu_s: 46.7
+  timing:
+    drc_s: 3.3
+    place_s: 0.1
+    predict_s: 0.2
+    repair_s: 3.7
+    route_s: 3.2
+    stitch_s: 0.1
+  firstpass: null

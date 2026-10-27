@@ -563,8 +563,10 @@ def write_project(dirpath: Path, name: str, design: Design):
                                                 "min_via_diameter": min(0.45, float(b["via_dia_mm"])),
                                                 "min_through_hole_diameter": min(0.2, float(b["via_drill_mm"])),
                                                 "min_copper_edge_clearance": EDGE_CLEARANCE_MM,
-                                                "min_hole_clearance": 0.25, "min_hole_to_hole": 0.25,
-                                                "min_via_annular_width": 0.1}}},
+                                                "min_hole_clearance": min(0.25, float(b["clearance_mm"])),
+                                                "min_hole_to_hole": 0.25,
+                                                "min_via_annular_width": min(0.1, round((float(b["via_dia_mm"]) - float(
+                                                    b["via_drill_mm"])) / 2, 4))}}},
         "meta": {"filename": f"{name}.kicad_pro", "version": 3},
         "net_settings": {"classes": nc, "meta": {"version": 4}, "net_colors": None,
                          "netclass_assignments": None, "netclass_patterns": assignments},

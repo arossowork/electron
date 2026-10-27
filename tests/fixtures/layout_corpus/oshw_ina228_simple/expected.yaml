@@ -58,3 +58,24 @@ tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: true
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 3
+  track_mm: 165.3
+  route_groups: []
+  seconds: 6.0
+  cpu_s: 21.4
+  timing:
+    drc_s: 1.7
+    place_s: 0.1
+    predict_s: 0.2
+    route_s: 2.8
+    stitch_s: 0.1
+  firstpass: null

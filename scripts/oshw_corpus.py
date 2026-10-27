@@ -148,7 +148,11 @@ def import_one(s: dict) -> dict:
     src = SRC / s["name"]
     pcb = src / s["pcb"]
     case = CORPUS / f"{PREFIX}{s['name']}"
-    if case.exists():
+    old = {}
+    if case.exists():  # measured outcomes stay until measured again (scripts/layout_corpus.py measure ... --write)
+        if (case / "expected.yaml").exists():
+            old = {k: v for k, v in (yaml.safe_load((case / "expected.yaml").read_text()) or {}).items()
+                   if k not in ("source", "kind", "env", "human")}
         shutil.rmtree(case)
     sha = commit(s)
     source = {"url": s["url"], "commit": sha, "file": s["pcb"], "license": s["license"],
@@ -169,7 +173,7 @@ def import_one(s: dict) -> dict:
     if viol:
         env["HWFLOW_ROUTE_ILLEGAL"] = "1"
     exp = {"source": source, "kind": "oshw board (whole board, source placement, tracks stripped)",
-           "env": env, "human": human_reference(s, case, pcb)}
+           "env": env, "human": human_reference(s, case, pcb), **old}
     (case / "expected.yaml").write_text(yaml.safe_dump(exp, sort_keys=False, width=120, allow_unicode=True))
     return {"case": case.name, "parts": len(d.components), "nets": len(d.nets()), "board": rec["board_mm"],
             "layers": d.board["layers"], "violations": len(viol), "warnings": len(rec["warnings"]),

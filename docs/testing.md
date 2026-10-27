@@ -98,7 +98,9 @@ Files with a `slow` mark are noted.
 | `test_layout_guards.py` | guards from the thermostat-3 run (needs router) | real with edits |
 | `test_layout_perf.py` | reproducible board text, route cache, parallel `--auto` attempts (stubs) | synthetic, stubs |
 | `test_diagnose.py` | layout diagnosis and when the cycle stops | synthetic |
-| `test_layout_corpus.py` | the layout corpus (below): pre-routing estimates, re-placement, the cutout extractor, two lesson tests; slow: dense checks and KRT routing of every case | real cutouts |
+| `test_layout_corpus.py` | the layout corpus (below): pre-routing estimates, re-placement, the cutout extractor, two lesson tests; slow: dense checks and KRT routing of every case | real cutouts, open-hardware boards |
+| `test_kicad_import.py` | KiCad board importer: rules, nets, back-side footprints, outline cuts, written pads equal the source, human copper | synthetic board |
+| `test_oshw_corpus.py` | open-hardware cases: provenance, license file, NOTICE, size, index | `oshw_*` cases |
 
 ### Verify and post-layout
 
@@ -160,7 +162,7 @@ Fixtures:
 
 ## Layout corpus
 
-`tests/fixtures/layout_corpus/` holds 15 small projects cut out of real placed boards with `hwflow cutout`
+`tests/fixtures/layout_corpus/` holds 15 small projects cut out of real placed boards with `hwflow cutout` and 20 open-hardware boards (below)
 (`src/hwflow/layout/place/cutout.py`), each with the outcome measured on main in `expected.yaml`. How to add a case,
 run it and update `expected.yaml`: `tests/fixtures/layout_corpus/README.md`. Tests: `tests/test_layout_corpus.py`.
 
@@ -206,6 +208,57 @@ the home-thermostat-3 state with K1/F1 and BT1/BT2 overlaps and 4 unrouted at 74
 `ht3_mains` is the later fixed state). main's corridor estimate gives AC_ROOM1 the same -1.0 mm margin on the failing
 seed 11, the passing seed 1 and the routed ht3 board, so the corpus records it but cannot assert the >= 1.7 mm
 margin of a fixed state.
+
+### Open-hardware boards (`oshw_*`)
+
+20 whole boards of open-hardware KiCad projects (6 mains relay/SSR boards, 4 battery IoT nodes, 3 USB-C power
+boards, 2 small MCU boards, 2 dense 4-layer boards, 3 analog front ends; licenses MIT, Apache-2.0, BSD-1-Clause,
+CERN-OHL-P/W-2.0, CC-BY-SA-4.0, GPL-3.0; authors, URLs and commits in `tests/fixtures/layout_corpus/NOTICE`). The
+importer `hwflow.layout.board.kicad_import` (tests: `tests/test_kicad_import.py`) keeps the human placement, the pads
+and nets, the `.kicad_pro` net classes and the outline; `scripts/oshw_corpus.py` clones (shallow, nothing executed),
+imports, records the human reference and writes `oshw/index.json` (name, URL, license, MCU, blocks found, MPNs,
+layers, size: input of reference-design retrieval). Routing a case is a routing-only benchmark of the human placement
+(the case's `env`: `HWFLOW_FAST=1`, `HWFLOW_ROUTE_ILLEGAL=1` where the human placement breaks the placer's rules).
+Fidelity: the human tracks, vias and zones written on the imported board leave no unconnected item on 18 boards; the
+other two are open at the source too. `tests/test_oshw_corpus.py` checks provenance, the license file, the NOTICE
+entry, the size (<= 1.5 MB per case, 3.3 MB in all) and the index. Fast tier: the 20 cases add 93 tests and about
+50 s; `hwflow check` of `oshw_pico_ice` and `oshw_riegel` (35-42 s) is slow tier.
+
+Baseline (main of `hard-rules` + this importer, `HWFLOW_FAST=1`, 2 jobs on a shared machine). Human: the board's own
+copper and its KiCad DRC under hwflow's rules (same writer, rules and DRC as the routed case; it counts courtyard
+overlaps, parts within 0.3 mm of the edge and other placement-made errors the routed board has too). hwflow: the
+routed case (track length without the ground pour, which the human boards also use).
+
+| case | category | Cu | parts / nets | human: track mm, vias, DRC errors | hwflow: unrouted, DRC errors, track mm, vias, s |
+|---|---|---|---|---|---|
+| oshw_ac_relay | mains | 2 | 17 / 15 | 492, 5, 5 | 0, 3, 279, 11, 7 |
+| oshw_espgaggia | mains | 2 | 29 / 34 | 1908, 12, 37 | 0, 37, 1652, 49, 17 |
+| oshw_hestiapi_one | mains | 2 | 15 / 28 | 1113, 21, 41 | 0, 29, 1194, 32, 19 |
+| oshw_hot_plate_power | mains | 2 | 22 / 25 | 725, 6, 19 (+6 open at the source) | 0, 16, 567, 13, 12 |
+| oshw_hue_simple_switch | mains | 2 | 28 / 19 | 404, 27, 0 | 0, 0, 303, 15, 12 |
+| oshw_openblind32 | mains | 2 | 20 / 19 | 684, 4, 4 | 0, 4, 647, 15, 121 |
+| oshw_b_parasite | battery IoT | 2 | 29 / 19 | 401, 51, 2 | 5, 5, 335, 24, 51 |
+| oshw_esp32c3_devkit_lipo | battery IoT | 2 | 53 / 34 | 1096, 88, 10 | 8, 14, 821, 88, 59 |
+| oshw_mini_env_sensor | battery IoT | 2 | 32 / 16 | 330, 15, 0 | 1, 1, 206, 18, 84 |
+| oshw_rocketbeacon | battery IoT (LoRa) | 2 | 35 / 19 | 192, 51, 8 | 3, 8, 183, 19, 94 |
+| oshw_buck_tps54202 | USB-C / power | 2 | 27 / 16 | 96, 19, 0 | 0, 0, 153, 8, 6 |
+| oshw_ch32v003_usbpd | USB-C / power | 2 | 22 / 21 | 499, 22, 0 | 0, 0, 378, 29, 21 |
+| oshw_powerline_usbc | USB-C / power | 2 | 21 / 13 | 106, 9, 0 | 0, 0, 256, 8, 11 |
+| oshw_ch32v003_usb_devboard | MCU | 2 | 25 / 29 | 314, 29, 3 | 2, 2, 264, 20, 152 |
+| oshw_rp2040_designguide | MCU | 2 | 36 / 56 | 1815, 32, 32 | 66, 66, 281, 14, 313 |
+| oshw_pico_ice | dense 4-layer | 4 | 97 / 95 | 2289, 189, 91 | 45, 102, 2122, 188, 2119 |
+| oshw_riegel | dense 4-layer (BGA) | 4 | 97 / 124 | 2419, 157, 96 | 25, 25, 2199, 185, 908 |
+| oshw_milliohm_meter | analog | 4 | 41 / 19 | 279, 30, 0 | 0, 0, 332, 9, 12 |
+| oshw_ina228_simple | analog | 2 | 24 / 14 | 268, 48, 5 | 0, 0, 165, 3, 6 |
+| oshw_eurorack_ecg | analog | 2 | 41 / 30 | 518, 19, 13 | 8, 9, 400, 26, 281 |
+
+The human routed every board completely; hwflow leaves nets open on 9 of 20. The worst: `oshw_rp2040_designguide`
+(66 open on 2 layers, while the routability prediction says routable: KRT fails to escape the 0.4 mm QFN-56 at
+0.2/0.2 mm rules, and `hwflow check` reports a pad-escape error for the 0.381 mm power class that the human necked),
+`oshw_pico_ice` and `oshw_riegel` (dense 4-layer with power planes the import does not carry: hwflow must route
++3V3 or PWR* as tracks), and a GND left in pour fragments on four small boards. Not imported: copper zones other
+than the ground pour, keep-out rule areas, custom `.kicad_dru` rules (isolation of the mains boards is therefore not
+asserted), blind vias; the outline is the bounding box plus floorplan cuts.
 
 ### Lessons learnt and where they are tested
 

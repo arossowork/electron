@@ -59,9 +59,30 @@ fast:
     necked: []
     no_access: []
   seconds:
-    check: 0.6
+    check: 0.5
     pin_access: 0.1
 tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 1
+  isolation: []
+  router: '0 unrouted, krt 3 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 15
+  track_mm: 303.4
+  route_groups: []
+  seconds: 12.0
+  cpu_s: 34.7
+  timing:
+    drc_s: 1.8
+    place_s: 0.1
+    predict_s: 0.3
+    route_s: 7.7
+    stitch_s: 0.2
+  firstpass: null

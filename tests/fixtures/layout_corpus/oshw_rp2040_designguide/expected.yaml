@@ -25,11 +25,10 @@ human:
       clearance: 4
       footprint_type_mismatch: 2
   drc_hwflow_rules:
-    errors: 34
+    errors: 32
     unconnected: 0
     types:
       clearance: 28
-      hole_clearance: 2
       starved_thermal: 4
 fast:
   check:
@@ -62,9 +61,73 @@ fast:
     - GND
     no_access: []
   seconds:
-    check: 5.4
+    check: 4.9
     pin_access: 0.4
 tiers:
   check: fast
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 66
+  open_nets:
+  - +1V1
+  - +3V3
+  - D_+
+  - D_-
+  - GPIO0
+  - GPIO1
+  - GPIO10
+  - GPIO13
+  - GPIO14
+  - GPIO15
+  - GPIO16
+  - GPIO19
+  - GPIO2
+  - GPIO20
+  - GPIO21
+  - GPIO22
+  - GPIO23
+  - GPIO24
+  - GPIO25
+  - GPIO26
+  - GPIO27
+  - GPIO28
+  - GPIO29
+  - GPIO3
+  - GPIO4
+  - GPIO5
+  - GPIO6
+  - GPIO7
+  - GPIO8
+  - GPIO9
+  - QSPI_CLK
+  - RESET
+  - SD0
+  - SD1
+  - SD2
+  - SD3
+  - SWCLK
+  - SWD
+  - XTAL_IN
+  - XTAL_OUT
+  drc_errors: 66
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '40 unrouted, krt 3 completed pass(es); retried in another net order (0.381 mm: +1V1, +3V3 routed narrow first (corridor
+    proof, exact spacings; the router keeps 0.1 mm more from isolation keep-outs: +1V1 0 mm without a neck, +3V3 0 mm without
+    a neck); 0.381 mm: neck-down to 0.2 mm: +1V1, +3V3 still o'
+  vias: 14
+  track_mm: 280.9
+  route_groups: []
+  seconds: 313.2
+  cpu_s: 469.4
+  timing:
+    drc_s: 4.8
+    place_s: 0.1
+    predict_s: 0.9
+    repair_s: 0.0
+    route_s: 300.9
+    stitch_s: 0.2
+  firstpass: null

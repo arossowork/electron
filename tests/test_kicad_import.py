@@ -87,7 +87,7 @@ def test_import_board(tmp_path):
     assert rec["offset"] == [-100.0, -100.0]
     # net classes: Power by pattern; ground by name; sheet paths renamed
     assert raw["nets"]["+3V3"]["width_mm"] == 0.5 and raw["nets"]["+3V3"]["clearance_mm"] == 0.25
-    assert raw["nets"]["GND"]["class"] == "ground"
+    assert [n for n, i in raw["nets"].items() if i.get("class") == "ground"] == ["GND"]  # one poured ground
     assert rec["net_renames"]["/sheet/SIG"] == "sheet_SIG"
     c = raw["components"]
     assert c["R1"]["pins"] == {"1": "sheet_SIG", "2": "GND"} and c["R1"]["mpn"] == "RC0603FR-0710KL"

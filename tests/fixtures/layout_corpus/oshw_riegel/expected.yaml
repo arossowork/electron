@@ -28,11 +28,10 @@ human:
       solder_mask_bridge: 28
       zones_intersect: 1
   drc_hwflow_rules:
-    errors: 170
+    errors: 96
     unconnected: 0
     types:
-      clearance: 92
-      hole_clearance: 77
+      clearance: 95
       zones_intersect: 1
 fast:
   check:
@@ -61,9 +60,57 @@ fast:
     necked: []
     no_access: []
   seconds:
-    check: 35.6
+    check: 31.5
     pin_access: 1.0
 tiers:
   check: slow
   replace: none
 measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 25
+  open_nets:
+  - GND
+  - HRAM_DQ13
+  - PMOD_B1
+  - PMOD_B2
+  - PMOD_B3
+  - PMOD_B4
+  - PWR1V2
+  - PWR1V8
+  - PWR3V3
+  - SRAM_A15
+  - SRAM_A17
+  - SRAM_A6
+  - SRAM_A7
+  - SRAM_CS
+  - SRAM_D0
+  - SRAM_D12
+  - SRAM_D13
+  - SRAM_D4
+  - SRAM_D5
+  - SRAM_D7
+  - SRAM_UB
+  - SRAM_WE
+  - VGA_HS
+  - VGA_R
+  - VGA_VS
+  drc_errors: 25
+  drc_types: {}
+  placement_violations: 3
+  isolation: []
+  router: '27 unrouted, krt 1 completed pass(es); retried in another net order (0.125 mm: default order 40 unrouted, --ordering
+    inside_out 37 unrouted, --mps-reverse-rounds 27 unrouted, --direction backward 33 unrouted); pour stitch: 10 vias, 2 stubs'
+  vias: 185
+  track_mm: 2199.1
+  route_groups: []
+  seconds: 908.4
+  cpu_s: 1076.1
+  timing:
+    drc_s: 14.0
+    place_s: 0.2
+    predict_s: 1.4
+    repair_s: 120.0
+    route_s: 696.4
+    stitch_s: 49.0
+  firstpass: null
