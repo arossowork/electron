@@ -55,6 +55,27 @@ sends the build back to architecture; under it, the area allows a legal placemen
 failure (layout). `hwflow floorplan` fails the same way on an illegal quick placement. `HWFLOW_ROUTE_ILLEGAL=1`
 routes it anyway, for debugging only.
 
+### Budgets and block copper in placement
+
+- **copper_len budgets.** Each `pad -> pad` leg of a `copper_len` budget is a hard placement rule. Its limit is
+  the leg's share of `max_mm` divided by the routing allowance `place_budget_detour`, default 1.25. The live
+  thermo-e2e-1 run routed about 1.24 x the straight pad distance.
+  - A leg with a movable end is a placer pair: soft past 0.7 x the share, hard past the limit, and 3 x the
+    decoupling weight in the global placement.
+  - `budget_seed` puts the smaller movable end next to its anchor pad after the global placement.
+  - A leg past its limit on the straight-line pad distance is a placement violation, so it is never routed.
+  - A leg with both ends fixed is only reported, as a fixed violation, against the same limit:
+    - past `max_mm` itself, `hwflow floorplan` fails it back to architecture;
+    - between the limit and `max_mm`, it is a risk, because only a near-straight route meets it.
+  - A leg inside one block is reported against the share itself.
+- **Block copper.** A layout block's tracks and vias count as pseudo-pads of its yard for the isolation and class
+  distances.
+- **Switches.** `HWFLOW_PLACE_BUDGETS=0` and `HWFLOW_PLACE_BLOCK_COPPER=0` turn each one off; `HWFLOW_PLACE_BUDGET_W`
+  sets the soft weight and `HWFLOW_PLACE_BUDGET_DETOUR` the allowance.
+- **Fixed parts never move.** Every placer step treats a fixed part, or a block with a fixed member, as an obstacle
+  that does not move. `unstick` dropped that filter between d9f6ce5 and 22b6029. During that window, layouts moved
+  fixed terminals and battery holders, and still reported "0 placement violations".
+
 Measured (scripts/legal_bench.py, 2 seeds x 10000 iterations; violations before settle -> after):
 see "Calibration and measurements" below.
 
