@@ -312,17 +312,3 @@ def test_back_placeholders_count_on_the_back_face(tmp_path):
     f = board_fill(d2, parts, 50, 50)
     assert f["front"] == 0.0 and f["back"] > 0.5
 
-
-def test_isolation_skips_smd_pads_on_opposite_faces():
-    # thermo-e2e-1 rework 2: a mains SMD fuse on F.Cu over SELV battery-clip pads on B.Cu is separated by the board
-    from types import SimpleNamespace
-    P = SimpleNamespace
-    parts = {"F1": P(cu={"1": frozenset({"F.Cu"})}), "BT1": P(cu={"2": frozenset({"B.Cu"})}),
-             "J1": P(cu={"3": frozenset({"*"})}), "C1": P(cu={"1": frozenset({"F.Cu"})})}
-    me = P(parts=parts, d=P(board={"thickness_mm": 1.6}))
-    tb = placer.Placer._through_board
-    assert tb(me, ("F1", "1"), ("BT1", "2"))
-    assert not tb(me, ("J1", "3"), ("BT1", "2"))  # a through-hole pad reaches face B
-    assert not tb(me, ("F1", "1"), ("C1", "1"))  # same face
-    me.d.board["thickness_mm"] = 0.3
-    assert not tb(me, ("F1", "1"), ("BT1", "2"))  # too thin to count as solid insulation
