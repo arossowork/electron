@@ -1,0 +1,65 @@
+* TPS610994 averaged boost model (spice.source: behavioral)
+* The TI vendor model for TPS61099 is an encrypted PSpice model, which ngspice cannot read.
+* Parameters come from the TI TPS61099 datasheet SLVSD88M (Rev. Aug 2026):
+*   VOUT  3.30 V typ (3.23-3.37 V) in PWM mode, 3.4 V typ in PFM mode (table 6.5, p.5).
+*         PFM (review-2 S2): the target is VOUT x (1 + PFMK) below about 1 mA of output current
+*         (PFMK 0.03 = 3.4 / 3.3), blending to VOUT above 2 mA. Global .param tps_vscale (default 1)
+*         scales VOUT for the corner 3.37 / 3.30 = 1.0212 (PWM max), so the worst PFM rail is 3.47 V.
+*   IQVIN 0.4 uA typ into VIN, IQVOUT 0.6 uA typ into VOUT (6.5, p.5)
+*   VUVLO 0.6 V rising typ / 0.7 V max (6.5, p.5); VIN min 0.7 V (6.3, p.4)
+*   ILIM  switch peak 0.8 A min / 1.0 A typ / 1.25 A max for VOUT >= 2.5 V; 0.5 / 0.75 A below 2.5 V (6.5, p.5)
+*   ILH   inductor ripple 0.3 A at VOUT 3.3 V (6.5, p.5), so average input limit = ILIM - ILH/2
+*         = 0.65 / 0.85 / 1.10 A (min / typ / max). The corner is the global parameter tps_ilim (below),
+*         so a testbench can step it with "alterparam tps_ilim=..." + "reset".
+* ports: vin out gnd
+*
+* Heavy-load efficiency EFF(VIN), SLVSD88M Fig 6-5 (VOUT 3.3 V, IOUT 10-300 mA), points as read in
+* review-1 (0.7 / 1.0 V) and in the architecture stage (1.5 / 2.5 V, architecture.md 3.3), see notes/models.md:
+*   VIN 0.7 V 0.80, 1.0 V 0.83, 1.5 V 0.89, 2.5 V 0.93; linear in between, held outside.
+* Down mode (SLVSD88M 7.3.8): for VIN > VOUT - 50 mV the high-side PMOS regulates linearly, so the input
+* current equals the output current: efficiency VOUT/VIN. The model uses min(EFF(VIN), VOUT/VIN), which is
+* continuous and never above the boost value (conservative). Pass-through (VIN > 3.8 V) is not modelled:
+* the pack is <= 3.6 V. The current limit stays active in down mode (7.3.5).
+* Load dependence: EFFL at and below ILIGHT (10 uA), EFF(VIN) at and above IHEAVY (1 mA), log-linear in
+* between. EFFL 0.75 = "up to 75 % at 10 uA" (p.1, fixed versions), the architecture sleep figure. EFFL
+* already contains the quiescent current, so the circuit sets IQVIN = IQVOUT = 0.
+*
+* Start-up (review-1 M3): below VOUT 2.5 V the peak limit is 0.5 A min and soft start runs at 0.7 x ILIM,
+* so the average input limit is 0.7 x 0.5 - 0.15 = 0.20 A (ILIMSS). Above 2.5 V the limit is tps_ilim.
+.param tps_ilim=0.65 tps_vscale=1
+.subckt TPS610994_AVG vin out gnd params: VOUT=3.3 EFFV07=0.80 EFFV10=0.83 EFFV15=0.89 EFFV25=0.93
++ EFFL=0.75 ILIGHT=10u IHEAVY=1m ILIMSS=0.20 VSS=2.5 IQVIN=0.4u IQVOUT=0.6u VUVLO=0.65 RLOOP=0.05 TAU=20u
++ PFMK=0.03 IPFM=1.5m UVHYS=0.2
+* low-side switch body diode, GND -> SW (through L1 to VIN): clamps VIN for a reversed cell
+Dsub gnd vin DSUB
+.model DSUB D(IS=1e-12 N=1.0 RS=0.2)
+* quiescent currents
+Iqi vin gnd {IQVIN}
+Iqo out gnd {IQVOUT}
+* target voltage with UVLO, smoothed
+* UVLO with hysteresis (review-2 S1): on above VUVLO (0.65 V, between 0.6 typ and 0.7 max rising), off
+* below VUVLO - UVHYS (200 mV typ hysteresis, SLVSD88M 6.5) = 0.45 V. uvf is the latched state (1 us filter).
+* This sets the VIN residual after the pack is removed (the converter drains C4 down to about 0.45 V).
+* (exponents clipped to +/-50 so that the derivative never overflows)
+Buv uv gnd V = 1 / (1 + exp(max(-50, min(50, -(v(vin,gnd) - {VUVLO} + {UVHYS} * v(uvf,gnd)) * 100))))
+Ruv uv uvf 1k
+Cuv uvf gnd 1n
+* PFM weight: 1 below 1 mA, 0 above 2 mA (logistic on the output current, filtered by Rt/Ct)
+Btgt n1 gnd V = {VOUT} * {tps_vscale} * (1 + {PFMK} / (1 + exp(min(50, (max(-i(Vx), 0) - {IPFM}) / 0.15m)))) * v(uvf,gnd)
+Rt n1 n2 1k
+Ct n2 gnd {TAU/1k}
+* heavy-load efficiency as a function of VIN (piecewise linear), capped by VOUT/VIN in down mode
+Beffb effb gnd V = {EFFV07} + ({EFFV10} - {EFFV07}) * min(1, max(0, (v(vin,gnd) - 0.7) / 0.3))
++ + ({EFFV15} - {EFFV10}) * min(1, max(0, (v(vin,gnd) - 1.0) / 0.5))
++ + ({EFFV25} - {EFFV15}) * min(1, max(0, (v(vin,gnd) - 1.5) / 1.0))
+Beffh effh gnd V = min(v(effb,gnd), {VOUT} / max(v(vin,gnd), 0.1))
+* average input current limit: start-up value below VSS, tps_ilim above
+Bilim ilim gnd V = {ILIMSS} + ({tps_ilim} - {ILIMSS}) / (1 + exp(-(v(out,gnd) - {VSS}) * 40))
+* output current: regulation toward the target, limited by the input current limit referred to the output
+Bout vin_x out I = min(max((v(n2,gnd) - v(out,gnd)) / {RLOOP}, 0), v(ilim,gnd) * v(effh,gnd) * max(v(vin,gnd), 0.1) / max(v(out,gnd), 1))
+Vx vin_x gnd 0
+* load-dependent efficiency from the output current -i(Vx)
+Beff eff gnd V = {EFFL} + (v(effh,gnd) - {EFFL}) * min(1, max(0, ln(max(-i(Vx), 1n) / {ILIGHT}) / ln({IHEAVY} / {ILIGHT})))
+* input current from power balance
+Bin vin gnd I = -v(out,gnd) * i(Vx) / max(v(vin,gnd), 0.1) / v(eff,gnd)
+.ends TPS610994_AVG

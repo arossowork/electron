@@ -1,0 +1,190 @@
+* home-thermostat-3 project models. Sources and limits of every parameter: notes/models.md.
+* Every subckt here is behavioral (written for this project) or a fit to datasheet numbers.
+
+* ---------------------------------------------------------------- MAX17227A averaged boost
+* ports: vin sw en vout gnd  (TDFN-8 pins 7 3 8 1 4; RSEL pin 6 is not modelled, RSEL 191 k -> 3.3 V, Table 1)
+* Averaged, no ripple. Every number: notes/models.md and notes/datasheets/MAX17227A.md (data sheet 19-100743 Rev 1).
+* - Input power = output power / efficiency, drawn at VIN (inductor DCR loss is inside EFF). EFFL at uA loads,
+*   EFFH at mA loads, blended with the output current.
+* - Input (inductor) current limit, average = IPK - ripple/2, ripple = VIN x tON(VIN) / L.
+*   tON(VIN) = TONK x (86.7 ns + 640 ns.V / VIN): two-point fit through tON_1.2V 620 ns and tON_3.0V 300 ns (EC table).
+* - ULPM offset: target = VOUT x (1 + OFS x w), w = 1 / (1 + (io / ITR)^4); ITR is the data sheet ULPM-to-LPM
+*   transition current, ITR = eta VIN^2 tON^2 / (2 L 17 us (VOUT - VIN)) with eta 0.9 (Control Scheme section).
+* - VIN >= VOUT target: the output follows VIN (synchronous-rectifier path). NOT stated by the data sheet (only
+*   "VOUT > VIN + 150 mV while in regulation"): it is the upper bound of the rail (bench check, notes/models.md).
+* - IQ into OUT (350 nA typ) and into IN (12 nA typ).
+* VOUT, EFFH, EFFL, IQ, IPK, TONK, LIND (uH) and OFS are internal DC sources (Vref, Veffh, Veffl, Viq, Vipk, Vtonk,
+* Vlind, Vofs) so that a corner analysis can change them with `alter @v.xu2.vref[dc] = ...`.
+.subckt MAX17227A_AVG vin sw en vout gnd params: VOUT=3.3 EFFH=0.89 EFFL=0.90 IPK=2.0 TONK=1 LIND=1 OFS=0.027
++ IQ=350n IQIN=12n RREG=0.05 VUVLO=0.4 VEN=0.6 TAU=20u
+Vref r1 gnd DC {VOUT}
+Veffh effh gnd DC {EFFH}
+Vipk ipk gnd DC {IPK}
+Vtonk tonk gnd DC {TONK}
+Vlind lind gnd DC {LIND}
+Vofs ofs gnd DC {OFS}
+Veffl effl gnd DC {EFFL}
+Viq iq gnd DC {IQ}
+Bon on gnd V = 0.25*(1+tanh((v(vin,gnd)-{VUVLO})/0.02))*(1+tanh((v(en,gnd)-{VEN})/0.02))
+Bvx vinx gnd V = 0.5*(v(vin,gnd)+0.1+sqrt((v(vin,gnd)-0.1)^2+1e-6))
+* on-time in ns
+Bton ton gnd V = v(tonk,gnd)*(86.7+640/min(max(v(vinx,gnd),0.1),6))
+* average input current limit (A), >= 0.1
+Bila ila gnd V = v(ipk,gnd)-min(max(v(vinx,gnd),0.1),6)*min(max(v(ton,gnd),10),1e4)*1e-3/(2*v(lind,gnd))
+Bilim ilim gnd V = 0.5*(v(ila,gnd)+0.1+sqrt((v(ila,gnd)-0.1)^2+1e-6))
+* ULPM -> LPM transition current (A); VOUT - VIN smoothly limited to >= 20 mV
+Bdv dv gnd V = 0.5*(v(r1,gnd)-v(vinx,gnd)+0.02+sqrt((v(r1,gnd)-v(vinx,gnd)-0.02)^2+1e-6))
+Bitr itr gnd V = 0.9*min(max(v(vinx,gnd),0.1),6)^2*(min(max(v(ton,gnd),10),1e4)*1e-9)^2/(2*v(lind,gnd)*1e-6*17e-6*min(max(v(dv,gnd),0.02),10))
+Bw w gnd V = 1/(1+min(max(v(io,gnd)/max(v(itr,gnd),1e-6),-100),100)^4)
+Btg r1x gnd V = v(r1,gnd)*(1+v(ofs,gnd)*min(max(v(w,gnd),0),1))
+Rref r1x r2 1k
+Cref r2 gnd {TAU/1k}
+* smooth max/min (no derivative kinks, so Newton converges): smax(a,b) = (a+b+sqrt((a-b)^2+e^2))/2
+* target: follows VIN when VIN > target (assumption, see header)
+Bvt vt gnd V = 0.5*(v(r2,gnd)+v(vin,gnd)+sqrt((v(r2,gnd)-v(vin,gnd))^2+1e-6))
+* regulation current (A), >= 0
+Bir ir gnd V = 0.5*((v(vt,gnd)-v(vout,gnd))/{RREG}+sqrt(((v(vt,gnd)-v(vout,gnd))/{RREG})^2+1e-12))
+* output current allowed by the input current limit
+Bim im gnd V = v(ilim,gnd)*v(vinx,gnd)*v(effh,gnd)/(0.5*(v(vout,gnd)+0.5+sqrt((v(vout,gnd)-0.5)^2+1e-4)))
+* output current = smooth min(regulation, limit), gated by UVLO/EN
+* review 2b: ir and im clamped to +-1e4 A before the smooth min (a non-converged Newton iterate gave
+* 1e238^2 out of range in post-layout runs); no effect on any converged point (|ir|, |im| < 100 A)
+Bio io gnd V = v(on,gnd)*0.5*(min(max(v(ir,gnd),-1e4),1e4)+min(max(v(im,gnd),-1e4),1e4)-sqrt((min(max(v(ir,gnd),-1e4),1e4)-min(max(v(im,gnd),-1e4),1e4))^2+1e-8))
+Bout gnd vout I = v(io,gnd)
+* io and vout are clamped to +-10 A / +-10 V inside Bin only so that a wild Newton iterate cannot overflow
+Bin vin gnd I = min(max(v(vout,gnd),-10),10)*min(max(v(io,gnd),-10),10)/(v(vinx,gnd)*(v(effl,gnd)+(v(effh,gnd)-v(effl,gnd))*min(max(v(io,gnd),-10),10)/(abs(min(max(v(io,gnd),-10),10))+1m)))
+Bq vout gnd I = v(iq,gnd)*0.5*(1+tanh((v(vout,gnd)-0.5)/0.05))
+Bqin vin gnd I = {IQIN}*v(on,gnd)
+Rsw sw gnd 100Meg
+Ren en gnd 100Meg
+Rvo vout gnd 1G
+.ends MAX17227A_AVG
+
+* ---------------------------------------------------------------- DRV8837 H-bridge, behavioral
+* ports: vm out1 out2 gnd in2 in1 nsleep vcc (WSON-8 pins 1..8)
+* Truth table (DRV8837 datasheet): nSLEEP=0 -> Z; IN1 IN2 = 00 coast (Z), 10 OUT1=H OUT2=L, 01 L H, 11 brake L L.
+* RON per switch = 0.14 ohm (280 mOhm HS+LS). Input pull-downs 100 k. Sleep current IQS on VM.
+.subckt DRV8837_BEH vm out1 out2 gnd in2 in1 nsleep vcc params: RON=0.14 IQS=0.1u
+Rpd1 in1 gnd 100k
+Rpd2 in2 gnd 100k
+Rpds nsleep gnd 500k
+Bh1 hi1 gnd V = 0.125*(1+tanh((v(in1,gnd)-0.5*v(vcc,gnd))/0.05))*(1-tanh((v(in2,gnd)-0.5*v(vcc,gnd))/0.05))*(1+tanh((v(nsleep,gnd)-0.5*v(vcc,gnd))/0.05))
+Bl1 lo1 gnd V = 0.25*(1+tanh((v(in2,gnd)-0.5*v(vcc,gnd))/0.05))*(1+tanh((v(nsleep,gnd)-0.5*v(vcc,gnd))/0.05))
+Bh2 hi2 gnd V = 0.125*(1+tanh((v(in2,gnd)-0.5*v(vcc,gnd))/0.05))*(1-tanh((v(in1,gnd)-0.5*v(vcc,gnd))/0.05))*(1+tanh((v(nsleep,gnd)-0.5*v(vcc,gnd))/0.05))
+Bl2 lo2 gnd V = 0.25*(1+tanh((v(in1,gnd)-0.5*v(vcc,gnd))/0.05))*(1+tanh((v(nsleep,gnd)-0.5*v(vcc,gnd))/0.05))
+Bsh1 vm out1 I = v(vm,out1)*(v(hi1,gnd)/{RON}+1n)
+Bsl1 out1 gnd I = v(out1,gnd)*(v(lo1,gnd)/{RON}+1n)
+Bsh2 vm out2 I = v(vm,out2)*(v(hi2,gnd)/{RON}+1n)
+Bsl2 out2 gnd I = v(out2,gnd)*(v(lo2,gnd)/{RON}+1n)
+Dh1 out1 vm DBODY
+Dl1 gnd out1 DBODY
+Dh2 out2 vm DBODY
+Dl2 gnd out2 DBODY
+Iq vm gnd {IQS}
+* numerical aid: 1 Meg from each output to GND (about 3 nA at idle, added to the sleep load). The hi-Z coil nodes
+* otherwise have only the 1 nS switch leak and the body diodes, and some MC runs failed at t = 10 ns. A capacitor here
+* was tried and rejected: with the 30 mH coil it rings after the brake (coil peak 3.42 V, a model artefact).
+Ro1 out1 gnd 1Meg
+Ro2 out2 gnd 1Meg
+.model DBODY D(IS=1e-12 N=1.1 RS=0.2)
+.ends DRV8837_BEH
+
+* ---------------------------------------------------------------- Panasonic ADW1103HLW, 1-coil latching
+* ports: c13 c14 a1 a2. Coil: RCOIL (45 ohm -10 % = 40.5 ohm worst case for current and bridge drop).
+* Contact state is not modelled (open, 1 Gohm).
+* LCOIL 30 mH: ASSUMED (not published in a readable source), in series with the coil resistance. It sets the
+* back-EMF energy 0.5 L I^2 that a coast at the end of a pulse returns to +3V3 through the bridge body diodes.
+.subckt ADW1_1COIL c13 c14 a1 a2 params: RCOIL=40.5 LCOIL=30m
+Rcoil a1 ac {RCOIL}
+Lcoil ac a2 {LCOIL}
+Rct c13 c14 1G
+Rl13 c13 0 1T
+Rl14 c14 0 1T
+.ends ADW1_1COIL
+
+* ---------------------------------------------------------------- ADS1115, load and input model
+* ports: vdd gnd ain0 ain1 ain2 ain3 (VSSOP-10 pins 8 3 4 5 6 7)
+* Supply 150 uA when VDD > 1.5 V; each input 6 Mohm common-mode impedance (FSR +-4.096 V) and ESD diodes
+* to VDD and GND. The conversion itself (offset, INL) is applied in the measure expressions.
+.subckt ADS1115_BEH vdd gnd ain0 ain1 ain2 ain3 params: IDD=150u RIN=6Meg
+Bdd vdd gnd I = {IDD}*0.5*(1+tanh((v(vdd,gnd)-1.5)/0.05))
+Rin0 ain0 gnd {RIN}
+Rin1 ain1 gnd {RIN}
+Rin2 ain2 gnd {RIN}
+Rin3 ain3 gnd {RIN}
+Du0 ain0 vdd DESD
+Du1 ain1 vdd DESD
+Du2 ain2 vdd DESD
+Du3 ain3 vdd DESD
+Dd0 gnd ain0 DESD
+Dd1 gnd ain1 DESD
+Dd2 gnd ain2 DESD
+Dd3 gnd ain3 DESD
+.model DESD D(IS=1e-15 N=1 RS=5)
+.ends ADS1115_BEH
+
+* ---------------------------------------------------------------- ESP32-C3-MINI-1 supply load
+* ports: v3v3 gnd. Deep sleep (RTC timer + RTC memory) 5 uA + 32 kHz crystal oscillator 1 uA.
+* Active currents (control wake, Wi-Fi TX) are testbench sources on +3V3.
+.subckt ESP32C3_LOAD v3v3 gnd params: ISLEEP=6u
+Bs v3v3 gnd I = {ISLEEP}*0.5*(1+tanh((v(v3v3,gnd)-1.0)/0.05))
+.ends ESP32C3_LOAD
+
+* ---------------------------------------------------------------- CJ2305 P-MOSFET (fit)
+* Rds(on) 120 mOhm at Vgs = -1.8 V (search summary, unverified; round 3, replaces the 90 mOhm LCSC attribute):
+* VTO -0.7 V, KP 8.26 -> 1/(8.26*1.1)+0.01 = 0.120 ohm; at Vgs -2.0 V 0.103 ohm.
+* Body diode (round 3, R35 relies on it): IS 2.1e-13, N 1 -> Vf 0.75 V at 1 A, 0.455 V at 10 uA (25 C);
+* 0.75 V at 1 A is the typical VSD of small SOT-23 P-MOSFETs (CJ2305 VSD not read, assumed). The former
+* IS 1 nA gave Vf 0.24 V at 10 uA, unrealistically low. IDSS (<= 1 uA at -8 V, search summary) is not
+* modelled by IS; see notes/models.md.
+.model CJ2305 PMOS(LEVEL=1 VTO=-0.7 KP=8.26 LAMBDA=0.01 RD=0.005 RS=0.005 IS=2.1e-13 CBD=150p CGSO=3e-6 CGDO=1e-6)
+
+* ---------------------------------------------------------------- AO3413 P-MOSFET (fit, M1/M2 guard, M4 boost-input limiter)
+* ports: d g s (SOT-23 pins 3 1 2). AOS AO3413 data sheet Rev 9.1 (Feb 2024), https://www.aosmd.com/res/datasheets/AO3413.pdf.
+* Channel (level 1, W = L, no own junctions): RDS(on) typ 85 mOhm at VGS -1.8 V / 1 A, 70 at -2.5 V / 2.6 A, 56 at -4.5 V
+* / 3 A (EC table; max 130 / 100 / 80). R = Rf + 1 / (KP (|VGS| - |VTO|)) with VTO -0.70 V (VGS(th) -0.65 typ at 250 uA;
+* Fig. 2 transfer at VDS -5 V: 5 A at -1.45 V, 10 A at -1.75 V -> VT 0.72 V, KP 18.8): KP 23.6, Rf 46.4 mOhm (RD = RS 23.2).
+* Model at 25 C: 85.8 / 70.6 / 57.4 mOhm; 79.5 mOhm at -1.97 V, 0.35 A (R4), 102 mOhm at -1.5 V, 1 A. Temperature: KP falls as T^-1.5 (level-1 default) and Rf has tc1 0.0037/K: about +8 %
+* at 45 C (Fig. 4: 0.376 %/K, 1.0 at 25 C to 1.47 at 150 C). Level 1 over-states the saturation current at |VGS| < 2 V
+* (Fig. 1: about 3 A at -1.5 V); the guard and the limiter run in the linear region (VDS < 0.2 V).
+* Body diode (separate D, anode = drain): Fig. 6 at 25 C: 10 uA at 0.26 V, 1 mA at 0.38 V, 10 mA at 0.44 V (60 mV/decade,
+* N 1.0): IS 4.0e-10. 125 C: 10 uA at 0.08 V, 10 mA at 0.31 V (N 1.0): IS(125 C) 9.7e-7 -> EG 0.71 eV with XTI 3 (fit,
+* not the silicon 1.11 eV: the curve tempco is -1.8 mV/K). RS 0.07 ohm. Model at 25 C: 0.265 V at 10 uA, 0.38 V at 1 mA,
+* 0.63 V at 1 A (EC VSD 0.7 V typ), 0.86 V at 4 A (Fig. 6 0.89 V); 0 / 45 C at 10 uA: 0.309 / 0.230 V; 125 C: 0.089 V. TT 9 ns (Qrr 27 nC at 3 A). Reverse: BV 21 V at 250 uA (BVDSS -20 V min); leakage = IS (data sheet IDSS
+* max 1 uA at -20 V, 5 uA at 55 C, not modelled beyond IS).
+* Capacitances (Fig. 8, EC at VDS -10 V: Ciss 560, Coss 80, Crss 70 pF): Cgs 490 pF, Cgd 150 pF (Crss at about -2 V,
+* where the reverse-insertion step sits), body-diode CJO 50 pF (Coss - Crss at 0 V).
+.subckt AO3413 d g s
+Rd d di 0.0232 tc1=0.0037
+Rs si s 0.0232 tc1=0.0037
+M1 di g si si PCH_AO3413
+Dbd d s DBD_AO3413
+Cgs g s 490p
+Cgd g d 150p
+.model PCH_AO3413 PMOS(LEVEL=1 VTO=-0.70 KP=23.6 LAMBDA=0.01 IS=1e-30 CBD=0 CBS=0)
+.model DBD_AO3413 D(IS=4.0e-10 N=1.0 RS=0.07 EG=0.71 XTI=3 CJO=50p VJ=0.7 M=0.5 TT=9n BV=21 IBV=250u)
+.ends AO3413
+
+* ---------------------------------------------------------------- CESD3V3D5 TVS (fit)
+* ports: k a. Vrwm 3.3 V, IR 80 nA max (modelled as a 41 Mohm leak at 3.3 V), clamp 13 V at 16 A.
+.subckt CESD3V3_TVS k a
+D1 a k DTVS
+Rleak k a 41Meg
+.model DTVS D(IS=1e-12 N=1 BV=5.0 IBV=1m RS=0.5 CJO=15p)
+.ends CESD3V3_TVS
+
+* ---------------------------------------------------------------- 32.768 kHz crystal: DC stub
+* ports: a b. The oscillator is not simulated; 1 Gohm leaks give the XTAL nodes a DC path (ESP32 pin leakage).
+.subckt XTAL_DC a b
+Ra a 0 1G
+Rb b 0 1G
+.ends XTAL_DC
+
+* ---------------------------------------------------------------- MMBT3906 PNP (fit)
+* JSCJ MMBT3906 (LCSC C2143). Typical-value fit: BF 200 (hFE 100-300 at 10 mA, datasheet range), IS 1.41f,
+* VAF 18.7, BR 5; capacitances and transit times from the common 2N3906 Gummel-Poon set (same die class).
+* ICBO: ISC 3 nA with NC 2 gives about 3 nA base-collector leakage under reverse bias (typical "few nA";
+* datasheet maximum ICBO 50 nA at VCB -30 V, search summary, unverified).
+.model MMBT3906_FIT PNP(IS=1.41f BF=200 NF=1 VAF=18.7 IKF=80m ISE=0 NE=1.5 BR=5 NR=1 ISC=3n NC=2
++ RE=0.5 RC=2.5 CJE=8.063p VJE=0.75 MJE=0.3677 CJC=9.728p VJC=0.75 MJC=0.5776 FC=0.5
++ TF=179.3p TR=33.42n XTB=1.5 XTI=3 EG=1.11)

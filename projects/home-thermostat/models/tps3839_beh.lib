@@ -1,0 +1,29 @@
+* TPS3839K33 nanopower supply supervisor, behavioral (spice.source: behavioral), written for this project.
+* Ports in symbol pin order: GND RESET_N VDD (Power_Supervisor:TPS3839DBZ: 1 GND, 2 ~RESET, 3 VDD).
+* Parameters are from the TI datasheet SBVS193D (TPS3831/TPS3839, rev. July 2015), read in full pp. 1-8,
+* see notes/datasheets/tps3839.md. TI also publishes an encrypted/PSpice transient model, SBVM235
+* (https://www.ti.com/lit/zip/SBVM235, TPS3839K33_TRANS.lib); it could not be unpacked in the parts stage, so it
+* is NOT used here. Replace this model with it only if ngspice can read it.
+*   VIT   falling threshold, K33: 2.857 min / 2.93 typ / 2.974 max (p.7). Default typ; corners 2.857 and 2.974.
+*   HYS   hysteresis 29 mV typ (p.7), no min/max given. Rising release threshold = VIT + HYS = 2.886 / 2.959 / 3.003 V.
+*   TD    reset delay 120 / 200 / 350 ms (p.8, "RESET delay time (power-up delay)"). Default typ 200 ms.
+*   IQ    150 nA typ, 500 nA max (p.7, output not connected, 0.9-6.5 V). Default 150n; use 500n for the worst case.
+*   Output: push-pull active-low (p.1, p.5), VOL <= 0.4 V, VOH >= VDD - 0.4 V at 0.5 mA, so ROUT <= 800 ohm
+*   (200 ohm modelled), output valid for VDD >= 0.6 V (V(POR)), propagation delay VDD falling 20 us typ (p.8).
+* Switching behaviour: reset asserts (low) as soon as VDD < VIT; it releases TD after VDD rises above VIT + HYS.
+* Corners are global parameters, so a testbench can step them with "alterparam" + "reset". IQ defaults to
+* the 150 nA typical (review-2 M1); the R2 worst-case pass (sleep_wc) sets 500 nA. VIT and TD default to typical.
+.param tps3839_vit=2.93 tps3839_td=200m tps3839_iq=150n
+.subckt TPS3839_BEH gnd rst vdd params: VIT={tps3839_vit} HYS=0.029 TD={tps3839_td} IQ={tps3839_iq} ROUT=200
+Bq vdd gnd I = {IQ} * min(1, max(0, v(vdd,gnd) / 0.6))
+* state sd = 1 when released. Hysteresis: threshold is VIT + HYS while in reset, VIT while released.
+Bs s gnd V = 1 / (1 + exp(-(v(vdd,gnd) - {VIT} - {HYS} * (1 - v(sf,gnd))) * 400))
+* delay: slow charge (RD*Cd reaches 0.5 after TD), fast discharge (20 us class, here 10 ohm * 1 uF = 10 us)
+Cd sd gnd 1u
+Bd gnd sd I = (v(s,gnd) > v(sd,gnd)) ? (v(s,gnd) - v(sd,gnd)) / ({TD} / (0.6931 * 1e-6)) : (v(s,gnd) - v(sd,gnd)) / 10
+* released flag with the hysteresis (sd crossing 0.5)
+Bf sf gnd V = 1 / (1 + exp(-(v(sd,gnd) - 0.5) * 100))
+Rsf sf gnd 1G
+Bo o gnd V = v(vdd,gnd) * v(sf,gnd)
+Ro o rst {ROUT}
+.ends TPS3839_BEH
