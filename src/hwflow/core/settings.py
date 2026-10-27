@@ -89,7 +89,7 @@ class LayoutSettings(_Group):
     # routed copper over the straight pad distance a copper_len budget leg is placed for (hard limit = max_mm / it):
     # thermo-e2e-1 tvs_ntc1 routed 5.82 mm between pads 4.70 mm apart (1.24), 5.46 in the live run
     place_budget_detour: float = Field(1.25, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGET_DETOUR"))
-    krt_rotate: int = Field(0,validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
+    krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
     # HWFLOW_POUR_STITCH=1

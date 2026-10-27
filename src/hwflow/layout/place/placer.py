@@ -1585,6 +1585,9 @@ class Placer:
                 if u is not None:
                     r = u.ref
                     bad[r] = bad.get(r, 0.0) + over
+            # worst first, fixed parts never (a fixed part's pairs and keep-out costs count, but it does not move)
+            bad = [r for r in sorted(bad, key=bad.get, reverse=True)
+                   if r in P and not P[r].fixed and not self._unit(P[r]).fixed and bad[r] > 0.01]
             if not bad:
                 break
             moved = False
