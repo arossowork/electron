@@ -152,6 +152,7 @@ def block_copper_on() -> bool:
 
 BUDGET_FILL = 0.7  # a copper_len budget leg's soft pad distance limit in placement, as a share of its max_mm (detour)
 BUDGET_HARD_W = 400.0  # per mm of straight-line pad distance past a copper_len budget leg's max_mm (the isolation weight)
+FIXED_LEG_RISK = "within max_mm itself"  # floorplan._fixed_severity: a fixed leg with this note is a risk
 BUDGET_TOL = 0.01  # mm: a budget leg this much over its limit is a placement violation
 
 
@@ -1019,9 +1020,18 @@ class Placer:
                             f"budget {name}: {ra}.{pa} -> {rb}.{pb} pads {d:.2f} mm apart (straight line), over its "
                             f"{share:.2f} mm placement limit (copper_len max_mm share / routing allowance "
                             f"{self._bud_detour:g}, except inside one block): the routed copper would not meet the "
-                            f"budget" + (" (both ends fixed: move them closer in design.yaml or change the budget)"
-                                         if self.parts[ra].fixed and self.parts[rb].fixed else "")))
+                            f"budget" + self._fixed_leg_note(ra, rb, d, share)))
         return out
+
+    def _fixed_leg_note(self, ra, rb, d, lim) -> str:
+        """The tail of a fixed leg's message: a risk when the pads are within max_mm itself (a straight route still
+        meets it: thermo-e2e-1 fuse_stub routed 9.31 mm on pads 9.31 mm apart), else a failure."""
+        if not (self.parts[ra].fixed and self.parts[rb].fixed):
+            return ""
+        if d <= lim * max(self._bud_detour, 1.0) + BUDGET_TOL:
+            return (f" (both ends fixed; {FIXED_LEG_RISK}: only a near-straight route meets it, move them closer in "
+                    f"design.yaml or check the routed length)")
+        return " (both ends fixed, past max_mm itself: move them closer in design.yaml or change the budget)"
 
     def _bud_mover(self, k):
         """The unit that moves to repair budget leg k: the movable end, the smaller one when both are movable."""

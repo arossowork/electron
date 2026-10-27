@@ -115,7 +115,12 @@ def test_fixed_leg_keeps_the_routing_allowance(tmp_path):
     assert pl.bud == [("stub", "J1", "2", "R1", "1", 3.0 / 1.25)]
     assert all(x is None for x in pl.dec_lim)  # no placer pair: nothing to move
     (fixed, msg), = pl.budget_violations()
-    assert fixed and "pads 2.70 mm apart" in msg and "both ends fixed" in msg
+    assert fixed and "pads 2.70 mm apart" in msg and placer.FIXED_LEG_RISK in msg  # under max_mm itself: a risk
     pl.cost()
     assert not any(v.startswith("budget stub") for v in pl.violations())
     assert any(v.startswith("budget stub") for v in pl.fixed_violations())
+    from hwflow.layout.place import floorplan
+    assert floorplan._fixed_severity(parts, {"regions": []}, msg, 1.0)[0] is None
+    r1.x += 1.0  # 3.70 mm: past max_mm itself, a failure
+    (fixed, msg), = pl.budget_violations()
+    assert "past max_mm itself" in msg and floorplan._fixed_severity(parts, {"regions": []}, msg, 1.0)[0] is False

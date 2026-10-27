@@ -624,6 +624,9 @@ def _fixed_severity(parts, fp: dict, msg: str, m: float) -> tuple[bool | None, s
     placer adds a margin to its rules (an isolation shortfall no larger than the placer's own margin leaves the rule
     itself met on the pad bounding boxes) and keeps parts board.margin_mm from a cut as from the board edge (a fixed
     courtyard that enters only that band, not the cut, does not collide with what fills the cut)."""
+    from .placer import FIXED_LEG_RISK
+    if msg.startswith("budget ") and FIXED_LEG_RISK in msg:
+        return None, ""
     k = _ISO_SHORT.search(msg)
     if k and float(k.group(1)) <= float(k.group(2)) + 1e-6:
         return None, (f" (the rule itself holds: the shortfall is within the placer's {float(k.group(2)):g} mm "
