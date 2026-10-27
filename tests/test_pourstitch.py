@@ -136,3 +136,115 @@ def test_flag_is_off_by_default(monkeypatch):
     assert get_settings().layout.pour_stitch is False
     monkeypatch.setenv("HWFLOW_POUR_STITCH", "1")
     assert get_settings().layout.pour_stitch is True
+
+
+def test_avoid_keeps_a_net_from_being_displaced(design, tmp_path):
+    board = tmp_path / "b.kicad_pcb"
+    _board(board, _ring(10, 10, 1.3), JOIN)
+    kicad.drc(board)
+    p = pourstitch.plan(design, board, "GND", rip=True, avoid={"SIG"})
+    assert not p["rip"] and not p["vias"] and p["stats"]["left"] == 1
+
+
+class _D:
+    """The part of a Design `stitch` reads."""
+    board = {"gnd_pour": True}
+
+    def ground_nets(self):
+        return ["GND"]
+
+
+def _unc(net):
+    return {"sev": "error", "type": "unconnected", "items": [f"Zone [{net}] on F.Cu", f"Zone [{net}] on F.Cu"], "at": []}
+
+
+def test_displace_then_free_round_and_retry_other_nets(tmp_path, monkeypatch):
+    """A displacing round that leaves the island cut off (the stub's via lands in another pocket) is followed by free
+    rounds on the re-routed board; one that does not pay off is undone and the next round displaces other nets."""
+    from hwflow.layout.route import repair
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)")
+    monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
+    calls = []
+
+    def plan(d, b, net, rip=False, avoid=()):
+        calls.append((rip, set(avoid)))
+        vias = {v["tag"] for v in state["vias"]}
+        out = {"tracks": [], "vias": [], "rip": [], "stats": {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0,
+                                                                "stub": 0, "rip": 0, "left": 0}}
+        if not rip and "stub_b" in vias and "free" not in vias:  # the re-routed B opened room for a free via
+            out["vias"] = [{"net": "GND", "x": 1, "y": 1, "tag": "free"}]
+        elif rip and "A" not in avoid:
+            out["vias"], out["rip"] = [{"net": "GND", "x": 2, "y": 2, "tag": "stub_a"}], ["A"]
+        elif rip and "B" not in avoid:
+            out["vias"], out["rip"] = [{"net": "GND", "x": 3, "y": 3, "tag": "stub_b"}], ["B"]
+        else:
+            out["stats"]["left"] = 1
+        return out
+
+    monkeypatch.setattr(pourstitch, "plan", plan)
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    state = {"vias": []}
+
+    def check(tracks, vias):
+        state["vias"] = vias
+        board.write_text(f"(kicad_pcb {len(vias)})")
+        return [] if "free" in {v["tag"] for v in vias} else [_unc("GND")]
+
+    r = pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
+    tags = [v["tag"] for v in r["vias"]]
+    assert r["drc"] == [] and tags == ["stub_b", "free"], r["log"]
+    assert any("displace 1 undone" in x for x in r["log"])
+    assert (True, {"A"}) in calls  # the second displacing round avoided the net of the first
+    assert r["added"] == (0, 2)
+
+
+def test_displace_never_kept_when_it_does_not_pay_off(tmp_path, monkeypatch):
+    from hwflow.layout.route import repair
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb before)")
+    monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
+
+    def plan(d, b, net, rip=False, avoid=()):
+        st = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 0}
+        if rip and "A" not in avoid:
+            return {"tracks": [], "vias": [{"net": "GND", "x": 2, "y": 2}], "rip": ["A"], "stats": st}
+        return {"tracks": [], "vias": [], "rip": [], "stats": dict(st, left=1)}
+
+    monkeypatch.setattr(pourstitch, "plan", plan)
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+
+    def check(tracks, vias):
+        board.write_text("(kicad_pcb after)")
+        return [_unc("GND")]
+
+    r = pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
+    assert r["vias"] == [] and r["added"] == (0, 0)
+    assert board.read_text() == "(kicad_pcb before)"
+
+
+def test_displace_that_opens_the_displaced_net_is_rejected(tmp_path, monkeypatch):
+    """Joining the island but leaving a displaced net open is no progress: the next round displaces other nets."""
+    from hwflow.layout.route import repair
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)")
+    monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
+
+    def plan(d, b, net, rip=False, avoid=()):
+        st = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 0}
+        for n in ("A", "B"):
+            if rip and n not in avoid:
+                return {"tracks": [], "vias": [{"net": "GND", "x": 1, "y": 1, "tag": n}], "rip": [n], "stats": st}
+        return {"tracks": [], "vias": [], "rip": [], "stats": dict(st, left=1)}
+
+    monkeypatch.setattr(pourstitch, "plan", plan)
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    sig = {"sev": "error", "type": "unconnected", "items": ["Track [A] on F.Cu", "Track [A] on F.Cu"], "at": []}
+
+    def check(tracks, vias):
+        tags = {v["tag"] for v in vias}
+        return [sig] if "A" in tags else ([] if "B" in tags else [_unc("GND")])
+
+    r = pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
+    assert r["drc"] == [] and [v["tag"] for v in r["vias"]] == ["B"], r["log"]
+    assert any("the displaced A left open" in x for x in r["log"])

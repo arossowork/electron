@@ -591,3 +591,15 @@ def test_recovered_bsource_overflow_is_a_warning_when_rows_pass(tmp_path, monkey
     monkeypatch.setattr(spice, "run_ngspice", lambda *args, **kw: (bad, 0))
     r = spice.run_analysis(d, a, tmp_path)
     assert r["status"] == "error" and r["errors"]
+
+
+def test_report_lists_check_errors_before_warnings(tmp_path):
+    """A check error after 12 warnings still shows in REPORT.md (the list is cut at 12)."""
+    from hwflow.pipeline import report as pl_report, status as pl_status
+    proj = _copy_example(tmp_path)
+    d = Design.load(proj)
+    findings = [{"sev": "warn", "code": "w", "msg": f"warning {i}"} for i in range(13)]
+    findings.append({"sev": "error", "code": "cost-doc", "msg": "the cost error"})
+    pl_status._save_status(d, "check", {"ok": False, "errors": 1, "warnings": 13, "findings": findings})
+    text = pl_report.write_report(d)
+    assert "  - error: the cost error" in text and "and 2 more" in text

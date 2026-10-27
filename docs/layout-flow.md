@@ -154,9 +154,12 @@ retrying with more than 3 nets open).
    repair, every pour group other than the main one (most pads), and every pad no fill touches, is joined by the
    first of: a via in the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most
    2.5 mm to a via that lands in the main fill, and once more the same stub where it displaces at most 3 routed
-   nets (never isolation members or layer-rule nets), which are routed again within the repair budget. Every via
-   and stub keeps the clearances, the isolation distances and the rule areas; a round is kept only with fewer DRC
-   errors and no more errors of any type other than unconnected.
+   nets (never isolation members or layer-rule nets), which are routed again within the repair budget. The
+   re-routed nets move, so the free vias are tried again on that board (the stub's via can land in another pocket,
+   and a new via can fit). A displacement that leaves a displaced net open, or does not end with fewer errors, is
+   undone, and the next of up to 3 rounds displaces other nets. Every via and stub keeps the clearances, the
+   isolation distances and the rule areas; a round is kept only with fewer DRC errors and no more errors of any
+   type other than unconnected.
 
 ## Roads first and the layout portfolio (both off by default)
 

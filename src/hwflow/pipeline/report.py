@@ -59,8 +59,12 @@ def write_report(d: Design, history: bool = False) -> str:
     if "check" in s:
         c = s["check"]
         L.append(f"- check{st('check')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
-        for x in c["findings"][:12]:
+        rank = {"error": 0, "warn": 1}  # errors first: a long list of warnings never hides the error that fails the check
+        shown = sorted(c["findings"], key=lambda x: rank.get(x["sev"], 2))[:12]
+        for x in shown:
             L.append(f"  - {x['sev']}: {x['msg']}")
+        if len(c["findings"]) > len(shown):
+            L.append(f"  - and {len(c['findings']) - len(shown)} more (status.json check.findings)")
         if not c["ok"]:
             fail("check", "design check errors")
     if "sch" in s:

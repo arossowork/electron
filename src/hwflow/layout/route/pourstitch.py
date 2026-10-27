@@ -19,7 +19,9 @@ of at least MIN_AREA_MM2, and every pad that touches no fill, is joined to the m
    (the inner plane on a 4-layer board): the pad's fan-out via;
 4. (`rip`) the same stub and via where they cross routed tracks or vias of other nets, the fewest such nets first
    (never an isolation-group member or a net with a layer rule): `stitch` removes those nets' copper, places the
-   stub and via and routes the nets again (repair.reroute).
+   stub and via and routes the nets again (repair.reroute). The re-routed nets take new paths, so free vias (1-3)
+   are tried again on that board; a displacement that leaves a displaced net open, or does not end with fewer
+   errors, is undone and the next one displaces other nets.
 
 Every via keeps the clearance (the larger of the board and the two net-class clearances, and the isolation distance
 of `board.isolation` and the creepage drc_rules when the other net is across a group) to the copper of other nets on
@@ -47,6 +49,7 @@ STEP_MM = 0.1  # radial step of the via search
 ANGLES = 24  # directions of the via search around a pad
 ROUNDS = 2  # rounds of free vias and stubs: refill and regroup (a new via changes the fill)
 MAX_RIP = 3  # routed nets one stub may displace
+DISPLACE_ROUNDS = 3  # rounds that displace routed nets, each followed by free rounds on the re-routed board
 
 
 def _box(p: dict, grow: float = 0.0):
@@ -186,9 +189,9 @@ def _candidates(piece):
     return out
 
 
-def plan(d, board: Path, net: str, rip: bool = False) -> dict:
+def plan(d, board: Path, net: str, rip: bool = False, avoid=()) -> dict:
     """What joins the split pour of `net` on the refilled `board`: {tracks, vias, rip (nets whose copper the stubs
-    cross; only with `rip`), stats {groups, pads, inside, in_pad, stub, rip, left}}."""
+    cross; only with `rip`, never a net of `avoid`), stats {groups, pads, inside, in_pad, stub, rip, left}}."""
     b = d.board
     r = b["via_dia_mm"] / 2
     copper = pcb.cu_layers(b["layers"])
@@ -218,7 +221,7 @@ def plan(d, board: Path, net: str, rip: bool = False) -> dict:
         if grp[i] == main:
             landing.setdefault(ly, []).append(g)
     landing = {ly: unary_union(gs).buffer(-0.05) for ly, gs in landing.items()}
-    no_rip = fixed_nets(d)
+    no_rip = fixed_nets(d) | set(avoid)
     widths = sorted({float(b["track_mm"]), routing.neck_floor(b)}, reverse=True)
 
     def lands(q: Point, not_on=()) -> bool:
@@ -354,6 +357,12 @@ def split(d, drc: list[dict]) -> list[str]:
     return out
 
 
+def open_nets(drc: list[dict]) -> set[str]:
+    """Nets of the unconnected items of a DRC."""
+    return {n for x in repair.errors(drc) if x["type"] == "unconnected"
+            for n in (repair.parse_item(s, None)["net"] for s in x["items"]) if n}
+
+
 def _other(drc: list[dict]) -> Counter:
     return Counter(x["type"] for x in repair.errors(drc) if x["type"] != "unconnected")
 
@@ -368,9 +377,13 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
            deadline: float | None = None) -> dict:
     """Join the split pours of the routed board. `check(tracks, vias) -> drc` writes `board` and runs the DRC with
     refill (the board then holds the fill). Every pour net is planned (a floating plane is no DRC error), in at most
-    ROUNDS rounds of free vias and stubs, then one round that displaces routed nets (repair.reroute, within the
-    repair budget settings.repair.budget_s). A round is kept
-    only when `better`; the board left in `board` is the one returned. Returns {tracks, vias, drc, log, added}."""
+    ROUNDS rounds of free vias and stubs, then up to DISPLACE_ROUNDS rounds that displace routed nets
+    (repair.reroute, within the repair budget settings.repair.budget_s). A free round is kept only when `better`.
+    A displacing round changes the copper around the island: the re-routed nets take new paths, so the new via can
+    land in another pocket of the fill and a new free via can become possible. It is therefore kept provisionally
+    (no more errors) and followed by free rounds on the re-routed board; the whole sequence is kept only when it ends
+    `better` than the board before it, else that board is restored. The board left in `board` is the one returned.
+    Returns {tracks, vias, drc, log, added}."""
     import time
     pour = list(d.ground_nets()) if d.board["gnd_pour"] else []
     log, added = [], [0, 0]
@@ -385,17 +398,22 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
                    f"in the fill, {st['in_pad']} in pads, {st['stub']} stub vias, {st['rip']} displacing, "
                    f"{st['left']} left")
 
-    def one(rip: bool, label: str) -> bool:
-        """One round: plan every pour net, check, keep or restore. True when the round was kept."""
+    tried: set[str] = set()  # displaced nets of the displacing rounds that did not pay off
+    last: list[str] = []
+
+    def one(rip: bool, label: str, provisional: bool = False) -> bool:
+        """One round: plan every pour net, check, keep or restore. True when the round was kept. `provisional`
+        keeps a displacing round that is not worse (the caller judges it after the free rounds that follow)."""
         nonlocal tracks, vias, drc, snap
         tr, vi, nets = [], [], []
         for net in pour:
-            p = plan(d, board, net, rip=rip)
+            p = plan(d, board, net, rip=rip, avoid=tried)
             if p["tracks"] or p["vias"] or p["stats"]["left"]:
                 note(net, p["stats"], label)
             tr += p["tracks"]
             vi += p["vias"]
             nets += [n for n in p["rip"] if n not in nets]
+        last[:] = nets
         if not (tr or vi):
             return False
         keep_t = [t for t in tracks if t["net"] not in nets] + tr
@@ -412,9 +430,14 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
             log.append(f"{label}: {type(e).__name__}: {str(e)[:100]}")
             board.write_bytes(snap)
             return False
+        broken = sorted((open_nets(cand) - open_nets(drc)) & set(nets))
+        if broken:  # a pour island traded for an open signal net: the repair rarely closes it, other nets may do
+            log.append(f"{label} rejected: the displaced {', '.join(broken)} left open")
+            board.write_bytes(snap)
+            return False
         o = _other(drc)
         same = repair.score(cand) <= repair.score(drc) and all(n <= o[t] for t, n in _other(cand).items())
-        if better(cand, drc) or (not nets and same):  # free vias that only join a floating plane count too
+        if better(cand, drc) or ((not nets or provisional) and same):  # free vias that only join a floating plane count too
             tracks, vias, drc, snap = keep_t, keep_v, cand, board.read_bytes()
             added[0] += len(tr)
             added[1] += len(vi)
@@ -424,9 +447,28 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
         board.write_bytes(snap)
         return False
 
-    for k in range(ROUNDS):
-        if (deadline is not None and time.time() > deadline) or not one(False, f"round {k + 1}"):
+    def free(tag: str = ""):
+        for k in range(ROUNDS):
+            if (deadline is not None and time.time() > deadline) or not one(False, f"{tag}round {k + 1}"):
+                break
+
+    free()
+    for k in range(DISPLACE_ROUNDS):
+        if not split(d, drc) or libs is None or (deadline is not None and time.time() > deadline):
             break
-    if split(d, drc) and libs is not None and (deadline is None or time.time() < deadline):
-        one(True, "displace")
+        base = (tracks, vias, drc, snap, list(added))
+        kept = one(True, f"displace {k + 1}", provisional=True)
+        moved = list(last)  # before the free rounds overwrite it
+        if kept:
+            free(f"displace {k + 1} ")
+            if better(drc, base[2]):
+                continue
+            # the displacement did not pay off (a displaced net left open, the island still cut off): back to the
+            # board before it
+            tracks, vias, drc, snap, added = base[0], base[1], base[2], base[3], base[4]
+            board.write_bytes(snap)
+            log.append(f"displace {k + 1} undone: {repair.score(drc)[0]} errors")
+        if not moved:  # nothing left to displace
+            break
+        tried |= set(moved)  # the next round displaces other nets
     return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added)}
