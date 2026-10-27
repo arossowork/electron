@@ -312,3 +312,18 @@ def test_back_placeholders_count_on_the_back_face(tmp_path):
     f = board_fill(d2, parts, 50, 50)
     assert f["front"] == 0.0 and f["back"] > 0.5
 
+
+
+def test_routability_prediction_runs_with_footprintless_placeholders(tmp_path):
+    # stage-2 floorplan items are placeholders without a footprint: the prediction crashed on `None.split`
+    from hwflow.layout.place import routability
+    fp = {"construction": "double", "items": [{"name": "a", "size_mm": [10, 8], "height_mm": 2},
+                                              {"name": "b", "size_mm": [8, 8], "height_mm": 2}],
+          "nets": [{"between": ["a", "b"], "count": 3}]}
+    d = make(tmp_path, fp, board={"width_mm": 60, "height_mm": 40, "layers": 2})
+    libs = Libs()
+    parts, d2 = floorplan._parts(d, libs, floorplan.parse(d))
+    assert routability.predict(d2, libs, parts=parts)["verdict"]
+    out = floorplan.check(d, libs)
+    rp = [c for c in out["checks"] if c["name"] == "routability-prediction"]
+    assert not rp or "AttributeError" not in rp[0]["msg"]

@@ -247,6 +247,8 @@ class Model:
         for ref, (x, y, r, fixed) in pos.items():
             c = design.components[ref]
             fpid = c.get("footprint")
+            if not fpid:  # a floorplan placeholder (size_mm box, no footprint): no pads, no zones
+                continue
             fp = libs.footprint(fpid)
             pins = c.pins
             for p in fp["pads"]:
