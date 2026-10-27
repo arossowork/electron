@@ -94,7 +94,7 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
         msg = f"{head}; {face}, so a legal placement should exist: the placer did not find one (another seed, or " \
               f"report it as a placer failure)"
     bud = [v for v in viol if v.startswith("budget ")]
-    if bud:  # copper_len budgets (placer.budget_violations): named in full, whatever the other violations are
-        msg += "; copper_len budgets the placement already breaks (never routed): " + "; ".join(bud)
+    if bud:  # distance legs (placer.budget_violations): named in full, whatever the other violations are
+        msg += "; copper_len budgets and decap_max_mm limits the placement already breaks (never routed): " + "; ".join(bud)
     return {"ok": False, "violations": len(viol), "fill": {s: round(v, 3) for s, v in fill.items()}, "regions": regs,
             "back_to": back, "msg": msg, "first": viol[:20]}

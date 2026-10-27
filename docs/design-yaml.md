@@ -39,7 +39,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | gnd_pour | true | ground zones on all copper layers |
 | er | 4.3 | dielectric constant (FR-4) |
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
-| decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin |
+| decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin (post-layout warning; with `HWFLOW_PLACE_DECAP_HARD=1` also a hard placement limit on the straight pad distance over the routing allowance) |
 | margin_mm | 1.0 | keep parts this far from the board edge |
 | router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
 | post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
@@ -50,8 +50,8 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | drc_rules | [] | KiCad custom rules, one `(rule ...)` string each, written to `<project>.kicad_dru` and applied by DRC. Use for class-pair clearance and creepage, e.g. mains to SELV |
 | isolation | [] | net groups that keep a distance to every other net, as data (backlog 38): `{name, nets: <glob or list>, class: <net class>, clearance_mm, creepage_mm, req}`. hwflow writes one KiCad clearance and one creepage rule per group into the `.kicad_dru` (next to `drc_rules`), runs them in the layout-stage DRC, reports the measured copper distance in plan with the limit and the DRC violations, and a group with `req: R8` verifies that requirement in `trace`. Example: `isolation: [{name: mains-SELV, class: mains, clearance_mm: 4.0, creepage_mm: 6.0, req: R8}]`. `between_mm` (optional) is the clearance and creepage between two different member nets of the group (functional insulation, e.g. 1.5 mm between AC_L_IN, AC_L, AC_ROOM1 and AC_ROOM2); without it they keep the board clearance. It becomes KiCad DRC clearance and creepage rules per member against the other members; for the router, one class `isb_<name>_between_<net>` per member holding only that net, with a track rule at between_mm (KiCadRoutingTools merges a net's classes and applies the largest rule that binds a pair, so the group rule still holds against the other nets), plus a keep-out of the other members' pads and earlier copper grown by between_mm in each pass; the placer keeps member pads of different nets between_mm + 0.1 mm apart, `hwflow check` warns about fixed pads closer than that, and the layout and post-layout isolation report a `<name> between members` row with the closest member pair (a layout failure below the limit; no `req`). The plan distance does not see a stacked second board (see docs/design-note-stack-keepouts-boards.md). Routing: the member nets route first, and every router pass keeps its nets the group distance from the other side's pads, tracks and vias (`src/hwflow/layout/board/routing.py`). Placement: when every part with a member pad is fixed, the other parts stay out of the area the member pads enclose |
 | si_pdn_z_ohm | 1.0 | signal-integrity screen: the largest impedance of a decap loop at the knee frequency 0.35/t_r of its IC (see `edge_ns` under nets) |
-| thermal_clearance_mm | 5 | placer: parts that dissipate more than 50 mW (from `build/status.json` derating, when a build has run) keep this distance from temperature-sensing parts |
-| antenna_clearance_mm | 10 | placer: antenna parts keep this distance from relays (`K*` refs, `Relay*` symbols) and from the pads of `isolation` / mains groups |
+| thermal_clearance_mm | 5 | placer: parts that dissipate more than 50 mW (from `build/status.json` derating, when a build has run) keep this distance from temperature-sensing parts; written here, it is a hard placement rule |
+| antenna_clearance_mm | 10 | placer: antenna parts keep this distance from relays (`K*` refs, `Relay*` symbols) and from the pads of `isolation` / mains groups; written here, it is a hard placement rule |
 | optimize_area | false | shrink the board below width x height to the smallest size that places and routes |
 | budget_max_track_mm | 3.0 | widest track a `budgets:` entry may ask for; past it, the layout stage says the budget needs the parts closer |
 
@@ -99,7 +99,7 @@ components:
     nc: ["4"]                               # pins left open on purpose
     group: power                            # schematic column and placement cluster
     decouples: U2                           # for capacitors: the IC this cap serves
-    placement: {edge: left}                 # or {x: 5, y: 10, rot: 90, fixed: true}
+    placement: {edge: left}                 # courtyard within 1 mm of that edge (hard), or {x: 5, y: 10, rot: 90, fixed: true}
     tolerance: 0.01                         # Monte Carlo tolerance (R 1%, C 10%, L 20% default)
     voltage_rating_v: 16                    # capacitors: derating check (50% by default)
     power_rating_w: 0.1                     # resistors: default from package size

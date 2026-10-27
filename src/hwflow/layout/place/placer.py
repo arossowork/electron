@@ -158,6 +158,24 @@ BUDGET_TOL = 0.01  # mm: a budget leg this much over its limit is a placement vi
 
 def budgets_on() -> bool:
     return bool(get_settings().layout.place_budgets)
+
+
+def decap_hard_on() -> bool:
+    return bool(get_settings().layout.place_decap_hard)
+
+
+EDGE_TOL = 1.0  # mm: a movable part with placement.edge whose courtyard is farther from that edge is a violation
+SEP_HARD_KEYS = {"antenna": "antenna_clearance_mm", "thermal": "thermal_clearance_mm"}  # hard when the board states them
+
+
+def edge_hard_on() -> bool:
+    return bool(get_settings().layout.place_edge_hard)
+
+
+def sep_hard_on() -> bool:
+    return bool(get_settings().layout.place_sep_hard)
+
+
 ISO_MARGIN = 0.5  # mm added to the creepage (else clearance) of a board.isolation group
 CLEAR_MARGIN = 0.1  # mm added to the net class clearance between the pads of two nets
 CONG_UTIL = 0.4  # share of the theoretical track capacity of a cell the router can really use
@@ -340,6 +358,13 @@ class Placer:
                 for b in sorted(noisy):
                     if a != b:
                         self.seps.append((a, None, b, None, ac, "antenna"))
+        # a distance the design states (board.antenna_clearance_mm, board.thermal_clearance_mm written in
+        # design.yaml) is a hard rule: the isolation weight and a placement violation; the defaults stay soft
+        stated = d.raw.get("board") or {}
+        self.sep_hard = {k for k, e in enumerate(self.seps)
+                         if sep_hard_on() and e[5] in SEP_HARD_KEYS and SEP_HARD_KEYS[e[5]] in stated}
+        for key in {self.seps[k][5] for k in self.sep_hard}:
+            self.wt[key] = max(self.wt[key], self.wt["isolation"])
         self.part_seps = {r: [] for r in P}
         for k, e in enumerate(self.seps):
             self.part_seps[e[0]].append(k)
@@ -954,71 +979,112 @@ class Placer:
                                 log.append(("iso_add", key, v))
 
     def _init_budget_pairs(self):
-        """copper_len budgets (design.yaml budgets:, kind copper_len, max_mm) as placement constraints. Each
-        `pad -> pad` leg gets its share of max_mm (max_mm / legs). The Manhattan pad distance is a lower bound on the
-        routed copper, so a leg farther apart than its share can never meet the budget:
+        """Distance limits the design states between two pads, as hard placement constraints (`self.bud`):
 
-        - hard: past the share over the routing allowance place_budget_detour (straight-line pad distance; the routed
-          copper is longer by the route's detour), each mm costs BUDGET_HARD_W (the isolation weight) and the leg is a placement
-          violation (`_rule_violations`): unstick and settle repair it, the legality gate never routes it;
-        - soft: past BUDGET_FILL of the share (room for the route's detour), each mm costs place_budget_w, and the leg
-          pulls its pads together like a decoupling pair (in the global placement too, gplace.BUDGET_GAIN);
+        - copper_len budgets (design.yaml budgets:, kind copper_len, max_mm): each `pad -> pad` leg with its share
+          of max_mm (max_mm / legs);
+        - decoupling (`decouples: <IC>`, with place_decap_hard): each supply pad of the capacitor to the nearest IC
+          pad on that net, within the component's or the board's `decap_max_mm` (postlayout.decap_paths checks the
+          routed copper against the same number).
+
+        The Manhattan pad distance is a lower bound on the routed copper, so a leg farther apart than its limit can
+        never meet it:
+
+        - hard: past the limit over the routing allowance place_budget_detour (straight-line pad distance; the routed
+          copper is longer by the route's detour), each mm costs BUDGET_HARD_W (the isolation weight) and the leg is a
+          placement violation (`_rule_violations`): unstick and settle repair it, the legality gate never routes it;
+        - soft (copper_len only; a decoupling pair already pulls its pads): past BUDGET_FILL of the share, each mm
+          costs place_budget_w, and the leg pulls its pads together like a decoupling pair (in the global placement
+          too, gplace.BUDGET_GAIN);
         - seed: after the global placement the small movable end goes next to its anchor pad (`budget_seed`).
 
         Before this the budget was only measured after routing, so a TVS that the netlist ties to its connector by a
         ground pad only drifted to its group centre (thermo-e2e-1: 17-20 mm from the terminal against 5 mm in every
-        attempt). self.bud: (budget name, ref a, pad a, ref b, pad b, limit) of every leg on the board, fixed or not;
-        legs between two fixed parts are only reported (fixed violations, which fail the floorplan gate), against the
-        same limit with the routing allowance; legs inside one block against the share itself."""
+        attempt). self.bud: (name, ref a, pad a, [(ref b, pad b)], limit) of every leg on the board, fixed or not; the
+        distance is to the nearest b pad. Legs between two fixed parts are only reported (fixed violations, which fail
+        the floorplan gate), against the same limit with the routing allowance; legs inside one block against the
+        limit itself."""
         self._bud_w = float(get_settings().layout.place_budget_w)
         detour = float(get_settings().layout.place_budget_detour)
         self._bud_detour = detour
         self.bud = []
-        if not budgets_on() or not self.d.raw.get("budgets"):
+        if not budgets_on():
             return
-        from ...sim import budgets as bmod
         P = self.parts
-        for bd in bmod.budgets(self.d):
-            if bd.get("kind", "copper_r") != "copper_len" or bd.get("max_mm") is None:
-                continue
-            lg, bad = bmod.legs(self.d, bd)
-            lg = [x for x in lg if x["a"] and x["b"]]
-            if bad or not lg:
-                continue
-            share = float(bd["max_mm"]) / len(lg)
-            for x in lg:
-                (ra, pa), (rb, pb) = x["a"][0], x["b"][0]
-                if ra not in P or rb not in P or pa not in P[ra].pads or pb not in P[rb].pads or ra == rb:
+
+        def leg(name, ra, pa, bs, lim, pull):
+            bs = [(rb, pb) for rb, pb in bs if rb in P and pb in P[rb].pads and rb != ra]
+            if ra not in P or pa not in P[ra].pads or not bs:
+                return
+            rb = bs[0][0]
+            if not pull and (self._same(ra, rb) or (P[ra].fixed and P[rb].fixed)):
+                return  # a decoupling cap the placement cannot move: postlayout.decap_paths warns on the copper
+            if self._same(ra, rb):  # a block's own geometry (its copper is routed): only reported, at the limit
+                self.bud.append((name, ra, pa, bs, lim))
+                return
+            hard = lim / max(detour, 1.0)  # room for the route's detour: a placement that passes it routes in
+            self.bud.append((name, ra, pa, bs, hard))
+            if P[ra].fixed and P[rb].fixed:  # two fixed ends: only reported (a fixed violation, the floorplan
+                return  # gate fails it), with the same allowance: thermo-e2e-1 fixed D2 4.5 mm from J2 routed 5.8
+            self.decap.append((ra, pa, rb, bs[0][1], None, []))
+            self.dec_lim.append({"soft": min(lim * BUDGET_FILL, hard) if pull else math.inf, "hard": hard,
+                                 "alt": bs, "base": pull})
+
+        if self.d.raw.get("budgets"):
+            from ...sim import budgets as bmod
+            for bd in bmod.budgets(self.d):
+                if bd.get("kind", "copper_r") != "copper_len" or bd.get("max_mm") is None:
                     continue
-                if self._same(ra, rb):  # a block's own geometry (its copper is routed): only reported, at the share
-                    self.bud.append((bd["name"], ra, pa, rb, pb, share))
+                lg, bad = bmod.legs(self.d, bd)
+                lg = [x for x in lg if x["a"] and x["b"]]
+                if bad or not lg:
                     continue
-                hard = share / max(detour, 1.0)  # room for the route's detour: a placement that passes it routes in
-                self.bud.append((bd["name"], ra, pa, rb, pb, hard))
-                if P[ra].fixed and P[rb].fixed:  # two fixed ends: only reported (a fixed violation, the floorplan
-                    continue  # gate fails it), with the same allowance: thermo-e2e-1 fixed D2 4.5 mm from J2 routed 5.8
-                self.decap.append((ra, pa, rb, pb, None, []))
-                self.dec_lim.append((min(share * BUDGET_FILL, hard), hard))
+                share = float(bd["max_mm"]) / len(lg)
+                for x in lg:
+                    (ra, pa), (rb, pb) = x["a"][0], x["b"][0]
+                    leg(bd["name"], ra, pa, [(rb, pb)], share, True)
+        if decap_hard_on():
+            gnds = self.d.ground_nets()
+            bmax = float(self.d.board.get("decap_max_mm", 4.0))
+            for p in list(P.values()):
+                ic, c = p.decouples, self.d.components.get(p.ref)
+                if not ic or ic not in P or c is None or ic not in self.d.components:
+                    continue
+                lim = float(c.get("decap_max_mm", bmax))
+                icc = self.d.components[ic]
+                for cpin, net in c.pins.items():
+                    if not net or net in gnds:
+                        continue
+                    bs = [(ic, ipin) for ipin, inet in icc.pins.items() if inet == net]
+                    if bs:
+                        leg(f"decap_max_mm {p.ref}", p.ref, cpin, bs, lim, False)
 
     def _bud_dist(self, k) -> float:
-        """Straight-line distance between the two pad centres of budget leg self.bud[k]: the lower bound on its
-        routed copper (sim/budgets.measure measures pad centre to pad centre; a 45-degree track is shorter than the
-        Manhattan distance: thermo-e2e-1 fuse_stub routed 9.31 mm between pads 10.34 mm apart in Manhattan)."""
-        _, ra, pa, rb, pb, _ = self.bud[k]
+        """Straight-line distance from pad a of leg self.bud[k] to its nearest b pad: the lower bound on its routed
+        copper (sim/budgets.measure measures pad centre to pad centre; a 45-degree track is shorter than the Manhattan
+        distance: thermo-e2e-1 fuse_stub routed 9.31 mm between pads 10.34 mm apart in Manhattan)."""
+        _, ra, pa, bs, _ = self.bud[k]
         ax, ay = self.parts[ra].pad(pa)
-        bx, by = self.parts[rb].pad(pb)
-        return math.hypot(ax - bx, ay - by)
+        return min(math.hypot(ax - x, ay - y) for x, y in (self.parts[rb].pad(pb) for rb, pb in bs))
+
+    def _bud_near(self, k):
+        """(ref, pad) of the b pad of leg k nearest to its pad a."""
+        _, ra, pa, bs, _ = self.bud[k]
+        ax, ay = self.parts[ra].pad(pa)
+        return min(bs, key=lambda e: math.hypot(self.parts[e[0]].pad(e[1])[0] - ax,
+                                                self.parts[e[0]].pad(e[1])[1] - ay))
 
     def budget_violations(self) -> list[tuple[bool, str]]:
-        """(both ends fixed or in one block, message) of every copper_len budget leg whose pad centres are farther
-        apart (straight line, a lower bound on the routed copper) than its share of max_mm."""
+        """(both ends fixed or in one block, message) of every leg of self.bud whose pads are farther apart
+        (straight line, a lower bound on the routed copper) than its placement limit."""
         out = []
-        for k, (name, ra, pa, rb, pb, share) in enumerate(self.bud):
+        for k, (name, ra, pa, _, share) in enumerate(self.bud):
             d = self._bud_dist(k)
             if d > share + BUDGET_TOL:
+                rb, pb = self._bud_near(k)
                 out.append(((self.parts[ra].fixed and self.parts[rb].fixed) or self._same(ra, rb),
                             f"budget {name}: {ra}.{pa} -> {rb}.{pb} pads {d:.2f} mm apart (straight line), over its "
-                            f"{share:.2f} mm placement limit (copper_len max_mm share / routing allowance "
+                            f"{share:.2f} mm placement limit (max_mm share or decap_max_mm / routing allowance "
                             f"{self._bud_detour:g}, except inside one block): the routed copper would not meet the "
                             f"budget" + self._fixed_leg_note(ra, rb, d, share)))
         return out
@@ -1035,7 +1101,7 @@ class Placer:
 
     def _bud_mover(self, k):
         """The unit that moves to repair budget leg k: the movable end, the smaller one when both are movable."""
-        _, ra, _, rb, _, _ = self.bud[k]
+        ra, rb = self.bud[k][1], self.bud[k][3][0][0]
         if self._same(ra, rb):
             return None
         us = [self._unit(self.parts[r]) for r in (ra, rb)]
@@ -1049,12 +1115,13 @@ class Placer:
         lands on the anchor pad, pushed out along the anchor's courtyard by the smaller courtyard half; legalize or
         settle then find the free spot nearest to there. Returns the units moved."""
         moved = []
-        for k, (_, ra, pa, rb, pb, share) in enumerate(self.bud):
+        for k, (_, ra, pa, _, share) in enumerate(self.bud):
             if only_violating and self._bud_dist(k) <= share + BUDGET_TOL:
                 continue
             u = self._bud_mover(k)
             if u is None:
                 continue
+            rb, pb = self._bud_near(k)
             mine = ra if ra in self._refs(u) else rb
             if mine not in self._refs(u):
                 continue
@@ -1078,9 +1145,10 @@ class Placer:
         return moved
 
     def _decap_len(self, k):
-        """Supply distance plus, for the first pair of a cap, the ground return distance. A budget leg adds
-        place_budget_w per mm of Manhattan distance past its soft limit and BUDGET_HARD_W per mm of straight-line
-        distance past its share of max_mm (both over the decoupling weight, the term's own weight)."""
+        """Supply distance plus, for the first pair of a cap, the ground return distance. A distance leg
+        (`_init_budget_pairs`) adds place_budget_w per mm of Manhattan distance past its soft limit and BUDGET_HARD_W
+        per mm of straight-line distance to its nearest b pad past its hard limit (both over the decoupling weight,
+        the term's own weight); a decoupling-limit leg (`base` False) has only the hard part."""
         cr, cp, ir, ip, cg, ig = self.decap[k]
         P = self.parts
         ax, ay = P[cr].pad(cp)
@@ -1088,9 +1156,13 @@ class Placer:
         L = math.hypot(ax - bx, ay - by)
         lim = self.dec_lim[k] if k < len(self.dec_lim) else None
         if lim is not None:
-            m = abs(ax - bx) + abs(ay - by)  # soft: Manhattan (room for the route); hard: the straight line
             wd = max(self.wt["decouple"], 1e-9)
-            L += (max(0.0, m - lim[0]) * self._bud_w + max(0.0, L - lim[1]) * BUDGET_HARD_W) / wd
+            h = L if len(lim["alt"]) == 1 else min(math.hypot(ax - x, ay - y)
+                                                   for x, y in (P[r].pad(n) for r, n in lim["alt"]))
+            # soft: Manhattan (room for the route); hard: the straight line to the nearest b pad
+            pen = max(0.0, abs(ax - bx) + abs(ay - by) - lim["soft"]) * self._bud_w \
+                + max(0.0, h - lim["hard"]) * BUDGET_HARD_W
+            L = (L if lim["base"] else 0.0) + pen / wd
         if cg is not None:
             gx, gy = P[cr].pad(cg)
             L += min(math.hypot(gx - x, gy - y) for x, y in (P[ir].pad(n) for n in ig))
@@ -1594,8 +1666,17 @@ class Placer:
             for r, v in self.part_ko.items():
                 if v > 0:
                     bad[r] = bad.get(r, 0.0) + v
-            for k in range(len(self.bud)):  # a copper_len budget leg over its limit: its movable end
-                over = self._bud_dist(k) - self.bud[k][5]
+            for k in self.sep_hard:  # a stated separation short: both ends (fixed ones are dropped below)
+                v = self._sep_val(k)
+                if v > 0.01:
+                    for r in (self.seps[k][0], self.seps[k][2]):
+                        bad[r] = bad.get(r, 0.0) + v
+            if edge_hard_on():
+                for r, p in P.items():
+                    if p.edge and self.part_edge.get(r, 0.0) > EDGE_TOL:
+                        bad[r] = bad.get(r, 0.0) + self.part_edge[r]
+            for k in range(len(self.bud)):  # a distance leg over its limit: its movable end
+                over = self._bud_dist(k) - self.bud[k][4]
                 u = self._bud_mover(k) if over > BUDGET_TOL else None
                 if u is not None:
                     r = u.ref
@@ -1748,15 +1829,22 @@ class Placer:
                 if us:
                     add(min(us, key=area))
                 continue
+            m = re.match(r"separation (\S+)/(\S+): ", v)
+            if m:
+                us = [self._unit(P[r]) for r in m.groups() if r in P]
+                us = [u for u in us if not u.fixed]
+                if us:
+                    add(min(us, key=area))
+                continue
             m = re.match(r"budget (.+?): (\S+?)\.\S+ -> (\S+?)\.\S+ pads ", v)
             if m:
                 k = next((i for i, b in enumerate(self.bud) if b[0] == m.group(1) and b[1] == m.group(2)
-                          and b[3] == m.group(3)), None)
+                          and any(r == m.group(3) for r, _ in b[3])), None)
                 u = self._bud_mover(k) if k is not None else None
                 if u is not None:
                     add(u)
                 continue
-            m = re.match(r"(\S+) (pad |courtyard or pad in keep-out|outside floorplan|inside floorplan|has pads)", v)
+            m = re.match(r"(\S+) (pad |courtyard or pad in keep-out|outside floorplan|inside floorplan|has pads|off its )", v)
             if m and m.group(1) in P:
                 add(self._unit(P[m.group(1)]))
         return out
@@ -2077,6 +2165,18 @@ class Placer:
                     both_fixed = P[a[0]].fixed and P[b[0]].fixed
                     (fx if both_fixed else mv).append(f"isolation {a[0]}.{a[1]}/{b[0]}.{b[1]}: {v:.2f} mm short "
                                                       f"({self._iso_rule(a, b)})")
+        for k in sorted(self.sep_hard):
+            a, _, b, _, need, key = self.seps[k]
+            short = self._sep_val(k) / max(self.wt[key], 1e-9)
+            if short > 0.01:
+                (fx if P[a].fixed and P[b].fixed else mv).append(
+                    f"separation {a}/{b}: {short:.2f} mm short of board.{SEP_HARD_KEYS[key]} {need:g} mm")
+        if edge_hard_on():
+            for r, p in P.items():
+                if p.edge and not p.fixed and r in self.d.components:
+                    e = self._part_cost(r)[1]
+                    if e > EDGE_TOL:
+                        mv.append(f"{r} off its {p.edge} edge by {e:.2f} mm (placement.edge; at most {EDGE_TOL:g} mm)")
         for both_fixed, msg in self.budget_violations():
             (fx if both_fixed else mv).append(msg)
         return mv, fx

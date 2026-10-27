@@ -68,6 +68,20 @@ routes it anyway, for debugging only.
     - past `max_mm` itself, `hwflow floorplan` fails it back to architecture;
     - between the limit and `max_mm`, it is a risk, because only a near-straight route meets it.
   - A leg inside one block is reported against the share itself.
+- **decap_max_mm.** Each supply pad of a `decouples:` capacitor is a distance leg to the nearest pad of its IC on that
+  net, with the limit `decap_max_mm` (the component's, else the board's, default 4.0) over the same routing
+  allowance. It is hard only: the decoupling pair already pulls the cap in, so it adds no soft term and no global
+  placement net. A cap and IC that are both fixed (or in one block) get no leg: placement cannot move them, and
+  `postlayout.decap_paths` warns on the routed copper as before. Off by default (`HWFLOW_PLACE_DECAP_HARD=1` turns
+  it on): on desktop-dac-hd6xx (41 movable decaps) all 4 attempts kept 1-3 caps 4.3-5.7 mm from their pin and none
+  was routed (without it attempt 1 was legal and routed), and real routed boards in the layout corpus (keyboard cutouts) have caps up to 5.2 mm away.
+- **placement.edge.** A movable part with an `edge` whose courtyard ends more than `placer.EDGE_TOL` (1 mm) from that
+  edge (inside `margin_mm`) is a placement violation; unstick and settle move it back. On by default;
+  `HWFLOW_PLACE_EDGE_HARD=0` turns it off.
+- **Stated separations.** `board.antenna_clearance_mm` and `board.thermal_clearance_mm`, when design.yaml states them,
+  are hard: their pairs take the isolation weight and a shortfall is a violation (`separation A/B: ...`; a fixed
+  violation when both ends are fixed). The defaults (10 and 5 mm) stay soft. On by default;
+  `HWFLOW_PLACE_SEP_HARD=0` turns it off.
 - **Block copper.** A layout block's tracks and vias count as pseudo-pads of its yard for the isolation and class
   distances.
 - **Switches.** `HWFLOW_PLACE_BUDGETS=0` and `HWFLOW_PLACE_BLOCK_COPPER=0` turn each one off; `HWFLOW_PLACE_BUDGET_W`

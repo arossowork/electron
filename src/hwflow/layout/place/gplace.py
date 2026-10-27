@@ -79,8 +79,10 @@ class Global:
             pins = [pin(cr, cp), pin(ir, ip)]
             if any(i >= 0 for i, _, _ in pins):
                 # a copper_len budget leg (placer._init_budget_pairs) pulls harder than a decoupling pair
-                bud = k < len(lims) and lims[k] is not None
-                self.nets.append((pl.wt["decouple"] * (BUDGET_GAIN if bud else 1.0), pins))
+                lim = lims[k] if k < len(lims) else None
+                if lim is not None and not lim["base"]:
+                    continue  # a decoupling-limit leg: the decoupling pair itself already pulls
+                self.nets.append((pl.wt["decouple"] * (BUDGET_GAIN if lim is not None else 1.0), pins))
         # flatten nets for vectorised LSE: per net arrays
         self.net_arrays = []
         for w, pins in self.nets:

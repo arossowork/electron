@@ -86,6 +86,16 @@ class LayoutSettings(_Group):
     place_block_copper: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_BLOCK_COPPER"))
     place_budgets: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGETS"))
     place_budget_w: float = Field(40.0, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGET_W"))
+    # decap_max_mm (component, else board) as a hard placement limit of each `decouples:` cap's supply pad to the
+    # nearest IC pad on that net (a distance leg of Placer._init_budget_pairs). Off by default: on
+    # desktop-dac-hd6xx (41 movable decaps) all 4 attempts kept 1-3 caps 4.3-5.7 mm from their pin, so none was
+    # routed; without it attempt 1 placed legally and routed (4 open, 4 DRC in the 3000 s budget). =1 turns it on
+    place_decap_hard: NotZero = Field(False, validation_alias=AliasChoices("HWFLOW_PLACE_DECAP_HARD"))
+    # placement.edge as a hard rule: a movable part's courtyard more than placer.EDGE_TOL off its edge is a violation
+    place_edge_hard: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_EDGE_HARD"))
+    # board.antenna_clearance_mm / thermal_clearance_mm written in design.yaml as hard placement rules (the isolation
+    # weight and a violation); the defaults (10 / 5 mm) stay soft
+    place_sep_hard: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_SEP_HARD"))
     # routed copper over the straight pad distance a copper_len budget leg is placed for (hard limit = max_mm / it):
     # thermo-e2e-1 tvs_ntc1 routed 5.82 mm between pads 4.70 mm apart (1.24), 5.46 in the live run
     place_budget_detour: float = Field(1.25, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGET_DETOUR"))
