@@ -100,3 +100,22 @@ def test_block_copper_keeps_the_isolation_distance(tmp_path):
     r2.x, r2.y = bx[2] + 1.0 - (r2.pads["1"][0]), (bx[1] + bx[3]) / 2 - r2.pads["1"][1]
     assert pl._iso_short(k, ("R2", "1")) > 1.0
     assert math.isclose(pl.cost(), pl.cost_full(), rel_tol=1e-9)
+
+
+def test_fixed_leg_keeps_the_routing_allowance(tmp_path):
+    """Two fixed ends are only reported (a fixed violation: the floorplan gate fails it), but against the same limit
+    as a movable leg: thermo-e2e-1 fixed D2.1 4.5 mm from J2.1 under a 5 mm budget and routed 5.8 mm."""
+    d, libs = _budget_channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    j = parts["J1"].pad("2")
+    r1 = parts["R1"]
+    r1.r, r1.fixed = 0, True
+    r1.x, r1.y = j[0] + 2.7 - r1.pads["1"][0], j[1] - r1.pads["1"][1]  # under max_mm 3, over 3 / 1.25
+    pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"], seed=1)
+    assert pl.bud == [("stub", "J1", "2", "R1", "1", 3.0 / 1.25)]
+    assert all(x is None for x in pl.dec_lim)  # no placer pair: nothing to move
+    (fixed, msg), = pl.budget_violations()
+    assert fixed and "pads 2.70 mm apart" in msg and "both ends fixed" in msg
+    pl.cost()
+    assert not any(v.startswith("budget stub") for v in pl.violations())
+    assert any(v.startswith("budget stub") for v in pl.fixed_violations())

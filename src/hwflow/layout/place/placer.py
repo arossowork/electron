@@ -966,8 +966,9 @@ class Placer:
 
         Before this the budget was only measured after routing, so a TVS that the netlist ties to its connector by a
         ground pad only drifted to its group centre (thermo-e2e-1: 17-20 mm from the terminal against 5 mm in every
-        attempt). self.bud: (budget name, ref a, pad a, ref b, pad b, share) of every leg on the board, fixed or not;
-        legs between two fixed parts are only reported (fixed violations)."""
+        attempt). self.bud: (budget name, ref a, pad a, ref b, pad b, limit) of every leg on the board, fixed or not;
+        legs between two fixed parts are only reported (fixed violations, which fail the floorplan gate), against the
+        same limit with the routing allowance; legs inside one block against the share itself."""
         self._bud_w = float(get_settings().layout.place_budget_w)
         detour = float(get_settings().layout.place_budget_detour)
         self._bud_detour = detour
@@ -988,11 +989,13 @@ class Placer:
                 (ra, pa), (rb, pb) = x["a"][0], x["b"][0]
                 if ra not in P or rb not in P or pa not in P[ra].pads or pb not in P[rb].pads or ra == rb:
                     continue
-                if (P[ra].fixed and P[rb].fixed) or self._same(ra, rb):  # a block's own geometry: only reported,
-                    self.bud.append((bd["name"], ra, pa, rb, pb, share))  # against max_mm itself
+                if self._same(ra, rb):  # a block's own geometry (its copper is routed): only reported, at the share
+                    self.bud.append((bd["name"], ra, pa, rb, pb, share))
                     continue
                 hard = share / max(detour, 1.0)  # room for the route's detour: a placement that passes it routes in
                 self.bud.append((bd["name"], ra, pa, rb, pb, hard))
+                if P[ra].fixed and P[rb].fixed:  # two fixed ends: only reported (a fixed violation, the floorplan
+                    continue  # gate fails it), with the same allowance: thermo-e2e-1 fixed D2 4.5 mm from J2 routed 5.8
                 self.decap.append((ra, pa, rb, pb, None, []))
                 self.dec_lim.append((min(share * BUDGET_FILL, hard), hard))
 
@@ -1015,7 +1018,9 @@ class Placer:
                 out.append(((self.parts[ra].fixed and self.parts[rb].fixed) or self._same(ra, rb),
                             f"budget {name}: {ra}.{pa} -> {rb}.{pb} pads {d:.2f} mm apart (straight line), over its "
                             f"{share:.2f} mm placement limit (copper_len max_mm share / routing allowance "
-                            f"{self._bud_detour:g} for a movable leg): the routed copper would not meet the budget"))
+                            f"{self._bud_detour:g}, except inside one block): the routed copper would not meet the "
+                            f"budget" + (" (both ends fixed: move them closer in design.yaml or change the budget)"
+                                         if self.parts[ra].fixed and self.parts[rb].fixed else "")))
         return out
 
     def _bud_mover(self, k):
