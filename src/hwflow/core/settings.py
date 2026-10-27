@@ -80,7 +80,13 @@ class LayoutSettings(_Group):
     place_escape_rot: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_ROT"))
     place_escape_w: float = Field(10.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_W"))
     place_escape_conn: float = Field(1.0, validation_alias=AliasChoices("HWFLOW_PLACE_ESCAPE_CONN"))
-    krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
+    # placer terms from the design's own rules (docs/layout-flow.md "Budgets and block copper in placement"):
+    # block copper keeps the isolation and class distances like a pad; a copper_len budget pulls its pads together
+    # (off: HWFLOW_PLACE_BLOCK_COPPER=0 / HWFLOW_PLACE_BUDGETS=0)
+    place_block_copper: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_BLOCK_COPPER"))
+    place_budgets: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGETS"))
+    place_budget_w: float = Field(40.0, validation_alias=AliasChoices("HWFLOW_PLACE_BUDGET_W"))
+    krt_rotate: int = Field(0,validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
     # HWFLOW_POUR_STITCH=1

@@ -94,6 +94,8 @@ def place(pl, movable, iters: int, t0: float) -> float:
     else:
         gplace.Global(pl, movable).run(feedback=fb)
         pl._stage("global", ts)
+    if getattr(pl, "bud", None):  # copper_len budgets: the small end next to its anchor pad (placer.budget_seed)
+        pl.budget_seed()
     ts = time.perf_counter()
     pl.legalize()
     pl._stage("legalize", ts)
