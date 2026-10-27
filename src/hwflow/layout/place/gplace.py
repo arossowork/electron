@@ -51,6 +51,9 @@ def _rect_cover(poly, step=1.0):
     return out
 
 
+BUDGET_GAIN = 3.0  # weight of a copper_len budget leg in the global placement, x the decoupling weight
+
+
 class Global:
     def __init__(self, pl, movable):
         self.pl, self.mv = pl, movable
@@ -71,10 +74,13 @@ class Global:
             pins = [pin(r, p) for r, p in conns]
             if any(i >= 0 for i, _, _ in pins):
                 self.nets.append((w * pl.wt["wire"], pins))
-        for cr, cp, ir, ip, cg, ig in pl.decap:
+        lims = getattr(pl, "dec_lim", ())
+        for k, (cr, cp, ir, ip, cg, ig) in enumerate(pl.decap):
             pins = [pin(cr, cp), pin(ir, ip)]
             if any(i >= 0 for i, _, _ in pins):
-                self.nets.append((pl.wt["decouple"], pins))
+                # a copper_len budget leg (placer._init_budget_pairs) pulls harder than a decoupling pair
+                bud = k < len(lims) and lims[k] is not None
+                self.nets.append((pl.wt["decouple"] * (BUDGET_GAIN if bud else 1.0), pins))
         # flatten nets for vectorised LSE: per net arrays
         self.net_arrays = []
         for w, pins in self.nets:

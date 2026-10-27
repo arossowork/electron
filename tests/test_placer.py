@@ -270,6 +270,26 @@ def test_unstick_separates_parts_the_annealing_left_overlapping(tmp_path):
     assert not any(v.startswith("courtyard overlap") for v in pl.violations())
 
 
+def test_unstick_never_moves_a_fixed_part(tmp_path):
+    """A fixed part in an overlap is a cost in unstick, never a mover (d9f6ce5 dropped the filter: the live
+    thermo-e2e-1 run moved its fixed terminals J2/J3, TVS D2/D3 and battery holders off their design positions)."""
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    for r in ("R1", "R2", "R3"):
+        parts[r].x, parts[r].y = 18.0, 15.0
+    for r, p in parts.items():
+        if r not in ("R1", "R2", "R3") and not p.fixed:
+            p.x, p.y = 18.0 + 3 * int(r[1:]), 4.0
+    parts["R1"].fixed = True
+    pl = placer.Placer(d, parts, W, H, seed=1)
+    pl.cost()
+    assert pl.t_ov > 0
+    r0 = parts["R1"].r
+    pl.unstick()
+    assert (parts["R1"].x, parts["R1"].y, parts["R1"].r) == (18.0, 15.0, r0)
+    assert pl.t_ov == 0  # the movable ones went
+
+
 def test_unstick_grid_is_bounded_on_a_large_board(tmp_path, monkeypatch):
     # the same stuck parts on a 440 x 150 mm board: the scan stays within UNSTICK_POINTS per rotation per part and
     # moves at most UNSTICK_UNITS parts per round (both made small here: each candidate costs a RUDY update)

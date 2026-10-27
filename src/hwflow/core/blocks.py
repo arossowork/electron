@@ -352,6 +352,34 @@ def copper(design, parts) -> tuple[list[dict], list[dict]]:
     return tracks, vias
 
 
+def local_copper(design, name: str, via_dia: float = 0.6) -> list[tuple]:
+    """The copper of block binding `name` in block coordinates (origin and rotation of the placer unit), as boxes
+    with their design net: [(net, (x0, y0, x1, y1))]. A track piece is its bounding box grown by half its width (a
+    bound for a diagonal piece), a via its pad square. The placer's isolation and clearance terms measure these like
+    pads: block copper is on the board before the router runs, so it keeps the same distances as a pad."""
+    for bnd in bindings(design):
+        if bnd["name"] != name:
+            continue
+        nm, _ = netmap(design, bnd)
+        cu = bnd["block"].get("copper") or {}
+        out = []
+        for t in cu.get("tracks") or []:
+            net = nm.get(str(t["net"]))
+            if net is None:
+                continue
+            h = float(t["w"]) / 2
+            pts = [(float(x), float(y)) for x, y in t["pts"]]
+            for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+                out.append((net, (min(x1, x2) - h, min(y1, y2) - h, max(x1, x2) + h, max(y1, y2) + h)))
+        for v in cu.get("vias") or []:
+            net = nm.get(str(v["net"]))
+            if net is not None:
+                x, y, h = float(v["x"]), float(v["y"]), via_dia / 2
+                out.append((net, (x - h, y - h, x + h, y + h)))
+        return out
+    return []
+
+
 def _tkey(t: dict) -> tuple:
     a, b = (round(t["x1"], 4), round(t["y1"], 4)), (round(t["x2"], 4), round(t["y2"], 4))
     return (t["net"], t["layer"], round(float(t["w"]), 4)) + tuple(sorted((a, b)))
