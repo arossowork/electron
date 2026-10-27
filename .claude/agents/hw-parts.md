@@ -14,6 +14,13 @@ Batch your lookups: run `lib sym`, `lib show`, `lib fp`, `lib pads` and `parts` 
 Run `uv run hwflow block list` once. When a layout block of the library covers a block of the architecture (a boost cell, an MCU module with its decoupling, a guard FET pair), take that block's parts, footprints and values (`uv run hwflow block show <name>`), so that the circuit stage can bind them, and name the layout block in `notes/parts.md`.
 
 For each block:
+0. For each major IC (one with an application circuit: regulator, MCU, ADC, driver, interface), start from a reference
+   design: `uv run hwflow ref search <mpn or family> [function words]` (batch several ICs in one call; `--json` for the
+   compact form). It lists the designs in examples/, projects/, the layout blocks and the external open-hardware index
+   that use the part, with the parts, values, footprints and nets around it, the source, the licence and the build
+   verdict. Prefer a hit marked `build PASS` or `layout block`; take its external parts and values as the first
+   candidate (the datasheet still decides), reuse its datasheet notes, and write the hit (design, source, licence) in
+   `notes/parts.md`. An external hit is unverified: check its values against the datasheet and its licence before reuse.
 1. Find candidates with `uv run hwflow parts <category> key=value --text "..."` (categories: resistors, capacitors, inductors, ldos, buck_converters, boost_converters, diodes, leds, mosfets, bjt_transistors, opamps, microcontrollers, usb_c_connectors, headers, crystals, fuses, adcs, dacs). If the index has no match, use WebSearch on LCSC, Mouser, or the manufacturer site.
 2. Prefer JLCPCB basic parts, high stock, and parts with a KiCad library symbol (`uv run hwflow lib sym <mpn or family>`). If no symbol exists for the exact part, use a generic symbol with the same pinout, and check the pin mapping against the datasheet table.
 3. Choose the footprint with `uv run hwflow lib fp <package>`, and make sure that pad numbers match the symbol pins (`hwflow lib show` and `hwflow lib pads`).
@@ -21,6 +28,24 @@ For each block:
 5. Read the datasheet (text, see above) for the values that the SPICE model needs (see docs/design-yaml.md), the absolute maximum ratings, and the recommended application circuit.
 6. For each datasheet that you read, write the facts the design needs (absolute maximum ratings, application circuit values, SPICE parameters, page numbers) to `notes/datasheets/<mpn>.md`, so later stages and the reviewer do not fetch it again. Check `library/datasheets/<mpn>.md` and the shared `hw:` library (`library/README.md`) first: a part another project already drew and checked is reused, not drawn again. A symbol or footprint you draw that another product could use goes into `library/` (symbols/hw.kicad_sym, footprints/hw.pretty) with a README row (source, verified against).
 7. Write `notes/parts.md`: for each block, the chosen part, two alternatives, price, stock, the reason for the choice, and the datasheet link.
+8. For each IC, connector, relay and fuse, write the `limits:` that `hwflow check` compares with the nets
+   (docs/design-yaml.md, components, limits): `abs_max_v`, `rec_max_v`, per-pin overrides in `pins` (a relay coil's
+   maximum applied voltage, a 5 V-tolerant input), `hole_mm` for a through-hole lead, `current_rating_a` for a fuse,
+   each with the page in `source`. For each supply the part creates, give the net's `v_max`: the maximum output with
+   accuracy and ripple, not the nominal. A part without an LCSC number gets `sourcing:` (where and how: hand solder).
+   Return them as YAML lines the circuit stage pastes.
+9. Datasheet checklist (each item was a late review finding once; write the number and its page, or `n/a`):
+   - pulse and surge ratings (IDM, single-pulse SOA, I2t) against the hot-plug or inrush current;
+   - min and max of the parameters the circuit depends on (VGS(th), RDS(on), output accuracy, leakage such as IDSS),
+     not only typical, for the corner simulations;
+   - capacitors: the effective capacitance at the DC bias (vendor curve), not the nominal;
+   - fuses: breaking capacity against the prospective fault current, and the derating at the highest ambient;
+   - relays: must-operate voltage at the highest coil temperature against the lowest supply; coil resistance tolerance;
+   - battery clips and connectors: contact resistance, mating cycles, polarity;
+   - models: what an averaged or behavioral model leaves out (mode changes, ripple), for the circuit stage;
+   - MCU pins: wake-capable pins, strap pins and their reset level, ADC channels (`uv run hwflow fw <proj>` checks them
+     against `interface.yaml` once it exists);
+   - sourcing: stock against the build quantity, a second source, hand-solder parts named for the placement list.
 
 Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model). For every part of a floorplan item, also return the facts the lead needs to run the early layout gate (`hwflow floorplan`, with `footprint:` on the item) before the parts are committed:
 - the footprint id and its height;

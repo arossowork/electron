@@ -14,6 +14,12 @@ def cmd_block(a) -> int:
 
     from ..core import blocks
     from ..verify import blocks as authoring
+    if a.what == "match":
+        proj = a.project or a.arg
+        if not proj:
+            print("hwflow block match <project>")
+            return 2
+        return _match(Design.load(proj), getattr(a, "json", False))
     d = Design.load(a.project) if a.project else None
     if a.what == "list":
         for n in blocks.names(d):
@@ -46,4 +52,30 @@ def cmd_block(a) -> int:
     f = blocks.write(b, Path(a.out) if a.out else None)
     print(f"wrote {f}: {len(b['roles'])} parts, ports {', '.join(b['ports'])}, {len(b['copper']['tracks'])} tracks, "
           f"{len(b['copper']['vias'])} vias")
+    return 0
+
+
+def _match(d: Design, as_json: bool = False) -> int:
+    """`hwflow block match <proj>`: library blocks whose roles, footprints and pin nets fit unbound parts of the design,
+    as `blocks:` entries to paste (the block's relative placement and copper become a placement preset)."""
+    import json
+
+    from ..core import blocks
+    res = blocks.suggest(d)
+    if as_json:
+        print(json.dumps({"schema": "hwflow.block-match/1", "matches": res}, separators=(",", ":")))
+        return 0
+    if not res:
+        print(f"{d.name}: no library block fits the unbound parts (footprints and pin nets must match a block's roles)")
+        return 0
+    print(f"{d.name}: {len(res)} library blocks fit unbound parts; add to design.yaml `blocks:` "
+          f"(then `hwflow check`):")
+    for m in res:
+        parts = ", ".join(f"{k}: {v}" for k, v in m["parts"].items())
+        print(f"  {m['entry']}: {{use: {m['block']}, parts: {{{parts}}}}}")
+        for role, msg in m["value_diffs"].items():
+            print(f"    value: {m['parts'][role]} {msg}")
+        if m["placed"]:
+            print(f"    placement: {', '.join(m['placed'])} have their own `placement:`; remove it (the block places "
+                  f"its parts) or give the entry `at: {{x, y, rot}}`")
     return 0

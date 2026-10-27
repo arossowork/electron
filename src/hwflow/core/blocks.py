@@ -493,6 +493,93 @@ def closed_nets(design, libs) -> set[str]:
     return out
 
 
+# ------------------------------------------------------------------ matching (reference layouts as presets)
+
+def match(design, block: dict, exclude: set[str] | None = None, limit: int = 4) -> list[dict]:
+    """Bindings of `block` onto parts of `design` that `check` would accept on the netlist: every role on a distinct
+    part with the role's footprint, block net -> design net consistent on every pin, two block nets on one design net
+    only when both are ports, and no internal block net reaching a part outside the binding. Values are compared but
+    do not stop a match (`value_diffs`). Returns up to `limit` [{parts: role -> ref, netmap, value_diffs}]."""
+    roles = {str(k): v for k, v in (block.get("roles") or {}).items()}
+    if not roles:
+        return []
+    P = ports(block)
+    exclude = exclude or set()
+    by_fp: dict[str, list] = {}
+    for c in design.components.values():
+        if c.ref not in exclude and not c.get("virtual"):
+            by_fp.setdefault(str(c.get("footprint")), []).append(c)
+    cands = {role: by_fp.get(str(r.get("footprint")), []) for role, r in roles.items()}
+    if any(not v for v in cands.values()):
+        return []
+    order = sorted(roles, key=lambda role: (len(cands[role]), -len(pins(roles[role]))))
+    conns = design.nets()
+    out: list[dict] = []
+
+    def extend(nm: dict, role: str, c) -> dict | None:
+        nm = dict(nm)
+        for pin, bn in pins(roles[role]).items():
+            dn = c.pins.get(pin)
+            if dn is None or dn.upper() in ("NC", "~"):
+                return None
+            if nm.setdefault(bn, dn) != dn:
+                return None
+        rev: dict[str, set] = {}
+        for bn, dn in nm.items():
+            rev.setdefault(dn, set()).add(bn)
+        if any(len(b) > 1 and not b <= P for b in rev.values()):
+            return None
+        return nm
+
+    def closed(nm: dict, parts: dict) -> bool:
+        inside = {(ref, p) for role, ref in parts.items() for p in pins(roles[role])}
+        return all(all((r, p) in inside for r, p in conns.get(dn, [])) for bn, dn in nm.items() if bn not in P)
+
+    def walk(i: int, nm: dict, parts: dict):
+        if len(out) >= limit:
+            return
+        if i == len(order):
+            if closed(nm, parts):
+                diffs = {role: msg for role, ref in parts.items()
+                         if (msg := _value_mismatch(design.components[ref], roles[role]))}
+                out.append({"parts": dict(parts), "netmap": nm, "value_diffs": diffs})
+            return
+        role = order[i]
+        for c in cands[role]:
+            if c.ref in parts.values():
+                continue
+            nm2 = extend(nm, role, c)
+            if nm2 is not None:
+                walk(i + 1, nm2, {**parts, role: c.ref})
+
+    walk(0, {}, {})
+    return out
+
+
+def suggest(design) -> list[dict]:
+    """Library blocks that match unbound parts of the design (one binding per block and part set): the preset a design
+    can take with `blocks: {<entry>: {use: <block>, parts: {...}}}`. [{block, parts, value_diffs, source}]"""
+    bound = {ref for b in bindings(design) for ref in b["parts"].values()}
+    back = {r for r, c in design.components.items() if str((c.get("placement") or {}).get("side", "front")) != "front"}
+    out, used = [], set(bound) | back  # blocks are front side only
+    for n in names(design):
+        b = load(n, design)
+        for m in match(design, b, exclude=used, limit=32):
+            if set(m["parts"].values()) & used:
+                continue
+            used |= set(m["parts"].values())
+            placed = [ref for ref in m["parts"].values()
+                      if {"x", "y", "edge"} & set((design.components[ref].get("placement") or {}))]
+            out.append({"block": n, "entry": n, "parts": m["parts"], "value_diffs": m["value_diffs"], "placed": placed,
+                        "source": " ".join(str(b.get("source") or "").split())[:160]})
+    taken = set((design.raw.get("blocks") or {}))
+    for m in out:  # entry names unique in `blocks:` (a block bound twice gets its first part's ref)
+        if sum(x["block"] == m["block"] for x in out) > 1 or m["entry"] in taken:
+            m["entry"] = f"{m['block']}_{next(iter(m['parts'].values())).lower()}"
+    return out
+
+
+
 def write(block: dict, root: Path | None = None) -> Path:
     """blocks/<name>/block.yaml, leaf lists and maps in flow style."""
     d = Path(root or library_root()) / block["name"]

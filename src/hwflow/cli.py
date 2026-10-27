@@ -62,12 +62,23 @@ def cmd_parts(a) -> int:
     return 0
 
 
+def _json(obj) -> None:
+    print(json.dumps(obj, separators=(",", ":"), default=str))
+
+
 def cmd_nets(d: Design, a) -> int:
     import fnmatch
     nst = (_fresh_status(d).get("layout") or {}).get("nets")
     if nst is None:
-        print("no routed nets in build/status.json: run the layout stage first")
+        if a.json:
+            _json({"schema": "hwflow.nets/1", "error": "no routed nets in build/status.json: run the layout stage first"})
+        else:
+            print("no routed nets in build/status.json: run the layout stage first")
         return 1
+    if a.json:
+        from .pipeline.summary import nets_json
+        _json(nets_json(nst, a.net))
+        return 0
     print(f"{'net':<16} {'class w':>7} {'min w':>6} {'max w':>6} {'length':>8} {'narrow':>7} {'vias':>4}  layers")
     for n, r in nst.items():
         if a.net and not any(fnmatch.fnmatchcase(n, g) for g in a.net):
@@ -78,8 +89,13 @@ def cmd_nets(d: Design, a) -> int:
     return 0
 
 
-def cmd_trace(d: Design) -> int:
+def cmd_trace(d: Design, as_json: bool = False) -> int:
     t = trace(d)
+    if as_json:
+        from .pipeline.summary import trace_json
+        _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
+        _json(trace_json(t))
+        return 0
     print(f"evidence design hash: {t['evidence_hash']}")
     for r in t["rows"]:
         print(f"{r['id']:<5} {r['status']:<10} {r['priority']:<6} {r['text'][:70]}"
@@ -165,17 +181,22 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="hwflow", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     brief = "print only the report lines that changed since the last report, and the verdict"
+    as_json = ("print one compact JSON object (schema hwflow.summary/1, hwflow.check/1 for check) from build/status.json "
+               "instead of the report; progress lines go to stderr")
     for name in ("check", "sch", "post", "fab", "report"):
         p = sub.add_parser(name); p.add_argument("project")
         if name != "report":
             p.add_argument("--brief", action="store_true", help=brief)
+            p.add_argument("--json", action="store_true", help=as_json)
     p = sub.add_parser("sim"); p.add_argument("project"); p.add_argument("--mc", type=int, default=0)
     p.add_argument("--brief", action="store_true", help=brief)
+    p.add_argument("--json", action="store_true", help=as_json)
     auto = ("placement, routing with net-order retries, area search and DRC in one call: up to --attempts "
             "placements in parallel (--workers, default cpu count - 1), stop at the first clean board or when the errors "
             "are on fixed parts; prints only the final numbers")
     p = sub.add_parser("layout"); p.add_argument("project"); p.add_argument("--reuse", action="store_true")
     p.add_argument("--brief", action="store_true", help=brief)
+    p.add_argument("--json", action="store_true", help=as_json)
     p.add_argument("--auto", action="store_true", help=auto); p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--seeds", type=int, default=4); p.add_argument("--iters", type=int, default=30000)
     p.add_argument("--passes", type=int, default=30); p.add_argument("--workers", type=int, default=None)
@@ -191,6 +212,7 @@ def main(argv=None):
     p.add_argument("--attempts", type=int, default=4)
     p.add_argument("--retry-layout", action="store_true", help=retry)
     p.add_argument("--brief", action="store_true", help=brief)
+    p.add_argument("--json", action="store_true", help=as_json)
     p.add_argument("--inline", action="store_true", help="run the stages in this process (the default)")
     p.add_argument("--remote", action="store_true",
                    help="run on the hosted platform (the `remote` executor plug-in, or HWFLOW_EXECUTOR=remote)")
@@ -209,17 +231,25 @@ def main(argv=None):
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
-    p = sub.add_parser("block", help="layout blocks: list, show <name>, check <name>, extract <board> --refs ...")
-    p.add_argument("what", choices=["list", "show", "check", "extract"]); p.add_argument("arg", nargs="?")
+    p = sub.add_parser("block", help="layout blocks: list, show <name>, check <name>, extract <board> --refs ..., "
+                                     "match <project> (library blocks that fit unbound parts: a `blocks:` preset)")
+    p.add_argument("what", choices=["list", "show", "check", "extract", "match"]); p.add_argument("arg", nargs="?")
     p.add_argument("--refs", help="extract: parts of the block, comma separated"); p.add_argument("--name")
     p.add_argument("--source", help="extract: where the block comes from (board, run, datasheet)")
     p.add_argument("--roles", help="extract: role=ref pairs, comma separated (default: role = ref)")
     p.add_argument("--project", help="design whose blocks/, symbols and values to use")
     p.add_argument("--out", help="extract: library folder (default: the repository blocks/); check: work folder")
+    p.add_argument("--json", action="store_true", help="match: compact JSON (schema hwflow.block-match/1)")
     p = sub.add_parser("parts"); p.add_argument("category"); p.add_argument("filters", nargs="*",
                                                                            help="key=value server filters")
     p.add_argument("--text"); p.add_argument("--limit", type=int, default=15)
-    sub.add_parser("trace").add_argument("project")
+    p = sub.add_parser("trace"); p.add_argument("project")
+    p.add_argument("--json", action="store_true", help="compact JSON (schema hwflow.trace/1): counts, verified ids, "
+                                                       "one row per requirement that is not verified")
+    p = sub.add_parser("summary", help="the last build from build/status.json without running anything: verdict, "
+                                       "stale stages, score card, check, ERC, SPICE fails, layout DRC and diagnosis, "
+                                       "post-layout, requirements")
+    p.add_argument("project"); p.add_argument("--json", action="store_true", help="compact JSON (hwflow.summary/1)")
     p = sub.add_parser("fw", help="firmware headers build/fw/board.h, events.h, modules.h from design.yaml and the "
                                   "HW/SW contract interface.yaml (docs/hwsw-codesign.md)")
     p.add_argument("target", nargs="+", metavar="[test] project",
@@ -230,6 +260,7 @@ def main(argv=None):
     p = sub.add_parser("nets", help="routed copper per net from the last layout: widths, length, narrow length, "
                                     "layers, vias")
     p.add_argument("project"); p.add_argument("net", nargs="*", help="net names or globs (default: all)")
+    p.add_argument("--json", action="store_true", help="compact JSON (schema hwflow.nets/1): one row per net")
     p = sub.add_parser("floorplan", help="early layout feasibility gate of the floorplan: field (area, depth, regions, "
                                          "connector edges and envelopes, isolation groups, quick placement and "
                                          "congestion) and, once parts are captured, the layout proofs of `hwflow "
@@ -251,6 +282,8 @@ def main(argv=None):
     p.add_argument("--placement", help="placement.json (default <project>/build/placement.json)")
     p.add_argument("--frame", type=float, default=3.0, help="border band around the kept parts, mm")
     p.add_argument("--name", help="suffix of the new project name")
+    from .commands import ref as refcmd
+    refcmd.add_arguments(sub)
     for c in registry().commands.values():  # subcommands registered by extension packages (hwflow.pipeline.hooks)
         c.add_arguments(sub.add_parser(c.name, help=c.help))
     a = ap.parse_args(argv)
@@ -263,6 +296,8 @@ def main(argv=None):
         return cmd_block(a)
     if a.cmd == "parts":
         return cmd_parts(a)
+    if a.cmd == "ref":
+        return refcmd.cmd_ref(a)
     if a.cmd == "cutout":
         from .layout.place.cutout import cutout
         rec = cutout(a.project, a.out, parts=a.parts, region=a.region, nets=a.nets, placement=a.placement,
@@ -308,7 +343,15 @@ def main(argv=None):
     if a.cmd == "nets":
         return cmd_nets(d, a)
     if a.cmd == "trace":
-        return cmd_trace(d)
+        return cmd_trace(d, a.json)
+    if a.cmd == "summary":
+        from .pipeline import summary
+        v = summary.build_view(d)
+        if a.json:
+            _json(v)
+        else:
+            print(json.dumps(v, indent=1, default=str))
+        return 0 if (v.get("verdict") or "").startswith("PASS") else 1
     if a.cmd in (hooks := registry().commands):  # subcommands registered by extension packages
         return hooks[a.cmd].run(d, a)
     if a.cmd == "report":
@@ -321,6 +364,13 @@ def main(argv=None):
     if a.cmd == "floorplan":
         return cmd_floorplan(d, a)
 
+    if getattr(a, "json", False):
+        import contextlib
+        from .pipeline import summary
+        with contextlib.redirect_stdout(sys.stderr):  # progress lines; stdout carries only the JSON object
+            res = run_build(d, build_options(a))
+        _json(summary.check_json(d) if a.cmd == "check" else {**summary.build_view(d), "run_id": res.get("run_id")})
+        return res["rc"]
     res = run_build(d, build_options(a))
     print(res["text"])
     return res["rc"]

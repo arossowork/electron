@@ -72,6 +72,8 @@ nets:
   AC_N: {class: mains, width_mm: 1.0, min_width_mm: 1.0}   # no neck under 1.0 mm (fuse coordination)
 ```
 
+`v_max` / `v_min` are the highest and lowest voltage the net reaches, `pullup: internal` says an IC pull-up holds an open-drain or I2C net (see `limits` under components).
+
 `min_width_mm` is the narrowest copper the net may have: the router does not neck the net under it (no pad-entry or neck-down pass at a smaller width, no corridor-proof narrow-first pass or seed route when it is above the 0.15 mm neck floor), so a net that does not fit at that width stays open. A track of the net narrower than it is a layout failure (`too_narrow` in the layout status). Use it where a neck is a safety problem, for example a mains track that must carry the fuse's let-through I²t.
 
 `req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no current board check names (no `req:` on a net, a `board.isolation` group or a budget) stays `UNVERIFIED` in `hwflow trace`; evidence prose does not verify routed copper. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
@@ -103,6 +105,9 @@ components:
     tolerance: 0.01                         # Monte Carlo tolerance (R 1%, C 10%, L 20% default)
     voltage_rating_v: 16                    # capacitors: derating check (50% by default)
     power_rating_w: 0.1                     # resistors: default from package size
+    limits: {abs_max_v: 6.0, rec_max_v: 5.5, pins: {"7": 5.5, "EN": 6.0}, source: "ds p.2"}   # optional, see below
+    current_rating_a: 2.0                   # fuses: rated current (fuse-derating check)
+    sourcing: "Mouser 123-ABC, hand solder" # optional: where a part without `lcsc` comes from
     thermal_vias: {pad: "2", count: 6}     # via grid inside a thermal pad, to the opposite-layer pour
     bom: false                              # optional: copper, not a purchased part (default false for a KiCad NetTie symbol or footprint, true otherwise): left out of the BOM, the cost and bom.csv
     role: temp_sensor                       # optional: temp_sensor | antenna | none. Placement roles; inferred from the symbol (Sensor_Temperature:*, Device:Thermistor*; RF_Module:*, footprint with Antenna) when absent, none turns the inference off
@@ -112,6 +117,22 @@ components:
 ```
 
 Every symbol pin must be in `pins` or in `nc`, otherwise `hwflow check` reports an error. Read the pin numbers with `hwflow lib show <lib_id>`. Do not guess them.
+
+### limits (parts-time pin checks)
+
+`limits` holds the datasheet numbers that `hwflow check` compares with the nets (docs/reference-reuse.md, section 3; code `src/hwflow/core/pinchecks.py`). Write it in stage 3 for every IC, connector, relay and fuse, with the page in `source`:
+
+| key | meaning | check |
+|---|---|---|
+| abs_max_v | absolute maximum of every pin to ground | `abs-max` error when a pin's net can go higher |
+| rec_max_v | recommended operating maximum | `rec-max` warning |
+| min_v | absolute minimum | `abs-min` error against `nets.<n>.v_min` |
+| pins | `{pin number or pin-name glob: V}`, overrides abs_max_v per pin (a relay coil, a 5 V-tolerant input) | as abs_max_v |
+| rec_pins | the same for rec_max_v | as rec_max_v |
+| hole_mm | the datasheet's PCB hole for a through-hole lead | `hole-size` warning when a footprint drill differs by more than 0.05 mm |
+| current_a | a fuse's rated current (or `current_rating_a`) | `fuse-derating` warning above 75 % of it from the nets' `current_a` |
+
+The voltage of a net: `nets.<n>.v_max` (the highest it reaches: a regulator's maximum output with accuracy and ripple, not its nominal; `v_min` for the lowest), else the rail in its name (`+3V3`, `5V_SYS`, `1V8`, `P10V5`, `N10V`), 0 V on a ground net, else an upper bound from what drives it (a resistor, inductor, fuse, diode or transistor passes its other nets' bound; an IC output passes its IC's highest supply). An unknown net is not checked. The same pass also reports, as warnings: `cap-voltage` (a capacitor's `voltage_rating_v` below the bound across it, an error), `open-drain-pullup` and `i2c-pullup` (no pull-up resistor; `nets.<n>.pullup: internal` when the IC has one, with the datasheet line), `reset-state` (an EN, nSLEEP or RESET input driven only by GPIO-type pins, no pull resistor), `pin-role` (a GND pin off ground, a supply pin or power output on ground), `floating-input` (a net of input pins only), `tvs-budget` (a TVS or ESD diode without a `copper_len` budget) and `sourcing` (an active or electromechanical part without `lcsc` or `sourcing`).
 
 ### spice
 
@@ -216,7 +237,7 @@ The separate derating operating-point audit accepts `sim.derating_timeout_s` (de
 
 ## blocks
 
-A layout block is a sub-circuit laid out and checked once: a boost cell, an MCU module with its decoupling, a guard FET pair. The library is `blocks/<name>/block.yaml` in the repository (`uv run hwflow block list`, `uv run hwflow block show <name>`); a project may add its own in `<proj>/blocks/`. A design binds its components to a block's roles:
+A layout block is a sub-circuit laid out and checked once: a boost cell, an MCU module with its decoupling, a guard FET pair. The library is `blocks/<name>/block.yaml` in the repository (`uv run hwflow block list`, `uv run hwflow block show <name>`); a project may add its own in `<proj>/blocks/`. `uv run hwflow block match <proj>` lists the library blocks whose roles, footprints and pin nets fit unbound parts of a design, as `blocks:` entries to paste (with value differences and the parts whose own `placement:` must go). A design binds its components to a block's roles:
 
 ```yaml
 blocks:

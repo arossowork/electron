@@ -5,6 +5,7 @@ budgets and the SPICE element check are sim."""
 from __future__ import annotations
 
 from ..core import blocks
+from ..core import pinchecks
 from ..core.design import Design, decoupling_findings, netlist_findings
 from ..layout import checks as layout_checks
 from ..layout import feasibility
@@ -19,6 +20,7 @@ def check(design: Design, libs=None) -> list[dict]:
     if libs is not None:  # layout feasibility proofs from footprints, pin nets and net widths (feasibility.py)
         f += feasibility.check(design, libs)
     f += decoupling_findings(design)
+    f += pinchecks.findings(design, libs)  # datasheet limits against net voltages, pin functions against net roles
     if design.raw.get("blocks"):
         f += blocks.findings(design, libs)
     f += simrobust.check_findings(design)

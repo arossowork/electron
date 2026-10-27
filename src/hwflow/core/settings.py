@@ -199,6 +199,10 @@ class PathSettings(_Group):
     freerouting: str = Field("", validation_alias=AliasChoices("FREEROUTING"))
     kicad_share: str = Field("", validation_alias=AliasChoices("KICAD_SHARE"))  # holds symbols/ and footprints/
     cas_dir: str = Field("", validation_alias=AliasChoices("HWFLOW_CAS_DIR"))  # LocalCAS root and the stage cache
+    # reference designs (`hwflow ref search`, core/refs.py): folders of designs (one design.yaml per sub-folder,
+    # os.pathsep-separated) and the external open-hardware index (JSON; optional, missing is fine)
+    ref_dirs: str = Field("", validation_alias=AliasChoices("HWFLOW_REF_DIRS"))
+    oshw_index: str = Field("", validation_alias=AliasChoices("HWFLOW_OSHW_INDEX"))
 
     @model_validator(mode="after")
     def _resolve(self):
@@ -209,6 +213,8 @@ class PathSettings(_Group):
         self.krt_dir = self.krt_dir or str(Path(self.tools_dir) / "KiCadRoutingTools")
         self.freerouting = self.freerouting or str(Path(self.tools_dir) / "freerouting-2.5.0.jar")
         self.cas_dir = self.cas_dir or str(Path(os.path.expanduser("~")) / ".cache" / "hwflow" / "cas")
+        self.ref_dirs = self.ref_dirs or os.pathsep.join([str(root / "examples"), str(root / "projects")])
+        self.oshw_index = self.oshw_index or str(root / "oshw" / "index.json")
         home = os.path.expanduser("~")
         # "" when KiCad's libraries are not found (libs.share_dir raises): env, Linux, then macOS
         self.kicad_share = _first_existing(

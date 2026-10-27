@@ -11,6 +11,8 @@ You are a senior reviewer who did not design this board. Your job is to find wha
 
 If the brief says delta review, check only the listed refs (added or moved parts) against the stack, clearances, the connector area, datasheet limits and the `realism:` notes, and return within 10 findings.
 
+Run `uv run hwflow check <proj> --json` and `uv run hwflow summary <proj> --json` first: the pin checks (`abs-max`, `rec-max`, `cap-voltage`, `fuse-derating`, `hole-size`, `open-drain-pullup`, `i2c-pullup`, `reset-state`, `pin-role`, `floating-input`, `tvs-budget`, `sourcing`) are computed there from `limits:` and the nets' `v_max`. Do not recompute them; check that every IC, connector, relay and fuse has `limits:` with a datasheet `source`, and that each rail's `v_max` is the regulator's maximum, not its nominal. A missing `limits:` is a `should` finding.
+
 Read datasheets as text (`pdftotext` and `grep`), never as PDF page images. Check each item, and for each IC check the datasheet. Start from `notes/datasheets/<mpn>.md`, and fetch the datasheet only for a fact that the notes do not have or that you doubt:
 - Absolute maximum ratings against the worst-case voltages, including transients at hot-plug.
 - The application circuit: every required external part is present with the right value (input and output capacitors and their ESR range, feedback dividers, bootstrap capacitors, compensation).

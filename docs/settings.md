@@ -55,6 +55,8 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `paths.krt_dir` | `KRT_DIR` | `<tools_dir>/KiCadRoutingTools` | KiCadRoutingTools checkout |
 | `paths.freerouting` | `FREEROUTING` | `<tools_dir>/freerouting-2.5.0.jar` | Freerouting jar |
 | `paths.kicad_share` | `KICAD_SHARE` | first of `/usr/share/kicad`, `/usr/local/share/kicad`, the macOS app | KiCad libraries (`symbols/`, `footprints/`) |
+| `paths.ref_dirs` | `HWFLOW_REF_DIRS` | `<root>/examples` and `<root>/projects` (`os.pathsep`-separated) | Reference designs for `hwflow ref search`: one `design.yaml` per sub-folder |
+| `paths.oshw_index` | `HWFLOW_OSHW_INDEX` | `<root>/oshw/index.json` | External open-hardware index for `hwflow ref search`; a missing file is skipped |
 | `paths.cas_dir` | `HWFLOW_CAS_DIR` | `~/.cache/hwflow/cas` | Local artifact store (`LocalCAS`) and stage cache (`keys/<stage>/<key>.json`) |
 
 Package data (`models/generic.lib`, hashed source files) stays relative to the package. No setting holds a secret;
