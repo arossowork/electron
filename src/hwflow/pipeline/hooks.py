@@ -7,7 +7,12 @@ the engine runs unchanged.
 
 Hooks:
 - check findings: `fn(design) -> list[finding]`, appended to the findings of the `check` stage.
+- check filter: `fn(design, findings) -> findings`, run over all findings of the `check` stage (engine and hooks)
+  before they are counted: a protocol may lower the severity of a finding it knows is waiting for a product decision
+  (e.g. a cost limit asked in an inbox question). It must not drop errors silently: say why in the message.
 - check state: `fn(design, findings) -> {key: value}`, merged into the result of the `check` stage.
+- check facts: `fn(design) -> JSON-able value`, what the check hooks read from prose the stage key strips
+  (requirement text and sources): hashed into the `check` stage's cache key.
 - check inputs: `fn(design) -> list[str]`, the project paths the check hooks read besides design.yaml (files, or
   folders ending in "/"; `build/...` files too). They are inputs of the `check` stage: its cache key hashes them and
   the stage's scratch copy of the project holds them (ADR 0001, 2.3).
@@ -28,8 +33,10 @@ ENTRY_POINT_GROUP = "hwflow.hooks"
 
 CheckFindings = Callable[[Any], list[dict]]
 CheckState = Callable[[Any, list[dict]], dict]
+CheckFilter = Callable[[Any, list[dict]], list[dict]]
 ReportExtra = Callable[[Any], dict]
 CheckInputs = Callable[[Any], list[str]]
+CheckFacts = Callable[[Any], Any]
 
 
 @dataclass
@@ -51,7 +58,9 @@ class CommandHook:
 class Registry:
     check_findings: list[CheckFindings] = field(default_factory=list)
     check_state: list[CheckState] = field(default_factory=list)
+    check_filters: list[CheckFilter] = field(default_factory=list)
     check_inputs: list[CheckInputs] = field(default_factory=list)
+    check_facts: list[CheckFacts] = field(default_factory=list)
     report_extras: list[ReportHook] = field(default_factory=list)
     commands: dict[str, CommandHook] = field(default_factory=dict)
     loaded: bool = False
@@ -64,12 +73,20 @@ def register_check_findings(fn: CheckFindings) -> None:
     _R.check_findings.append(fn)
 
 
+def register_check_filter(fn: CheckFilter) -> None:
+    _R.check_filters.append(fn)
+
+
 def register_check_state(fn: CheckState) -> None:
     _R.check_state.append(fn)
 
 
 def register_check_inputs(fn: CheckInputs) -> None:
     _R.check_inputs.append(fn)
+
+
+def register_check_facts(fn: CheckFacts) -> None:
+    _R.check_facts.append(fn)
 
 
 def register_report_extra(name: str, fn: ReportExtra, history_keys: tuple[str, ...] = ()) -> None:

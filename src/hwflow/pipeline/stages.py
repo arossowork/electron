@@ -28,11 +28,16 @@ from .hooks import registry
 from .status import _block_files, _design_hash, _out, _status, current_inputs
 
 
+ERC_ERRORS = ("footprint_link_issues",)  # ERC warnings that hwflow treats as errors
+
+
 def stage_check(d: Design, libs: Libs) -> dict:
     reg = registry()
     f = check(d, libs)
     for h in reg.check_findings:
         f += h(d)
+    for flt in reg.check_filters:
+        f = flt(d, f)
     errs = [x for x in f if x["sev"] == "error"]
     warns = [x for x in f if x["sev"] == "warn"]
     res = {"ok": not errs, "errors": len(errs), "warnings": len(warns), "findings": f}
@@ -48,6 +53,9 @@ def stage_sch(d: Design, libs: Libs) -> dict:
     from ..schematic import sch
     sch.write_schematic(d, libs, out / f"{d.name}.kicad_sch")
     v = kicad.erc(out / f"{d.name}.kicad_sch")
+    for x in v:  # a footprint KiCad cannot resolve leaves the part off the board: an error, not a warning
+        if x.get("type") in ERC_ERRORS and x.get("sev") != "error":
+            x["sev"], x["promoted"] = "error", True
     errs = [x for x in v if x["sev"] == "error"]
     return {"ok": not errs, "errors": len(errs), "warnings": len(v) - len(errs), "violations": v[:40]}
 

@@ -1,6 +1,6 @@
 """`hwflow check`: the static design checks in the order the report lists them. The netlist and library checks are
 core (`design.netlist_findings`), the layout ones are `layout.checks`, the pre-layout proofs `layout.feasibility`, the
-budgets and the SPICE element check are sim."""
+budgets and the SPICE element check are sim; `reviewchecks` holds the late-review items (docs/review-early.md)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from ..core.design import Design, decoupling_findings, netlist_findings
 from ..layout import checks as layout_checks
 from ..layout import feasibility
 from ..sim import budgets, simrobust, spice
+from . import reviewchecks
 
 
 def check(design: Design, libs=None) -> list[dict]:
@@ -24,4 +25,5 @@ def check(design: Design, libs=None) -> list[dict]:
     if design.raw.get("blocks"):
         f += blocks.findings(design, libs)
     f += simrobust.check_findings(design)
+    f += reviewchecks.findings(design, libs)  # late-review items: mains fuse, cost, files, model source
     return f

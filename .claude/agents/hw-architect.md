@@ -28,6 +28,18 @@ Then write the floorplan (the `## floorplan` section of `docs/design-yaml.md` is
 - Through-hole parts on hazardous nets: their pads come through to the other face. Set the region side to `both`, or add an insulating-barrier item.
 - Each connector: an item with `edge` and `envelope_mm` (mating plug + cable + bend radius), and `floorplan.wall_mm` (room to the enclosure wall).
 
+Mechanical and safety checklist (each item was a late `must` finding once; write each as data and its number in `architecture.md`, or `n/a` with the reason):
+- Overcurrent protection: every mains or other hazardous-energy input has a fuse (or PTC, breaker) in series, first after the terminal: `nets.<line>.role: mains_input`. Size it: rating against the load and inrush, breaking capacity against the prospective fault current, I2t against the copper and the relay contacts. `hwflow check` fails `mains-fuse` without it.
+- Fixing: how the board is held (screws, rivets, standoffs, a carrier, edge clips): regions with `mechanical: fixing | screw | rivet | standoff`, the head size, not the hole. A metal screw or a touchable head is accessible.
+- Cover and enclosure: what keeps fingers off hazardous parts (IPXXB test finger): a `mechanical: cover` region over the zone and its wall foot as `mechanical: wall`; the through-hole pins and terminals on the touchable face.
+- Creepage and clearance to touchable and conductive parts: fixings, cover walls and their outside faces, the frame, the cables in the box. Touchable insulation counts as conductive (`accessible: true`, foil rule); keep the mains region's `isolation_mm` from each.
+- Insulation thickness: distance through solid insulation (cover, film, barrier) and the number of layers for thin sheet, from the clause of the standard that applies to this product (for example EN 60730-1 20.3 for controls, IEC 60335-1 29.3 for appliances, IEC 62368-1 5.4 for ICT). Name the clause; another product's standard is not a source.
+- Cable and probe insulation where they pass hazardous parts.
+
+`uv run hwflow check <proj> --json` lists `mains-fuse` (error) and `mechanical` (warnings) from these fields; answer each in `architecture.md`.
+
 Run `uv run hwflow floorplan <proj>` and fix what the floorplan can fix until the verdict is PASS (risks listed in `architecture.md`). Never leave `board.width_mm` and `height_mm` at a size the floorplan was not checked at. A failure that needs a larger board, more layers, another construction or a changed spec is a product decision: add it to `conflicts.md` with the numbers from `build/FLOORPLAN.md` and report it; do not decide it.
 
-If the numbers show a conflict that `conflicts.md` does not have, add it and report it. Return a summary of 10 lines or less, with the floorplan verdict.
+If the numbers show a conflict that `conflicts.md` does not have, add it and report it.
+
+Decisions for the product person: list every decision this stage took or assumed that the product person owns (what the product may run on and what a user may fit, cost scope and the cost estimate against the limit, behaviour on power loss or cell removal, touch safety and serviceability, any number of a requirement you would change), each with options and their cost. Do not change a requirement's acceptance or number yourself: `hwflow check` reports it (`acceptance`) once the requirements are approved. Return a summary of 10 lines or less, with the floorplan verdict and the decisions list.

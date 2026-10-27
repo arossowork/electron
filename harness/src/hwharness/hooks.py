@@ -8,7 +8,8 @@ from hwflow.pipeline import hooks
 from hwflow.pipeline.status import _status
 
 from .evals.scorer import score
-from .protocol import APPROVAL_INPUTS, approval_findings, approve
+from .protocol import (APPROVAL_INPUTS, acceptance_facts, acceptance_findings, approval_findings, approve,
+                       approve_requirements, pending_cost_filter)
 
 SCORE_HISTORY_KEYS = ("check_errors", "erc_errors", "sim_pass_ratio", "sim_measures", "mc_min_yield", "drc_errors",
                       "unrouted", "post_pass_ratio", "area_mm2", "vias", "cost_usd", "req_total", "req_unverified",
@@ -18,9 +19,15 @@ SCORE_HISTORY_KEYS = ("check_errors", "erc_errors", "sim_pass_ratio", "sim_measu
 def _approve_args(p) -> None:
     p.add_argument("project")
     p.add_argument("--note", default="", help="who accepted it and where (e.g. round 3 q1)")
+    p.add_argument("--requirements", action="store_true",
+                   help="record requirements.yaml (priority, acceptance, verification, text numbers) as accepted")
 
 
 def _cmd_approve(d, a) -> int:
+    if a.requirements:
+        r = approve_requirements(d, a.note)
+        print(f"approved: {len(r['items'])} requirements, hash {r['hash']} (build/approved.json)")
+        return 0
     x = approve(d, a.note)
     print(f"approved: {x['layers']} layers, {x['width_mm']} x {x['height_mm']} mm, BOM ${x['cost_usd']:.2f} "
           f"(build/approved.json)")
@@ -34,10 +41,15 @@ def _cmd_status(d, a) -> int:
 
 def register() -> None:
     hooks.register_check_findings(approval_findings)
-    hooks.register_check_state(lambda d, findings: {"approval": [x for x in findings if x["code"] == "approval"]})
+    hooks.register_check_findings(acceptance_findings)
+    hooks.register_check_filter(pending_cost_filter)
+    hooks.register_check_state(lambda d, findings: {"approval": [x for x in findings
+                                                                 if x["code"] in ("approval", "acceptance")]})
     hooks.register_check_inputs(lambda d: list(APPROVAL_INPUTS))
+    hooks.register_check_facts(acceptance_facts)
     hooks.register_report_extra("score", score, SCORE_HISTORY_KEYS)
-    hooks.register_command("approve", "record layers, board size and BOM cost as accepted by the product person",
+    hooks.register_command("approve", "record layers, board size and BOM cost (or, with --requirements, the "
+                           "requirements) as accepted by the product person",
                            _approve_args, _cmd_approve)
     hooks.register_command("status", "print the score card of the last report", lambda p: p.add_argument("project"),
                            _cmd_status)
