@@ -1,9 +1,0 @@
-{"round": 4, "questions": [
- {"id": "q1",
-  "text": "The board does not fit at 74 x 46 mm: the batteries, the 230 V parts with their 6 mm safety gap, and the Wi-Fi antenna keep-out need more length. Which board shape?",
-  "options": [
-   "(recommended) 88 x 46 mm with two small notches around the box's frame screws: still fits the 503 box (it is the shape the architecture was drawn for), no extra cost",
-   "Keep 74 x 46 mm: needs smaller battery holders or relays that we have not found; the layout cannot meet the 230 V safety gap as it stands"],
-  "why": "notes/layout-escalation.md: along 74 mm, 20 mm 230 V zone + 6 mm gap leaves 48 mm, shorter than a 53 mm AAA holder; the antenna also needs 15 mm from cells, relays and mains.",
-  "change": "size"}
-]}

@@ -1,9 +1,0 @@
-* MMBT3904 NPN (SOT-23), the M3 gate clamp Q1 (review-2 S1). spice.source: vendor.
-* Gummel-Poon parameters of the Fairchild (now onsemi) 2N3904 / MMBT3904 PSpice model (same die), as
-* distributed in the Fairchild discrete model library and the PSpice EVAL library.
-* Not modelled: junction leakage (datasheet ICEX 50 nA max, IBL 50 nA max) and E-B reverse breakdown
-* (VEBO 6.0 V min; in normal operation VEB = pack voltage <= 3.6 V).
-* The leakage is a testbench source in the R2 worst-case sleep pass (design.yaml, sleep_wc).
-.model MMBT3904 NPN(IS=6.734f XTI=3 EG=1.11 VAF=74.03 BF=416.4 NE=1.259 ISE=6.734f IKF=66.78m XTB=1.5
-+ BR=.7371 NC=2 ISC=0 IKR=0 RC=1 CJC=3.638p MJC=.3085 VJC=.75 FC=.5 CJE=4.493p MJE=.2593 VJE=.75
-+ TR=239.5n TF=301.2p ITF=.4 VTF=4 XTF=2 RB=10)
