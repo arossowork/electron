@@ -957,7 +957,8 @@ class Placer:
         `pad -> pad` leg gets its share of max_mm (max_mm / legs). The Manhattan pad distance is a lower bound on the
         routed copper, so a leg farther apart than its share can never meet the budget:
 
-        - hard: past the share (straight-line pad distance, the lower bound on the copper), each mm costs BUDGET_HARD_W (the isolation weight) and the leg is a placement
+        - hard: past the share over the routing allowance place_budget_detour (straight-line pad distance; the routed
+          copper is longer by the route's detour), each mm costs BUDGET_HARD_W (the isolation weight) and the leg is a placement
           violation (`_rule_violations`): unstick and settle repair it, the legality gate never routes it;
         - soft: past BUDGET_FILL of the share (room for the route's detour), each mm costs place_budget_w, and the leg
           pulls its pads together like a decoupling pair (in the global placement too, gplace.BUDGET_GAIN);
@@ -968,6 +969,8 @@ class Placer:
         attempt). self.bud: (budget name, ref a, pad a, ref b, pad b, share) of every leg on the board, fixed or not;
         legs between two fixed parts are only reported (fixed violations)."""
         self._bud_w = float(get_settings().layout.place_budget_w)
+        detour = float(get_settings().layout.place_budget_detour)
+        self._bud_detour = detour
         self.bud = []
         if not budgets_on() or not self.d.raw.get("budgets"):
             return
@@ -985,11 +988,13 @@ class Placer:
                 (ra, pa), (rb, pb) = x["a"][0], x["b"][0]
                 if ra not in P or rb not in P or pa not in P[ra].pads or pb not in P[rb].pads or ra == rb:
                     continue
-                self.bud.append((bd["name"], ra, pa, rb, pb, share))
-                if (P[ra].fixed and P[rb].fixed) or self._same(ra, rb):  # a block's own geometry: only reported
+                if (P[ra].fixed and P[rb].fixed) or self._same(ra, rb):  # a block's own geometry: only reported,
+                    self.bud.append((bd["name"], ra, pa, rb, pb, share))  # against max_mm itself
                     continue
+                hard = share / max(detour, 1.0)  # room for the route's detour: a placement that passes it routes in
+                self.bud.append((bd["name"], ra, pa, rb, pb, hard))
                 self.decap.append((ra, pa, rb, pb, None, []))
-                self.dec_lim.append((share * BUDGET_FILL, share))
+                self.dec_lim.append((min(share * BUDGET_FILL, hard), hard))
 
     def _bud_dist(self, k) -> float:
         """Straight-line distance between the two pad centres of budget leg self.bud[k]: the lower bound on its
@@ -1009,7 +1014,8 @@ class Placer:
             if d > share + BUDGET_TOL:
                 out.append(((self.parts[ra].fixed and self.parts[rb].fixed) or self._same(ra, rb),
                             f"budget {name}: {ra}.{pa} -> {rb}.{pb} pads {d:.2f} mm apart (straight line), over its "
-                            f"{share:g} mm copper_len limit: the routed copper cannot be shorter"))
+                            f"{share:.2f} mm placement limit (copper_len max_mm share / routing allowance "
+                            f"{self._bud_detour:g} for a movable leg): the routed copper would not meet the budget"))
         return out
 
     def _bud_mover(self, k):

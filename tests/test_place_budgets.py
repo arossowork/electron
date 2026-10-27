@@ -28,8 +28,8 @@ def test_copper_len_budget_is_a_hard_placer_pair(tmp_path):
     parts = placer.build_parts(d, libs)
     pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"], seed=1)
     legs = [(pl.decap[k][:4], lim) for k, lim in enumerate(pl.dec_lim) if lim is not None]
-    assert legs == [(("J1", "2", "R1", "1"), (3.0 * placer.BUDGET_FILL, 3.0))]
-    assert pl.bud == [("stub", "J1", "2", "R1", "1", 3.0)]
+    assert legs == [(("J1", "2", "R1", "1"), (3.0 * placer.BUDGET_FILL, 3.0 / 1.25))]
+    assert pl.bud == [("stub", "J1", "2", "R1", "1", 3.0 / 1.25)]
     j = parts["J1"].pad("2")
     k = len(pl.decap) - 1
     r1 = parts["R1"]
@@ -42,7 +42,7 @@ def test_copper_len_budget_is_a_hard_placer_pair(tmp_path):
     # past the soft limit place_budget_w per mm, past max_mm the hard weight too
     assert far - near > 10.0 + (8.0 * 40.0 + 8.0 * placer.BUDGET_HARD_W) / pl.wt["decouple"]
     (fixed, msg), = pl.budget_violations()
-    assert not fixed and msg.startswith("budget stub: J1.2 -> R1.1 pads 11.00 mm apart (straight line), over its 3 mm")
+    assert not fixed and msg.startswith("budget stub: J1.2 -> R1.1 pads 11.00 mm apart (straight line), over its 2.40 mm placement limit")
     pl.cost()
     assert any(v.startswith("budget stub") for v in pl.violations())
     assert [u.ref for u in pl._violators([msg])] == ["R1"]
