@@ -34,6 +34,14 @@ For each block:
    each with the page in `source`. For each supply the part creates, give the net's `v_max`: the maximum output with
    accuracy and ripple, not the nominal. A part without an LCSC number gets `sourcing:` (where and how: hand solder).
    Return them as YAML lines the circuit stage pastes.
+   For each part with a SPICE model, `spice.mpn`: the part the vendor model or the fitted numbers come from. If a
+   limit (leakage, threshold, ESR) comes from another maker's or variant's datasheet, say so: `hwflow check` fails
+   (`model-mpn`) when `spice.mpn` is not the BOM part, so either buy the modelled part or take the limit from the
+   bought part's datasheet (its guaranteed maximum, not a typical).
+   Cost: `price_usd` at the build quantity for every BOM part, and the non-BOM lines of the cost requirement's scope
+   (PCB, assembly and extended-part fees divided by the quantity, cables, probes, mechanics) as `cost.extra` YAML lines
+   with their source. `hwflow check` recomputes the unit cost from them against the requirement (`cost-limit`) and
+   against `notes/cost.md` (`cost-doc`); a miss is a product question now, not after review.
 9. Datasheet checklist (each item was a late review finding once; write the number and its page, or `n/a`):
    - pulse and surge ratings (IDM, single-pulse SOA, I2t) against the hot-plug or inrush current;
    - min and max of the parameters the circuit depends on (VGS(th), RDS(on), output accuracy, leakage such as IDSS),
@@ -47,7 +55,7 @@ For each block:
      against `interface.yaml` once it exists);
    - sourcing: stock against the build quantity, a second source, hand-solder parts named for the placement list.
 
-Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model). For every part of a floorplan item, also return the facts the lead needs to run the early layout gate (`hwflow floorplan`, with `footprint:` on the item) before the parts are committed:
+Return a table of ref, part, price, and model parameters, and list the risks (single source, low stock, missing model). List the decisions the product person owns that the part choice makes or assumes (what the user may fit, such as a cell chemistry; cost scope and the unit cost against the limit; a part that cannot be replaced or serviced), with options and their cost: the lead asks them before the circuit is captured. For every part of a floorplan item, also return the facts the lead needs to run the early layout gate (`hwflow floorplan`, with `footprint:` on the item) before the parts are committed:
 - the footprint id and its height;
 - the mechanical drawing it was checked against: pin count, pad span, body size, and the page;
 - the assembly side and method (SMT, THT or hand solder) for the component placement list;

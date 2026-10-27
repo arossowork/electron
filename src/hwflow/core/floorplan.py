@@ -21,6 +21,12 @@ SIDES = {"front": ("front",), "back": ("back",), "both": ("front", "back")}
 CONSTRUCTIONS = ("single", "double", "stacked")
 EDGES = ("left", "right", "top", "bottom")
 PANEL_GAP_MM = 6.0  # default gap between stacked boards laid side by side in the layout panel
+# Mechanical parts a region may stand for (`mechanical:`). A touchable one is `accessible`: the isolation checks treat it
+# as conductive, because an accessible insulating surface counts as covered by metal foil (IEC 60730-1 / 60335-1 /
+# 62368-1 test-finger foil rule). Fixings and cover walls are accessible unless `accessible: false` says why; a cover,
+# film or enclosure region is a barrier, not a touchable surface (model its wall foot and its fixings separately).
+MECHANICAL = ("fixing", "screw", "rivet", "standoff", "post", "wall", "frame", "cover", "film", "enclosure", "other")
+MECH_ACCESSIBLE = {"fixing", "screw", "rivet", "standoff", "post", "wall", "frame"}
 
 # Fill: courtyard area over the usable area of a board face, and over the pool left outside the exclusive regions and
 # the isolation band. Calibrated on the thermostats: the baseline faces that routed clean fill 20-42 %; the
@@ -150,6 +156,11 @@ def parse(design) -> dict | None:
             b0 = next((x for x in boards if x["name"] == bd), None)
             if g is not None and b0 is not None and not g.intersects(box(0, 0, b0["w"], b0["h"])):
                 errs.append(f"{where}: the cut lies outside the board")
+        mech = r.get("mechanical")
+        if mech is not None and mech not in MECHANICAL:
+            errs.append(f"{where}: mechanical {mech!r} is not one of {', '.join(MECHANICAL)}")
+            mech = "other"
+        acc = r.get("accessible", mech in MECH_ACCESSIBLE if mech else False)
         iso = r.get("isolation_mm")
         if iso is not None and (not isinstance(iso, (int, float)) or iso < 0):
             errs.append(f"{where}: isolation_mm must be a number >= 0")
@@ -157,7 +168,8 @@ def parse(design) -> dict | None:
         regions.append({"name": nm, "kind": kind, "sides": SIDES[side], "side": side, "board": bd, "geom": g,
                         "iso": float(iso) if iso is not None else None, "from": _list(r.get("from")),
                         "nets": _list(r.get("nets")), "items": _list(r.get("items")), "allow": _list(r.get("allow")),
-                        "conductive": bool(r.get("conductive", False)), "source": r.get("source"), "cut": cut,
+                        "conductive": bool(r.get("conductive", False)) or bool(acc), "accessible": bool(acc),
+                        "mechanical": mech, "source": r.get("source"), "cut": cut,
                         "circle": tuple(map(float, r["circle"])) if cut and g is not None and "circle" in r else None})
     for b0 in boards:  # what the cuts leave of each board must be one piece
         cs = [r["geom"] for r in regions if r["cut"] and r["board"] == b0["name"] and r["geom"] is not None]
@@ -330,13 +342,23 @@ def outline(design, quad_segs: int | None = None):
     return rect.difference(unary_union([c["poly"] for c in cs])) if cs else rect
 
 
+def _touchable(r: dict) -> bool:
+    """A raw region that the isolation checks treat as conductive: `conductive`, `accessible`, or a mechanical part
+    that is accessible by default."""
+    if not isinstance(r, dict):
+        return False
+    m = r.get("mechanical")
+    return bool(r.get("conductive")) or bool(r.get("accessible", m in MECH_ACCESSIBLE))
+
+
 def conductive_needs(design) -> list[dict]:
-    """The distance the nets of a region with `isolation_mm` and `nets` keep from every `conductive: true` keep-out
-    or cut on its board and faces (accessible metal: a screw, a frame): [{region, keepout, nets, mm, poly}], poly
-    in board coordinates (the keep-out shape, not grown). The router keeps those nets out of the shape grown by mm
+    """The distance the nets of a region with `isolation_mm` and `nets` keep from every `conductive: true` (or
+    accessible) keep-out or cut on its board and faces (accessible metal: a screw, a frame; a touchable insulating
+    part such as a rivet head or a cover wall): [{region, keepout, nets, mm, poly}], poly in board coordinates (the
+    keep-out shape, not grown). A `board.isolation` group with `creepage_mm` (else `clearance_mm`) adds the same need
+    for its nets where no region already asks for as much. The router keeps those nets out of the shape grown by mm
     (routing.conductive_keepouts); postlayout.conductive_clearances measures it on the routed board."""
-    if not any(isinstance(r, dict) and r.get("conductive")
-               for r in ((design.raw.get("floorplan") or {}).get("regions") or [])):
+    if not any(_touchable(r) for r in ((design.raw.get("floorplan") or {}).get("regions") or [])):
         return []
     try:
         fp = parse(design)
@@ -352,6 +374,21 @@ def conductive_needs(design) -> list[dict]:
             if k["kind"] == "keepout" and k["conductive"] and k["board"] == r["board"] and set(k["sides"]) & set(r["sides"]) \
                     and nets and k["poly"] is not None and not k["poly"].is_empty:
                 out.append({"region": r["name"], "keepout": k["name"], "nets": nets, "mm": r["iso"], "poly": k["poly"]})
+    for g in (design.board.get("isolation") or []) if fp else []:
+        mm = g.get("creepage_mm") or g.get("clearance_mm") if isinstance(g, dict) else None
+        if not mm:
+            continue
+        pats = g.get("nets") or []
+        pats = [pats] if isinstance(pats, str) else list(pats)
+        nets = [n for n in names if any(fnmatch.fnmatchcase(n, str(p)) for p in pats)]
+        for k in fp["regions"]:
+            if k["kind"] != "keepout" or not k["conductive"] or k["poly"] is None or k["poly"].is_empty or not nets:
+                continue
+            short = [n for n in nets if not any(n in x["nets"] and x["keepout"] == k["name"] and x["mm"] >= float(mm) - 1e-9
+                                                for x in out)]
+            if short:
+                out.append({"region": f"isolation {g.get('name', '?')}", "keepout": k["name"], "nets": short,
+                            "mm": float(mm), "poly": k["poly"]})
     return out
 
 

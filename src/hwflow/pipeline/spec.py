@@ -76,6 +76,9 @@ class StageSpec:
     # the key: the layout history feeds the diagnosis of a failed layout only
     unkeyed_state: tuple[str, ...] = ()
     cache_verdicts: tuple[str, ...] = CACHEABLE  # verdicts stored in the stage cache
+    # facts the stage reads from prose (requirement text, sources) that the stripped requirements leave out: hashed
+    # into the key as they are, so a prose edit that changes none of them keeps the cached result
+    facts: Callable[[Any], Any] | None = None
 
 
 # Where project state lives in build/ (ADR 2.5: materialized at its canonical path).
@@ -95,11 +98,20 @@ def _rel_inputs(d) -> list[str]:
 
 
 def _check_inputs(d) -> list[str]:
+    from ..verify import reviewchecks
     from .hooks import registry
-    out = _rel_inputs(d)
+    out = _rel_inputs(d) + reviewchecks.inputs(d)  # cost.md and the files requirements name
     for fn in registry().check_inputs:
         out += list(fn(d))
     return out
+
+
+def _check_facts(d) -> dict:
+    """What the check stage reads from requirement prose: the review checks' facts (cost limits, named files) and the
+    hooks' (hwflow.pipeline.hooks, check facts)."""
+    from ..verify import reviewchecks
+    from .hooks import registry
+    return {"review": reviewchecks.facts(d), "hooks": [fn(d) for fn in registry().check_facts]}
 
 
 def _shared(d) -> list[Path]:
@@ -230,7 +242,7 @@ def _specs() -> dict[str, StageSpec]:
         StageSpec(name="check", queue="hwflow-engine", project_files=_check_inputs, upstream=(), state_in=(),
                   settings_groups=("layout", "repair", "router"), params=(), code_modules=CODE["check"],
                   tools=("kicad-libs",), outputs={}, run=_run_check, summarize=_summary(("errors", "warnings")),
-                  **common),
+                  facts=_check_facts, **common),
         StageSpec(name="sch", queue="hwflow-verify", project_files=_rel_inputs, upstream=("check",), state_in=(),
                   settings_groups=(), params=(), code_modules=CODE["sch"], tools=("kicad-cli", "kicad-libs"),
                   outputs={"schematic": "{name}.kicad_sch", "project": "{name}.kicad_pro", "dru": "{name}.kicad_dru",
@@ -447,6 +459,7 @@ def key_doc(spec: StageSpec, inp: StageInput, *, tool_versions: Mapping[str, str
         "settings": {g: snap.get(g) for g in spec.settings_groups},
         "params": {p: inp.params.get(p) for p in spec.params} if include_params else {},
         "tools": {t: tool_versions.get(t, "missing") for t in spec.tools},
+        **({"facts": spec.facts(design)} if spec.facts else {}),
     }
 
 

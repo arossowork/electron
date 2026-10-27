@@ -61,4 +61,4 @@ def test_harness_registers_through_the_entry_point(monkeypatch):
     reg = hooks.registry()
     assert {"approve", "status"} <= set(reg.commands)
     assert [h.name for h in reg.report_extras] == ["score"]
-    assert len(reg.check_findings) == 1 and len(reg.check_state) == 1
+    assert len(reg.check_findings) == 2 and len(reg.check_state) == 1 and len(reg.check_filters) == 1
