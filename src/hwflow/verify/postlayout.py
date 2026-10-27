@@ -991,9 +991,14 @@ def _copper_items(ex: Extraction) -> list[tuple]:
                 for L in cu:
                     items.append((p["net"], L, p["x"] - ax, p["y"] - ay, p["x"] + ax, p["y"] + ay, r))
                 continue
+            # a roundrect as its rectangle shrunk by the corner radius, edges grown by it (the exact outline): its
+            # bounding box would put the corners r (sqrt 2 - 1) closer than the copper (0.1 mm at r 0.25 mm)
+            r = min(max(float(p.get("rratio") or 0.0), 0.0), 0.5) * min(p["w"], p["h"]) \
+                if p.get("shape") == "roundrect" else 0.0
+            x0, x1, y0, y1 = x0 + r, x1 - r, y0 + r, y1 - r
             for L in cu:
                 for e in ((x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)):
-                    items.append((p["net"], L, *e, 0.0))
+                    items.append((p["net"], L, *e, r))
     if ex.path:
         for z in zone_fills(ex.path):
             pts = z["pts"].T

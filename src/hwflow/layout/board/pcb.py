@@ -353,6 +353,13 @@ def write_board(path: Path, tree: list):
     path.write_text(board_text(tree))
 
 
+def pour_keepoff_mm(g: dict) -> float | None:
+    """Distance a copper pour (zone) of another net keeps from the members of a `board.isolation` entry:
+    max(clearance_mm, creepage_mm), or None when the entry sets neither."""
+    vals = [float(g[k]) for k in ("clearance_mm", "creepage_mm") if g.get(k) is not None]
+    return max(vals) if vals else None
+
+
 def isolation_groups(design: Design) -> list[dict]:
     """board.isolation (backlog 38): each entry names a net group (`nets:` glob or list of globs, and/or `class:`)
     that keeps `clearance_mm` and `creepage_mm` to every other net. Returns the member nets and the KiCad custom
@@ -381,6 +388,13 @@ def isolation_groups(design: Design) -> list[dict]:
             if v is not None:
                 row["kicad"].append(f'(rule "{name} {kind}" (constraint {kind} (min {float(v):g}mm)) '
                                     f'(condition "{cond}"))')
+        # a copper pour (zone) of another net keeps max(clearance, creepage): the zone filler honours clearance
+        # constraints only, so a fill at the clearance fails the creepage rule on a flat board (no slot), where
+        # creepage is the in-plane surface distance. Written after the group clearance rule: the later rule wins.
+        keep = pour_keepoff_mm(g)
+        if keep is not None and keep > float(g.get("clearance_mm") or 0.0):
+            row["kicad"].append(f'(rule "{name} pour keep-off" (constraint clearance (min {keep:g}mm)) '
+                                f'(condition "{cond} && B.Type == \'Zone\'"))')
         # between_mm: functional insulation between two different member nets (one rule per member, against the
         # other members: KiCad applies a rule to both orders of a pair, so each pair is covered twice, harmlessly)
         if between is not None and len(members) > 1:
@@ -733,6 +747,7 @@ def read_board(path: Path) -> dict:
             pads.append({"number": str(p[1]), "x": fx + dx + off[0], "y": fy + dy + off[1], "w": w, "h": h,
                          "net": netname(n),
                          "kind": str(p[2]), "shape": "custom" if hull else str(p[3]) if len(p) > 3 else "rect",
+                         "rratio": float(sexpr.value(p, "roundrect_rratio") or 0.25),  # KiCad's default 0.25
                          "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}
     segs = []
