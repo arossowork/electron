@@ -301,3 +301,28 @@ def test_fixed_connector_overhang_exemption_keeps_copper_edge_checks(tmp_path):
     assert any("copper closer" in v for v in pl.violations())
     assert any("has pads of its nets outside" in v
                for v in pl.fixed_violations({"power": (0, 0, 30, 20)}))
+
+
+def test_back_placeholders_count_on_the_back_face(tmp_path):
+    # thermo-e2e-1 stage 2: placeholders built without a side all counted on the front in the placer-fill gate
+    from hwflow.layout.place.legality import board_fill
+    fp = {"construction": "double", "items": [{"name": "big", "size_mm": [40, 40], "side": "back", "height_mm": 2}]}
+    d = make(tmp_path, fp, board={"width_mm": 50, "height_mm": 50, "layers": 2})
+    parts, d2 = floorplan._parts(d, Libs(), floorplan.parse(d))
+    f = board_fill(d2, parts, 50, 50)
+    assert f["front"] == 0.0 and f["back"] > 0.5
+
+
+def test_isolation_skips_smd_pads_on_opposite_faces():
+    # thermo-e2e-1 rework 2: a mains SMD fuse on F.Cu over SELV battery-clip pads on B.Cu is separated by the board
+    from types import SimpleNamespace
+    P = SimpleNamespace
+    parts = {"F1": P(cu={"1": frozenset({"F.Cu"})}), "BT1": P(cu={"2": frozenset({"B.Cu"})}),
+             "J1": P(cu={"3": frozenset({"*"})}), "C1": P(cu={"1": frozenset({"F.Cu"})})}
+    me = P(parts=parts, d=P(board={"thickness_mm": 1.6}))
+    tb = placer.Placer._through_board
+    assert tb(me, ("F1", "1"), ("BT1", "2"))
+    assert not tb(me, ("J1", "3"), ("BT1", "2"))  # a through-hole pad reaches face B
+    assert not tb(me, ("F1", "1"), ("C1", "1"))  # same face
+    me.d.board["thickness_mm"] = 0.3
+    assert not tb(me, ("F1", "1"), ("BT1", "2"))  # too thin to count as solid insulation

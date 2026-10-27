@@ -105,3 +105,16 @@ def test_moving_failures_allow_more_layout_and_a_repeat_does_not(tmp_path):
                           "diagnosis": res})
     res = diagnose.diagnose(d, _parts(), stay, _board(), out)
     assert res["back_to"] == "architecture" and res["blocked"] and res["repeat"]
+
+
+def test_a_part_clean_on_the_kept_board_is_not_persistent(tmp_path):
+    # thermo-e2e-1 layout: BT1 failed in 3 of 4 attempts, the kept attempt routed it clean; that is no limit
+    d = _design(tmp_path, nets={"GND": {}})
+    out = tmp_path / "build"
+    out.mkdir()
+    per = [{"failing": {}}] + [{"failing": {"U2": ["x"]}} for _ in range(3)]
+    diagnose.record(out, {"structure": diagnose.structure_key(d), "ok": False, "persistent": ["U2"], "blocked": False})
+    res = diagnose.diagnose(d, _parts(), per, _board(), out, kept={})
+    assert res["persistent"] == [] and not res["blocked"] and res["back_to"] == "layout"
+    res = diagnose.diagnose(d, _parts(), per, _board(), out, kept={"U2": ["x"]})
+    assert res["persistent"] == ["U2"] and res["blocked"]  # the kept board fails there too: the repeat rule holds

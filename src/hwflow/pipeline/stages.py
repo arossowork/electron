@@ -807,11 +807,12 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
         r["portfolio"] = dict(r0["portfolio"], fallback={"attempt": k, "knobs_of": r0["portfolio"].get("strategy")},
                               strategy=None)
     if not r["ok"]:
-        r["diagnosis"] = layout_diagnosis(d, libs, [results[i]["r"] for i in used if "r" in results[i]])
+        r["diagnosis"] = layout_diagnosis(d, libs, [results[i]["r"] for i in used if "r" in results[i]],
+                                          kept=r.get("failing"))
     return r
 
 
-def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
+def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict], kept: dict | None = None) -> dict:
     """diagnose.diagnose on the kept board in build/ and the failing parts of every attempt."""
     from ..layout import diagnose
     pv = next((a["placement_verdict"] for a in attempts if a.get("placement_verdict")), None)
@@ -830,7 +831,8 @@ def layout_diagnosis(d: Design, libs: Libs, attempts: list[dict]) -> dict:
     for ref, fp in board["footprints"].items():
         if ref in parts:
             parts[ref].x, parts[ref].y, parts[ref].r = fp["x"], fp["y"], fp["r"]
-    return diagnose.diagnose(d, parts, [{"failing": a.get("failing") or {}} for a in attempts], board, out, libs)
+    return diagnose.diagnose(d, parts, [{"failing": a.get("failing") or {}} for a in attempts], board, out, libs,
+                             kept=kept)
 
 
 def _layout_blocked(d: Design, retry: bool = False) -> dict | None:

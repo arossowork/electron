@@ -150,15 +150,18 @@ def blocked(design, out: Path) -> dict | None:
 
 # ------------------------------------------------------------------ the verdict
 
-def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, libs=None) -> dict:
+def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, libs=None, kept=None) -> dict:
     """`attempts`: [{"failing": failing_parts(...)}] of the build's attempts; `board`: pcb.read_board of the kept
-    board; `parts`: placer parts at the kept placement. Returns the diagnosis and records it in the history."""
+    board; `parts`: placer parts at the kept placement; `kept`: the failing parts of the kept board, when known.
+    Returns the diagnosis and records it in the history."""
     from ..core import floorplan
     from .board import pcb
     from .board import routing
     key = structure_key(design)
     per = [a["failing"] for a in attempts]
     pers = persistent(per)
+    if kept is not None:  # a part the kept board routes clean is no limit, however often discarded attempts failed on it
+        pers = [r for r in pers if r in kept]
     classes = pcb.net_classes(design)
     clr = float(design.board["clearance_mm"])
     w0 = float(design.board["track_mm"])

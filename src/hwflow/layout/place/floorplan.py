@@ -135,7 +135,7 @@ def _parts(design, libs, fp: dict):
                 b = next(b for b in fp["boards"] if b["name"] == it["board"])
                 p.x, p.y, p.fixed = b["x"] + it["at"][0], b["y"] + it["at"][1], True
             parts[nm] = p
-            d2.components[nm] = Component(nm, {"pins": pn, "role": "none"})
+            d2.components[nm] = Component(nm, {"pins": pn, "role": "none", "side": it["side"]})  # board_fill reads it
     return parts, d2
 
 
