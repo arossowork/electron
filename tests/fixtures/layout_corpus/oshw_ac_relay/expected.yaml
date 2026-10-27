@@ -1,0 +1,101 @@
+source:
+  url: https://github.com/kikeelectronico/ac-relay
+  commit: d67c1fd08081ecb9e325fde66a5afc58906ce2a8
+  file: KiCad/AC Relay/AC Relay.kicad_pcb
+  license: GPL-3.0
+  attribution: kikeelectronico (Enrique Gomez)
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 491.7
+    per_layer_mm:
+      B.Cu: 166.1
+      F.Cu: 325.6
+    segments: 157
+    vias: 5
+    nets_with_copper: 15
+  drc_source_rules:
+    errors: 5
+    unconnected: 0
+    types:
+      clearance: 1
+      courtyards_overlap: 1
+      malformed_courtyard: 2
+      starved_thermal: 1
+  drc_hwflow_rules:
+    errors: 5
+    unconnected: 0
+    types:
+      clearance: 1
+      courtyards_overlap: 1
+      malformed_courtyard: 2
+      starved_thermal: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 17
+  nets: 15
+  board_mm:
+  - 49.53
+  - 49.53
+  placement_violations:
+  - courtyard overlap D1/Q1
+  - courtyard overlap J2/Q1
+  fixed_violations:
+  - D1 inside floorplan region 'outline_cut1' (1.3 mm2)
+  - K1 inside floorplan region 'outline_cut1' (0.3 mm2)
+  - U3 inside floorplan region 'outline_cut1' (58.0 mm2)
+  corridors: {}
+  placement_cost: 32098.6
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.15
+  pin_access:
+    pads: 55
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.4
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 12
+  violations:
+  - U3 pad 3 copper closer than 0.3 mm to the board edge
+  seconds: 7.6
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 3
+  drc_types:
+    malformed_courtyard: 2
+    courtyards_overlap: 1
+  placement_violations: 2
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 11
+  track_mm: 278.7
+  route_groups: []
+  seconds: 7.0
+  cpu_s: 20.3
+  timing:
+    drc_s: 1.8
+    place_s: 0.1
+    predict_s: 0.4
+    repair_s: 0.0
+    route_s: 3.2
+    stitch_s: 0.1
+  firstpass: null

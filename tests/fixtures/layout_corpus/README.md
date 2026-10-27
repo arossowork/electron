@@ -43,6 +43,35 @@ inside the window (bounding box + 3 mm frame); a net that leaves the window ends
 border where the line from its nearest kept pad to its nearest dropped pad crosses it. The frame grows by 2 mm (at
 most 3 times, without taking more parts in) until every terminal meets the clearance, isolation and region rules.
 
+## Open-hardware boards (`oshw_*`)
+
+Whole boards of open-hardware KiCad projects (list, licenses and authors: `NOTICE`; sources: `oshw/sources.yaml`;
+searchable index: `oshw/index.json`). `scripts/oshw_corpus.py` clones each repository shallowly into `oshw/src/`
+(not committed, never executed: only the `.kicad_*` and license files are read) and imports the board with
+`hwflow.layout.board.kicad_import`: every part fixed at the human placement, pads and nets as on the board, the net
+classes of the `.kicad_pro` as net widths and clearances, the outline as the bounding box with floorplan cuts,
+footprints and generated pin-box symbols in `lib/`. The tracks are not imported, so routing the case is a routing-only
+benchmark of the human placement:
+
+```
+uv run python scripts/oshw_corpus.py fetch [NAME ...]    # clone
+uv run python scripts/oshw_corpus.py import [NAME ...]   # case + expected.yaml source/env/human + NOTICE
+uv run python scripts/layout_corpus.py measure oshw_<name> --fast --write
+uv run python scripts/layout_corpus.py measure oshw_<name> --route --write
+uv run python scripts/oshw_corpus.py index               # oshw/index.json
+```
+
+`expected.yaml` of such a case also holds `source` (URL, commit, file, license, attribution), `env` (the layout
+environment of the case, applied by `layout_corpus.py route`: `HWFLOW_FAST=1`, and `HWFLOW_ROUTE_ILLEGAL=1` when the
+human placement breaks the placer's legality rules, so the slow tier still routes it) and `human`: the board's own
+copper (track length per layer, segments, vias), the KiCad DRC of the source board under its own rules, and the DRC of
+the human copper (tracks, vias at their own size, the board's own zones) written on the imported board under hwflow's
+rules: the reference the `route` numbers compare with. `LICENSE.source` is the license file of the source repository.
+`cutout.yaml` records the importer's offset, net renames, the parts a placement test may move (`free`: not
+connectors, mechanical parts, switches or relays) and what was not imported (non-ground zones, rule areas, custom DRC
+rules). For a placement test run `layout_corpus.py summary oshw_<name> --free` (all free parts placed again) and
+compare with the human placement's `route`.
+
 ## Updating expected.yaml
 
 When a change improves a case (fewer unrouted nets, DRC errors or violations), record it:

@@ -1,0 +1,1774 @@
+project: oshw_pico_ice
+revision: A
+description: imported KiCad board pico-ice.kicad_pcb (https://github.com/tinyvision-ai-inc/pico-ice)
+board:
+  width_mm: 22.86
+  height_mm: 60.96
+  layers: 4
+  thickness_mm: 1.584
+  clearance_mm: 0.127
+  track_mm: 0.1524
+  via_dia_mm: 0.508
+  via_drill_mm: 0.254
+components:
+  R19:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': LED_B
+      '2': Net-_D2-BK
+    placement:
+      x: 8.3058
+      y: 4.5974
+      rot: 90.0
+      fixed: true
+  H4:
+    value: MountingHole
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    footprint: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    pins:
+      '1': NC
+    placement:
+      x: 2.54
+      y: 58.42
+      rot: 0.0
+      fixed: true
+  C16:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 11.4046
+      y: 34.036
+      rot: 90.0
+      fixed: true
+  PTC1:
+    value: MF-FSMF035X-2
+    mpn: MF-FSMF035X-2
+    manufacturer: Bourns Inc.
+    spice: false
+    symbol: oshw_pico_ice:R_0603_1608Metric
+    footprint: oshw_pico_ice:R_0603_1608Metric
+    pins:
+      '1': VBUS
+      '2': Net-_D5-K
+    placement:
+      x: 16.1544
+      y: 47.1424
+      rot: 270.0
+      fixed: true
+  C29:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': VIO_BANK_2
+      '2': GND
+    placement:
+      x: 7.0866
+      y: 25.273
+      rot: 180.0
+      fixed: true
+  C12:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 16.1036
+      y: 43.0784
+      rot: 270.0
+      fixed: true
+  C19:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 9.017
+      y: 45.1358
+      rot: 270.0
+      fixed: true
+  C30:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': VIO_BANK_2
+      '2': GND
+    placement:
+      x: 7.0866
+      y: 26.2382
+      rot: 180.0
+      fixed: true
+  D3:
+    value: LTST-C191KGKT
+    mpn: LTST-C191KGKT
+    manufacturer: Lite-On
+    spice: false
+    symbol: oshw_pico_ice:LED_0603_1608Metric
+    footprint: oshw_pico_ice:LED_0603_1608Metric
+    pins:
+      '1': GND
+      '2': ICE_DONE
+    placement:
+      x: 6.604
+      y: 2.54
+      rot: 270.0
+      fixed: true
+  C17:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 6.1976
+      y: 38.6588
+      rot: 180.0
+      fixed: true
+  C22:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.636
+      y: 14.605
+      rot: 180.0
+      fixed: true
+  R25:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': ICE_DONE
+      '2': ICE_DONE_ADC0
+    placement:
+      x: 15.1487
+      y: 27.9227
+      rot: 0.0
+      fixed: true
+  C21:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.636
+      y: 15.5448
+      rot: 180.0
+      fixed: true
+  C3:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 16.1798
+      y: 45.085
+      rot: 0.0
+      fixed: true
+  C5:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 10.541
+      y: 34.036
+      rot: 90.0
+      fixed: true
+  SW2:
+    value: PTS820 J25K SMTR LFS
+    mpn: PTS820 J25K SMTR LFS
+    manufacturer: C&K
+    spice: false
+    symbol: oshw_pico_ice:PTS820J25KSMTRLFS
+    footprint: oshw_pico_ice:PTS820J25KSMTRLFS
+    pins:
+      '1': GND
+      '2': ICE_10_PB
+      SH1: GND
+      SH2: GND
+    placement:
+      x: 15.621
+      y: 2.794
+      rot: 0.0
+      fixed: true
+  C14:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': ICE_10_PB
+      '2': GND
+    placement:
+      x: 15.5297
+      y: 5.4945
+      rot: 180.0
+      fixed: true
+  R4:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': USB_D+
+      '2': USB_P
+    placement:
+      x: 11.0744
+      y: 45.72
+      rot: 90.0
+      fixed: true
+  R22:
+    value: '1'
+    source_value: DNI
+    mpn: RC0402FR-075K1L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': VDC
+      '2': Net-_J1-CC1
+    placement:
+      x: 13.6906
+      y: 48.5394
+      rot: 180.0
+      fixed: true
+  R5:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': USB_D-
+      '2': USB_N
+    placement:
+      x: 10.1664
+      y: 45.72
+      rot: 90.0
+      fixed: true
+  C11:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 7.239
+      y: 45.1358
+      rot: 270.0
+      fixed: true
+  C18:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 6.6548
+      y: 43.0022
+      rot: 270.0
+      fixed: true
+  R17:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': LED_R
+      '2': Net-_D2-RK
+    placement:
+      x: 10.5156
+      y: 4.5974
+      rot: 90.0
+      fixed: true
+  C25:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 16.7235
+      y: 19.3629
+      rot: 270.0
+      fixed: true
+  R7:
+    value: 10K
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_v2
+    bom: false
+    pins:
+      '1': ICE_RST
+      '2': GND
+    placement:
+      x: 11.7197
+      y: 26.2971
+      rot: 0.0
+      fixed: true
+  J1:
+    value: USB_C_Receptacle_USB2.0
+    mpn: USB4105-GF-A
+    manufacturer: GCT
+    spice: false
+    symbol: oshw_pico_ice:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    footprint: oshw_pico_ice:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    pins:
+      A1: GND
+      A4: VDC
+      A5: Net-_J1-CC1
+      A6: USB_D+
+      A7: USB_D-
+      A9: VDC
+      A12: GND
+      B1: GND
+      B4: VDC
+      B5: Net-_J1-CC2
+      B6: USB_D+
+      B7: USB_D-
+      B9: VDC
+      B12: GND
+      S1: GND
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 11.43
+      y: 57.277
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 27p
+    mpn: GCM1555C1H270JA16D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': XIN
+      '2': GND
+    placement:
+      x: 14.6558
+      y: 31.6992
+      rot: 90.0
+      fixed: true
+  R9:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': ICE_SCK
+      '2': Net-_U3-GPIO10
+    placement:
+      x: 16.7132
+      y: 37.0078
+      rot: 270.0
+      fixed: true
+  SJ5:
+    value: SHORT
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm
+    footprint: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm
+    pins:
+      '1': +3V3
+      '2': VIO_BANK_2
+    placement:
+      x: 7.493
+      y: 28.1178
+      rot: 0.0
+      fixed: true
+  J3:
+    value: Conn_02x20_Odd_Even
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:PinHeader_2x20_P2.54mm_Vertical_Right
+    footprint: oshw_pico_ice:PinHeader_2x20_P2.54mm_Vertical_Right
+    pins:
+      '1': ICE_SSN
+      '2': ICE_SO
+      '3': ICE_SI
+      '4': ICE_SCK
+      '5': ICE_25
+      '6': ICE_23
+      '7': ICE_19
+      '8': ICE_18
+      '9': ICE_27
+      '10': ICE_26
+      '11': ICE_21
+      '12': ICE_20_G3
+      '13': GND
+      '14': GND
+      '15': +3V3
+      '16': +3V3
+      '17': ICE_DONE_ADC0
+      '18': LED_B
+      '19': ADC2_PB
+      '20': LED_R
+      '21': ADC3
+      '22': LED_G
+      '23': PICO_PMOD_A1
+      '24': PICO_PMOD_B1
+      '25': PICO_PMOD_A2
+      '26': PICO_PMOD_B2
+      '27': PICO_PMOD_A3
+      '28': PICO_PMOD_B3
+      '29': PICO_PMOD_A4
+      '30': PICO_PMOD_B4
+      '31': GND
+      '32': GND
+      '33': +3V3
+      '34': +3V3
+      '35': +3V3
+      '36': VDC
+      '37': +3V3_STDBY
+      '38': PWR_EN
+      '39': VBUS
+      '40': GND
+    placement:
+      x: 19.05
+      y: 6.35
+      rot: 0.0
+      fixed: true
+  R24:
+    value: 5.1K
+    mpn: RC0402FR-075K1L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': Net-_J1-CC2
+      '2': GND
+    placement:
+      x: 13.6887
+      y: 50.9778
+      rot: 0.0
+      fixed: true
+  D5:
+    value: 1N5819WS
+    mpn: 1N5819WS
+    manufacturer: Guangdong Hottech
+    spice: false
+    symbol: oshw_pico_ice:D_SOD-323
+    footprint: oshw_pico_ice:D_SOD-323
+    pins:
+      '1': Net-_D5-K
+      '2': VDC
+    placement:
+      x: 16.1544
+      y: 50.292
+      rot: 270.0
+      fixed: true
+  H2:
+    value: MountingHole
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    footprint: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    pins:
+      '1': NC
+    placement:
+      x: 20.32
+      y: 2.54
+      rot: 0.0
+      fixed: true
+  C15:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 16.7132
+      y: 39.2176
+      rot: 270.0
+      fixed: true
+  D2:
+    value: MHPA1010RGBDT
+    mpn: MHPA1010RGBDT
+    manufacturer: MEIHUA
+    spice: false
+    symbol: oshw_pico_ice:LED_Cree-PLCC4_1x1mm_CW
+    footprint: oshw_pico_ice:LED_Cree-PLCC4_1x1mm_CW
+    pins:
+      '1': Net-_D2-A
+      '2': Net-_D2-RK
+      '3': Net-_D2-GK
+      '4': Net-_D2-BK
+    placement:
+      x: 9.779
+      y: 2.54
+      rot: 0.0
+      fixed: true
+  C6:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 9.6774
+      y: 34.036
+      rot: 90.0
+      fixed: true
+  R14:
+    value: 2.2K
+    mpn: RC0402FR-072K2L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': ICE_DONE
+      '2': +3V3
+    placement:
+      x: 5.207
+      y: 2.54
+      rot: 90.0
+      fixed: true
+  C31:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': Net-_D1-K
+      '2': GND
+    placement:
+      x: 15.1995
+      y: 17.0968
+      rot: 90.0
+      fixed: true
+  R16:
+    value: 10K
+    mpn: RC0402FR-0710KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': RESET
+      '2': +3V3
+    placement:
+      x: 8.1534
+      y: 34.036
+      rot: 90.0
+      fixed: true
+  R23:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': PICO_CLKOUT
+      '2': Net-_U3-GPIO25
+    placement:
+      x: 6.1956
+      y: 40.4622
+      rot: 0.0
+      fixed: true
+  J2:
+    value: Conn_02x20_Odd_Even
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:PinHeader_2x20_P2.54mm_Vertical_Right
+    footprint: oshw_pico_ice:PinHeader_2x20_P2.54mm_Vertical_Right
+    pins:
+      '1': ICE_FLASH_IO2
+      '2': ICE_RST
+      '3': ICE_FLASH_IO3
+      '4': GND
+      '5': +3V3
+      '6': +3V3
+      '7': GND
+      '8': GND
+      '9': ICE_28
+      '10': ICE_31
+      '11': ICE_32
+      '12': ICE_34
+      '13': ICE_36
+      '14': ICE_38
+      '15': ICE_42
+      '16': ICE_43
+      '17': SRAM_SS
+      '18': ICE_35_G0
+      '19': ICE_11
+      '20': ICE_6
+      '21': ICE_10_PB
+      '22': ICE_9
+      '23': VIO_BANK_2
+      '24': VIO_BANK_2
+      '25': GND
+      '26': GND
+      '27': ICE_44_G6
+      '28': ICE_45
+      '29': ICE_46
+      '30': ICE_47
+      '31': ICE_48
+      '32': ICE_2
+      '33': ICE_3
+      '34': ICE_4
+      '35': SWD
+      '36': RESET
+      '37': SWCLK
+      '38': GND
+      '39': PICO_CLKOUT
+      '40': USB_BOOT
+    placement:
+      x: 1.27
+      y: 6.35
+      rot: 0.0
+      fixed: true
+  FID3:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    pins:
+      '1': NC
+    placement:
+      x: 17.526
+      y: 59.182
+      rot: 0.0
+      fixed: true
+  C33:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': VCC_PLL
+      '2': GND
+    placement:
+      x: 11.6052
+      y: 15.5448
+      rot: 0.0
+      fixed: true
+  SW1:
+    value: PTS820 J25K SMTR LFS
+    mpn: PTS820 J25K SMTR LFS
+    manufacturer: C&K
+    spice: false
+    symbol: oshw_pico_ice:PTS820J25KSMTRLFS
+    footprint: oshw_pico_ice:PTS820J25KSMTRLFS
+    pins:
+      '1': GND
+      '2': Net-_J4-Pin_2
+      SH1: GND
+      SH2: GND
+    placement:
+      x: 7.366
+      y: 49.149
+      rot: 270.0
+      fixed: true
+  R18:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': LED_G
+      '2': Net-_D2-GK
+    placement:
+      x: 9.398
+      y: 4.5974
+      rot: 90.0
+      fixed: true
+  RN1:
+    value: 10K
+    mpn: YC124-FR-0710KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_Array_Concave_4x0402
+    footprint: oshw_pico_ice:R_Array_Concave_4x0402
+    pins:
+      '1': GND
+      '2': GND
+      '3': GND
+      '4': GND
+      '5': ICE_FLASH_IO3
+      '6': ICE_FLASH_IO2
+      '7': ICE_SCK
+      '8': ICE_SI
+    placement:
+      x: 8.8749
+      y: 10.0919
+      rot: 90.0
+      fixed: true
+  R21:
+    value: 10K
+    mpn: RC0402FR-0710KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': ICE_10_PB
+    placement:
+      x: 15.5297
+      y: 6.3835
+      rot: 0.0
+      fixed: true
+  U3:
+    value: RP2040
+    mpn: RP2040
+    manufacturer: Raspberry Pi
+    spice: false
+    symbol: oshw_pico_ice:RP2040-QFN-56
+    footprint: oshw_pico_ice:RP2040-QFN-56
+    pins:
+      '1': +3V3
+      '2': ICE_27
+      '3': ICE_25
+      '4': ICE_21
+      '5': ICE_19
+      '6': ICE_26
+      '7': ICE_23
+      '8': ICE_20_G3
+      '9': ICE_18
+      '10': +3V3
+      '11': ICE_SI
+      '12': ICE_SSN
+      '13': Net-_U3-GPIO10
+      '14': ICE_SO
+      '15': LED_G
+      '16': LED_R
+      '17': SRAM_SS
+      '18': LED_B
+      '19': GND
+      '20': XIN
+      '21': XOUT
+      '22': +3V3
+      '23': +1V1
+      '24': SWCLK
+      '25': SWD
+      '26': RESET
+      '27': PICO_PMOD_A3
+      '28': PICO_PMOD_A1
+      '29': PICO_PMOD_A4
+      '30': PICO_PMOD_A2
+      '31': PICO_PMOD_B3
+      '32': PICO_PMOD_B1
+      '33': +3V3
+      '34': PICO_PMOD_B4
+      '35': PICO_PMOD_B2
+      '36': ICE_CLK
+      '37': Net-_U3-GPIO25
+      '38': ICE_DONE_ADC0
+      '39': ICE_RST
+      '40': ADC2_PB
+      '41': ADC3
+      '42': +3V3
+      '43': +3V3
+      '44': +3V3
+      '45': +1V1
+      '46': USB_N
+      '47': USB_P
+      '48': +3V3
+      '49': +3V3
+      '50': +1V1
+      '51': QSPI_SD3
+      '52': QSPI_SCLK
+      '53': QSPI_SD0
+      '54': QSPI_SD2
+      '55': QSPI_SD1
+      '56': QSPI_SS
+      '57': GND
+    placement:
+      x: 11.4046
+      y: 39.7256
+      rot: 180.0
+      fixed: true
+  R20:
+    value: '1'
+    source_value: DNI
+    mpn: RC0402FR-075K1L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': VDC
+      '2': Net-_J1-CC2
+    placement:
+      x: 13.6906
+      y: 49.7586
+      rot: 180.0
+      fixed: true
+  FID1:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    pins:
+      '1': NC
+    placement:
+      x: 5.3257
+      y: 4.6091
+      rot: 0.0
+      fixed: true
+  R11:
+    value: '100'
+    mpn: RC0402FR-07100RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': VCC_PLL
+      '2': +1V2
+    placement:
+      x: 11.1101
+      y: 13.1653
+      rot: 90.0
+      fixed: true
+  Y1:
+    value: 12 MHz
+    mpn: ABM10-166-12.000MHZ-T3
+    manufacturer: Abracon LLC
+    spice: false
+    symbol: oshw_pico_ice:Crystal_SMD_2520-4Pin_2.5x2.0mm
+    footprint: oshw_pico_ice:Crystal_SMD_2520-4Pin_2.5x2.0mm
+    pins:
+      '1': Net-_C2-Pad1
+      '2': GND
+      '3': XIN
+      '4': GND
+    placement:
+      x: 12.1666
+      y: 31.2928
+      rot: 270.0
+      fixed: true
+  D1:
+    value: 1N4148WT-7
+    mpn: 1N4148WT-7
+    manufacturer: Micro Commercial Co
+    spice: false
+    symbol: oshw_pico_ice:D_SOD-523
+    footprint: oshw_pico_ice:D_SOD-523
+    pins:
+      '1': Net-_D1-K
+      '2': +3V3
+    placement:
+      x: 16.2917
+      y: 16.8656
+      rot: 90.0
+      fixed: true
+  U6:
+    value: ICE40UP5K-SG48ITR
+    mpn: ICE40UP5K-SG48I
+    manufacturer: Lattice
+    spice: false
+    symbol: oshw_pico_ice:QFN-48-1EP_7x7mm_P0.5mm_EP5.6x5.6mm
+    footprint: oshw_pico_ice:QFN-48-1EP_7x7mm_P0.5mm_EP5.6x5.6mm
+    pins:
+      '1': VIO_BANK_2
+      '2': ICE_2
+      '3': ICE_3
+      '4': ICE_4
+      '5': +1.2V_CORE
+      '6': ICE_6
+      '7': ICE_DONE
+      '8': ICE_RST
+      '9': ICE_9
+      '10': ICE_10_PB
+      '11': ICE_11
+      '12': ICE_FLASH_IO2
+      '13': ICE_FLASH_IO3
+      '14': ICE_SO
+      '15': ICE_SCK
+      '16': ICE_SSN
+      '17': ICE_SI
+      '18': ICE_18
+      '19': ICE_19
+      '20': ICE_20_G3
+      '21': ICE_21
+      '22': +3V3
+      '23': ICE_23
+      '24': Net-_D1-K
+      '25': ICE_25
+      '26': ICE_26
+      '27': ICE_27
+      '28': ICE_28
+      '29': VCC_PLL
+      '30': +1.2V_CORE
+      '31': ICE_31
+      '32': ICE_32
+      '33': +3V3
+      '34': ICE_34
+      '35': ICE_35_G0
+      '36': ICE_36
+      '37': SRAM_SS
+      '38': ICE_38
+      '39': LED_G
+      '40': LED_B
+      '41': LED_R
+      '42': ICE_42
+      '43': ICE_43
+      '44': ICE_44_G6
+      '45': ICE_45
+      '46': ICE_46
+      '47': ICE_47
+      '48': ICE_48
+      '49': GND
+    placement:
+      x: 10.3632
+      y: 20.6248
+      rot: 90.0
+      fixed: true
+  H3:
+    value: MountingHole
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    footprint: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    pins:
+      '1': NC
+    placement:
+      x: 20.32
+      y: 58.42
+      rot: 0.0
+      fixed: true
+  C28:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 15.7837
+      y: 15.1973
+      rot: 180.0
+      fixed: true
+  C10:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.128
+      y: 45.1358
+      rot: 270.0
+      fixed: true
+  C2:
+    value: 27p
+    mpn: GCM1555C1H270JA16D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': Net-_C2-Pad1
+      '2': GND
+    placement:
+      x: 9.8298
+      y: 30.4292
+      rot: 90.0
+      fixed: true
+  C34:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': VCC_PLL
+      '2': GND
+    placement:
+      x: 11.5824
+      y: 14.5796
+      rot: 0.0
+      fixed: true
+  R12:
+    value: '27'
+    mpn: RC0402FR-0727RL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': ICE_35_G0
+      '2': ICE_CLK
+    placement:
+      x: 6.1976
+      y: 39.5478
+      rot: 0.0
+      fixed: true
+  H1:
+    value: MountingHole
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    footprint: oshw_pico_ice:MountingHole_2.7mm_M2.5
+    pins:
+      '1': NC
+    placement:
+      x: 2.54
+      y: 2.54
+      rot: 0.0
+      fixed: true
+  R1:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric
+    footprint: oshw_pico_ice:R_0402_1005Metric
+    pins:
+      '1': XOUT
+      '2': Net-_C2-Pad1
+    placement:
+      x: 9.8298
+      y: 32.258
+      rot: 90.0
+      fixed: true
+  R10:
+    value: 5.1K
+    mpn: RC0402FR-075K1L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_pico_ice:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': Net-_J1-CC1
+      '2': GND
+    placement:
+      x: 13.6906
+      y: 47.3202
+      rot: 0.0
+      fixed: true
+  C24:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 15.7583
+      y: 19.3629
+      rot: 270.0
+      fixed: true
+  FID5:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm
+    pins:
+      '1': NC
+    placement:
+      x: 5.334
+      y: 59.182
+      rot: 0.0
+      fixed: true
+  SJ1:
+    value: SHORT
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm
+    footprint: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm
+    pins:
+      '1': Net-_D2-A
+      '2': +3V3
+    placement:
+      x: 12.3698
+      y: 6.5278
+      rot: 0.0
+      fixed: true
+  C32:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric
+    footprint: oshw_pico_ice:C_0402_1005Metric
+    pins:
+      '1': Net-_D2-A
+      '2': GND
+    placement:
+      x: 12.192
+      y: 4.6228
+      rot: 0.0
+      fixed: true
+  R3:
+    value: 10K
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back
+    footprint: oshw_pico_ice:R_0402_1005Metric_back
+    bom: false
+    pins:
+      '1': +3V3
+      '2': QSPI_SS
+    placement:
+      x: 17.0942
+      y: 46.5816
+      rot: 270.0
+      fixed: true
+  C26:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 5.7507
+      y: 14.5115
+      rot: 270.0
+      fixed: true
+  FID2:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    pins:
+      '1': NC
+    placement:
+      x: 9.2559
+      y: 3.5895
+      rot: 180.0
+      fixed: true
+  D4:
+    value: 1N5819WS
+    mpn: 1N5819WS
+    manufacturer: Guangdong Hottech
+    spice: false
+    symbol: oshw_pico_ice:D_SOD-323_back
+    footprint: oshw_pico_ice:D_SOD-323_back
+    pins:
+      '1': +3V3_STDBY
+      '2': +3V3
+    placement:
+      x: 10.0857
+      y: 16.9391
+      rot: 180.0
+      fixed: true
+  R15:
+    value: 5.1K
+    mpn: RC0402FR-075K1L
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_back_v2
+    pins:
+      '1': +3V3_STDBY
+      '2': Net-_Q1-D
+    placement:
+      x: 12.3293
+      y: 6.1803
+      rot: 0.0
+      fixed: true
+  C4:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 11.6078
+      y: 43.2308
+      rot: 90.0
+      fixed: true
+  C9:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 13.657
+      y: 30.2418
+      rot: 270.0
+      fixed: true
+  C36:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': Net-_D6-A
+      '2': GND
+    placement:
+      x: 15.8402
+      y: 30.3041
+      rot: 270.0
+      fixed: true
+  C7:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 13.3857
+      y: 32.4891
+      rot: 0.0
+      fixed: true
+  U8:
+    value: W25Q32JVSSIQ
+    mpn: W25Q32JVSSIQ
+    manufacturer: Winbond Elec
+    spice: false
+    symbol: oshw_pico_ice:SOIC-8_5.23x5.23mm_P1.27mm_back
+    footprint: oshw_pico_ice:SOIC-8_5.23x5.23mm_P1.27mm_back
+    pins:
+      '1': ICE_SSN
+      '2': ICE_SI
+      '3': ICE_FLASH_IO2
+      '4': GND
+      '5': ICE_SO
+      '6': ICE_SCK
+      '7': ICE_FLASH_IO3
+      '8': +3V3
+    placement:
+      x: 8.763
+      y: 10.414
+      rot: 270.0
+      fixed: true
+  U2:
+    value: W25Q32JVSSIQ
+    mpn: W25Q32JVSSIQ
+    manufacturer: Winbond Elec
+    spice: false
+    symbol: oshw_pico_ice:SOIC-8_5.23x5.23mm_P1.27mm_back
+    footprint: oshw_pico_ice:SOIC-8_5.23x5.23mm_P1.27mm_back
+    pins:
+      '1': QSPI_SS
+      '2': QSPI_SD1
+      '3': QSPI_SD2
+      '4': GND
+      '5': QSPI_SD0
+      '6': QSPI_SCLK
+      '7': QSPI_SD3
+      '8': +3V3
+    placement:
+      x: 11.0998
+      y: 48.9966
+      rot: 180.0
+      fixed: true
+  C42:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +3V3_STDBY
+      '2': GND
+    placement:
+      x: 11.9257
+      y: 15.5391
+      rot: 180.0
+      fixed: true
+  C27:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +1.2V_CORE
+      '2': GND
+    placement:
+      x: 9.6266
+      y: 26.2382
+      rot: 270.0
+      fixed: true
+  C13:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 15.6927
+      y: 25.3018
+      rot: 0.0
+      fixed: true
+  U5:
+    value: APS6404L-3SQN-SN
+    mpn: APS6404L-3SQN-SN
+    manufacturer: AP Memory
+    spice: false
+    symbol: oshw_pico_ice:SOIC-8_3.9x4.9mm_P1.27mm_back
+    footprint: oshw_pico_ice:SOIC-8_3.9x4.9mm_P1.27mm_back
+    pins:
+      '1': Net-_Q1-D
+      '2': ICE_SI
+      '3': ICE_FLASH_IO2
+      '4': GND
+      '5': ICE_SO
+      '6': ICE_SCK
+      '7': ICE_FLASH_IO3
+      '8': +3V3_STDBY
+    placement:
+      x: 14.478
+      y: 11.135
+      rot: 270.0
+      fixed: true
+  R8:
+    value: 10K
+    mpn: RC0402FR-0710KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_back_v2
+    pins:
+      '1': ICE_SSN
+      '2': +3V3
+    placement:
+      x: 6.858
+      y: 4.1402
+      rot: 90.0
+      fixed: true
+  FID6:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    pins:
+      '1': NC
+    placement:
+      x: 5.334
+      y: 59.182
+      rot: 180.0
+      fixed: true
+  U4:
+    value: NCP115AMX330TCG
+    mpn: NCP115AMX330TCG
+    manufacturer: onsemi
+    spice: false
+    symbol: oshw_pico_ice:OnSemi_XDFN4-1EP_1.0x1.0mm_EP0.52x0.52mm_back
+    footprint: oshw_pico_ice:OnSemi_XDFN4-1EP_1.0x1.0mm_EP0.52x0.52mm_back
+    pins:
+      '1': +3V3
+      '2': GND
+      '3': Net-_D6-A
+      '4': VBUS
+      '5': GND
+    placement:
+      x: 15.5192
+      y: 26.8245
+      rot: 0.0
+      fixed: true
+  FID4:
+    value: Fiducial
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    footprint: oshw_pico_ice:Fiducial_0.75mm_Mask1.5mm_back
+    pins:
+      '1': NC
+    placement:
+      x: 17.526
+      y: 59.182
+      rot: 180.0
+      fixed: true
+  R6:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_back_v2
+    pins:
+      '1': PWR_EN
+      '2': Net-_D6-A
+    placement:
+      x: 14.7844
+      y: 30.3144
+      rot: 90.0
+      fixed: true
+  R2:
+    value: 1k
+    mpn: RC0402FR-071KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_back_v2
+    pins:
+      '1': QSPI_SS
+      '2': USB_BOOT
+    placement:
+      x: 16.1798
+      y: 46.5836
+      rot: 90.0
+      fixed: true
+  C8:
+    value: 0.1u
+    mpn: GRM155R71C104KA88J
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.0518
+      y: 45.6184
+      rot: 0.0
+      fixed: true
+  D6:
+    value: 1N4148WT-7
+    mpn: 1N4148WT-7
+    manufacturer: Micro Commercial Co
+    spice: false
+    symbol: oshw_pico_ice:D_SOD-523_back
+    footprint: oshw_pico_ice:D_SOD-523_back
+    pins:
+      '1': VBUS
+      '2': Net-_D6-A
+    placement:
+      x: 15.1457
+      y: 28.5205
+      rot: 0.0
+      fixed: true
+  SJ2:
+    value: SHORT
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm_back
+    footprint: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm_back
+    pins:
+      '1': VBUS
+      '2': PWR_EN
+    placement:
+      x: 11.4457
+      y: 29.7891
+      rot: 180.0
+      fixed: true
+  SJ4:
+    value: SHORT
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm_back
+    footprint: oshw_pico_ice:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm_back
+    pins:
+      '1': +1.2V_CORE
+      '2': +1V2
+    placement:
+      x: 11.6078
+      y: 26.6273
+      rot: 0.0
+      fixed: true
+  Q1:
+    value: 2N7002
+    mpn: 2N7002
+    manufacturer: Slkor(SLKORMICRO Elec.)
+    spice: false
+    symbol: oshw_pico_ice:SOT-23_back
+    footprint: oshw_pico_ice:SOT-23_back
+    pins:
+      '1': SRAM_SS
+      '2': GND
+      '3': Net-_Q1-D
+    placement:
+      x: 15.1384
+      y: 3.8862
+      rot: 270.0
+      fixed: true
+  U1:
+    value: NCP115AMX120TCG
+    mpn: NCP115AMX120TCG
+    manufacturer: onsemi
+    spice: false
+    symbol: oshw_pico_ice:OnSemi_XDFN4-1EP_1.0x1.0mm_EP0.52x0.52mm_back
+    footprint: oshw_pico_ice:OnSemi_XDFN4-1EP_1.0x1.0mm_EP0.52x0.52mm_back
+    pins:
+      '1': +1V2
+      '2': GND
+      '3': PWR_EN
+      '4': VBUS
+      '5': GND
+    placement:
+      x: 11.5007
+      y: 32.1541
+      rot: 90.0
+      fixed: true
+  C37:
+    value: 4.7u
+    mpn: GRM155R60J475ME87D
+    manufacturer: Murata Electronics
+    spice: false
+    symbol: oshw_pico_ice:C_0402_1005Metric_back
+    footprint: oshw_pico_ice:C_0402_1005Metric_back
+    pins:
+      '1': +1V2
+      '2': GND
+    placement:
+      x: 9.4457
+      y: 32.0491
+      rot: 90.0
+      fixed: true
+  J4:
+    value: PB_SEL
+    mpn: DNP
+    spice: false
+    symbol: oshw_pico_ice:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels_back
+    footprint: oshw_pico_ice:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels_back
+    pins:
+      '1': RESET
+      '2': Net-_J4-Pin_2
+      '3': ADC2_PB
+    placement:
+      x: 11.43
+      y: 54.229
+      rot: 0.0
+      fixed: true
+  R13:
+    value: 10K
+    mpn: RC0402FR-0710KL
+    manufacturer: YAGEO
+    spice: false
+    symbol: oshw_pico_ice:R_0402_1005Metric_back_v2
+    footprint: oshw_pico_ice:R_0402_1005Metric_back_v2
+    pins:
+      '1': GND
+      '2': SRAM_SS
+    placement:
+      x: 12.5476
+      y: 2.9972
+      rot: 270.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 0.0
+      - 60.96
+    - - 3.81
+      - 60.96
+    - - 3.074
+      - 60.869
+    - - 2.369
+      - 60.642
+    - - 1.718
+      - 60.285
+    - - 1.147
+      - 59.813
+    - - 0.675
+      - 59.242
+    - - 0.318
+      - 58.591
+    - - 0.091
+      - 57.886
+    - - 0.0
+      - 57.15
+  - name: outline_cut2
+    cut: true
+    poly:
+    - - 22.86
+      - 60.96
+    - - 22.86
+      - 57.15
+    - - 22.769
+      - 57.886
+    - - 22.542
+      - 58.591
+    - - 22.185
+      - 59.242
+    - - 21.713
+      - 59.813
+    - - 21.142
+      - 60.285
+    - - 20.491
+      - 60.642
+    - - 19.786
+      - 60.869
+    - - 19.05
+      - 60.96
+  - name: outline_cut3
+    cut: true
+    poly:
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 3.81
+    - - 0.064
+      - 3.063
+    - - 0.275
+      - 2.343
+    - - 0.625
+      - 1.68
+    - - 1.099
+      - 1.099
+    - - 1.68
+      - 0.625
+    - - 2.343
+      - 0.275
+    - - 3.063
+      - 0.064
+    - - 3.81
+      - 0.0
+  - name: outline_cut4
+    cut: true
+    poly:
+    - - 22.86
+      - 0.0
+    - - 19.05
+      - 0.0
+    - - 19.797
+      - 0.064
+    - - 20.517
+      - 0.275
+    - - 21.18
+      - 0.625
+    - - 21.761
+      - 1.099
+    - - 22.235
+      - 1.68
+    - - 22.585
+      - 2.343
+    - - 22.796
+      - 3.063
+    - - 22.86
+      - 3.81

@@ -1,0 +1,107 @@
+source:
+  url: https://github.com/HestiaPi/hestia-touch-pcb-dev
+  commit: 725689d9022e10b02885dba630e0b67cc9612d1a
+  file: HestiaPi-ONE/KiCAD/HestiaPiOneUniversal.kicad_pcb
+  license: GPL-3.0
+  attribution: HestiaPi
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 1113.2
+    per_layer_mm:
+      B.Cu: 593.2
+      F.Cu: 520.1
+    segments: 168
+    vias: 21
+    nets_with_copper: 28
+  drc_source_rules:
+    errors: 17
+    unconnected: 0
+    types:
+      courtyards_overlap: 1
+      shorting_items: 2
+      solder_mask_bridge: 2
+      starved_thermal: 12
+  drc_hwflow_rules:
+    errors: 41
+    unconnected: 0
+    types:
+      courtyards_overlap: 1
+      invalid_outline: 2
+      pth_inside_courtyard: 26
+      starved_thermal: 12
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 15
+  nets: 28
+  board_mm:
+  - 89.8
+  - 72.054
+  placement_violations:
+  - courtyard overlap J0/J3
+  - courtyard overlap SW1/J0
+  fixed_violations:
+  - BME280 inside floorplan region 'outline_cut1' (3.0 mm2)
+  - J4 inside floorplan region 'outline_cut1' (2.9 mm2)
+  - J5 inside floorplan region 'outline_cut1' (2.9 mm2)
+  - J6 inside floorplan region 'outline_cut1' (2.3 mm2)
+  - J7 inside floorplan region 'outline_cut1' (2.3 mm2)
+  - TerminalBlock1 inside floorplan region 'outline_cut1' (21.6 mm2)
+  corridors: {}
+  placement_cost: 141647.8
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.1
+  pin_access:
+    pads: 83
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 2.3
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+replace:
+  free: 8
+  violations:
+  - courtyard overlap J0/J3
+  - courtyard overlap PSU-EU_100-240V_AC1/TerminalBlock1
+  - courtyard overlap SW1/J0
+  seconds: 11.1
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 29
+  drc_types:
+    invalid_outline: 2
+    courtyards_overlap: 1
+    pth_inside_courtyard: 26
+  placement_violations: 2
+  isolation: []
+  router: '0 unrouted, krt 2 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 32
+  track_mm: 1193.8
+  route_groups: []
+  seconds: 19.2
+  cpu_s: 38.4
+  timing:
+    drc_s: 2.0
+    place_s: 0.1
+    predict_s: 0.9
+    repair_s: 0.0
+    route_s: 11.8
+    stitch_s: 0.2
+  firstpass: null

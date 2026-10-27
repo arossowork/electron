@@ -1,0 +1,419 @@
+project: oshw_powerline_usbc
+revision: A
+description: imported KiCad board Powerline-USB-C.kicad_pcb (https://github.com/Andreas-Dorfner/Powerline-USB-C)
+board:
+  width_mm: 14.0
+  height_mm: 100.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.1
+  track_mm: 0.15
+  via_dia_mm: 0.4
+  via_drill_mm: 0.2
+components:
+  U1:
+    value: CH224K
+    spice: false
+    symbol: oshw_powerline_usbc:CH224k
+    footprint: oshw_powerline_usbc:CH224k
+    pins:
+      '1': +3.3V
+      '2': +3.3V
+      '3': GND
+      '4': Net-_U1-DP
+      '5': Net-_U1-DM
+      '6': Net-_J1-CC2
+      '7': Net-_J1-CC1
+      '8': Net-_U1-VBUS
+      '9': GND
+      '11': GND
+    nc:
+    - '10'
+    placement:
+      x: 9.25
+      y: 86.25
+      rot: 90.0
+      fixed: true
+  R2:
+    value: 10K
+    spice: false
+    symbol: oshw_powerline_usbc:R_0603_1608Metric
+    footprint: oshw_powerline_usbc:R_0603_1608Metric
+    pins:
+      '1': VBUS
+      '2': Net-_U1-VBUS
+    placement:
+      x: 12.5
+      y: 80.335
+      rot: 270.0
+      fixed: true
+  C3:
+    value: 22uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': +12V
+      '2': GND
+    placement:
+      x: 9.475
+      y: 72.8625
+      rot: 180.0
+      fixed: true
+  H2:
+    value: m2 mounting
+    spice: false
+    symbol: oshw_powerline_usbc:MountingHole_2.2mm_M2_DIN965_Pad
+    footprint: oshw_powerline_usbc:MountingHole_2.2mm_M2_DIN965_Pad
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 7.0
+      y: 97.5
+      rot: 0.0
+      fixed: true
+  C7:
+    value: 22uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 9.25
+      y: 50.75
+      rot: 180.0
+      fixed: true
+  R1:
+    value: 5.1k
+    spice: false
+    symbol: oshw_powerline_usbc:C_0603_1608Metric
+    footprint: oshw_powerline_usbc:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_D1-K
+    placement:
+      x: 7.0
+      y: 11.75
+      rot: 180.0
+      fixed: true
+  C4:
+    value: 10uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': Net-_U3-VIN
+      '2': GND
+    placement:
+      x: 6.25
+      y: 58.5
+      rot: 0.0
+      fixed: true
+  C5:
+    value: 22uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': -12V
+      '2': GND
+    placement:
+      x: 9.5
+      y: 61.8625
+      rot: 0.0
+      fixed: true
+  J1:
+    value: MC-802YC-H105
+    spice: false
+    symbol: oshw_powerline_usbc:USB-C
+    footprint: oshw_powerline_usbc:USB-C
+    pins:
+      A1: GND
+      A4: VBUS
+      A5: Net-_J1-CC1
+      A6: Net-_U1-DP
+      A7: Net-_U1-DM
+      A9: VBUS
+      A12: GND
+      B1: GND
+      B4: VBUS
+      B5: Net-_J1-CC2
+      B6: Net-_U1-DP
+      B7: Net-_U1-DM
+      B9: VBUS
+      B12: GND
+    nc:
+    - S1
+    - S2
+    - S3
+    - S4
+    placement:
+      x: 7.0
+      y: 79.5
+      rot: 0.0
+      fixed: true
+  C8:
+    value: 1uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_0805_2012Metric
+    footprint: oshw_powerline_usbc:C_0805_2012Metric
+    pins:
+      '1': +3.3V
+      '2': GND
+    placement:
+      x: 5.25
+      y: 89.5
+      rot: 270.0
+      fixed: true
+  D1:
+    value: LED
+    spice: false
+    symbol: oshw_powerline_usbc:LED_D3.0mm
+    footprint: oshw_powerline_usbc:LED_D3.0mm
+    pins:
+      '1': Net-_D1-K
+      '2': +12V
+    placement:
+      x: 5.725
+      y: 8.5
+      rot: 0.0
+      fixed: true
+  U5:
+    value: HT7533-1
+    spice: false
+    symbol: oshw_powerline_usbc:HT7533-1
+    footprint: oshw_powerline_usbc:HT7533-1
+    pins:
+      '1': GND
+      '2': VBUS
+      '3': +3.3V
+    placement:
+      x: 3.0
+      y: 84.75
+      rot: 90.0
+      fixed: true
+  H1:
+    value: m2 mounting
+    spice: false
+    symbol: oshw_powerline_usbc:MountingHole_2.2mm_M2_DIN965_Pad
+    footprint: oshw_powerline_usbc:MountingHole_2.2mm_M2_DIN965_Pad
+    bom: false
+    pins:
+      '1': NC
+    placement:
+      x: 7.0
+      y: 2.5
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 1uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_0805_2012Metric
+    footprint: oshw_powerline_usbc:C_0805_2012Metric
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 3.0
+      y: 89.5
+      rot: 270.0
+      fixed: true
+  L1:
+    value: 10uH
+    spice: false
+    symbol: oshw_powerline_usbc:L_1210_3225Metric
+    footprint: oshw_powerline_usbc:L_1210_3225Metric
+    pins:
+      '1': VBUS
+      '2': Net-_U3-VIN
+    placement:
+      x: 3.0
+      y: 61.8625
+      rot: 0.0
+      fixed: true
+  C6:
+    value: 10uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 4.5
+      y: 50.75
+      rot: 0.0
+      fixed: true
+  C2:
+    value: 10uF
+    spice: false
+    symbol: oshw_powerline_usbc:C_1210_3225Metric
+    footprint: oshw_powerline_usbc:C_1210_3225Metric
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 4.725
+      y: 72.8625
+      rot: 0.0
+      fixed: true
+  U3:
+    value: N7812-1C
+    spice: false
+    symbol: oshw_powerline_usbc:N7812-1C_back
+    footprint: oshw_powerline_usbc:N7812-1C_back
+    pins:
+      '1': Net-_U3-VIN
+      '2': -12V
+      '3': GND
+    placement:
+      x: 7.0
+      y: 64.3625
+      rot: 0.0
+      fixed: true
+  U4:
+    value: N7805-1C
+    spice: false
+    symbol: oshw_powerline_usbc:N7812-1C_back
+    footprint: oshw_powerline_usbc:N7812-1C_back
+    pins:
+      '1': VBUS
+      '2': GND
+      '3': +5V
+    placement:
+      x: 7.0
+      y: 53.5
+      rot: 0.0
+      fixed: true
+  U2:
+    value: N7812-1C
+    spice: false
+    symbol: oshw_powerline_usbc:N7812-1C_back
+    footprint: oshw_powerline_usbc:N7812-1C_back
+    pins:
+      '1': VBUS
+      '2': GND
+      '3': +12V
+    placement:
+      x: 7.0
+      y: 75.3625
+      rot: 0.0
+      fixed: true
+  J2:
+    value: '~'
+    spice: false
+    symbol: oshw_powerline_usbc:Keyed_16pin_Powerheader_back
+    footprint: oshw_powerline_usbc:Keyed_16pin_Powerheader_back
+    pins:
+      '1': -12V
+      '2': GND
+      '3': +12V
+      '4': +5V
+    nc:
+    - '5'
+    - '6'
+    placement:
+      x: 7.0
+      y: 29.75
+      rot: 180.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 0.0
+      - 100.0
+    - - 3.0
+      - 100.0
+    - - 2.415
+      - 99.942
+    - - 1.852
+      - 99.772
+    - - 1.333
+      - 99.494
+    - - 0.879
+      - 99.121
+    - - 0.506
+      - 98.667
+    - - 0.228
+      - 98.148
+    - - 0.058
+      - 97.585
+    - - 0.0
+      - 97.0
+  - name: outline_cut2
+    cut: true
+    poly:
+    - - 14.0
+      - 100.0
+    - - 14.0
+      - 97.0
+    - - 13.942
+      - 97.585
+    - - 13.772
+      - 98.148
+    - - 13.494
+      - 98.667
+    - - 13.121
+      - 99.121
+    - - 12.667
+      - 99.494
+    - - 12.148
+      - 99.772
+    - - 11.585
+      - 99.942
+    - - 11.0
+      - 100.0
+  - name: outline_cut3
+    cut: true
+    poly:
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 3.0
+    - - 0.058
+      - 2.415
+    - - 0.228
+      - 1.852
+    - - 0.506
+      - 1.333
+    - - 0.879
+      - 0.879
+    - - 1.333
+      - 0.506
+    - - 1.852
+      - 0.228
+    - - 2.415
+      - 0.058
+    - - 3.0
+      - 0.0
+  - name: outline_cut4
+    cut: true
+    poly:
+    - - 14.0
+      - 0.0
+    - - 11.0
+      - 0.0
+    - - 11.585
+      - 0.058
+    - - 12.148
+      - 0.228
+    - - 12.667
+      - 0.506
+    - - 13.121
+      - 0.879
+    - - 13.494
+      - 1.333
+    - - 13.772
+      - 1.852
+    - - 13.942
+      - 2.415
+    - - 14.0
+      - 3.0

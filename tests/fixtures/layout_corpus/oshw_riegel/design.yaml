@@ -1,0 +1,1574 @@
+project: oshw_riegel
+revision: A
+description: imported KiCad board riegel.kicad_pcb (https://github.com/machdyne/riegel)
+board:
+  width_mm: 90.0
+  height_mm: 40.0
+  layers: 4
+  thickness_mm: 1.6
+  clearance_mm: 0.125
+  track_mm: 0.125
+  via_dia_mm: 0.4
+  via_drill_mm: 0.2
+components:
+  J3:
+    value: MICROSD
+    spice: false
+    symbol: oshw_riegel:SDCARD
+    footprint: oshw_riegel:SDCARD
+    pins:
+      '2': SD_SS
+      '3': CSPI_SO
+      '4': PWR3V3
+      '5': CSPI_SCK
+      '6': GND
+      '7': CSPI_SI
+    nc:
+    - '1'
+    - '8'
+    - '9'
+    placement:
+      x: 85.42
+      y: 20.0
+      rot: 90.0
+      fixed: true
+  L1:
+    value: '1'
+    source_value: INDUCTOR
+    spice: false
+    symbol: oshw_riegel:L_0805_2012Metric
+    footprint: oshw_riegel:L_0805_2012Metric
+    pins:
+      '1': Net-_L1-Pad1
+      '2': PWR1V2
+    placement:
+      x: 65.9
+      y: 8.3763
+      rot: 0.0
+      fixed: true
+  U6:
+    value: TLV62568DDC
+    spice: false
+    symbol: oshw_riegel:SOT-23-6
+    footprint: oshw_riegel:SOT-23-6
+    pins:
+      '1': PWR5V0
+      '2': GND
+      '3': Net-_L1-Pad1
+      '4': PWR5V0
+      '5': PWR3V3EN
+      '6': Net-_C32-Pad2
+    placement:
+      x: 65.9
+      y: 5.3763
+      rot: 0.0
+      fixed: true
+  U7:
+    value: TLV62568DDC
+    spice: false
+    symbol: oshw_riegel:SOT-23-6
+    footprint: oshw_riegel:SOT-23-6
+    pins:
+      '1': PWR3V3EN
+      '2': GND
+      '3': Net-_L2-Pad1
+      '4': PWR5V0
+      '6': Net-_C33-Pad2
+    nc:
+    - '5'
+    placement:
+      x: 75.4
+      y: 5.3763
+      rot: 0.0
+      fixed: true
+  VGA1:
+    value: DB15_Female_MountingHoles
+    spice: false
+    symbol: oshw_riegel:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm
+    footprint: oshw_riegel:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm
+    pins:
+      '0': GND
+      '1': VGA_R_CONN
+      '2': VGA_G_CONN
+      '3': VGA_B_CONN
+      '5': GND
+      '6': GND
+      '7': GND
+      '8': GND
+      '10': GND
+      '13': VGA_HS_CONN
+      '14': VGA_VS_CONN
+    nc:
+    - '4'
+    - '9'
+    - '11'
+    - '12'
+    - '15'
+    placement:
+      x: 30.5
+      y: 32.588
+      rot: 0.0
+      fixed: true
+  PMOD2:
+    value: PMOD-Device-x2-Type-1A-GPIO
+    spice: false
+    symbol: oshw_riegel:PMOD_2x06_HOST
+    footprint: oshw_riegel:PMOD_2x06_HOST
+    pins:
+      '1': PMOD_B1
+      '2': PMOD_B2
+      '3': PMOD_B3
+      '4': PMOD_B4
+      '5': GND
+      '6': PWR3V3
+      '7': PMOD_B7
+      '8': PMOD_B8
+      '9': PMOD_B9
+      '10': PMOD_B10
+      '11': GND
+      '12': PWR3V3
+    placement:
+      x: 30.0
+      y: 12.75
+      rot: 270.0
+      fixed: true
+  H1:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': GND
+    placement:
+      x: 5.0
+      y: 5.0
+      rot: 0.0
+      fixed: true
+  H2:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': GND
+    placement:
+      x: 85.0
+      y: 5.0
+      rot: 0.0
+      fixed: true
+  H3:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': GND
+    placement:
+      x: 5.0
+      y: 35.0
+      rot: 0.0
+      fixed: true
+  H4:
+    value: MountingHole_Pad
+    spice: false
+    symbol: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    footprint: oshw_riegel:MountingHole_3.2mm_M3_Pad
+    pins:
+      '1': GND
+    placement:
+      x: 85.0
+      y: 35.0
+      rot: 0.0
+      fixed: true
+  U5:
+    value: NCP164ASN180T1G
+    spice: false
+    symbol: oshw_riegel:TSOP-5_1.65x3.05mm_P0.95mm
+    footprint: oshw_riegel:TSOP-5_1.65x3.05mm_P0.95mm
+    pins:
+      '1': PWR3V3
+      '2': GND
+      '3': PWR3V3
+      '5': PWR1V8
+    nc:
+    - '4'
+    placement:
+      x: 60.2
+      y: 13.95
+      rot: 0.0
+      fixed: true
+  D2:
+    value: LED
+    spice: false
+    symbol: oshw_riegel:LED_0603_1608Metric
+    footprint: oshw_riegel:LED_0603_1608Metric
+    pins:
+      '1': Net-_D2-Pad1
+      '2': PWR3V3
+    placement:
+      x: 11.5
+      y: 5.0
+      rot: 180.0
+      fixed: true
+  R20:
+    value: '1'
+    source_value: 536R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': LED
+      '2': Net-_D2-Pad1
+    placement:
+      x: 11.5
+      y: 7.0
+      rot: 180.0
+      fixed: true
+  C20:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR1V8
+    placement:
+      x: 61.7
+      y: 5.1
+      rot: 270.0
+      fixed: true
+  L2:
+    value: '1'
+    source_value: INDUCTOR
+    spice: false
+    symbol: oshw_riegel:L_0805_2012Metric
+    footprint: oshw_riegel:L_0805_2012Metric
+    pins:
+      '1': Net-_L2-Pad1
+      '2': PWR3V3
+    placement:
+      x: 75.4
+      y: 8.3763
+      rot: 0.0
+      fixed: true
+  C26:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 81.5
+      y: 11.0
+      rot: 0.0
+      fixed: true
+  D1:
+    value: D_Schottky_Small
+    spice: false
+    symbol: oshw_riegel:D_0603_1608Metric
+    footprint: oshw_riegel:D_0603_1608Metric
+    pins:
+      '1': PWR2V5
+      '2': PWR3V3
+    placement:
+      x: 53.7
+      y: 15.8
+      rot: 270.0
+      fixed: true
+  PROG1:
+    value: Conn_02x04_Top_Bottom
+    spice: false
+    symbol: oshw_riegel:PinHeader_2x04_P2.54mm_Vertical
+    footprint: oshw_riegel:PinHeader_2x04_P2.54mm_Vertical
+    pins:
+      '1': CSPI_SS
+      '2': CSPI_SCK
+      '3': CSPI_SI
+      '4': CSPI_SO
+      '5': CRESET
+      '6': CDONE
+      '7': GND
+      '8': PWR3V3
+    placement:
+      x: 68.475
+      y: 17.7
+      rot: 0.0
+      fixed: true
+  C29:
+    value: 1uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V8
+      '2': GND
+    placement:
+      x: 63.0
+      y: 13.9
+      rot: 270.0
+      fixed: true
+  C4:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 51.0
+      y: 15.0
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 1uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 35.0
+      y: 10.5385
+      rot: 180.0
+      fixed: true
+  C18:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR1V8
+    placement:
+      x: 56.1
+      y: 12.0
+      rot: 0.0
+      fixed: true
+  C9:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR5V0
+      '2': GND
+    placement:
+      x: 85.05
+      y: 30.0
+      rot: 180.0
+      fixed: true
+  C28:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 39.7
+      y: 25.9
+      rot: 0.0
+      fixed: true
+  C17:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 35.0
+      y: 15.772
+      rot: 0.0
+      fixed: true
+  C10:
+    value: 10nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 35.0
+      y: 20.6
+      rot: 180.0
+      fixed: true
+  C23:
+    value: 1uF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR3V3
+    placement:
+      x: 35.0
+      y: 3.4625
+      rot: 0.0
+      fixed: true
+  C24:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR3V3
+    placement:
+      x: 49.5
+      y: 3.55
+      rot: 90.0
+      fixed: true
+  C14:
+    value: 10uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': Net-_C12-Pad1
+      '2': Net-_C12-Pad2
+    placement:
+      x: 42.1
+      y: 23.5
+      rot: 90.0
+      fixed: true
+  C30:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR5V0
+      '2': GND
+    placement:
+      x: 65.9
+      y: 2.6263
+      rot: 0.0
+      fixed: true
+  C37:
+    value: 22uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 11.5
+      y: 9.0
+      rot: 0.0
+      fixed: true
+  C32:
+    value: 10pF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': Net-_C32-Pad2
+    placement:
+      x: 69.65
+      y: 3.1263
+      rot: 180.0
+      fixed: true
+  C36:
+    value: 10uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 79.15
+      y: 8.3263
+      rot: 0.0
+      fixed: true
+  C25:
+    value: 10uF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 78.0
+      y: 11.0
+      rot: 0.0
+      fixed: true
+  FB1:
+    value: Ferrite_Bead
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR5V0
+      '2': Net-_FB1-Pad2
+    placement:
+      x: 81.55
+      y: 30.0
+      rot: 180.0
+      fixed: true
+  R3:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': CSPI_SCK
+      '2': PWR3V3
+    placement:
+      x: 70.7
+      y: 13.6775
+      rot: 90.0
+      fixed: true
+  R6:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': CDONE
+      '2': PWR3V3
+    placement:
+      x: 68.6
+      y: 28.75
+      rot: 90.0
+      fixed: true
+  R5:
+    value: 5K1
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': Net-_J2-PadA5
+      '2': GND
+    placement:
+      x: 71.2
+      y: 28.75
+      rot: 90.0
+      fixed: true
+  R10:
+    value: 5K1
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': Net-_J2-PadB5
+      '2': GND
+    placement:
+      x: 72.95
+      y: 28.7375
+      rot: 90.0
+      fixed: true
+  R22:
+    value: '1'
+    source_value: 536R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': VGA_R_CONN
+      '2': VGA_R
+    placement:
+      x: 33.0
+      y: 28.75
+      rot: 0.0
+      fixed: true
+  R23:
+    value: '1'
+    source_value: 536R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': VGA_G_CONN
+      '2': VGA_G
+    placement:
+      x: 29.5
+      y: 28.75
+      rot: 0.0
+      fixed: true
+  R24:
+    value: '1'
+    source_value: 536R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': VGA_B_CONN
+      '2': VGA_B
+    placement:
+      x: 26.0
+      y: 28.75
+      rot: 0.0
+      fixed: true
+  R25:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': VGA_HS_CONN
+      '2': VGA_HS
+    placement:
+      x: 22.5
+      y: 28.75
+      rot: 0.0
+      fixed: true
+  R26:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': VGA_VS_CONN
+      '2': VGA_VS
+    placement:
+      x: 19.0
+      y: 28.75
+      rot: 0.0
+      fixed: true
+  R19:
+    value: 20K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': SD_SS
+    placement:
+      x: 72.39
+      y: 13.678
+      rot: 270.0
+      fixed: true
+  TP4:
+    value: TP_PWR3V3
+    spice: false
+    symbol: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    footprint: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    pins:
+      '1': PWR3V3
+    placement:
+      x: 75.4
+      y: 10.5
+      rot: 0.0
+      fixed: true
+  TP1:
+    value: TP_PWR5V0
+    spice: false
+    symbol: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    footprint: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    pins:
+      '1': PWR5V0
+    placement:
+      x: 87.8
+      y: 30.0
+      rot: 0.0
+      fixed: true
+  TP2:
+    value: TP_PWR1V8
+    spice: false
+    symbol: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    footprint: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    pins:
+      '1': PWR1V8
+    placement:
+      x: 57.2
+      y: 13.8
+      rot: 90.0
+      fixed: true
+  U2:
+    value: PS2
+    spice: false
+    symbol: oshw_riegel:MINI-DIN-6-FULL-SHIELD
+    footprint: oshw_riegel:MINI-DIN-6-FULL-SHIELD
+    pins:
+      '1': Net-_R14-Pad2
+      '3': GND
+      '4': PWR5V0
+      '5': Net-_R15-Pad2
+    nc:
+    - '2'
+    - '6'
+    - '7'
+    placement:
+      x: 55.75
+      y: 40.0
+      rot: 180.0
+      fixed: true
+  U3:
+    value: APS256
+    spice: false
+    symbol: oshw_riegel:APS256_BGA_24
+    footprint: oshw_riegel:APS256_BGA_24
+    pins:
+      A2: HRAM_DQ10
+      A3: HRAM_CE
+      A4: HRAM_DQ11
+      A5: HRAM_DQ12
+      B1: HRAM_DQ9
+      B2: HRAM_CK
+      B3: HRAM_DQS1
+      B4: HRAM_DQ13
+      B5: HRAM_DQ14
+      C1: GND
+      C2: HRAM_DQ8
+      C3: HRAM_DQS0
+      C4: HRAM_ADQ2
+      C5: HRAM_DQ15
+      D1: PWR1V8
+      D2: HRAM_ADQ1
+      D3: HRAM_ADQ0
+      D4: HRAM_ADQ3
+      D5: HRAM_ADQ4
+      E1: HRAM_ADQ7
+      E2: HRAM_ADQ6
+      E3: HRAM_ADQ5
+      E4: PWR1V8
+      E5: GND
+    placement:
+      x: 55.6
+      y: 6.7
+      rot: 90.0
+      fixed: true
+  C21:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR1V8
+    placement:
+      x: 61.7
+      y: 8.4
+      rot: 270.0
+      fixed: true
+  C33:
+    value: 10pF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': Net-_C33-Pad2
+    placement:
+      x: 79.15
+      y: 3.0763
+      rot: 180.0
+      fixed: true
+  C35:
+    value: 10uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 69.65
+      y: 8.3763
+      rot: 0.0
+      fixed: true
+  R28:
+    value: 120K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': Net-_C32-Pad2
+      '2': GND
+    placement:
+      x: 69.65
+      y: 6.6263
+      rot: 0.0
+      fixed: true
+  R27:
+    value: 120K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': Net-_C32-Pad2
+    placement:
+      x: 69.65
+      y: 4.8763
+      rot: 180.0
+      fixed: true
+  TP3:
+    value: TP_PWR1V2
+    spice: false
+    symbol: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    footprint: oshw_riegel:TestPoint_THTPad_D1.0mm_Drill0.5mm
+    pins:
+      '1': PWR1V2
+    placement:
+      x: 65.9
+      y: 10.5
+      rot: 0.0
+      fixed: true
+  R30:
+    value: 47K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': Net-_C33-Pad2
+      '2': GND
+    placement:
+      x: 79.15
+      y: 6.5763
+      rot: 0.0
+      fixed: true
+  C27:
+    value: 1uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 60.2
+      y: 11.2
+      rot: 0.0
+      fixed: true
+  C6:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR2V5
+      '2': GND
+    placement:
+      x: 55.5
+      y: 15.8
+      rot: 270.0
+      fixed: true
+  C5:
+    value: 220nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 49.5
+      y: 10.2
+      rot: 90.0
+      fixed: true
+  C11:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V8
+      '2': GND
+    placement:
+      x: 51.0
+      y: 16.75
+      rot: 0.0
+      fixed: true
+  R11:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': Net-_C12-Pad1
+    placement:
+      x: 47.2
+      y: 23.5
+      rot: 270.0
+      fixed: true
+  U4:
+    value: IS61WV256
+    spice: false
+    symbol: oshw_riegel:BGA48C75P8X6_800X600X120N
+    footprint: oshw_riegel:BGA48C75P8X6_800X600X120N
+    pins:
+      A1: SRAM_LB
+      A2: SRAM_OE
+      A3: SRAM_A0
+      A4: SRAM_A1
+      A5: SRAM_A2
+      B1: SRAM_D8
+      B2: SRAM_UB
+      B3: SRAM_A3
+      B4: SRAM_A4
+      B5: SRAM_CS
+      B6: SRAM_D0
+      C1: SRAM_D9
+      C2: SRAM_D10
+      C3: SRAM_A5
+      C4: SRAM_A6
+      C5: SRAM_D1
+      C6: SRAM_D2
+      D1: GND
+      D2: SRAM_D11
+      D3: SRAM_A17
+      D4: SRAM_A7
+      D5: SRAM_D3
+      D6: PWR3V3
+      E1: PWR3V3
+      E2: SRAM_D12
+      E4: SRAM_A16
+      E5: SRAM_D4
+      E6: GND
+      F1: SRAM_D14
+      F2: SRAM_D13
+      F3: SRAM_A14
+      F4: SRAM_A15
+      F5: SRAM_D5
+      F6: SRAM_D6
+      G1: SRAM_D15
+      G3: SRAM_A12
+      G4: SRAM_A13
+      G5: SRAM_WE
+      G6: SRAM_D7
+      H2: SRAM_A8
+      H3: SRAM_A9
+      H4: SRAM_A10
+      H5: SRAM_A11
+    nc:
+    - A6
+    - E3
+    - G2
+    - H1
+    - H6
+    placement:
+      x: 43.0
+      y: 5.0
+      rot: 90.0
+      fixed: true
+  C15:
+    value: 10uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': Net-_C13-Pad1
+      '2': Net-_C13-Pad2
+    placement:
+      x: 35.0045
+      y: 7.0
+      rot: 180.0
+      fixed: true
+  R12:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': Net-_C13-Pad1
+    placement:
+      x: 35.0045
+      y: 5.222
+      rot: 180.0
+      fixed: true
+  C12:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': Net-_C12-Pad1
+      '2': Net-_C12-Pad2
+    placement:
+      x: 43.8
+      y: 23.5
+      rot: 90.0
+      fixed: true
+  U1:
+    value: ICE40HX4K-BG121
+    spice: false
+    symbol: oshw_riegel:BGA-121_9.0x9.0mm_Layout11x11_P0.8mm_Ball0.4mm_Pad0.35mm_NSMD
+    footprint: oshw_riegel:BGA-121_9.0x9.0mm_Layout11x11_P0.8mm_Ball0.4mm_Pad0.35mm_NSMD
+    pins:
+      A1: SRAM_LB
+      A2: SRAM_D8
+      A3: SRAM_D9
+      A4: SRAM_D11
+      A5: SRAM_D14
+      A6: SRAM_D15
+      A7: SRAM_A8
+      A8: SRAM_A9
+      A9: SRAM_A10
+      A10: SRAM_A11
+      A11: SRAM_D6
+      B1: SRAM_OE
+      B2: SRAM_UB
+      B3: SRAM_D10
+      B4: SRAM_D12
+      B5: SRAM_D13
+      B6: SRAM_A14
+      B7: SRAM_A12
+      B8: SRAM_A13
+      B9: SRAM_A15
+      B11: HRAM_DQ12
+      C1: SRAM_A0
+      C2: SRAM_A3
+      C3: SRAM_A6
+      C4: SRAM_A5
+      C5: Net-_C13-Pad2
+      C6: Net-_C13-Pad1
+      C7: SRAM_A7
+      C8: SRAM_A16
+      C9: SRAM_A17
+      C10: PWR2V5
+      C11: HRAM_DQ11
+      D1: SRAM_A1
+      D2: SRAM_A4
+      D3: SRAM_CS
+      D4: PWR1V2
+      D5: SRAM_WE
+      D6: PWR3V3
+      D7: SRAM_D4
+      D8: PWR1V2
+      D9: HRAM_DQ14
+      D10: HRAM_CE
+      D11: HRAM_DQ10
+      E1: SRAM_A2
+      E2: SRAM_D5
+      E3: SRAM_D0
+      E4: PWR3V3
+      E5: GND
+      E6: GND
+      E7: GND
+      E8: HRAM_DQ13
+      E9: HRAM_DQS1
+      E10: HRAM_CK
+      E11: HRAM_DQ9
+      F1: SRAM_D1
+      F2: SRAM_D2
+      F3: SRAM_D3
+      F4: SRAM_D7
+      F5: GND
+      F6: GND
+      F7: GND
+      F8: PWR1V8
+      F9: HRAM_ADQ4
+      F10: HRAM_DQ8
+      F11: HRAM_DQS0
+      G1: PMOD_B10
+      G2: PMOD_B4
+      G3: PMOD_A4
+      G4: PWR3V3
+      G5: GND
+      G6: GND
+      G7: GND
+      G9: HRAM_ADQ2
+      G10: HRAM_ADQ1
+      G11: HRAM_ADQ7
+      H1: PMOD_B9
+      H2: PMOD_B3
+      H3: PMOD_A9
+      H4: PWR1V2
+      H5: GND
+      H6: PWR3V3
+      H7: PMOD_A10
+      H8: PWR1V2
+      H9: LED
+      H10: HRAM_ADQ3
+      H11: HRAM_DQ15
+      J1: PMOD_B8
+      J2: PMOD_B2
+      J3: PMOD_A3
+      J4: VGA_R
+      J5: PMOD_A1
+      J6: Net-_C12-Pad1
+      J7: USB_DP_PU
+      J8: USB_DP
+      J9: CSPI_SI
+      J10: HRAM_ADQ6
+      J11: HRAM_ADQ0
+      K1: PMOD_B7
+      K2: PMOD_B1
+      K3: VGA_VS
+      K4: VGA_HS
+      K5: PMOD_A8
+      K6: SD_SS
+      K7: USB_DN
+      K8: CDONE
+      K9: CSPI_SO
+      K10: CSPI_SS
+      K11: HRAM_ADQ5
+      L1: PMOD_A2
+      L2: PMOD_A7
+      L3: VGA_B
+      L4: VGA_G
+      L5: CLK48
+      L6: Net-_C12-Pad2
+      L7: PS2_DATA
+      L8: PS2_CLK
+      L9: CRESET
+      L10: CSPI_SCK
+      L11: PWR3V3
+    nc:
+    - B10
+    - G8
+    placement:
+      x: 43.0
+      y: 16.0
+      rot: 0.0
+      fixed: true
+  PMOD1:
+    value: PMOD-Device-x2-Type-1A-GPIO
+    spice: false
+    symbol: oshw_riegel:PMOD_2x06_HOST
+    footprint: oshw_riegel:PMOD_2x06_HOST
+    pins:
+      '1': PMOD_A1
+      '2': PMOD_A2
+      '3': PMOD_A3
+      '4': PMOD_A4
+      '5': GND
+      '6': PWR3V3
+      '7': PMOD_A7
+      '8': PMOD_A8
+      '9': PMOD_A9
+      '10': PMOD_A10
+      '11': GND
+      '12': PWR3V3
+    placement:
+      x: 12.75
+      y: 13.675
+      rot: 0.0
+      fixed: true
+  C34:
+    value: 22uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 31.7
+      y: 20.6
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 51.0
+      y: 20.3
+      rot: 0.0
+      fixed: true
+  Y1:
+    value: KC2016Z48.0000C1KX00
+    manufacturer: Kyocera
+    spice: false
+    symbol: oshw_riegel:OSC_KC2016Z13.5600C1KX00
+    footprint: oshw_riegel:OSC_KC2016Z13.5600C1KX00
+    pins:
+      '1': PWR3V3
+      '2': GND
+      '3': CLK48
+      '4': PWR3V3
+    placement:
+      x: 39.7
+      y: 23.3
+      rot: 90.0
+      fixed: true
+  C16:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 45.5
+      y: 23.5
+      rot: 90.0
+      fixed: true
+  R7:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': CRESET
+      '2': PWR3V3
+    placement:
+      x: 66.8
+      y: 28.7375
+      rot: 90.0
+      fixed: true
+  C3:
+    value: 220nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 35.0172
+      y: 22.35
+      rot: 180.0
+      fixed: true
+  C13:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': Net-_C13-Pad1
+      '2': Net-_C13-Pad2
+    placement:
+      x: 35.0045
+      y: 8.778
+      rot: 0.0
+      fixed: true
+  R29:
+    value: 210K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': PWR3V3
+      '2': Net-_C33-Pad2
+    placement:
+      x: 79.15
+      y: 4.8263
+      rot: 180.0
+      fixed: true
+  C31:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric
+    footprint: oshw_riegel:C_0603_1608Metric
+    pins:
+      '1': PWR5V0
+      '2': GND
+    placement:
+      x: 75.4
+      y: 2.6263
+      rot: 0.0
+      fixed: true
+  C22:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric
+    footprint: oshw_riegel:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': PWR3V3
+    placement:
+      x: 49.5
+      y: 6.85
+      rot: 270.0
+      fixed: true
+  R14:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PS2_DATA5V
+      '2': Net-_R14-Pad2
+    placement:
+      x: 67.0
+      y: 34.2
+      rot: 0.0
+      fixed: true
+  R13:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PWR3V3
+      '2': PS2_DATA
+    placement:
+      x: 39.7
+      y: 29.3
+      rot: 0.0
+      fixed: true
+  R21:
+    value: 1K5
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PWR5V0
+      '2': PWR3V3EN
+    placement:
+      x: 72.308
+      y: 5.3763
+      rot: 270.0
+      fixed: true
+  C19:
+    value: 100nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric_v2
+    footprint: oshw_riegel:C_0603_1608Metric_v2
+    pins:
+      '1': PWR3V3
+      '2': GND
+    placement:
+      x: 35.0
+      y: 14.022
+      rot: 0.0
+      fixed: true
+  R15:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PS2_CLK5V
+      '2': Net-_R15-Pad2
+    placement:
+      x: 67.0
+      y: 32.5
+      rot: 0.0
+      fixed: true
+  C8:
+    value: 220nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric_v2
+    footprint: oshw_riegel:C_0603_1608Metric_v2
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 51.0
+      y: 18.5
+      rot: 0.0
+      fixed: true
+  R18:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PWR5V0
+      '2': PS2_CLK5V
+    placement:
+      x: 44.35
+      y: 30.55
+      rot: 0.0
+      fixed: true
+  R4:
+    value: 1K5
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': USB_DP_PU
+      '2': USB_CONN_DP
+    placement:
+      x: 60.2
+      y: 17.85
+      rot: 0.0
+      fixed: true
+  R16:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PWR5V0
+      '2': PS2_DATA5V
+    placement:
+      x: 44.35
+      y: 34.95
+      rot: 0.0
+      fixed: true
+  C7:
+    value: 220nF
+    spice: false
+    symbol: oshw_riegel:C_0603_1608Metric_v2
+    footprint: oshw_riegel:C_0603_1608Metric_v2
+    pins:
+      '1': PWR1V2
+      '2': GND
+    placement:
+      x: 35.0
+      y: 12.2885
+      rot: 180.0
+      fixed: true
+  R8:
+    value: '1'
+    source_value: 22R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': USB_CONN_DN
+      '2': USB_DN
+    placement:
+      x: 60.2
+      y: 21.15
+      rot: 180.0
+      fixed: true
+  J2:
+    value: TYPE-C-31-M-12-FIXED
+    manufacturer: HRO Electronics
+    spice: false
+    symbol: oshw_riegel:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    footprint: oshw_riegel:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    pins:
+      A1: GND
+      A4: Net-_FB1-Pad2
+      A5: Net-_J2-PadA5
+      A6: USB_CONN_DP
+      A7: USB_CONN_DN
+      A9: Net-_FB1-Pad2
+      A12: GND
+      B1: GND
+      B4: Net-_FB1-Pad2
+      B5: Net-_J2-PadB5
+      B6: USB_CONN_DP
+      B7: USB_CONN_DN
+      B9: Net-_FB1-Pad2
+      B12: GND
+      S1: GND
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 74.5
+      y: 36.05
+      rot: 0.0
+      fixed: true
+  Q2:
+    value: BSS138
+    spice: false
+    symbol: oshw_riegel:SOT-323_SC-70
+    footprint: oshw_riegel:SOT-323_SC-70
+    pins:
+      '1': PWR3V3
+      '2': PS2_CLK
+      '3': PS2_CLK5V
+    placement:
+      x: 44.4
+      y: 28.35
+      rot: 0.0
+      fixed: true
+  R17:
+    value: 10K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': PWR3V3
+      '2': PS2_CLK
+    placement:
+      x: 39.7
+      y: 27.6
+      rot: 0.0
+      fixed: true
+  Q1:
+    value: BSS138
+    spice: false
+    symbol: oshw_riegel:SOT-323_SC-70
+    footprint: oshw_riegel:SOT-323_SC-70
+    pins:
+      '1': PWR3V3
+      '2': PS2_DATA
+      '3': PS2_DATA5V
+    placement:
+      x: 44.4
+      y: 32.75
+      rot: 0.0
+      fixed: true
+  R9:
+    value: '1'
+    source_value: 22R
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': USB_CONN_DP
+      '2': USB_DP
+    placement:
+      x: 60.2
+      y: 19.5
+      rot: 180.0
+      fixed: true
+  R1:
+    value: 20K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': CSPI_SO
+      '2': PWR3V3
+    placement:
+      x: 69.0
+      y: 13.675
+      rot: 90.0
+      fixed: true
+  R2:
+    value: 20K
+    spice: false
+    symbol: oshw_riegel:R_0603_1608Metric_v2
+    footprint: oshw_riegel:R_0603_1608Metric_v2
+    pins:
+      '1': CSPI_SI
+      '2': PWR3V3
+    placement:
+      x: 67.3
+      y: 13.675
+      rot: 90.0
+      fixed: true
+  MMOD1:
+    value: PMOD-Device-x1-Type-2-SPI
+    spice: false
+    symbol: oshw_riegel:PinSocket_1x06_P2.54mm_Horizontal_back
+    footprint: oshw_riegel:PinSocket_1x06_P2.54mm_Horizontal_back
+    pins:
+      '1': PWR3V3
+      '2': GND
+      '3': CSPI_SCK
+      '4': CSPI_SI
+      '5': CSPI_SO
+      '6': CSPI_SS
+    placement:
+      x: 49.3
+      y: 25.0
+      rot: 270.0
+      fixed: true
+nets:
+  GND:
+    class: ground
+  USB_CONN_DN:
+    source_class: USB
+  USB_CONN_DP:
+    source_class: USB
+  USB_DN:
+    source_class: USB
+  USB_DP:
+    source_class: USB

@@ -1,0 +1,72 @@
+(footprint "LIPO_BAT_VERTICAL_DW02S"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (attr through_hole)
+  (fp_text reference "BAT1"
+    (at -3.9624 -3.13636 270)
+    (layer "F.SilkS" knockout)
+    (effects
+      (font (size 1.016 1.016) (thickness 0.254) bold)
+    )
+  )
+  (fp_text value "DW02S"
+    (at 0.4445 0.5588 180)
+    (layer "F.Fab")
+    (effects
+      (font (size 1.1 1.1) (thickness 0.254))
+    )
+  )
+  (fp_text user "2"
+    (at 2.413 -3.175 180)
+    (layer "F.SilkS")
+    (effects
+      (font (size 0.762 0.762) (thickness 0.1905))
+    )
+  )
+  (fp_text user "1"
+    (at -2.413 -3.175 180)
+    (layer "F.SilkS")
+    (effects
+      (font (size 0.762 0.762) (thickness 0.1905))
+    )
+  )
+  (fp_line
+    (start -3.03022 -0.6096)
+    (end 3.01752 -0.6096)
+    (stroke (width 0.254) (type solid))
+    (layer "F.SilkS")
+  )
+  (fp_line
+    (start -3.01752 -5.12572)
+    (end -3.01752 -0.63246)
+    (stroke (width 0.254) (type solid))
+    (layer "F.SilkS")
+  )
+  (fp_line
+    (start 3.01752 -5.12572)
+    (end -3.01752 -5.12572)
+    (stroke (width 0.254) (type solid))
+    (layer "F.SilkS")
+  )
+  (fp_line
+    (start 3.01752 -0.6096)
+    (end 3.01752 -5.12572)
+    (stroke (width 0.254) (type solid))
+    (layer "F.SilkS")
+  )
+  (pad "1" thru_hole rect locked
+    (at -1.0287 -3.53568)
+    (size 1.4 1.4)
+    (drill 0.9)
+    (layers "*.Cu" "*.Mask")
+    (solder_mask_margin 0.0508)
+  )
+  (pad "2" thru_hole circle locked
+    (at 1.00076 -3.53822)
+    (size 1.4 1.4)
+    (drill 0.9)
+    (layers "*.Cu" "*.Mask")
+    (solder_mask_margin 0.0508)
+  )
+)

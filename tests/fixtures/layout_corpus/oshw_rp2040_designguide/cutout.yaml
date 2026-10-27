@@ -1,0 +1,103 @@
+source:
+  url: https://github.com/Sleepdealr/RP2040-designguide
+  commit: a9afaa2ea5ee9d859ef126d919c607737a75eb30
+  file: PCB/RP2040-Guide.kicad_pcb
+  license: MIT
+  attribution: Sleepdealer (Sleepdealr)
+  oshwa: null
+  category: mcu
+source_project: RP2040-Guide
+importer: hwflow.layout.board.kicad_import
+source_format: 20211014
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -171.45
+- -30.401
+board_mm:
+- 45.212
+- 93.424
+outline_fill: 0.9995
+free:
+- C1
+- C10
+- C11
+- C12
+- C13
+- C14
+- C15
+- C16
+- C17
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- C8
+- C9
+- F1
+- R1
+- R2
+- R3
+- R4
+- R5
+- R6
+- R7
+- U1
+- U2
+- U3
+- U4
+- Y1
+dropped_footprints: []
+net_renames:
+  /CC1: CC1
+  /CC2: CC2
+  /D_+: D_+
+  /D_-: D_-
+  /GPIO0: GPIO0
+  /GPIO1: GPIO1
+  /GPIO10: GPIO10
+  /GPIO11: GPIO11
+  /GPIO12: GPIO12
+  /GPIO13: GPIO13
+  /GPIO14: GPIO14
+  /GPIO15: GPIO15
+  /GPIO16: GPIO16
+  /GPIO17: GPIO17
+  /GPIO18: GPIO18
+  /GPIO19: GPIO19
+  /GPIO2: GPIO2
+  /GPIO20: GPIO20
+  /GPIO21: GPIO21
+  /GPIO22: GPIO22
+  /GPIO23: GPIO23
+  /GPIO24: GPIO24
+  /GPIO25: GPIO25
+  /GPIO26: GPIO26
+  /GPIO27: GPIO27
+  /GPIO28: GPIO28
+  /GPIO29: GPIO29
+  /GPIO3: GPIO3
+  /GPIO4: GPIO4
+  /GPIO5: GPIO5
+  /GPIO6: GPIO6
+  /GPIO7: GPIO7
+  /GPIO8: GPIO8
+  /GPIO9: GPIO9
+  /XTAL_O: XTAL_O
+  /~{USB_BOOT}: USB_BOOT
+  unconnected-(J1-PadA8): unconnected-_J1-PadA8
+  unconnected-(J1-PadB8): unconnected-_J1-PadB8
+  ~{RESET}: RESET
+not_imported:
+  zones:
+    GND: 1
+    +1V1: 1
+    +3V3: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: RP2040-Guide.kicad_pro
+terminals: []
+warnings: []

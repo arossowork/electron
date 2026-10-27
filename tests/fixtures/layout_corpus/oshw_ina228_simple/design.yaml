@@ -1,0 +1,342 @@
+project: oshw_ina228_simple
+revision: A
+description: imported KiCad board INA228_Simple.kicad_pcb (https://github.com/zemonkey/INA228_Simple)
+board:
+  width_mm: 52.705
+  height_mm: 28.143
+  layers: 2
+  thickness_mm: 1.69
+  clearance_mm: 0.127
+  track_mm: 0.127
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  D2:
+    value: D
+    spice: false
+    symbol: oshw_ina228_simple:D_SMA_Handsoldering
+    footprint: oshw_ina228_simple:D_SMA_Handsoldering
+    pins:
+      '1': Net-_D2-Pad1
+      '2': GND
+    placement:
+      x: 33.274
+      y: 6.223
+      rot: 180.0
+      fixed: true
+  FB1:
+    value: Ferrite
+    spice: false
+    symbol: oshw_ina228_simple:L_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:L_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    pins:
+      '1': Net-_FB1-Pad1
+      '2': Net-_D1-Pad1
+    placement:
+      x: 31.242
+      y: 15.24
+      rot: 180.0
+      fixed: true
+  U1:
+    value: INA228AIDGSR
+    spice: false
+    symbol: oshw_ina228_simple:VSSOP-10_3x3mm_P0.5mm
+    footprint: oshw_ina228_simple:VSSOP-10_3x3mm_P0.5mm
+    pins:
+      '1': A1_Sel
+      '2': A0_Sel
+      '3': Alert
+      '4': SDA
+      '5': SCL
+      '6': VCC
+      '7': GND
+      '9': IN_N
+      '10': IN_P
+    nc:
+    - '8'
+    placement:
+      x: 43.7642
+      y: 12.526
+      rot: 180.0
+      fixed: true
+  JP3:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A1_Sel
+      '2': VCC
+    placement:
+      x: 41.8592
+      y: 18.7036
+      rot: 90.0
+      fixed: true
+  JP4:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A1_Sel
+      '2': GND
+    placement:
+      x: 49.4792
+      y: 18.7036
+      rot: 90.0
+      fixed: true
+  JP5:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A0_Sel
+      '2': SDA
+    placement:
+      x: 46.9392
+      y: 24.0576
+      rot: 90.0
+      fixed: true
+  FB2:
+    value: Ferrite
+    spice: false
+    symbol: oshw_ina228_simple:L_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:L_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+    pins:
+      '1': Net-_FB2-Pad1
+      '2': Net-_D2-Pad1
+    placement:
+      x: 31.242
+      y: 11.176
+      rot: 180.0
+      fixed: true
+  JP1:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A1_Sel
+      '2': SDA
+    placement:
+      x: 46.9392
+      y: 18.7036
+      rot: 90.0
+      fixed: true
+  J2:
+    value: Conn_01x05_Male
+    spice: false
+    symbol: oshw_ina228_simple:PinSocket_1x05_P2.54mm_Vertical
+    footprint: oshw_ina228_simple:PinSocket_1x05_P2.54mm_Vertical
+    pins:
+      '1': Alert
+      '2': SDA
+      '3': SCL
+      '4': GND
+      '5': VCC
+    placement:
+      x: 49.5812
+      y: 12.3436
+      rot: 180.0
+      fixed: true
+  R7:
+    value: 4.7k
+    spice: false
+    symbol: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': VCC
+      '2': SDA
+    placement:
+      x: 44.069
+      y: 8.7668
+      rot: 270.0
+      fixed: true
+  JP2:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A1_Sel
+      '2': SCL
+    placement:
+      x: 44.3992
+      y: 18.7036
+      rot: 90.0
+      fixed: true
+  C1:
+    value: 100n
+    spice: false
+    symbol: oshw_ina228_simple:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder
+    pins:
+      '1': VCC
+      '2': GND
+    placement:
+      x: 41.3512
+      y: 8.843
+      rot: 90.0
+      fixed: true
+  R8:
+    value: 4.7k
+    spice: false
+    symbol: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': VCC
+      '2': SCL
+    placement:
+      x: 46.2026
+      y: 8.7668
+      rot: 270.0
+      fixed: true
+  R4:
+    value: '1.5'
+    spice: false
+    symbol: oshw_ina228_simple:FKN50SJR-52-1R5
+    footprint: oshw_ina228_simple:FKN50SJR-52-1R5
+    pins:
+      '1': GND
+      '2': Net-_D2-Pad1
+    placement:
+      x: 28.305
+      y: 2.413
+      rot: 0.0
+      fixed: true
+  R6:
+    value: '15'
+    spice: false
+    symbol: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': IN_P
+      '2': Net-_FB1-Pad1
+    placement:
+      x: 35.941
+      y: 15.24
+      rot: 180.0
+      fixed: true
+  R1:
+    value: '1'
+    source_value: R_US
+    spice: false
+    symbol: oshw_ina228_simple:R_Axial_DIN0414_L11.9mm_D4.5mm_P15.24mm_Horizontal
+    footprint: oshw_ina228_simple:R_Axial_DIN0414_L11.9mm_D4.5mm_P15.24mm_Horizontal
+    pins:
+      '1': I_P
+      '2': GND
+    placement:
+      x: 17.653
+      y: 20.828
+      rot: 90.0
+      fixed: true
+  J1:
+    value: Screw_Terminal_01x02
+    spice: false
+    symbol: oshw_ina228_simple:TerminalBlock_RND_205-00067_1x02_P7.50mm_Horizontal
+    footprint: oshw_ina228_simple:TerminalBlock_RND_205-00067_1x02_P7.50mm_Horizontal
+    pins:
+      '1': GND
+      '2': I_P
+    placement:
+      x: 6.3982
+      y: 9.6612
+      rot: 270.0
+      fixed: true
+  D1:
+    value: D
+    spice: false
+    symbol: oshw_ina228_simple:D_SMA_Handsoldering
+    footprint: oshw_ina228_simple:D_SMA_Handsoldering
+    pins:
+      '1': Net-_D1-Pad1
+      '2': GND
+    placement:
+      x: 33.274
+      y: 19.812
+      rot: 180.0
+      fixed: true
+  R5:
+    value: '15'
+    spice: false
+    symbol: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    footprint: oshw_ina228_simple:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
+    pins:
+      '1': IN_N
+      '2': Net-_FB2-Pad1
+    placement:
+      x: 35.941
+      y: 11.176
+      rot: 180.0
+      fixed: true
+  JP8:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A0_Sel
+      '2': GND
+    placement:
+      x: 49.4792
+      y: 24.0576
+      rot: 90.0
+      fixed: true
+  R2:
+    value: '1.5'
+    spice: false
+    symbol: oshw_ina228_simple:FKN50SJR-52-1R5
+    footprint: oshw_ina228_simple:FKN50SJR-52-1R5
+    pins:
+      '1': I_P
+      '2': Net-_D1-Pad1
+    placement:
+      x: 27.67
+      y: 23.749
+      rot: 0.0
+      fixed: true
+  JP7:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A0_Sel
+      '2': VCC
+    placement:
+      x: 41.8592
+      y: 24.0576
+      rot: 90.0
+      fixed: true
+  R3:
+    value: '1'
+    source_value: R_US
+    spice: false
+    symbol: oshw_ina228_simple:R_2512_6332Metric_Pad1.40x3.35mm_HandSolder
+    footprint: oshw_ina228_simple:R_2512_6332Metric_Pad1.40x3.35mm_HandSolder
+    pins:
+      '1': I_P
+      '2': GND
+    placement:
+      x: 24.384
+      y: 12.827
+      rot: 90.0
+      fixed: true
+  JP6:
+    value: Jumper_2_Open
+    spice: false
+    symbol: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    footprint: oshw_ina228_simple:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm
+    pins:
+      '1': A0_Sel
+      '2': SCL
+    placement:
+      x: 44.3992
+      y: 24.0576
+      rot: 90.0
+      fixed: true
+nets:
+  GND:
+    class: ground

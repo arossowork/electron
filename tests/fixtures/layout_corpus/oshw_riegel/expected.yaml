@@ -1,0 +1,116 @@
+source:
+  url: https://github.com/machdyne/riegel
+  commit: 1798614648631feab1eb1a84eec278fcc91fae87
+  file: pcb/riegel_v4/riegel.kicad_pcb
+  license: BSD-1-Clause
+  attribution: Machdyne (Lone Dynamics Corporation)
+  oshwa: null
+  category: dense-4-layer
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 2419.0
+    per_layer_mm:
+      B.Cu: 929.0
+      F.Cu: 1415.9
+      In2.Cu: 74.2
+    segments: 1297
+    vias: 157
+    nets_with_copper: 124
+  drc_source_rules:
+    errors: 34
+    unconnected: 0
+    types:
+      footprint_type_mismatch: 5
+      solder_mask_bridge: 28
+      zones_intersect: 1
+  drc_hwflow_rules:
+    errors: 96
+    unconnected: 0
+    types:
+      clearance: 95
+      zones_intersect: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 97
+  nets: 124
+  board_mm:
+  - 90.0
+  - 40.0
+  placement_violations:
+  - courtyard overlap J3/C25
+  - courtyard overlap J3/C26
+  - courtyard overlap TP2/C6
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 27911.9
+  rudy:
+    congestion: 102.8
+    max_overflow: 3.56
+  pin_access:
+    pads: 437
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 31.5
+    pin_access: 1.0
+tiers:
+  check: slow
+  replace: none
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 25
+  open_nets:
+  - GND
+  - HRAM_DQ13
+  - PMOD_B1
+  - PMOD_B2
+  - PMOD_B3
+  - PMOD_B4
+  - PWR1V2
+  - PWR1V8
+  - PWR3V3
+  - SRAM_A15
+  - SRAM_A17
+  - SRAM_A6
+  - SRAM_A7
+  - SRAM_CS
+  - SRAM_D0
+  - SRAM_D12
+  - SRAM_D13
+  - SRAM_D4
+  - SRAM_D5
+  - SRAM_D7
+  - SRAM_UB
+  - SRAM_WE
+  - VGA_HS
+  - VGA_R
+  - VGA_VS
+  drc_errors: 25
+  drc_types: {}
+  placement_violations: 3
+  isolation: []
+  router: '27 unrouted, krt 1 completed pass(es); retried in another net order (0.125 mm: default order 40 unrouted, --ordering
+    inside_out 37 unrouted, --mps-reverse-rounds 27 unrouted, --direction backward 33 unrouted); pour stitch: 10 vias, 2 stubs'
+  vias: 185
+  track_mm: 2199.1
+  route_groups: []
+  seconds: 908.4
+  cpu_s: 1076.1
+  timing:
+    drc_s: 14.0
+    place_s: 0.2
+    predict_s: 1.4
+    repair_s: 120.0
+    route_s: 696.4
+    stitch_s: 49.0
+  firstpass: null

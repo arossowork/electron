@@ -1,0 +1,388 @@
+project: oshw_buck_tps54202
+revision: A
+description: imported KiCad board buck-tps54202.kicad_pcb (https://github.com/smkent/pcb)
+board:
+  width_mm: 36.068
+  height_mm: 15.748
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.2
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  C2:
+    value: 0u1
+    spice: false
+    symbol: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    footprint: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    pins:
+      '1': VIN
+      '2': GND
+    placement:
+      x: 13.716
+      y: 13.335
+      rot: 270.0
+      fixed: true
+  D1:
+    value: LED
+    spice: false
+    symbol: oshw_buck_tps54202:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder_simple
+    footprint: oshw_buck_tps54202:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder_simple
+    pins:
+      '1': GND
+      '2': Net-_D1-A
+    placement:
+      x: 19.676
+      y: 13.97
+      rot: 0.0
+      fixed: true
+  SW1:
+    value: SW_DIP_x04
+    spice: false
+    symbol: oshw_buck_tps54202:SW_DIP_SPSTx04_Slide_P1.27mm_simple
+    footprint: oshw_buck_tps54202:SW_DIP_SPSTx04_Slide_P1.27mm_simple
+    pins:
+      '1': FB
+      '2': FB
+      '3': FB
+      '4': FB
+      '5': 12V_SELECT
+      '6': 9V_SELECT
+      '7': 5V_SELECT
+      '8': 3V3_SELECT
+    placement:
+      x: 24.257
+      y: 9.271
+      rot: 270.0
+      fixed: true
+  J5:
+    value: Conn_01x02
+    spice: false
+    symbol: oshw_buck_tps54202:JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2
+    footprint: oshw_buck_tps54202:JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2
+    pins:
+      '1': VIN
+      '2': GND
+    placement:
+      x: 6.604
+      y: 7.894
+      rot: 270.0
+      fixed: true
+  U1:
+    value: TPS54202DDCR
+    lcsc: C191884
+    spice: false
+    symbol: oshw_buck_tps54202:SOT-23-6_Handsoldering_simple
+    footprint: oshw_buck_tps54202:SOT-23-6_Handsoldering_simple
+    pins:
+      '1': GND
+      '2': SW
+      '3': VIN
+      '4': FB
+      '5': VIN
+      '6': BOOT
+    placement:
+      x: 17.446
+      y: 11.176
+      rot: 0.0
+      fixed: true
+  C5:
+    value: 22u
+    lcsc: C45783
+    spice: false
+    symbol: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    footprint: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    pins:
+      '1': VOUT
+      '2': GND
+    placement:
+      x: 18.034
+      y: 4.191
+      rot: 270.0
+      fixed: true
+  R10:
+    value: 1K
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder
+    pins:
+      '1': VOUT
+      '2': Net-_D1-A
+    placement:
+      x: 28.829
+      y: 13.97
+      rot: 180.0
+      fixed: true
+  C1:
+    value: 10u
+    lcsc: C440198
+    spice: false
+    symbol: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    footprint: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    pins:
+      '1': VIN
+      '2': GND
+    placement:
+      x: 11.43
+      y: 13.335
+      rot: 270.0
+      fixed: true
+  J6:
+    value: Conn_01x02
+    spice: false
+    symbol: oshw_buck_tps54202:JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2
+    footprint: oshw_buck_tps54202:JST_XH_S2B-XH-2AW_1x02_P2.50mm_pad2gnd_trim2
+    pins:
+      '1': VOUT
+      '2': GND
+    placement:
+      x: 29.464
+      y: 7.894
+      rot: 90.0
+      fixed: true
+  C4:
+    value: 22u
+    lcsc: C45783
+    spice: false
+    symbol: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    footprint: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    pins:
+      '1': VOUT
+      '2': GND
+    placement:
+      x: 16.002
+      y: 4.191
+      rot: 270.0
+      fixed: true
+  C3:
+    value: 0u1
+    spice: false
+    symbol: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    footprint: oshw_buck_tps54202:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder
+    pins:
+      '1': BOOT
+      '2': SW
+    placement:
+      x: 18.034
+      y: 8.194
+      rot: 180.0
+      fixed: true
+  L1:
+    value: 15u
+    spice: false
+    symbol: oshw_buck_tps54202:Inductor_Multi_7.0x6.6_plus
+    footprint: oshw_buck_tps54202:Inductor_Multi_7.0x6.6_plus
+    pins:
+      '1': SW
+      '2': VOUT
+    placement:
+      x: 11.4425
+      y: 6.9505
+      rot: 90.0
+      fixed: true
+  R0:
+    value: 100K
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder
+    pins:
+      '1': VOUT
+      '2': FB
+    placement:
+      x: 20.066
+      y: 4.191
+      rot: 270.0
+      fixed: true
+  R2:
+    value: 12K
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    pins:
+      '1': 3V3_SELECT
+      '2': Net-_R1-Pad1
+    placement:
+      x: 26.416
+      y: 7.62
+      rot: 270.0
+      fixed: true
+  J2:
+    value: Conn_01x03
+    spice: false
+    symbol: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_square_back
+    footprint: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_square_back
+    pins:
+      '1': GND
+    placement:
+      x: 34.544
+      y: 14.224
+      rot: 180.0
+      fixed: true
+  R1:
+    value: 10K
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    pins:
+      '1': Net-_R1-Pad1
+      '2': GND
+    placement:
+      x: 26.416
+      y: 11.43
+      rot: 270.0
+      fixed: true
+  JP4:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    footprint: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    bom: false
+    pins:
+      '1': 12V_SELECT
+      '2': FB
+    placement:
+      x: 19.558
+      y: 4.048
+      rot: 90.0
+      fixed: true
+  JP2:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    footprint: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    bom: false
+    pins:
+      '1': 5V_SELECT
+      '2': FB
+    placement:
+      x: 24.638
+      y: 4.048
+      rot: 90.0
+      fixed: true
+  R8:
+    value: '1'
+    source_value: 100R
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    pins:
+      '1': Net-_RN1A-R1.2
+      '2': GND
+    placement:
+      x: 20.32
+      y: 11.43
+      rot: 270.0
+      fixed: true
+  J3:
+    value: Conn_01x03
+    spice: false
+    symbol: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_back
+    footprint: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_back
+    pins:
+      '1': VOUT
+    placement:
+      x: 34.544
+      y: 1.524
+      rot: 180.0
+      fixed: true
+  JP1:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    footprint: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    bom: false
+    pins:
+      '1': 3V3_SELECT
+      '2': FB
+    placement:
+      x: 27.178
+      y: 4.048
+      rot: 90.0
+      fixed: true
+  R6:
+    value: 1K8
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    pins:
+      '1': Net-_RN1B-R2.2
+      '2': GND
+    placement:
+      x: 22.352
+      y: 11.43
+      rot: 270.0
+      fixed: true
+  RN1:
+    value: 5K1
+    spice: false
+    symbol: oshw_buck_tps54202:R_Array_Convex_4x0603_back
+    footprint: oshw_buck_tps54202:R_Array_Convex_4x0603_back
+    pins:
+      '1': 12V_SELECT
+      '2': 9V_SELECT
+      '3': Net-_RN1C-R3.1
+      '4': Net-_RN1C-R3.1
+      '5': 5V_SELECT
+      '6': Net-_RN1C-R3.2
+      '7': Net-_RN1B-R2.2
+      '8': Net-_RN1A-R1.2
+    placement:
+      x: 22.606
+      y: 7.62
+      rot: 270.0
+      fixed: true
+  J1:
+    value: Conn_01x03
+    spice: false
+    symbol: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_back
+    footprint: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_back
+    pins:
+      '1': VIN
+    placement:
+      x: 1.524
+      y: 1.524
+      rot: 180.0
+      fixed: true
+  J4:
+    value: Conn_01x03
+    spice: false
+    symbol: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_square_back
+    footprint: oshw_buck_tps54202:PinHeader_1x01_P2.54mm_simple_square_back
+    pins:
+      '1': GND
+    placement:
+      x: 1.524
+      y: 14.224
+      rot: 180.0
+      fixed: true
+  R4:
+    value: 3K
+    spice: false
+    symbol: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    footprint: oshw_buck_tps54202:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder_back
+    pins:
+      '1': Net-_RN1C-R3.2
+      '2': GND
+    placement:
+      x: 24.384
+      y: 11.43
+      rot: 270.0
+      fixed: true
+  JP3:
+    value: SolderJumper_2_Open
+    spice: false
+    symbol: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    footprint: oshw_buck_tps54202:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm_simple_back
+    bom: false
+    pins:
+      '1': 9V_SELECT
+      '2': FB
+    placement:
+      x: 22.098
+      y: 4.048
+      rot: 90.0
+      fixed: true
+nets:
+  GND:
+    class: ground

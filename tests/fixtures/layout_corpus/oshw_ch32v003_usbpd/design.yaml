@@ -1,0 +1,351 @@
+project: oshw_ch32v003_usbpd
+revision: A
+description: imported KiCad board ch32v003_usbpd.kicad_pcb (https://github.com/eeucalyptus/ch32v003-usbpd)
+board:
+  width_mm: 32.0
+  height_mm: 35.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  R8:
+    value: '75'
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC1_L
+      '2': CC1
+    placement:
+      x: 7.5375
+      y: 6.2
+      rot: 180.0
+      fixed: true
+  C1:
+    value: '1'
+    source_value: C
+    spice: false
+    symbol: oshw_ch32v003_usbpd:C_0603_1608Metric
+    footprint: oshw_ch32v003_usbpd:C_0603_1608Metric
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 23.65
+      y: 19.25
+      rot: 180.0
+      fixed: true
+  R12:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC2
+      '2': CC2_IN
+    placement:
+      x: 3.4375
+      y: 10.9
+      rot: 180.0
+      fixed: true
+  R4:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': GND
+      '2': CC2
+    placement:
+      x: 7.525
+      y: 10.9
+      rot: 180.0
+      fixed: true
+  R9:
+    value: '47'
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC1
+      '2': CC1_IN
+    placement:
+      x: 3.4375
+      y: 2.9
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 1K2
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': VCC
+      '2': OPN0
+    placement:
+      x: 28.65
+      y: 24.9625
+      rot: 270.0
+      fixed: true
+  R7:
+    value: '120'
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC1
+      '2': CC1_H
+    placement:
+      x: 3.4375
+      y: 6.2
+      rot: 180.0
+      fixed: true
+  R3:
+    value: 5K1
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': GND
+      '2': CC1
+    placement:
+      x: 7.5125
+      y: 2.9
+      rot: 180.0
+      fixed: true
+  U2:
+    value: HT75xx-1-SOT89
+    spice: false
+    symbol: oshw_ch32v003_usbpd:SOT-89-3
+    footprint: oshw_ch32v003_usbpd:SOT-89-3
+    pins:
+      '1': GND
+      '2': VBUS
+      '3': VCC
+    placement:
+      x: 24.45
+      y: 14.1875
+      rot: 90.0
+      fixed: true
+  R5:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': VBUS
+      '2': V_meas
+    placement:
+      x: 25.05
+      y: 24.95
+      rot: 270.0
+      fixed: true
+  U1:
+    value: CH32V003F4P6
+    spice: false
+    symbol: oshw_ch32v003_usbpd:TSSOP-20_4.4x6.5mm_P0.65mm
+    footprint: oshw_ch32v003_usbpd:TSSOP-20_4.4x6.5mm_P0.65mm
+    pins:
+      '1': OPO
+      '2': UART
+      '3': V_meas
+      '4': CC2_IN
+      '5': OPN0
+      '6': CC1_IN
+      '7': GND
+      '8': OPN0
+      '9': VCC
+      '10': Net-_D1-A
+      '11': D-
+      '12': D+
+      '13': CC1_L
+      '14': CC1_H
+      '15': CC2_L
+      '16': CC2_H
+      '17': Trigger
+      '18': SWIO
+    nc:
+    - '19'
+    - '20'
+    placement:
+      x: 13.775
+      y: 22.1375
+      rot: 90.0
+      fixed: true
+  R10:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC2
+      '2': CC2_H
+    placement:
+      x: 3.45
+      y: 13.7
+      rot: 180.0
+      fixed: true
+  R6:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': V_meas
+      '2': GND
+    placement:
+      x: 25.05
+      y: 29.5625
+      rot: 270.0
+      fixed: true
+  J2:
+    value: Conn_01x04_Pin
+    spice: false
+    symbol: oshw_ch32v003_usbpd:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_ch32v003_usbpd:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': VCC
+      '2': GND
+      '3': SWIO
+      '4': UART
+    placement:
+      x: 15.74
+      y: 31.95
+      rot: 270.0
+      fixed: true
+  J4:
+    value: Test
+    spice: false
+    symbol: oshw_ch32v003_usbpd:PinHeader_1x04_P2.54mm_Vertical
+    footprint: oshw_ch32v003_usbpd:PinHeader_1x04_P2.54mm_Vertical
+    pins:
+      '1': GND
+      '2': CC1
+      '3': OPO
+      '4': Trigger
+    placement:
+      x: 3.25
+      y: 28.13
+      rot: 180.0
+      fixed: true
+  R1:
+    value: '470'
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': OPN0
+      '2': GND
+    placement:
+      x: 28.65
+      y: 29.4625
+      rot: 270.0
+      fixed: true
+  C2:
+    value: '1'
+    source_value: C
+    spice: false
+    symbol: oshw_ch32v003_usbpd:C_0603_1608Metric
+    footprint: oshw_ch32v003_usbpd:C_0603_1608Metric
+    pins:
+      '1': VCC
+      '2': GND
+    placement:
+      x: 28.35
+      y: 19.25
+      rot: 0.0
+      fixed: true
+  D1:
+    value: LED
+    spice: false
+    symbol: oshw_ch32v003_usbpd:LED_0603_1608Metric
+    footprint: oshw_ch32v003_usbpd:LED_0603_1608Metric
+    pins:
+      '1': Net-_D1-K
+      '2': Net-_D1-A
+    placement:
+      x: 21.45
+      y: 25.775
+      rot: 90.0
+      fixed: true
+  R13:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': GND
+      '2': Net-_D1-K
+    placement:
+      x: 21.55
+      y: 29.8875
+      rot: 90.0
+      fixed: true
+  R11:
+    value: '1'
+    source_value: R
+    spice: false
+    symbol: oshw_ch32v003_usbpd:R_0805_2012Metric
+    footprint: oshw_ch32v003_usbpd:R_0805_2012Metric
+    pins:
+      '1': CC2_L
+      '2': CC2
+    placement:
+      x: 7.5375
+      y: 13.7
+      rot: 180.0
+      fixed: true
+  J1:
+    value: USB_C_Receptacle_USB2.0
+    spice: false
+    symbol: oshw_ch32v003_usbpd:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    footprint: oshw_ch32v003_usbpd:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+    pins:
+      A1: GND
+      A4: VBUS
+      A5: CC1
+      A6: D+
+      A7: D-
+      A9: VBUS
+      A12: GND
+      B1: GND
+      B4: VBUS
+      B5: CC2
+      B6: D+
+      B7: D-
+      B9: VBUS
+      B12: GND
+    nc:
+    - A8
+    - B8
+    - S1
+    placement:
+      x: 17.55
+      y: 3.05
+      rot: 180.0
+      fixed: true
+  J3:
+    value: VOUT
+    spice: false
+    symbol: oshw_ch32v003_usbpd:PinHeader_1x02_P2.54mm_Vertical
+    footprint: oshw_ch32v003_usbpd:PinHeader_1x02_P2.54mm_Vertical
+    pins:
+      '1': GND
+      '2': VBUS
+    placement:
+      x: 28.35
+      y: 6.4
+      rot: 180.0
+      fixed: true
+nets:
+  GND:
+    class: ground

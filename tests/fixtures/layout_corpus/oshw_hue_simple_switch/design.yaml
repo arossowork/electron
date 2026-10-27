@@ -1,0 +1,611 @@
+project: oshw_hue_simple_switch
+revision: A
+description: imported KiCad board hue-simple-switch-mains.kicad_pcb (https://github.com/tineira/hue-simple-switch)
+board:
+  width_mm: 42.0
+  height_mm: 52.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.2
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  D1:
+    value: SS34
+    mpn: SS34
+    lcsc: C8678
+    spice: false
+    symbol: oshw_hue_simple_switch:D_SMA
+    footprint: oshw_hue_simple_switch:D_SMA
+    pins:
+      '1': +5V
+      '2': +5V_PSU
+    placement:
+      x: 11.6
+      y: 43.4
+      rot: 0.0
+      fixed: true
+  RV1:
+    value: 275VAC
+    mpn: TDK SIOV B72650M0271K072 (CU3225K275G2), 275 VAC, 8.0 x 6.3 x 4.5 mm
+    lcsc: C211106
+    spice: false
+    symbol: oshw_hue_simple_switch:RV_TDK_SIOV_CU3225
+    footprint: oshw_hue_simple_switch:RV_TDK_SIOV_CU3225
+    pins:
+      '1': AC_L
+      '2': AC_N
+    placement:
+      x: 13.0
+      y: 6.5
+      rot: 0.0
+      fixed: true
+  C12:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D1
+      '2': GND
+    placement:
+      x: 30.4
+      y: 28.1
+      rot: 0.0
+      fixed: true
+  R3:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D2
+    placement:
+      x: 23.2
+      y: 30.7
+      rot: 0.0
+      fixed: true
+  R1:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D0
+    placement:
+      x: 23.2
+      y: 25.5
+      rot: 0.0
+      fixed: true
+  R12:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D1
+      '2': D1
+    placement:
+      x: 26.8
+      y: 28.1
+      rot: 180.0
+      fixed: true
+  C13:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D2
+      '2': GND
+    placement:
+      x: 30.4
+      y: 30.7
+      rot: 0.0
+      fixed: true
+  R6:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D5
+    placement:
+      x: 23.2
+      y: 38.5
+      rot: 0.0
+      fixed: true
+  C11:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D0
+      '2': GND
+    placement:
+      x: 30.4
+      y: 25.5
+      rot: 0.0
+      fixed: true
+  C15:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D4
+      '2': GND
+    placement:
+      x: 30.4
+      y: 35.9
+      rot: 0.0
+      fixed: true
+  R4:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D3
+    placement:
+      x: 23.2
+      y: 33.3
+      rot: 0.0
+      fixed: true
+  C1:
+    value: 22uF
+    source_value: 22uF 25V
+    mpn: CL21A226MAQNNNE
+    lcsc: C45783
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0805_2012Metric
+    footprint: oshw_hue_simple_switch:C_0805_2012Metric
+    pins:
+      '1': +5V_PSU
+      '2': GND
+    placement:
+      x: 17.1
+      y: 46.4
+      rot: 0.0
+      fixed: true
+  U1:
+    value: XIAO ESP32-C6
+    mpn: Seeed Studio XIAO ESP32-C6 (113991254)
+    spice: false
+    symbol: oshw_hue_simple_switch:XIAO-ESP32-C6-SMD-EdgePads
+    footprint: oshw_hue_simple_switch:XIAO-ESP32-C6-SMD-EdgePads
+    pins:
+      '1': D0
+      '2': D1
+      '3': D2
+      '4': D3
+      '5': D4
+      '6': D5
+      '12': +3V3
+      '13': GND
+      '14': +5V
+    nc:
+    - '7'
+    - '8'
+    - '9'
+    - '10'
+    - '11'
+    placement:
+      x: 21.4
+      y: 37.7
+      rot: 90.0
+      fixed: true
+  C14:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D3
+      '2': GND
+    placement:
+      x: 30.4
+      y: 33.3
+      rot: 0.0
+      fixed: true
+  R13:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D2
+      '2': D2
+    placement:
+      x: 26.8
+      y: 30.7
+      rot: 180.0
+      fixed: true
+  R15:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D4
+      '2': D4
+    placement:
+      x: 26.8
+      y: 35.9
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D1
+    placement:
+      x: 23.2
+      y: 28.1
+      rot: 0.0
+      fixed: true
+  C16:
+    value: 10nF
+    mpn: 0603B103K500NT
+    lcsc: C57112
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0603_1608Metric
+    footprint: oshw_hue_simple_switch:C_0603_1608Metric
+    pins:
+      '1': IN_D5
+      '2': GND
+    placement:
+      x: 30.4
+      y: 38.5
+      rot: 0.0
+      fixed: true
+  R14:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D3
+      '2': D3
+    placement:
+      x: 26.8
+      y: 33.3
+      rot: 180.0
+      fixed: true
+  R16:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D5
+      '2': D5
+    placement:
+      x: 26.8
+      y: 38.5
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 22uF
+    source_value: 22uF 25V
+    mpn: CL21A226MAQNNNE
+    lcsc: C45783
+    spice: false
+    symbol: oshw_hue_simple_switch:C_0805_2012Metric
+    footprint: oshw_hue_simple_switch:C_0805_2012Metric
+    pins:
+      '1': +5V
+      '2': GND
+    placement:
+      x: 6.8
+      y: 44.6
+      rot: 270.0
+      fixed: true
+  R11:
+    value: 1k
+    mpn: 0603WAF1001T5E
+    lcsc: C21190
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': IN_D0
+      '2': D0
+    placement:
+      x: 26.8
+      y: 25.5
+      rot: 180.0
+      fixed: true
+  R5:
+    value: 10k
+    mpn: 0603WAF1002T5E
+    lcsc: C25804
+    spice: false
+    symbol: oshw_hue_simple_switch:R_0603_1608Metric
+    footprint: oshw_hue_simple_switch:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': D4
+    placement:
+      x: 23.2
+      y: 35.9
+      rot: 0.0
+      fixed: true
+  J1:
+    value: MAINS L/N
+    mpn: KF128-5.08-2P (Cixi Kefa)
+    lcsc: C474952
+    spice: false
+    symbol: oshw_hue_simple_switch:TerminalBlock_Kefa_KF128-5.08_1x02_back
+    footprint: oshw_hue_simple_switch:TerminalBlock_Kefa_KF128-5.08_1x02_back
+    pins:
+      '1': AC_L_IN
+      '2': AC_N
+    placement:
+      x: 36.9
+      y: 13.26
+      rot: 270.0
+      fixed: true
+  J3:
+    value: D4 D5 GND
+    mpn: KF350-3.5-3P (Cixi Kefa)
+    lcsc: C474893
+    spice: false
+    symbol: oshw_hue_simple_switch:TerminalBlock_Kefa_KF350-3.5_1x03_back
+    footprint: oshw_hue_simple_switch:TerminalBlock_Kefa_KF350-3.5_1x03_back
+    pins:
+      '1': IN_D4
+      '2': IN_D5
+      '3': GND
+    placement:
+      x: 32.4
+      y: 43.5
+      rot: 180.0
+      fixed: true
+  J2:
+    value: D0 D1 D2 D3
+    mpn: XY350V-3.5-4P (Ningbo Xinlaiya)
+    lcsc: C557656
+    spice: false
+    symbol: oshw_hue_simple_switch:TerminalBlock_Xinlaiya_XY350V-3.5_1x04_back
+    footprint: oshw_hue_simple_switch:TerminalBlock_Xinlaiya_XY350V-3.5_1x04_back
+    pins:
+      '1': IN_D0
+      '2': IN_D1
+      '3': IN_D2
+      '4': IN_D3
+    placement:
+      x: 36.9
+      y: 27.0
+      rot: 270.0
+      fixed: true
+  PS1:
+    value: HLK-PM01
+    mpn: Hi-Link HLK-PM01, 5 V 0.6 A, 3 kVAC isolation
+    lcsc: C209903
+    spice: false
+    symbol: oshw_hue_simple_switch:HiLink_HLK-PM01_back
+    footprint: oshw_hue_simple_switch:HiLink_HLK-PM01_back
+    pins:
+      '1': AC_L
+      '2': AC_N
+      '3': GND
+      '4': +5V_PSU
+    placement:
+      x: 9.0
+      y: 11.3
+      rot: 270.0
+      fixed: true
+  F1:
+    value: T500mA 250V
+    mpn: Littelfuse 37205000001 (TR5 372, time-lag)
+    lcsc: C142835
+    spice: false
+    symbol: oshw_hue_simple_switch:Fuse_Littelfuse_372_D8.50mm_back
+    footprint: oshw_hue_simple_switch:Fuse_Littelfuse_372_D8.50mm_back
+    pins:
+      '1': AC_L_IN
+      '2': AC_L
+    placement:
+      x: 30.1412
+      y: 7.4
+      rot: 180.0
+      fixed: true
+nets:
+  +3V3:
+    width_mm: 0.5
+    source_class: Power
+  +5V:
+    width_mm: 0.5
+    source_class: Power
+  +5V_PSU:
+    width_mm: 0.5
+    source_class: Power
+  AC_L:
+    width_mm: 0.8
+    clearance_mm: 1.5
+    source_class: Mains
+  AC_L_IN:
+    width_mm: 0.8
+    clearance_mm: 1.5
+    source_class: Mains
+  AC_N:
+    width_mm: 0.8
+    clearance_mm: 1.5
+    source_class: Mains
+  GND:
+    width_mm: 0.5
+    class: ground
+    source_class: Power
+floorplan:
+  regions:
+  - name: outline_cut1
+    cut: true
+    poly:
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 10.67
+    - - 1.942
+      - 8.314
+    - - 4.148
+      - 6.201
+    - - 6.586
+      - 4.361
+    - - 9.222
+      - 2.821
+    - - 12.022
+      - 1.599
+    - - 14.945
+      - 0.715
+    - - 17.951
+      - 0.179
+    - - 21.0
+      - 0.0
+  - name: outline_cut2
+    cut: true
+    poly:
+    - - 0.0
+      - 52.0
+    - - 21.0
+      - 52.0
+    - - 17.951
+      - 51.821
+    - - 14.945
+      - 51.285
+    - - 12.022
+      - 50.401
+    - - 9.222
+      - 49.179
+    - - 6.586
+      - 47.639
+    - - 4.148
+      - 45.799
+    - - 1.942
+      - 43.686
+    - - 0.0
+      - 41.33
+  - name: outline_cut3
+    cut: true
+    poly:
+    - - 42.0
+      - 0.0
+    - - 21.0
+      - 0.0
+    - - 24.049
+      - 0.179
+    - - 27.055
+      - 0.715
+    - - 29.978
+      - 1.599
+    - - 32.778
+      - 2.821
+    - - 35.414
+      - 4.361
+    - - 37.852
+      - 6.201
+    - - 40.058
+      - 8.314
+    - - 42.0
+      - 10.67
+  - name: outline_cut4
+    cut: true
+    poly:
+    - - 42.0
+      - 52.0
+    - - 42.0
+      - 41.33
+    - - 40.058
+      - 43.686
+    - - 37.852
+      - 45.799
+    - - 35.414
+      - 47.639
+    - - 32.778
+      - 49.179
+    - - 29.978
+      - 50.401
+    - - 27.055
+      - 51.285
+    - - 24.049
+      - 51.821
+    - - 21.0
+      - 52.0
+  - name: outline_cut5
+    cut: true
+    poly:
+    - - 18.8
+      - 15.9
+    - - 18.991
+      - 15.862
+    - - 19.154
+      - 15.754
+    - - 19.262
+      - 15.591
+    - - 19.3
+      - 15.4
+    - - 19.262
+      - 15.209
+    - - 19.154
+      - 15.046
+    - - 18.991
+      - 14.938
+    - - 18.8
+      - 14.9
+    - - 1.6
+      - 14.9
+    - - 1.409
+      - 14.938
+    - - 1.246
+      - 15.046
+    - - 1.138
+      - 15.209
+    - - 1.1
+      - 15.4
+    - - 1.138
+      - 15.591
+    - - 1.246
+      - 15.754
+    - - 1.409
+      - 15.862
+    - - 1.6
+      - 15.9

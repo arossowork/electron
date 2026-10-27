@@ -1,0 +1,68 @@
+source:
+  url: https://github.com/kikeelectronico/ac-relay
+  commit: d67c1fd08081ecb9e325fde66a5afc58906ce2a8
+  file: KiCad/AC Relay/AC Relay.kicad_pcb
+  license: GPL-3.0
+  attribution: kikeelectronico (Enrique Gomez)
+  oshwa: null
+  category: mains
+source_project: AC Relay
+importer: hwflow.layout.board.kicad_import
+source_format: 20211014
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -68.58
+- -46.99
+board_mm:
+- 49.53
+- 49.53
+outline_fill: 0.9779
+free:
+- C1
+- C2
+- D1
+- D2
+- Q1
+- R1
+- R2
+- R3
+- R4
+- U1
+- U2
+- U3
+dropped_footprints: []
+net_renames:
+  /Button: Button
+  /Flash: Flash
+  /RX: RX
+  /Relay: Relay
+  /Rst: Rst
+  /TX: TX
+  Net-(D1-Pad1): Net-_D1-Pad1
+  Net-(D2-Pad2): Net-_D2-Pad2
+  Net-(J1-Pad1): Net-_J1-Pad1
+  Net-(J1-Pad2): Net-_J1-Pad2
+  Net-(J3-Pad1): Net-_J3-Pad1
+  Net-(J3-Pad2): Net-_J3-Pad2
+  Net-(U1-Pad4): Net-_U1-Pad4
+  Net-(U2-Pad10): Net-_U2-Pad10
+  Net-(U2-Pad11): Net-_U2-Pad11
+  Net-(U2-Pad12): Net-_U2-Pad12
+  Net-(U2-Pad13): Net-_U2-Pad13
+  Net-(U2-Pad14): Net-_U2-Pad14
+  Net-(U2-Pad2): Net-_U2-Pad2
+  Net-(U2-Pad20): Net-_U2-Pad20
+  Net-(U2-Pad5): Net-_U2-Pad5
+  Net-(U2-Pad6): Net-_U2-Pad6
+  Net-(U2-Pad7): Net-_U2-Pad7
+  Net-(U2-Pad9): Net-_U2-Pad9
+not_imported:
+  zones:
+    GND: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: AC Relay.kicad_pro
+terminals: []
+warnings: []

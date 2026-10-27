@@ -1,0 +1,89 @@
+source:
+  url: https://github.com/MbFredys/PCB-Mini-Environmental-Sensor
+  commit: 2066cfccaf9175812ac58f30f8d5b0e9ccc67c56
+  file: Kicad Files/Mini_Environmental_Sensor.kicad_pcb
+  license: CERN-OHL-W-2.0
+  attribution: MbFredys
+  oshwa: null
+  category: battery-iot
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 330.2
+    per_layer_mm:
+      B.Cu: 254.7
+      F.Cu: 75.4
+    segments: 347
+    vias: 15
+    nets_with_copper: 16
+  drc_source_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+  drc_hwflow_rules:
+    errors: 0
+    unconnected: 0
+    types: {}
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 32
+  nets: 16
+  board_mm:
+  - 25.14
+  - 25.18
+  placement_violations:
+  - courtyard overlap C1/U1
+  - courtyard overlap C2/U1
+  - courtyard overlap C5/J1
+  - courtyard overlap J1/C7
+  - courtyard overlap R1/U1
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 27713.4
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 92
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.6
+    pin_access: 0.2
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 1
+  open_nets:
+  - Net-_C2-Pad1
+  drc_errors: 1
+  drc_types: {}
+  placement_violations: 5
+  isolation: []
+  router: '1 unrouted, krt 1 completed pass(es); retried in another net order (0.2 mm: default order 3 unrouted, --ordering
+    inside_out 3 unrouted, --mps-reverse-rounds 1 unrouted, --direction backward 1 unrouted; 0.2 mm: neck-down to 0.15 mm:
+    Net-_C2-Pad1 still open; 0.2 mm: BME280_SCL, Net-_U1-EN routed befor'
+  vias: 18
+  track_mm: 205.8
+  route_groups: []
+  seconds: 83.8
+  cpu_s: 192.9
+  timing:
+    drc_s: 5.3
+    place_s: 0.1
+    predict_s: 0.3
+    repair_s: 29.6
+    route_s: 50.1
+    stitch_s: 0.1
+  firstpass: null

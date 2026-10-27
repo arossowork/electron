@@ -1,0 +1,63 @@
+source:
+  url: https://github.com/smkent/pcb
+  commit: 6cab466a73cdbfd0aa05449146948c3da97524f6
+  file: pcb-archived/power/buck-tps54202/buck-tps54202.kicad_pcb
+  license: CERN-OHL-P-2.0
+  attribution: Stephen Kent (smkent)
+  oshwa: null
+  category: usb-c-power
+source_project: buck-tps54202
+importer: hwflow.layout.board.kicad_import
+source_format: 20240108
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -112.776
+- -133.096
+board_mm:
+- 36.068
+- 15.748
+outline_fill: 0.9985
+free:
+- C1
+- C2
+- C3
+- C4
+- C5
+- D1
+- JP1
+- JP2
+- JP3
+- JP4
+- L1
+- R0
+- R1
+- R10
+- R2
+- R4
+- R6
+- R8
+- RN1
+- U1
+dropped_footprints:
+- G***
+net_renames:
+  Net-(D1-A): Net-_D1-A
+  Net-(R1-Pad1): Net-_R1-Pad1
+  Net-(RN1A-R1.2): Net-_RN1A-R1.2
+  Net-(RN1B-R2.2): Net-_RN1B-R2.2
+  Net-(RN1C-R3.1): Net-_RN1C-R3.1
+  Net-(RN1C-R3.2): Net-_RN1C-R3.2
+not_imported:
+  zones:
+    SW: 3
+    VOUT: 1
+    VIN: 1
+    FB: 2
+    GND: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: buck-tps54202.kicad_pro
+terminals: []
+warnings: []

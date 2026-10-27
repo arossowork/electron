@@ -1,0 +1,69 @@
+source:
+  url: https://github.com/unterdrueckt/OpenBlind32
+  commit: 8969056d430f98f1c549a2461eb753295cddde82
+  file: hardware/pcb/OpenBlindController.kicad_pcb
+  license: MIT
+  attribution: Markus (unterdrueckt)
+  oshwa: null
+  category: mains
+source_project: OpenBlindController
+importer: hwflow.layout.board.kicad_import
+source_format: 20241229
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -145.0
+- -24.0
+board_mm:
+- 75.0
+- 50.0
+outline_fill: 1.0
+free:
+- C4
+- C5
+- C6
+- C7
+- C8
+- D1
+- D2
+- D3
+- PS1
+- R1
+- R2
+- R3
+- U1
+- U2
+- U3
+- U4
+- U5
+dropped_footprints: []
+net_renames:
+  /Main L+: Main_L+
+  /Main L-: Main_L-
+  /Main SSR A Out: Main_SSR_A_Out
+  /Main SSR B Out: Main_SSR_B_Out
+  /Main SSR In: Main_SSR_In
+  GPIO8{slash}SDA: GPIO8_slash_SDA
+  GPIO9{slash}SCL: GPIO9_slash_SCL
+  Net-(R1-Pad2): Net-_R1-Pad2
+  Net-(R2-Pad2): Net-_R2-Pad2
+  Net-(U5-FILTER): Net-_U5-FILTER
+  Net-(U5-VIOUT): Net-_U5-VIOUT
+  unconnected-(D1-DOUT-Pad4): unconnected-_D1-DOUT-Pad4
+  unconnected-(U1-GPIO10-Pad10): unconnected-_U1-GPIO10-Pad10
+  unconnected-(U1-GPIO2-Pad2): unconnected-_U1-GPIO2-Pad2
+  unconnected-(U1-GPIO20-Pad20): unconnected-_U1-GPIO20-Pad20
+  unconnected-(U1-GPIO21-Pad21): unconnected-_U1-GPIO21-Pad21
+  unconnected-(U1-GPIO3-Pad3): unconnected-_U1-GPIO3-Pad3
+  unconnected-(U1-GPIO6-Pad6): unconnected-_U1-GPIO6-Pad6
+  unconnected-(U2-Pad5): unconnected-_U2-Pad5
+  unconnected-(U3-Pad5): unconnected-_U3-Pad5
+not_imported:
+  zones:
+    GND: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: OpenBlindController.kicad_pro
+terminals: []
+warnings: []

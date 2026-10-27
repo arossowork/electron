@@ -1,0 +1,589 @@
+project: oshw_eurorack_ecg
+revision: A
+description: imported KiCad board ecg.kicad_pcb (https://github.com/adeboni/eurorack)
+board:
+  width_mm: 10.0
+  height_mm: 100.0
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.25
+  via_dia_mm: 0.8
+  via_drill_mm: 0.4
+components:
+  C4:
+    value: 10u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': +3V3
+    placement:
+      x: 1.1
+      y: 83.8
+      rot: 90.0
+      fixed: true
+  R12:
+    value: 360k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': RL
+      '2': Net-_C5-Pad1
+    placement:
+      x: 7.45
+      y: 62.45
+      rot: 0.0
+      fixed: true
+  R21:
+    value: 10k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': SIGNAL_OUT
+    placement:
+      x: 4.5
+      y: 32.575
+      rot: 0.0
+      fixed: true
+  R23:
+    value: 5.1k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R22-Pad2
+      '2': Net-_J3-PadT
+    placement:
+      x: 3.6
+      y: 29.0
+      rot: 180.0
+      fixed: true
+  R15:
+    value: '0'
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_R15-Pad2
+    placement:
+      x: 7.4
+      y: 44.4
+      rot: 270.0
+      fixed: true
+  R9:
+    value: 180k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': RA
+      '2': Net-_R9-Pad2
+    placement:
+      x: 8.2
+      y: 71.6
+      rot: 0.0
+      fixed: true
+  C2:
+    value: 0.33u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': Net-_C2-Pad1
+      '2': Net-_C2-Pad2
+    placement:
+      x: 2.725
+      y: 45.2
+      rot: 180.0
+      fixed: true
+  C5:
+    value: 1n
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': Net-_C5-Pad1
+      '2': Net-_C5-Pad2
+    placement:
+      x: 7.45
+      y: 64.0
+      rot: 180.0
+      fixed: true
+  R19:
+    value: 1M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R16-Pad2
+      '2': SIGNAL_OUT
+    placement:
+      x: 7.425
+      y: 52.425
+      rot: 0.0
+      fixed: true
+  R17:
+    value: '1'
+    source_value: DNP
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': Net-_R15-Pad2
+    placement:
+      x: 8.95
+      y: 44.4
+      rot: 270.0
+      fixed: true
+  U3:
+    value: TL072
+    spice: false
+    symbol: oshw_eurorack_ecg:SOIC-8_3.9x4.9mm_P1.27mm
+    footprint: oshw_eurorack_ecg:SOIC-8_3.9x4.9mm_P1.27mm
+    pins:
+      '1': Net-_J3-PadT
+      '2': Net-_R22-Pad2
+      '3': SIGNAL_OUT
+      '4': GND
+      '5': GND
+      '6': Net-_D2-Pad1
+      '7': Net-_D2-Pad2
+      '8': +12V
+    placement:
+      x: 5.975
+      y: 24.45
+      rot: 90.0
+      fixed: true
+  C1:
+    value: 0.33u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': REFOUT
+      '2': Net-_C1-Pad2
+    placement:
+      x: 1.15
+      y: 62.975
+      rot: 270.0
+      fixed: true
+  R8:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R3-Pad2
+      '2': Net-_R13-Pad1
+    placement:
+      x: 3.325
+      y: 43.675
+      rot: 0.0
+      fixed: true
+  R10:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_C6-Pad2
+      '2': +3V3
+    placement:
+      x: 5.875
+      y: 38.875
+      rot: 0.0
+      fixed: true
+  R13:
+    value: 1M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R13-Pad1
+      '2': Net-_C9-Pad2
+    placement:
+      x: 1.475
+      y: 54.775
+      rot: 270.0
+      fixed: true
+  C8:
+    value: 10n
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': REFOUT
+      '2': Net-_C8-Pad2
+    placement:
+      x: 4.025
+      y: 55.55
+      rot: 180.0
+      fixed: true
+  R6:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_C2-Pad1
+      '2': Net-_R3-Pad2
+    placement:
+      x: 2.775
+      y: 42.125
+      rot: 180.0
+      fixed: true
+  C7:
+    value: 0.1u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': +3V3
+    placement:
+      x: 5.85
+      y: 44.4
+      rot: 270.0
+      fixed: true
+  R18:
+    value: 10k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R18-Pad1
+      '2': +3V3
+    placement:
+      x: 8.125
+      y: 48.125
+      rot: 90.0
+      fixed: true
+  R11:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_C6-Pad2
+      '2': GND
+    placement:
+      x: 5.875
+      y: 37.3
+      rot: 0.0
+      fixed: true
+  R20:
+    value: '560'
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_J3-PadT
+      '2': Net-_D2-Pad1
+    placement:
+      x: 2.45
+      y: 24.425
+      rot: 90.0
+      fixed: true
+  R4:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': LA
+      '2': Net-_R1-Pad2
+    placement:
+      x: 1.925
+      y: 68.475
+      rot: 180.0
+      fixed: true
+  C3:
+    value: 10u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': +12V
+    placement:
+      x: 8.8
+      y: 83.825
+      rot: 90.0
+      fixed: true
+  U1:
+    value: LM1117-3.3
+    spice: false
+    symbol: oshw_eurorack_ecg:SOT-223-3_TabPin2
+    footprint: oshw_eurorack_ecg:SOT-223-3_TabPin2
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': +12V
+    placement:
+      x: 4.825
+      y: 77.7
+      rot: 90.0
+      fixed: true
+  C10:
+    value: 0.1u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': +12V
+    placement:
+      x: 2.425
+      y: 21.3
+      rot: 270.0
+      fixed: true
+  R22:
+    value: 10k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_R22-Pad2
+    placement:
+      x: 6.65
+      y: 29.0
+      rot: 180.0
+      fixed: true
+  R5:
+    value: 10M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': RA
+      '2': Net-_R1-Pad2
+    placement:
+      x: 1.925
+      y: 71.6
+      rot: 180.0
+      fixed: true
+  C9:
+    value: 1.5n
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': SIGNAL_OUT
+      '2': Net-_C9-Pad2
+    placement:
+      x: 8.25
+      y: 54.725
+      rot: 270.0
+      fixed: true
+  R7:
+    value: 180k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': LA
+      '2': Net-_R7-Pad2
+    placement:
+      x: 8.2
+      y: 68.5
+      rot: 0.0
+      fixed: true
+  R3:
+    value: 1.4M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_C1-Pad2
+      '2': Net-_R3-Pad2
+    placement:
+      x: 2.775
+      y: 40.55
+      rot: 180.0
+      fixed: true
+  R2:
+    value: '1'
+    source_value: DNP
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_R1-Pad2
+      '2': Net-_C1-Pad2
+    placement:
+      x: 1.15
+      y: 66.075
+      rot: 90.0
+      fixed: true
+  U2:
+    value: AD8232
+    spice: false
+    symbol: oshw_eurorack_ecg:LFCSP_20
+    footprint: oshw_eurorack_ecg:LFCSP_20
+    pins:
+      '1': Net-_C2-Pad2
+      '2': Net-_R7-Pad2
+      '3': Net-_R9-Pad2
+      '4': Net-_C5-Pad2
+      '5': Net-_C5-Pad1
+      '6': Net-_C1-Pad2
+      '7': Net-_C8-Pad2
+      '8': REFOUT
+      '9': Net-_R16-Pad2
+      '10': SIGNAL_OUT
+      '13': Net-_R18-Pad1
+      '14': Net-_R15-Pad2
+      '15': +3V3
+      '16': GND
+      '17': +3V3
+      '18': Net-_C6-Pad2
+      '19': Net-_R13-Pad1
+      '20': Net-_C2-Pad1
+      PAD: GND
+    nc:
+    - '11'
+    - '12'
+    placement:
+      x: 4.875
+      y: 48.625
+      rot: 0.0
+      fixed: true
+  R1:
+    value: '0'
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': Net-_R1-Pad2
+    placement:
+      x: 1.15
+      y: 73.9
+      rot: 90.0
+      fixed: true
+  C6:
+    value: 0.1u
+    spice: false
+    symbol: oshw_eurorack_ecg:C_0603_1608Metric
+    footprint: oshw_eurorack_ecg:C_0603_1608Metric
+    pins:
+      '1': GND
+      '2': Net-_C6-Pad2
+    placement:
+      x: 5.875
+      y: 35.725
+      rot: 180.0
+      fixed: true
+  J1:
+    value: Conn_02x05_Odd_Even
+    spice: false
+    symbol: oshw_eurorack_ecg:Pins_2x05_2.54mm_TH_Europower
+    footprint: oshw_eurorack_ecg:Pins_2x05_2.54mm_TH_Europower
+    pins:
+      '1': Net-_D1-Pad2
+      '2': Net-_D1-Pad2
+      '3': GND
+      '4': GND
+      '5': GND
+      '6': GND
+      '7': GND
+      '8': GND
+      '9': Net-_J1-Pad10
+      '10': Net-_J1-Pad10
+    placement:
+      x: 5.13
+      y: 91.28
+      rot: 0.0
+      fixed: true
+  R16:
+    value: 100k
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': REFOUT
+      '2': Net-_R16-Pad2
+    placement:
+      x: 5.75
+      y: 54.0
+      rot: 0.0
+      fixed: true
+  R14:
+    value: 1M
+    spice: false
+    symbol: oshw_eurorack_ecg:R_0603_1608Metric
+    footprint: oshw_eurorack_ecg:R_0603_1608Metric
+    pins:
+      '1': Net-_C9-Pad2
+      '2': Net-_C8-Pad2
+    placement:
+      x: 2.425
+      y: 57.1
+      rot: 0.0
+      fixed: true
+  D1:
+    value: SM4007
+    spice: false
+    symbol: oshw_eurorack_ecg:D_SOD-123
+    footprint: oshw_eurorack_ecg:D_SOD-123
+    pins:
+      '1': +12V
+      '2': Net-_D1-Pad2
+    placement:
+      x: 5.175
+      y: 83.475
+      rot: 180.0
+      fixed: true
+  D2:
+    value: LED
+    spice: false
+    symbol: oshw_eurorack_ecg:LED_D3.0mm_FlatTop_back
+    footprint: oshw_eurorack_ecg:LED_D3.0mm_FlatTop_back
+    pins:
+      '1': Net-_D2-Pad1
+      '2': Net-_D2-Pad2
+    placement:
+      x: 6.275
+      y: 16.925
+      rot: 180.0
+      fixed: true
+  J2:
+    value: AudioJack2_SwitchT
+    spice: false
+    symbol: oshw_eurorack_ecg:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles_back
+    footprint: oshw_eurorack_ecg:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles_back
+    pins:
+      S: RA
+      T: RL
+      TN: LA
+    placement:
+      x: 5.0
+      y: 71.575
+      rot: 0.0
+      fixed: true
+  J3:
+    value: AudioJack2_SwitchT
+    spice: false
+    symbol: oshw_eurorack_ecg:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles_back
+    footprint: oshw_eurorack_ecg:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles_back
+    pins:
+      S: GND
+      T: Net-_J3-PadT
+    nc:
+    - TN
+    placement:
+      x: 5.0
+      y: 13.005
+      rot: 0.0
+      fixed: true
+nets:
+  GND:
+    class: ground

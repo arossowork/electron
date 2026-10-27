@@ -1,0 +1,50 @@
+(footprint "HLK-PM01"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (tedit 605E2FA3)
+  (attr through_hole)
+  (fp_text reference "U3"
+    (at -1.27 -19.431)
+    (layer "F.SilkS")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_text value "HLK-PM01"
+    (at 8.255 -1.778)
+    (layer "F.Fab")
+    hide
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (fp_line (start 0 0) (end 0 -20.066) (layer "F.SilkS") (width 0.15))
+  (fp_line (start 34.036 0) (end 0 0) (layer "F.SilkS") (width 0.15))
+  (fp_line (start 0 -20.066) (end 34.036 -20.066) (layer "F.SilkS") (width 0.15))
+  (fp_line (start 34.036 -20.066) (end 34.036 0) (layer "F.SilkS") (width 0.15))
+  (pad "1" thru_hole circle locked
+    (at 2.3 -12.5)
+    (size 2.5 2.5)
+    (drill 0.85)
+    (layers *.Cu *.Mask)
+  )
+  (pad "2" thru_hole circle locked
+    (at 2.3 -7.5)
+    (size 2.5 2.5)
+    (drill 0.85)
+    (layers *.Cu *.Mask)
+  )
+  (pad "3" thru_hole circle locked
+    (at 31.7 -17.7)
+    (size 2.5 2.5)
+    (drill 0.85)
+    (layers *.Cu *.Mask)
+  )
+  (pad "4" thru_hole circle locked
+    (at 31.7 -2.3)
+    (size 2.5 2.5)
+    (drill 0.85)
+    (layers *.Cu *.Mask)
+  )
+)

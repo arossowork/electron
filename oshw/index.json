@@ -1,0 +1,1131 @@
+{
+ "version": 1,
+ "boards": [
+  {
+   "name": "ac_relay",
+   "title": "ac_relay",
+   "url": "https://github.com/kikeelectronico/ac-relay",
+   "commit": "d67c1fd08081ecb9e325fde66a5afc58906ce2a8",
+   "file": "KiCad/AC Relay/AC Relay.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "kikeelectronico (Enrique Gomez)",
+   "oshwa": null,
+   "category": "mains",
+   "description": "ESP8266 (ESP-12E) relay board with an HLK-PM01 mains supply",
+   "mcu": [
+    "ESP8266"
+   ],
+   "blocks": [
+    "ac_dc_module",
+    "terminal_block",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "1461492-2",
+    "BU33SD5WG-TR",
+    "ESP-12E",
+    "FDN537N",
+    "HLK-PM01"
+   ],
+   "layers": 2,
+   "size_mm": [
+    49.5,
+    49.5
+   ],
+   "area_mm2": 2398.9,
+   "parts": 17,
+   "back_side_parts": 0,
+   "nets": 27,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_ac_relay",
+   "human_copper": {
+    "track_mm": 491.7,
+    "per_layer_mm": {
+     "B.Cu": 166.1,
+     "F.Cu": 325.6
+    },
+    "segments": 157,
+    "vias": 5,
+    "nets_with_copper": 15
+   }
+  },
+  {
+   "name": "espgaggia",
+   "title": "espgaggia",
+   "url": "https://github.com/rvt/espgaggia",
+   "commit": "9c1e82d372343871f555d4e18a19b2f75ea00521",
+   "file": "kicad/gaggia_print/gaggia_print.kicad_pcb",
+   "license": "MIT",
+   "attribution": "R. van Twisk (rvt)",
+   "oshwa": null,
+   "category": "mains",
+   "description": "espresso machine controller, ESP32 DevKitC, HLK-PM01, two G3MB-202P SSRs, MAX31855 thermocouples",
+   "mcu": [
+    "ESP32"
+   ],
+   "blocks": [
+    "ssr_triac",
+    "ac_dc_module",
+    "fuse",
+    "terminal_block"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "2N2222",
+    "ESP32-DEVKITC-32D",
+    "G3MB-202P_DC5",
+    "HLK-PM01",
+    "MAX31855K_print"
+   ],
+   "layers": 2,
+   "size_mm": [
+    111.8,
+    57.2
+   ],
+   "area_mm2": 6387.1,
+   "parts": 29,
+   "back_side_parts": 0,
+   "nets": 49,
+   "kicad_format": 20221018,
+   "corpus_case": "oshw_espgaggia",
+   "human_copper": {
+    "track_mm": 1908.5,
+    "per_layer_mm": {
+     "B.Cu": 836.5,
+     "F.Cu": 1072.0
+    },
+    "segments": 325,
+    "vias": 12,
+    "nets_with_copper": 34
+   }
+  },
+  {
+   "name": "openblind32",
+   "title": "openblind32",
+   "url": "https://github.com/unterdrueckt/OpenBlind32",
+   "commit": "8969056d430f98f1c549a2461eb753295cddde82",
+   "file": "hardware/pcb/OpenBlindController.kicad_pcb",
+   "license": "MIT",
+   "attribution": "Markus (unterdrueckt)",
+   "oshwa": null,
+   "category": "mains",
+   "description": "mains blind motor controller, ESP32-C3 SuperMini, HLK-5M05, two AQH3213 SSRs, ACS712",
+   "mcu": [
+    "ESP32-C3"
+   ],
+   "blocks": [
+    "ssr_triac",
+    "ac_dc_module",
+    "mains_net",
+    "current_sense",
+    "env_sensor",
+    "led_driver",
+    "terminal_block"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "ACS712xLCTR-05B",
+    "AQH3213",
+    "DS18B20",
+    "ESP32-C3_SUPERMINI_TH",
+    "HLK-5M05"
+   ],
+   "layers": 2,
+   "size_mm": [
+    75.0,
+    50.0
+   ],
+   "area_mm2": 3750.0,
+   "parts": 20,
+   "back_side_parts": 0,
+   "nets": 31,
+   "kicad_format": 20241229,
+   "corpus_case": "oshw_openblind32",
+   "human_copper": {
+    "track_mm": 683.9,
+    "per_layer_mm": {
+     "B.Cu": 177.1,
+     "F.Cu": 506.8
+    },
+    "segments": 103,
+    "vias": 4,
+    "nets_with_copper": 19
+   }
+  },
+  {
+   "name": "hot_plate_power",
+   "title": "hot_plate_power",
+   "url": "https://github.com/ikatkov/hot-plate",
+   "commit": "64dd3a2080835d71bf633feca275eedc34838a98",
+   "file": "power-board/power-board.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "ikatkov (Igor Katkov)",
+   "oshwa": null,
+   "category": "mains",
+   "description": "mains hot plate power board, HLK-PM01, G3MB-202P SSR, MAX6675, keep-out zones",
+   "mcu": [
+    "Arduino module"
+   ],
+   "blocks": [
+    "ssr_triac",
+    "ac_dc_module",
+    "fuse",
+    "varistor",
+    "terminal_block"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "2N2222A",
+    "Arduino_pro_mini",
+    "G3MB-202P",
+    "HLK-PM01",
+    "MAX6675"
+   ],
+   "layers": 2,
+   "size_mm": [
+    100.0,
+    50.0
+   ],
+   "area_mm2": 4989.9,
+   "parts": 22,
+   "back_side_parts": 0,
+   "nets": 27,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_hot_plate_power",
+   "human_copper": {
+    "track_mm": 725.3,
+    "per_layer_mm": {
+     "B.Cu": 573.6,
+     "F.Cu": 151.8
+    },
+    "segments": 172,
+    "vias": 6,
+    "nets_with_copper": 25
+   }
+  },
+  {
+   "name": "hue_simple_switch",
+   "title": "hue_simple_switch",
+   "url": "https://github.com/tineira/hue-simple-switch",
+   "commit": "7bfafc8f883c6a2fddda198a506b93c1a5f59a4b",
+   "file": "hardware/kicad/hue-simple-switch-mains.kicad_pcb",
+   "license": "MIT",
+   "attribution": "Tomas Neira and contributors (tineira)",
+   "oshwa": null,
+   "category": "mains",
+   "description": "mains smart switch (KiCad 10 format)",
+   "mcu": [
+    "ESP32-C6"
+   ],
+   "blocks": [
+    "ac_dc_module",
+    "mains_net",
+    "fuse",
+    "varistor",
+    "terminal_block"
+   ],
+   "mpns": [
+    "0603B103K500NT",
+    "0603WAF1001T5E",
+    "0603WAF1002T5E",
+    "CL21A226MAQNNNE",
+    "Hi-Link HLK-PM01, 5 V 0.6 A, 3 kVAC isolation",
+    "KF128-5.08-2P (Cixi Kefa)",
+    "KF350-3.5-3P (Cixi Kefa)",
+    "Littelfuse 37205000001 (TR5 372, time-lag)",
+    "SS34",
+    "Seeed Studio XIAO ESP32-C6 (113991254)",
+    "TDK SIOV B72650M0271K072 (CU3225K275G2), 275 VAC, 8.0 x 6.3 x 4.5 mm",
+    "XY350V-3.5-4P (Ningbo Xinlaiya)"
+   ],
+   "lcsc": [
+    "C142835",
+    "C209903",
+    "C211106",
+    "C21190",
+    "C25804",
+    "C45783",
+    "C474893",
+    "C474952",
+    "C557656",
+    "C57112",
+    "C8678"
+   ],
+   "key_parts": [
+    "HLK-PM01",
+    "XIAO ESP32-C6"
+   ],
+   "layers": 2,
+   "size_mm": [
+    42.0,
+    52.0
+   ],
+   "area_mm2": 1894.1,
+   "parts": 28,
+   "back_side_parts": 5,
+   "nets": 24,
+   "kicad_format": 20260206,
+   "corpus_case": "oshw_hue_simple_switch",
+   "human_copper": {
+    "track_mm": 403.8,
+    "per_layer_mm": {
+     "B.Cu": 289.2,
+     "F.Cu": 114.6
+    },
+    "segments": 98,
+    "vias": 27,
+    "nets_with_copper": 19
+   }
+  },
+  {
+   "name": "hestiapi_one",
+   "title": "hestiapi_one",
+   "url": "https://github.com/HestiaPi/hestia-touch-pcb-dev",
+   "commit": "725689d9022e10b02885dba630e0b67cc9612d1a",
+   "file": "HestiaPi-ONE/KiCAD/HestiaPiOneUniversal.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "HestiaPi",
+   "oshwa": null,
+   "category": "mains",
+   "description": "thermostat relay board, five relays, PSU module, BME280, Raspberry Pi Zero header",
+   "mcu": [
+    "Raspberry Pi header"
+   ],
+   "blocks": [
+    "ac_dc_module",
+    "env_sensor",
+    "display",
+    "terminal_block",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [],
+   "layers": 2,
+   "size_mm": [
+    89.8,
+    72.1
+   ],
+   "area_mm2": 5606.7,
+   "parts": 15,
+   "back_side_parts": 0,
+   "nets": 53,
+   "kicad_format": 20241229,
+   "corpus_case": "oshw_hestiapi_one",
+   "human_copper": {
+    "track_mm": 1113.2,
+    "per_layer_mm": {
+     "B.Cu": 593.2,
+     "F.Cu": 520.1
+    },
+    "segments": 168,
+    "vias": 21,
+    "nets_with_copper": 28
+   }
+  },
+  {
+   "name": "mini_env_sensor",
+   "title": "mini_env_sensor",
+   "url": "https://github.com/MbFredys/PCB-Mini-Environmental-Sensor",
+   "commit": "2066cfccaf9175812ac58f30f8d5b0e9ccc67c56",
+   "file": "Kicad Files/Mini_Environmental_Sensor.kicad_pcb",
+   "license": "CERN-OHL-W-2.0",
+   "attribution": "MbFredys",
+   "oshwa": null,
+   "category": "battery-iot",
+   "description": "battery environmental sensor node, ESP32-C3-WROOM-02, MCP73831 charger, TPS62203 buck, BME280, SGP40",
+   "mcu": [
+    "ESP32-C3"
+   ],
+   "blocks": [
+    "usb_c",
+    "lipo_charger",
+    "battery",
+    "buck",
+    "env_sensor",
+    "button"
+   ],
+   "mpns": [
+    "  BME280 ",
+    "0402WGF4700TCE",
+    "532610271",
+    "CL05B104KO5NNNC",
+    "CL10A106KP8NNNC",
+    "CL10A475KP8NNNC",
+    "ESP32-C3-WROOM-02-N4",
+    "MCP73831T-2ACI/OT",
+    "RC0603FR-0710KL",
+    "RC0603FR-072KL",
+    "RC0603FR-074K7L ",
+    "SGP40-D-R4",
+    "SKRKAEE020",
+    "SMDTC04100VA00MS00",
+    "TPS62203DBVR",
+    "USB4135-GF-A"
+   ],
+   "lcsc": [],
+   "key_parts": [
+    "BME280",
+    "ESP32-C3-WROOM-02",
+    "MCP73831",
+    "SGP40-D-R4",
+    "TPS62203"
+   ],
+   "layers": 2,
+   "size_mm": [
+    25.1,
+    25.2
+   ],
+   "area_mm2": 633.0,
+   "parts": 32,
+   "back_side_parts": 27,
+   "nets": 27,
+   "kicad_format": 20241229,
+   "corpus_case": "oshw_mini_env_sensor",
+   "human_copper": {
+    "track_mm": 330.2,
+    "per_layer_mm": {
+     "B.Cu": 254.7,
+     "F.Cu": 75.4
+    },
+    "segments": 347,
+    "vias": 15,
+    "nets_with_copper": 16
+   }
+  },
+  {
+   "name": "b_parasite",
+   "title": "b_parasite",
+   "url": "https://github.com/rbaron/b-parasite",
+   "commit": "bf15ebdea04510444007a2cd30b709951ef62fd7",
+   "file": "kicad/parasite.kicad_pcb",
+   "license": "CC-BY-SA-4.0",
+   "attribution": "rbaron (Raphael Baron)",
+   "oshwa": null,
+   "category": "battery-iot",
+   "description": "coin-cell soil moisture sensor, nRF52840 module, SHTC3",
+   "mcu": [
+    "nRF52"
+   ],
+   "blocks": [
+    "battery",
+    "crystal",
+    "env_sensor",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C11702",
+    "C146233",
+    "C1523",
+    "C1525",
+    "C1547",
+    "C194656",
+    "C2286",
+    "C231329",
+    "C25117",
+    "C25744",
+    "C26083",
+    "C2910191",
+    "C3011166",
+    "C32346",
+    "C356849"
+   ],
+   "key_parts": [
+    "E73-2G4M08S1C",
+    "MMBT3906",
+    "Q_Photo_NPN",
+    "SHTC3"
+   ],
+   "layers": 2,
+   "size_mm": [
+    22.0,
+    126.4
+   ],
+   "area_mm2": 2656.2,
+   "parts": 29,
+   "back_side_parts": 1,
+   "nets": 45,
+   "kicad_format": 20221018,
+   "corpus_case": "oshw_b_parasite",
+   "human_copper": {
+    "track_mm": 401.4,
+    "per_layer_mm": {
+     "B.Cu": 125.2,
+     "F.Cu": 276.2
+    },
+    "segments": 182,
+    "vias": 51,
+    "nets_with_copper": 19
+   }
+  },
+  {
+   "name": "rocketbeacon",
+   "title": "rocketbeacon",
+   "url": "https://github.com/ElvinC/rocketbeacon",
+   "commit": "405957578e98e7582a6a6f67ac73d233a4f5690d",
+   "file": "Hardware/beacon/beacon.kicad_pcb",
+   "license": "CERN-OHL-P-2.0",
+   "attribution": "ElvinC (Elvin Chen)",
+   "oshwa": null,
+   "category": "battery-iot",
+   "description": "LoRa beacon, STM32WLE5 with the sub-GHz matching network",
+   "mcu": [
+    "STM32"
+   ],
+   "blocks": [
+    "battery",
+    "ldo",
+    "crystal",
+    "antenna",
+    "lora_radio",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C17168",
+    "C383840"
+   ],
+   "key_parts": [
+    "STM32WLE5CBUx",
+    "XC6206P332MR"
+   ],
+   "layers": 2,
+   "size_mm": [
+    13.0,
+    27.0
+   ],
+   "area_mm2": 346.7,
+   "parts": 35,
+   "back_side_parts": 1,
+   "nets": 45,
+   "kicad_format": 20240108,
+   "corpus_case": "oshw_rocketbeacon",
+   "human_copper": {
+    "track_mm": 192.2,
+    "per_layer_mm": {
+     "B.Cu": 35.3,
+     "F.Cu": 156.9
+    },
+    "segments": 192,
+    "vias": 51,
+    "nets_with_copper": 19
+   }
+  },
+  {
+   "name": "esp32c3_devkit_lipo",
+   "title": "esp32c3_devkit_lipo",
+   "url": "https://github.com/OLIMEX/ESP32-C3-DevKit-Lipo",
+   "commit": "5d93e79d46cf3b05782d9fe0f95a8a2e1ca6abbe",
+   "file": "HARDWARE/ESP32-C3-DevKit-Lipo_Rev_D/ESP32-C3-DevKit-Lipo_Rev_D.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "OLIMEX Ltd",
+   "oshwa": null,
+   "category": "battery-iot",
+   "description": "ESP32-C3 development board with LiPo charger",
+   "mcu": [
+    "ESP32-C3"
+   ],
+   "blocks": [
+    "usb_c",
+    "lipo_charger",
+    "battery",
+    "buck",
+    "mosfet_switch",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "ESP32-C3-MINI-1-N4",
+    "SY8089AAAC(SOT23-5)",
+    "TP4054-42-SOT25-R"
+   ],
+   "layers": 2,
+   "size_mm": [
+    27.9,
+    38.1
+   ],
+   "area_mm2": 1064.5,
+   "parts": 53,
+   "back_side_parts": 31,
+   "nets": 56,
+   "kicad_format": 20221018,
+   "corpus_case": "oshw_esp32c3_devkit_lipo",
+   "human_copper": {
+    "track_mm": 1095.9,
+    "per_layer_mm": {
+     "B.Cu": 605.3,
+     "F.Cu": 490.6
+    },
+    "segments": 799,
+    "vias": 88,
+    "nets_with_copper": 34
+   }
+  },
+  {
+   "name": "ch32v003_usbpd",
+   "title": "ch32v003_usbpd",
+   "url": "https://github.com/eeucalyptus/ch32v003-usbpd",
+   "commit": "b27d3e4057642c0790ce5910f0c49cac60bf25cb",
+   "file": "board/ch32v003_usbpd.kicad_pcb",
+   "license": "MIT",
+   "attribution": "eeucalyptus",
+   "oshwa": null,
+   "category": "usb-c-power",
+   "description": "USB-PD sink built on a CH32V003",
+   "mcu": [
+    "CH32V"
+   ],
+   "blocks": [
+    "usb_c"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "CH32V003F4P6",
+    "HT75xx-1-SOT89"
+   ],
+   "layers": 2,
+   "size_mm": [
+    32.0,
+    35.0
+   ],
+   "area_mm2": 1120.0,
+   "parts": 22,
+   "back_side_parts": 0,
+   "nets": 26,
+   "kicad_format": 20240108,
+   "corpus_case": "oshw_ch32v003_usbpd",
+   "human_copper": {
+    "track_mm": 498.7,
+    "per_layer_mm": {
+     "B.Cu": 201.6,
+     "F.Cu": 297.1
+    },
+    "segments": 204,
+    "vias": 22,
+    "nets_with_copper": 22
+   }
+  },
+  {
+   "name": "powerline_usbc",
+   "title": "powerline_usbc",
+   "url": "https://github.com/Andreas-Dorfner/Powerline-USB-C",
+   "commit": "babfa13f31358b1ee5db901dc36f5ab42458eb86",
+   "file": "Powerline-USB-C/Powerline-USB-C.kicad_pcb",
+   "license": "CERN-OHL-P-2.0",
+   "attribution": "Andreas Dorfner",
+   "oshwa": null,
+   "category": "usb-c-power",
+   "description": "USB-C eurorack power supply, CH224K PD trigger, linear regulators",
+   "mcu": [],
+   "blocks": [
+    "usb_pd"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "CH224K",
+    "HT7533-1",
+    "N7805-1C",
+    "N7812-1C"
+   ],
+   "layers": 2,
+   "size_mm": [
+    14.0,
+    100.0
+   ],
+   "area_mm2": 1392.2,
+   "parts": 21,
+   "back_side_parts": 4,
+   "nets": 24,
+   "kicad_format": 20241229,
+   "corpus_case": "oshw_powerline_usbc",
+   "human_copper": {
+    "track_mm": 105.5,
+    "per_layer_mm": {
+     "B.Cu": 55.5,
+     "F.Cu": 50.0
+    },
+    "segments": 59,
+    "vias": 9,
+    "nets_with_copper": 11
+   }
+  },
+  {
+   "name": "buck_tps54202",
+   "title": "buck_tps54202",
+   "url": "https://github.com/smkent/pcb",
+   "commit": "6cab466a73cdbfd0aa05449146948c3da97524f6",
+   "file": "pcb-archived/power/buck-tps54202/buck-tps54202.kicad_pcb",
+   "license": "CERN-OHL-P-2.0",
+   "attribution": "Stephen Kent (smkent)",
+   "oshwa": null,
+   "category": "usb-c-power",
+   "description": "TPS54202 buck converter breakout",
+   "mcu": [],
+   "blocks": [
+    "buck",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C191884",
+    "C440198",
+    "C45783"
+   ],
+   "key_parts": [
+    "TPS54202DDCR"
+   ],
+   "layers": 2,
+   "size_mm": [
+    36.1,
+    15.7
+   ],
+   "area_mm2": 567.1,
+   "parts": 27,
+   "back_side_parts": 14,
+   "nets": 16,
+   "kicad_format": 20240108,
+   "corpus_case": "oshw_buck_tps54202",
+   "human_copper": {
+    "track_mm": 96.3,
+    "per_layer_mm": {
+     "B.Cu": 29.4,
+     "F.Cu": 66.8
+    },
+    "segments": 68,
+    "vias": 19,
+    "nets_with_copper": 16
+   }
+  },
+  {
+   "name": "rp2040_designguide",
+   "title": "rp2040_designguide",
+   "url": "https://github.com/Sleepdealr/RP2040-designguide",
+   "commit": "a9afaa2ea5ee9d859ef126d919c607737a75eb30",
+   "file": "PCB/RP2040-Guide.kicad_pcb",
+   "license": "MIT",
+   "attribution": "Sleepdealer (Sleepdealr)",
+   "oshwa": null,
+   "category": "mcu",
+   "description": "minimal RP2040 reference board, QSPI flash, crystal, USB",
+   "mcu": [
+    "RP2040"
+   ],
+   "blocks": [
+    "fuse",
+    "usb_c",
+    "ldo",
+    "crystal",
+    "esd",
+    "button",
+    "eeprom_flash"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C11702",
+    "C131025",
+    "C1525",
+    "C15525",
+    "C1555",
+    "C165948",
+    "C2040",
+    "C25190",
+    "C25905",
+    "C2827654",
+    "C52923",
+    "C5446",
+    "C70076",
+    "C9002"
+   ],
+   "key_parts": [
+    "RP2040",
+    "USBLC6-2SC6",
+    "W25Q128JVS",
+    "XC6206PxxxMR-Regulator_Linear"
+   ],
+   "layers": 2,
+   "size_mm": [
+    45.2,
+    93.4
+   ],
+   "area_mm2": 4221.7,
+   "parts": 36,
+   "back_side_parts": 31,
+   "nets": 58,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_rp2040_designguide",
+   "human_copper": {
+    "track_mm": 1814.6,
+    "per_layer_mm": {
+     "B.Cu": 1767.1,
+     "F.Cu": 47.5
+    },
+    "segments": 433,
+    "vias": 32,
+    "nets_with_copper": 56
+   }
+  },
+  {
+   "name": "ch32v003_usb_devboard",
+   "title": "ch32v003_usb_devboard",
+   "url": "https://github.com/AlexanderMandera/CH32V003-USB-DevBoard",
+   "commit": "9b4265b8d1ed3585bf91e9c1dcd9d60b6ae63412",
+   "file": "CH32V003-USB-DevBoard.kicad_pcb",
+   "license": "CERN-OHL-W-2.0",
+   "attribution": "Alexander Mandera",
+   "oshwa": null,
+   "category": "mcu",
+   "description": "CH32V003 development board with USB",
+   "mcu": [
+    "CH32V"
+   ],
+   "blocks": [
+    "usb_c",
+    "ldo",
+    "crystal",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C100072",
+    "C165980",
+    "C168807",
+    "C203112",
+    "C25105",
+    "C25867",
+    "C2875241",
+    "C2905188",
+    "C2927039",
+    "C2941937",
+    "C325524",
+    "C52923",
+    "C5299908"
+   ],
+   "key_parts": [
+    "CH32V003F4U6",
+    "ME6211A33M3G-N"
+   ],
+   "layers": 2,
+   "size_mm": [
+    15.8,
+    26.1
+   ],
+   "area_mm2": 409.6,
+   "parts": 25,
+   "back_side_parts": 2,
+   "nets": 32,
+   "kicad_format": 20221018,
+   "corpus_case": "oshw_ch32v003_usb_devboard",
+   "human_copper": {
+    "track_mm": 313.9,
+    "per_layer_mm": {
+     "B.Cu": 59.8,
+     "F.Cu": 254.2
+    },
+    "segments": 255,
+    "vias": 29,
+    "nets_with_copper": 29
+   }
+  },
+  {
+   "name": "pico_ice",
+   "title": "pico_ice",
+   "url": "https://github.com/tinyvision-ai-inc/pico-ice",
+   "commit": "00e13360969d01fbb9663e4ea17f723c1a8e8400",
+   "file": "Board/Rev3/pico-ice.kicad_pcb",
+   "license": "MIT",
+   "attribution": "tinyVision.ai Inc.",
+   "oshwa": null,
+   "category": "dense-4-layer",
+   "description": "RP2040 and iCE40UP5K FPGA in Pico form factor, 4 layers",
+   "mcu": [
+    "RP2040",
+    "iCE40 FPGA"
+   ],
+   "blocks": [
+    "fuse",
+    "usb_c",
+    "crystal",
+    "mosfet_switch",
+    "button",
+    "eeprom_flash"
+   ],
+   "mpns": [
+    "1N4148WT-7",
+    "1N5819WS",
+    "2N7002",
+    "ABM10-166-12.000MHZ-T3",
+    "APS6404L-3SQN-SN",
+    "DNP",
+    "GCM1555C1H270JA16D",
+    "GRM155R60J475ME87D",
+    "GRM155R71C104KA88J",
+    "ICE40UP5K-SG48I",
+    "LTST-C191KGKT",
+    "MF-FSMF035X-2",
+    "MHPA1010RGBDT",
+    "NCP115AMX120TCG",
+    "NCP115AMX330TCG",
+    "PTS820 J25K SMTR LFS",
+    "RC0402FR-07100RL",
+    "RC0402FR-0710KL",
+    "RC0402FR-071KL",
+    "RC0402FR-0727RL",
+    "RC0402FR-072K2L",
+    "RC0402FR-075K1L",
+    "RP2040",
+    "USB4105-GF-A",
+    "W25Q32JVSSIQ",
+    "YC124-FR-0710KL"
+   ],
+   "lcsc": [],
+   "key_parts": [
+    "2N7002",
+    "APS6404L-3SQN-SN",
+    "ICE40UP5K-SG48ITR",
+    "NCP115AMX120TCG",
+    "NCP115AMX330TCG",
+    "RP2040",
+    "W25Q32JVSSIQ"
+   ],
+   "layers": 4,
+   "size_mm": [
+    22.9,
+    61.0
+   ],
+   "area_mm2": 1380.9,
+   "parts": 97,
+   "back_side_parts": 30,
+   "nets": 97,
+   "kicad_format": 20240108,
+   "corpus_case": "oshw_pico_ice",
+   "human_copper": {
+    "track_mm": 2289.4,
+    "per_layer_mm": {
+     "B.Cu": 827.1,
+     "F.Cu": 864.0,
+     "In1.Cu": 22.5,
+     "In2.Cu": 575.9
+    },
+    "segments": 1689,
+    "vias": 189,
+    "nets_with_copper": 95
+   }
+  },
+  {
+   "name": "riegel",
+   "title": "riegel",
+   "url": "https://github.com/machdyne/riegel",
+   "commit": "1798614648631feab1eb1a84eec278fcc91fae87",
+   "file": "pcb/riegel_v4/riegel.kicad_pcb",
+   "license": "BSD-1-Clause",
+   "attribution": "Machdyne (Lone Dynamics Corporation)",
+   "oshwa": null,
+   "category": "dense-4-layer",
+   "description": "small FPGA computer, iCE40HX4K BGA, SRAM, PSRAM, two TLV62568 bucks, 4 layers",
+   "mcu": [
+    "iCE40 FPGA"
+   ],
+   "blocks": [
+    "usb_c",
+    "buck",
+    "crystal",
+    "mosfet_switch",
+    "sd_card"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "APS256",
+    "BSS138",
+    "ICE40HX4K-BG121",
+    "IS61WV256",
+    "NCP164ASN180T1G",
+    "PS2",
+    "TLV62568DDC"
+   ],
+   "layers": 4,
+   "size_mm": [
+    90.0,
+    40.0
+   ],
+   "area_mm2": 3596.5,
+   "parts": 97,
+   "back_side_parts": 1,
+   "nets": 138,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_riegel",
+   "human_copper": {
+    "track_mm": 2419.0,
+    "per_layer_mm": {
+     "B.Cu": 929.0,
+     "F.Cu": 1415.9,
+     "In2.Cu": 74.2
+    },
+    "segments": 1297,
+    "vias": 157,
+    "nets_with_copper": 124
+   }
+  },
+  {
+   "name": "milliohm_meter",
+   "title": "milliohm_meter",
+   "url": "https://github.com/gabeak2/milliohm_meter",
+   "commit": "37dd83114919016d0d2b463df305d851a62cbd93",
+   "file": "milliohm_meter.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "gabeak2",
+   "oshwa": null,
+   "category": "analog-front-end",
+   "description": "precision milliohm meter front end, INA333, OPA388, 4 layers",
+   "mcu": [],
+   "blocks": [
+    "opamp",
+    "current_sense",
+    "mosfet_switch",
+    "button"
+   ],
+   "mpns": [],
+   "lcsc": [
+    "C11702",
+    "C154118",
+    "C17168",
+    "C191023",
+    "C19450",
+    "C20917",
+    "C221660",
+    "C25077",
+    "C25091",
+    "C307331",
+    "C3113",
+    "C358418",
+    "C705656",
+    "C84256"
+   ],
+   "key_parts": [
+    "AO3400A",
+    "CJ431",
+    "INA333xxDGK",
+    "OPA388"
+   ],
+   "layers": 4,
+   "size_mm": [
+    59.7,
+    54.6
+   ],
+   "area_mm2": 3259.7,
+   "parts": 41,
+   "back_side_parts": 1,
+   "nets": 20,
+   "kicad_format": 20240108,
+   "corpus_case": "oshw_milliohm_meter",
+   "human_copper": {
+    "track_mm": 278.6,
+    "per_layer_mm": {
+     "B.Cu": 47.0,
+     "F.Cu": 231.6
+    },
+    "segments": 121,
+    "vias": 30,
+    "nets_with_copper": 19
+   }
+  },
+  {
+   "name": "ina228_simple",
+   "title": "ina228_simple",
+   "url": "https://github.com/zemonkey/INA228_Simple",
+   "commit": "f4b6b695c2e28af747aa7a0e627ee536828d63db",
+   "file": "INA228_Simple.kicad_pcb",
+   "license": "Apache-2.0",
+   "attribution": "zemonkey",
+   "oshwa": null,
+   "category": "analog-front-end",
+   "description": "INA228 current sense board with input protection",
+   "mcu": [],
+   "blocks": [
+    "opamp",
+    "current_sense",
+    "terminal_block"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "INA228AIDGSR"
+   ],
+   "layers": 2,
+   "size_mm": [
+    52.7,
+    28.1
+   ],
+   "area_mm2": 1483.3,
+   "parts": 24,
+   "back_side_parts": 0,
+   "nets": 15,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_ina228_simple",
+   "human_copper": {
+    "track_mm": 268.0,
+    "per_layer_mm": {
+     "F.Cu": 268.0
+    },
+    "segments": 133,
+    "vias": 48,
+    "nets_with_copper": 14
+   }
+  },
+  {
+   "name": "eurorack_ecg",
+   "title": "eurorack_ecg",
+   "url": "https://github.com/adeboni/eurorack",
+   "commit": "22bce2b4b55096834bf2a0f689ee1f9858de5689",
+   "file": "ecg-2hp/ecg.kicad_pcb",
+   "license": "GPL-3.0",
+   "attribution": "adeboni (Andrew DeBoni)",
+   "oshwa": null,
+   "category": "analog-front-end",
+   "description": "ECG analog front end eurorack module, AD8232, TL072",
+   "mcu": [],
+   "blocks": [
+    "ldo",
+    "biopotential_afe",
+    "opamp"
+   ],
+   "mpns": [],
+   "lcsc": [],
+   "key_parts": [
+    "AD8232",
+    "LM1117-3.3",
+    "TL072"
+   ],
+   "layers": 2,
+   "size_mm": [
+    10.0,
+    100.0
+   ],
+   "area_mm2": 1000.0,
+   "parts": 41,
+   "back_side_parts": 3,
+   "nets": 33,
+   "kicad_format": 20211014,
+   "corpus_case": "oshw_eurorack_ecg",
+   "human_copper": {
+    "track_mm": 518.4,
+    "per_layer_mm": {
+     "B.Cu": 209.0,
+     "F.Cu": 309.4
+    },
+    "segments": 216,
+    "vias": 19,
+    "nets_with_copper": 30
+   }
+  }
+ ]
+}

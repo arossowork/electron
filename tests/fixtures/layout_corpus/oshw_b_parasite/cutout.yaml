@@ -1,0 +1,83 @@
+source:
+  url: https://github.com/rbaron/b-parasite
+  commit: bf15ebdea04510444007a2cd30b709951ef62fd7
+  file: kicad/parasite.kicad_pcb
+  license: CC-BY-SA-4.0
+  attribution: rbaron (Raphael Baron)
+  oshwa: null
+  category: battery-iot
+source_project: parasite
+importer: hwflow.layout.board.kicad_import
+source_format: 20221018
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -57.0
+- -27.0
+board_mm:
+- 22.0
+- 126.414
+outline_fill: 0.9551
+free:
+- C1
+- C2
+- C3
+- C4
+- D1
+- D2
+- Q1
+- Q4
+- R1
+- R10
+- R2
+- R4
+- R6
+- R7
+- R8
+- RST1
+- U1
+- U2
+- Y1
+dropped_footprints:
+- G***
+- REF**
+net_renames:
+  Net-(D2-A): Net-_D2-A
+  Net-(Q1-B): Net-_Q1-B
+  Net-(U1B-P0.00{slash}XL1): Net-_U1B-P0.00_slash_XL1
+  Net-(U1B-P0.01{slash}XL2): Net-_U1B-P0.01_slash_XL2
+  unconnected-(U1A-DCCH-Pad25): unconnected-_U1A-DCCH-Pad25
+  unconnected-(U1A-DM-Pad29): unconnected-_U1A-DM-Pad29
+  unconnected-(U1A-DP-Pad31): unconnected-_U1A-DP-Pad31
+  unconnected-(U1A-GND@3-Pad24): unconnected-_U1A-GND_3-Pad24
+  unconnected-(U1A-VBUS-Pad27): unconnected-_U1A-VBUS-Pad27
+  unconnected-(U1B-P0.04{slash}AIN2-Pad18): unconnected-_U1B-P0.04_slash_AIN2-Pad18
+  unconnected-(U1B-P0.06-Pad14): unconnected-_U1B-P0.06-Pad14
+  unconnected-(U1B-P0.07-Pad22): unconnected-_U1B-P0.07-Pad22
+  unconnected-(U1B-P0.08-Pad16): unconnected-_U1B-P0.08-Pad16
+  unconnected-(U1B-P0.09{slash}NFC1-Pad41): unconnected-_U1B-P0.09_slash_NFC1-Pad41
+  unconnected-(U1B-P0.12-Pad20): unconnected-_U1B-P0.12-Pad20
+  unconnected-(U1B-P0.15-Pad28): unconnected-_U1B-P0.15-Pad28
+  unconnected-(U1B-P0.17-Pad30): unconnected-_U1B-P0.17-Pad30
+  unconnected-(U1B-P0.20-Pad32): unconnected-_U1B-P0.20-Pad32
+  unconnected-(U1B-P0.22-Pad34): unconnected-_U1B-P0.22-Pad34
+  unconnected-(U1B-P0.26-Pad12): unconnected-_U1B-P0.26-Pad12
+  unconnected-(U1B-P0.31{slash}AIN7-Pad9): unconnected-_U1B-P0.31_slash_AIN7-Pad9
+  unconnected-(U1C-P1.00-Pad36): unconnected-_U1C-P1.00-Pad36
+  unconnected-(U1C-P1.02-Pad38): unconnected-_U1C-P1.02-Pad38
+  unconnected-(U1C-P1.04-Pad40): unconnected-_U1C-P1.04-Pad40
+  unconnected-(U1C-P1.06-Pad42): unconnected-_U1C-P1.06-Pad42
+  unconnected-(U1C-P1.09-Pad17): unconnected-_U1C-P1.09-Pad17
+  unconnected-(U1C-P1.10-Pad2): unconnected-_U1C-P1.10-Pad2
+  unconnected-(U1C-P1.11-Pad1): unconnected-_U1C-P1.11-Pad1
+  unconnected-(U1C-P1.13-Pad6): unconnected-_U1C-P1.13-Pad6
+  unconnected-(U2-NC-Pad5): unconnected-_U2-NC-Pad5
+not_imported:
+  zones:
+    GND: 2
+  custom_rules: false
+  blind_vias: 0
+  rules_source: parasite.kicad_pro
+terminals: []
+warnings: []

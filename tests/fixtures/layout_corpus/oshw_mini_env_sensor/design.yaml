@@ -1,0 +1,474 @@
+project: oshw_mini_env_sensor
+revision: A
+description: imported KiCad board Mini_Environmental_Sensor.kicad_pcb (https://github.com/MbFredys/PCB-Mini-Environmental-Sensor)
+board:
+  width_mm: 25.14
+  height_mm: 25.18
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.2
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  C1:
+    value: 10uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 2.03
+      y: 8.185
+      rot: 270.0
+      fixed: true
+  R1:
+    value: 10k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric
+    pins:
+      '1': Net-_U1-EN
+      '2': Net-_C2-Pad1
+    placement:
+      x: 2.03
+      y: 11.305
+      rot: 90.0
+      fixed: true
+  C2:
+    value: 1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric
+    pins:
+      '1': Net-_C2-Pad1
+      '2': GND
+    placement:
+      x: 2.02
+      y: 14.605
+      rot: 270.0
+      fixed: true
+  U1:
+    value: ESP32-C3-WROOM-02
+    spice: false
+    symbol: oshw_mini_env_sensor:ESP32-C3-WROOM-02
+    footprint: oshw_mini_env_sensor:ESP32-C3-WROOM-02
+    pins:
+      '1': +3V3
+      '2': Net-_U1-EN
+      '3': BME280_SDA
+      '4': BME280_SCL
+      '5': SGP40_SDA
+      '6': SGP40_SCL
+      '9': GND
+      '19': GND
+    nc:
+    - '7'
+    - '8'
+    - '10'
+    - '11'
+    - '12'
+    - '13'
+    - '14'
+    - '15'
+    - '16'
+    - '17'
+    - '18'
+    placement:
+      x: 12.6
+      y: 13.39
+      rot: 0.0
+      fixed: true
+  SW1:
+    value: SW_Push
+    spice: false
+    symbol: oshw_mini_env_sensor:SW_Push_SPST_NO_Alps_SKRK
+    footprint: oshw_mini_env_sensor:SW_Push_SPST_NO_Alps_SKRK
+    pins:
+      '1': GND
+      '2': Net-_C2-Pad1
+    placement:
+      x: 5.53
+      y: 22.78
+      rot: 180.0
+      fixed: true
+  R7:
+    value: 4.7k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': SGP40_SDA
+    placement:
+      x: 14.765
+      y: 7.34
+      rot: 0.0
+      fixed: true
+  R6:
+    value: '470'
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0402_1005Metric_back
+    footprint: oshw_mini_env_sensor:R_0402_1005Metric_back
+    pins:
+      '1': Net-_D1-K
+      '2': Net-_U2-STAT
+    placement:
+      x: 21.26
+      y: 15.2
+      rot: 180.0
+      fixed: true
+  U2:
+    value: MCP73831
+    spice: false
+    symbol: oshw_mini_env_sensor:SOT-23-5_back
+    footprint: oshw_mini_env_sensor:SOT-23-5_back
+    pins:
+      '1': Net-_U2-STAT
+      '2': GND
+      '3': +BATT
+      '4': VBUS
+      '5': Net-_U2-PROG
+    placement:
+      x: 18.0043
+      y: 16.1548
+      rot: 180.0
+      fixed: true
+  C4:
+    value: 0.1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0402_1005Metric_back
+    footprint: oshw_mini_env_sensor:C_0402_1005Metric_back
+    pins:
+      '1': Net-_U1-EN
+      '2': GND
+    placement:
+      x: 1.68
+      y: 12.1
+      rot: 180.0
+      fixed: true
+  C5:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 15.37
+      y: 18.6
+      rot: 180.0
+      fixed: true
+  J2:
+    value: USB_C_PowerOnly
+    spice: false
+    symbol: oshw_mini_env_sensor:USB_C_Receptacle_GCT_USB4135-GF-A_6P_TopMnt_Horizontal_back
+    footprint: oshw_mini_env_sensor:USB_C_Receptacle_GCT_USB4135-GF-A_6P_TopMnt_Horizontal_back
+    pins:
+      A5: Net-_J2-CC1
+      A9: VBUS
+      A12: GND
+      B5: Net-_J2-CC2
+      B9: VBUS
+      B12: GND
+      S1: GND
+    placement:
+      x: 7.19
+      y: 21.6125
+      rot: 180.0
+      fixed: true
+  C3:
+    value: 0.1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0402_1005Metric_back
+    footprint: oshw_mini_env_sensor:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 3.36
+      y: 7.38
+      rot: 180.0
+      fixed: true
+  C9:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': +BATT
+      '2': GND
+    placement:
+      x: 23.3
+      y: 11.19
+      rot: 0.0
+      fixed: true
+  J1:
+    value: BAT_Connector
+    spice: false
+    symbol: oshw_mini_env_sensor:Molex_PicoBlade_53261-0271_1x02-1MP_P1.25mm_Horizontal_back
+    footprint: oshw_mini_env_sensor:Molex_PicoBlade_53261-0271_1x02-1MP_P1.25mm_Horizontal_back
+    pins:
+      '1': GND
+      '2': +BATT
+    nc:
+    - MP
+    placement:
+      x: 18.6288
+      y: 22.0174
+      rot: 180.0
+      fixed: true
+  C10:
+    value: 1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 8.7
+      y: 9.615
+      rot: 270.0
+      fixed: true
+  U5:
+    value: TPS62203
+    spice: false
+    symbol: oshw_mini_env_sensor:SOT-23-5_back
+    footprint: oshw_mini_env_sensor:SOT-23-5_back
+    pins:
+      '1': +BATT
+      '2': GND
+      '3': +BATT
+      '4': +3V3
+      '5': Net-_U5-SW
+    placement:
+      x: 19.6575
+      y: 10.41
+      rot: 180.0
+      fixed: true
+  D1:
+    value: LED
+    spice: false
+    symbol: oshw_mini_env_sensor:LED_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:LED_0603_1608Metric_back
+    pins:
+      '1': Net-_D1-K
+      '2': VBUS
+    placement:
+      x: 21.77
+      y: 16.57
+      rot: 0.0
+      fixed: true
+  R5:
+    value: 2k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': GND
+      '2': Net-_U2-PROG
+    placement:
+      x: 18.0
+      y: 13.16
+      rot: 180.0
+      fixed: true
+  C8:
+    value: 0.1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0402_1005Metric_back
+    footprint: oshw_mini_env_sensor:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 2.74
+      y: 14.93
+      rot: 180.0
+      fixed: true
+  U3:
+    value: BME280
+    spice: false
+    symbol: oshw_mini_env_sensor:Bosch_LGA-8_2.5x2.5mm_P0.65mm_ClockwisePinNumbering_back
+    footprint: oshw_mini_env_sensor:Bosch_LGA-8_2.5x2.5mm_P0.65mm_ClockwisePinNumbering_back
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': BME280_SCL
+      '4': BME280_SDA
+      '5': +3V3
+      '6': +3V3
+      '7': GND
+      '8': +3V3
+    placement:
+      x: 5.495
+      y: 14.165
+      rot: 90.0
+      fixed: true
+  R3:
+    value: 10k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': Net-_J2-CC1
+      '2': GND
+    placement:
+      x: 8.5598
+      y: 16.5739
+      rot: 0.0
+      fixed: true
+  R4:
+    value: 10k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': Net-_J2-CC2
+      '2': GND
+    placement:
+      x: 5.44
+      y: 16.6
+      rot: 180.0
+      fixed: true
+  L1:
+    value: 10uH
+    spice: false
+    symbol: oshw_mini_env_sensor:L_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:L_0603_1608Metric_back
+    pins:
+      '1': Net-_U5-SW
+      '2': +3V3
+    placement:
+      x: 15.94
+      y: 9.67
+      rot: 180.0
+      fixed: true
+  C11:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 15.9412
+      y: 11.3158
+      rot: 180.0
+      fixed: true
+  R8:
+    value: 4.7k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': SGP40_SCL
+    placement:
+      x: 11.5
+      y: 7.34
+      rot: 180.0
+      fixed: true
+  C6:
+    value: 0.1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0402_1005Metric_back
+    footprint: oshw_mini_env_sensor:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 2.76
+      y: 13.19
+      rot: 180.0
+      fixed: true
+  U4:
+    value: SGP40-D-R4
+    spice: false
+    symbol: oshw_mini_env_sensor:XCDR_SGP40-D-R4_back
+    footprint: oshw_mini_env_sensor:XCDR_SGP40-D-R4_back
+    pins:
+      '1': +3V3
+      '2': GND
+      '3': SGP40_SDA
+      '4': GND
+      '5': +3V3
+      '6': SGP40_SCL
+      '7': GND
+    placement:
+      x: 11.79
+      y: 9.71
+      rot: 180.0
+      fixed: true
+  C7:
+    value: 4.7uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': +BATT
+      '2': GND
+    placement:
+      x: 21.745
+      y: 18.6
+      rot: 0.0
+      fixed: true
+  R9:
+    value: 4.7k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': BME280_SDA
+    placement:
+      x: 8.925
+      y: 13.18
+      rot: 180.0
+      fixed: true
+  R2:
+    value: 10k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': Net-_U1-EN
+    placement:
+      x: 2.0384
+      y: 9.7256
+      rot: 90.0
+      fixed: true
+  C12:
+    value: 1uF
+    spice: false
+    symbol: oshw_mini_env_sensor:C_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:C_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 7.02
+      y: 9.59
+      rot: 270.0
+      fixed: true
+  R10:
+    value: 4.7k
+    spice: false
+    symbol: oshw_mini_env_sensor:R_0603_1608Metric_back
+    footprint: oshw_mini_env_sensor:R_0603_1608Metric_back
+    pins:
+      '1': +3V3
+      '2': BME280_SCL
+    placement:
+      x: 8.92
+      y: 14.76
+      rot: 180.0
+      fixed: true
+nets:
+  GND:
+    class: ground

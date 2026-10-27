@@ -1,0 +1,650 @@
+project: oshw_rp2040_designguide
+revision: A
+description: imported KiCad board RP2040-Guide.kicad_pcb (https://github.com/Sleepdealr/RP2040-designguide)
+board:
+  width_mm: 45.212
+  height_mm: 93.424
+  layers: 2
+  thickness_mm: 1.6
+  clearance_mm: 0.2
+  track_mm: 0.2
+  via_dia_mm: 0.6
+  via_drill_mm: 0.3
+components:
+  J5:
+    value: Conn_01x11
+    spice: false
+    symbol: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    footprint: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    bom: false
+    pins:
+      '1': GND
+      '2': GPIO0
+      '3': GPIO1
+      '4': GPIO2
+      '5': GPIO3
+      '6': GPIO4
+      '7': GPIO5
+      '8': GPIO6
+      '9': GPIO7
+      '10': GPIO8
+      '11': GPIO9
+    placement:
+      x: 37.2495
+      y: 88.8746
+      rot: 180.0
+      fixed: true
+  J3:
+    value: Conn_01x11
+    spice: false
+    symbol: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    footprint: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    bom: false
+    pins:
+      '1': GND
+      '2': GPIO20
+      '3': GPIO21
+      '4': GPIO22
+      '5': GPIO23
+      '6': GPIO24
+      '7': GPIO25
+      '8': GPIO26
+      '9': GPIO27
+      '10': GPIO28
+      '11': GPIO29
+    placement:
+      x: 12.065
+      y: 89.106
+      rot: 180.0
+      fixed: true
+  J2:
+    value: SWD
+    spice: false
+    symbol: oshw_rp2040_designguide:PinSocket_1x05_P2.54mm_Vertical
+    footprint: oshw_rp2040_designguide:PinSocket_1x05_P2.54mm_Vertical
+    bom: false
+    pins:
+      '1': RESET
+      '2': +3V3
+      '3': GND
+      '4': SWD
+      '5': SWCLK
+    placement:
+      x: 21.8123
+      y: 53.5301
+      rot: 90.0
+      fixed: true
+  SW1:
+    value: SW_Push
+    spice: false
+    symbol: oshw_rp2040_designguide:PinSocket_1x02_P2.54mm_Vertical
+    footprint: oshw_rp2040_designguide:PinSocket_1x02_P2.54mm_Vertical
+    bom: false
+    pins:
+      '1': GND
+      '2': USB_BOOT
+    placement:
+      x: 40.4813
+      y: 10.7311
+      rot: 270.0
+      fixed: true
+  J4:
+    value: Conn_01x11
+    spice: false
+    symbol: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    footprint: oshw_rp2040_designguide:PinSocket_1x11_P2.54mm_Vertical
+    bom: false
+    pins:
+      '1': GND
+      '2': GPIO10
+      '3': GPIO11
+      '4': GPIO12
+      '5': GPIO13
+      '6': GPIO14
+      '7': GPIO15
+      '8': GPIO16
+      '9': GPIO17
+      '10': GPIO18
+      '11': GPIO19
+    placement:
+      x: 24.7332
+      y: 88.9631
+      rot: 180.0
+      fixed: true
+  C4:
+    value: 1uF
+    lcsc: C52923
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 27.1463
+      y: 30.4161
+      rot: 90.0
+      fixed: true
+  U4:
+    value: XC6206PxxxMR-Regulator_Linear
+    lcsc: C5446
+    spice: false
+    symbol: oshw_rp2040_designguide:SOT-23_back
+    footprint: oshw_rp2040_designguide:SOT-23_back
+    pins:
+      '1': GND
+      '2': +3V3
+      '3': +5V
+    placement:
+      x: 24.9868
+      y: 16.9671
+      rot: 90.0
+      fixed: true
+  R6:
+    value: '1'
+    source_value: 27R
+    lcsc: C25190
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0603_1608Metric_back
+    footprint: oshw_rp2040_designguide:R_0603_1608Metric_back
+    pins:
+      '1': D_N
+      '2': D_-
+    placement:
+      x: 27.813
+      y: 24.844
+      rot: 270.0
+      fixed: true
+  F1:
+    value: 500mA
+    lcsc: C70076
+    spice: false
+    symbol: oshw_rp2040_designguide:Fuse_1206_3216Metric_back
+    footprint: oshw_rp2040_designguide:Fuse_1206_3216Metric_back
+    pins:
+      '1': VBUS
+      '2': +5V
+    placement:
+      x: 24.8603
+      y: 10.8581
+      rot: 270.0
+      fixed: true
+  R3:
+    value: 5k1
+    lcsc: C25905
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:R_0402_1005Metric_back
+    pins:
+      '1': CC1
+      '2': GND
+    placement:
+      x: 26.924
+      y: 9.35
+      rot: 270.0
+      fixed: true
+  R4:
+    value: 5k1
+    lcsc: C25905
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:R_0402_1005Metric_back
+    pins:
+      '1': CC2
+      '2': GND
+    placement:
+      x: 31.877
+      y: 9.35
+      rot: 270.0
+      fixed: true
+  C11:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 22.606
+      y: 39.576
+      rot: 225.0
+      fixed: true
+  C8:
+    value: 1uF
+    lcsc: C52923
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 26.1303
+      y: 30.4161
+      rot: 90.0
+      fixed: true
+  C17:
+    value: 1uF
+    lcsc: C52923
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': GND
+      '2': +3V3
+    placement:
+      x: 24.511
+      y: 20.653
+      rot: 180.0
+      fixed: true
+  C13:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 29.912
+      y: 28.6224
+      rot: 90.0
+      fixed: true
+  C16:
+    value: 1uF
+    lcsc: C52923
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': GND
+      '2': +5V
+    placement:
+      x: 24.2248
+      y: 14.1731
+      rot: 0.0
+      fixed: true
+  C10:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 29.023
+      y: 44.2434
+      rot: 270.0
+      fixed: true
+  C15:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 35.1473
+      y: 32.9561
+      rot: 90.0
+      fixed: true
+  U2:
+    value: USBLC6-2SC6
+    lcsc: C2827654
+    spice: false
+    symbol: oshw_rp2040_designguide:SOT-23-6_back
+    footprint: oshw_rp2040_designguide:SOT-23-6_back
+    pins:
+      '1': D_P
+      '2': GND
+      '3': D_N
+      '4': D_USB_N
+      '5': +5V
+      '6': D_USB_P
+    placement:
+      x: 29.4323
+      y: 10.8581
+      rot: 90.0
+      fixed: true
+  C6:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 27.499
+      y: 44.2434
+      rot: 270.0
+      fixed: true
+  R1:
+    value: 1k
+    lcsc: C11702
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:R_0402_1005Metric_back
+    pins:
+      '1': USB_BOOT
+      '2': CS
+    placement:
+      x: 34.8933
+      y: 16.0651
+      rot: 270.0
+      fixed: true
+  C5:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +1V1
+      '2': GND
+    placement:
+      x: 31.436
+      y: 28.6224
+      rot: 90.0
+      fixed: true
+  C1:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 36.1633
+      y: 25.5901
+      rot: 180.0
+      fixed: true
+  C2:
+    value: 22pF
+    lcsc: C1555
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': GND
+      '2': XTAL_IN
+    placement:
+      x: 35.627
+      y: 48.0691
+      rot: 270.0
+      fixed: true
+  C9:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 23.435
+      y: 33.1944
+      rot: 180.0
+      fixed: true
+  C7:
+    value: 10uF
+    lcsc: C15525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 24.511
+      y: 19.637
+      rot: 0.0
+      fixed: true
+  C3:
+    value: 22pF
+    lcsc: C1555
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': GND
+      '2': XTAL_O
+    placement:
+      x: 28.9243
+      y: 47.8151
+      rot: 90.0
+      fixed: true
+  R5:
+    value: '1'
+    source_value: 27R
+    lcsc: C25190
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0603_1608Metric_back
+    footprint: oshw_rp2040_designguide:R_0603_1608Metric_back
+    pins:
+      '1': D_P
+      '2': D_+
+    placement:
+      x: 29.464
+      y: 24.844
+      rot: 270.0
+      fixed: true
+  U3:
+    value: RP2040
+    lcsc: C2040
+    spice: false
+    symbol: oshw_rp2040_designguide:RP2040-QFN-56_back
+    footprint: oshw_rp2040_designguide:RP2040-QFN-56_back
+    pins:
+      '1': +3V3
+      '2': GPIO0
+      '3': GPIO1
+      '4': GPIO2
+      '5': GPIO3
+      '6': GPIO4
+      '7': GPIO5
+      '8': GPIO6
+      '9': GPIO7
+      '10': +3V3
+      '11': GPIO8
+      '12': GPIO9
+      '13': GPIO10
+      '14': GPIO11
+      '15': GPIO12
+      '16': GPIO13
+      '17': GPIO14
+      '18': GPIO15
+      '19': GND
+      '20': XTAL_IN
+      '21': XTAL_OUT
+      '22': +3V3
+      '23': +1V1
+      '24': SWCLK
+      '25': SWD
+      '26': RESET
+      '27': GPIO16
+      '28': GPIO17
+      '29': GPIO18
+      '30': GPIO19
+      '31': GPIO20
+      '32': GPIO21
+      '33': +3V3
+      '34': GPIO22
+      '35': GPIO23
+      '36': GPIO24
+      '37': GPIO25
+      '38': GPIO26
+      '39': GPIO27
+      '40': GPIO28
+      '41': GPIO29
+      '42': +3V3
+      '43': +3V3
+      '44': +3V3
+      '45': +1V1
+      '46': D_-
+      '47': D_+
+      '48': +3V3
+      '49': +3V3
+      '50': +1V1
+      '51': SD3
+      '52': QSPI_CLK
+      '53': SD0
+      '54': SD2
+      '55': SD1
+      '56': CS
+      '57': GND
+    placement:
+      x: 29.912
+      y: 36.6551
+      rot: 180.0
+      fixed: true
+  Y1:
+    value: 12MHz
+    lcsc: C9002
+    spice: false
+    symbol: oshw_rp2040_designguide:Crystal_SMD_3225-4Pin_3.2x2.5mm_back
+    footprint: oshw_rp2040_designguide:Crystal_SMD_3225-4Pin_3.2x2.5mm_back
+    pins:
+      '1': XTAL_O
+      '2': GND
+      '3': XTAL_IN
+      '4': GND
+    placement:
+      x: 32.198
+      y: 47.7994
+      rot: 0.0
+      fixed: true
+  U1:
+    value: W25Q128JVS
+    lcsc: C131025
+    spice: false
+    symbol: oshw_rp2040_designguide:SOIC-8_5.23x5.23mm_P1.27mm_back
+    footprint: oshw_rp2040_designguide:SOIC-8_5.23x5.23mm_P1.27mm_back
+    pins:
+      '1': CS
+      '2': SD1
+      '3': SD2
+      '4': GND
+      '5': SD0
+      '6': QSPI_CLK
+      '7': SD3
+      '8': +3V3
+    placement:
+      x: 38.5763
+      y: 20.1731
+      rot: 270.0
+      fixed: true
+  R2:
+    value: 1k
+    lcsc: C11702
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:R_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': RESET
+    placement:
+      x: 22.352
+      y: 51.26
+      rot: 180.0
+      fixed: true
+  C12:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 36.1633
+      y: 38.7981
+      rot: 315.0
+      fixed: true
+  J1:
+    value: USB_C_Receptacle_USB2.0
+    lcsc: C165948
+    spice: false
+    symbol: oshw_rp2040_designguide:USB_C_Receptacle_HRO_TYPE-C-31-M-12_back
+    footprint: oshw_rp2040_designguide:USB_C_Receptacle_HRO_TYPE-C-31-M-12_back
+    pins:
+      A1: GND
+      A4: VBUS
+      A5: CC1
+      A6: D_USB_P
+      A7: D_USB_N
+      A9: VBUS
+      A12: GND
+      B1: GND
+      B4: VBUS
+      B5: CC2
+      B6: D_USB_P
+      B7: D_USB_N
+      B9: VBUS
+      B12: GND
+      S1: GND
+    nc:
+    - A8
+    - B8
+    placement:
+      x: 29.337
+      y: 2.3809
+      rot: 0.0
+      fixed: true
+  R7:
+    value: 1k
+    lcsc: C11702
+    spice: false
+    symbol: oshw_rp2040_designguide:R_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:R_0402_1005Metric_back
+    pins:
+      '1': XTAL_O
+      '2': XTAL_OUT
+    placement:
+      x: 31.055
+      y: 44.2434
+      rot: 90.0
+      fixed: true
+  C14:
+    value: 100nF
+    lcsc: C1525
+    spice: false
+    symbol: oshw_rp2040_designguide:C_0402_1005Metric_back
+    footprint: oshw_rp2040_designguide:C_0402_1005Metric_back
+    pins:
+      '1': +3V3
+      '2': GND
+    placement:
+      x: 23.435
+      y: 31.6704
+      rot: 180.0
+      fixed: true
+nets:
+  +1V1:
+    width_mm: 0.381
+    source_class: Power
+  +3V3:
+    width_mm: 0.381
+    source_class: Power
+  +5V:
+    width_mm: 0.381
+    source_class: Power
+  GND:
+    width_mm: 0.381
+    class: ground
+    source_class: Power
+  VBUS:
+    width_mm: 0.381
+    source_class: Power

@@ -1,0 +1,18 @@
+CERN Open Hardware Licence Version 2 - Weakly Reciprocal
+
+(c) 2025 Fredys Matos Borges
+
+This source describes Open Hardware and is licensed under the CERN-OHL-W v2.
+
+You may redistribute and modify this documentation and make products
+using it under the terms of the CERN-OHL-W v2 (https://gitlab.com/ohwr/project/cernohl/-/wikis/uploads/82b567f43ce515395f7ddbfbad7a8806/cern_ohl_w_v2.txt).
+
+This documentation is distributed WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY, INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY,
+AND FITNESS FOR A PARTICULAR PURPOSE.
+
+Source location: https://github.com/MbFredys/PCB-Mini-Environmental-Sensor.git
+
+As per CERN-OHL-W v2 section 4, should You produce hardware based on this
+source, You must maintain the same license and release the complete
+source of any modifications.

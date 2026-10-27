@@ -1,0 +1,53 @@
+(footprint "RELAY_G3MB-202P"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (tedit 62339C0F)
+  (attr through_hole)
+  (fp_text reference "K1"
+    (at -9.583625 -4.138735 180)
+    (layer "F.SilkS")
+    (effects
+      (font (size 1.000906 1.000906) (thickness 0.15))
+    )
+  )
+  (fp_text value "G3MB-202P"
+    (at 0 -2 180)
+    (layer "F.Fab")
+    (effects
+      (font (size 1.000693 1.000693) (thickness 0.15))
+    )
+  )
+  (fp_line (start 12.25 -2.75) (end -12.25 -2.75) (layer "F.SilkS") (width 0.254))
+  (fp_line (start -12.25 2.75) (end 12.25 2.75) (layer "F.SilkS") (width 0.254))
+  (fp_line (start -12.25 -2.75) (end -12.25 2.75) (layer "F.SilkS") (width 0.254))
+  (fp_line (start 12.25 2.75) (end 12.25 -2.75) (layer "F.SilkS") (width 0.254))
+  (fp_line (start -12.75 -3.25) (end 12.75 -3.25) (layer "F.CrtYd") (width 0.127))
+  (fp_line (start -12.75 3.25) (end -12.75 -3.25) (layer "F.CrtYd") (width 0.127))
+  (fp_line (start 12.75 3.25) (end -12.75 3.25) (layer "F.CrtYd") (width 0.127))
+  (fp_line (start 12.75 -3.25) (end 12.75 3.25) (layer "F.CrtYd") (width 0.127))
+  (pad "1" thru_hole rect
+    (at 10.16 1.4)
+    (size 1.508 1.508)
+    (drill 1)
+    (layers *.Cu *.Mask)
+  )
+  (pad "2" thru_hole circle
+    (at 2.54 1.4)
+    (size 1.508 1.508)
+    (drill 1)
+    (layers *.Cu *.Mask)
+  )
+  (pad "3" thru_hole circle
+    (at -7.62 1.4)
+    (size 1.508 1.508)
+    (drill 1)
+    (layers *.Cu *.Mask)
+  )
+  (pad "4" thru_hole circle
+    (at -10.16 1.4)
+    (size 1.508 1.508)
+    (drill 1)
+    (layers *.Cu *.Mask)
+  )
+)

@@ -1,0 +1,95 @@
+source:
+  url: https://github.com/adeboni/eurorack
+  commit: 22bce2b4b55096834bf2a0f689ee1f9858de5689
+  file: ecg-2hp/ecg.kicad_pcb
+  license: GPL-3.0
+  attribution: adeboni (Andrew DeBoni)
+  oshwa: null
+  category: analog-front-end
+source_project: ecg
+importer: hwflow.layout.board.kicad_import
+source_format: 20211014
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -190.2
+- -36.6
+board_mm:
+- 10.0
+- 100.0
+outline_fill: 1.0
+free:
+- C1
+- C10
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- C8
+- C9
+- D1
+- D2
+- R1
+- R10
+- R11
+- R12
+- R13
+- R14
+- R15
+- R16
+- R17
+- R18
+- R19
+- R2
+- R20
+- R21
+- R22
+- R23
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- U1
+- U2
+- U3
+dropped_footprints: []
+net_renames:
+  Net-(C1-Pad2): Net-_C1-Pad2
+  Net-(C2-Pad1): Net-_C2-Pad1
+  Net-(C2-Pad2): Net-_C2-Pad2
+  Net-(C5-Pad1): Net-_C5-Pad1
+  Net-(C5-Pad2): Net-_C5-Pad2
+  Net-(C6-Pad2): Net-_C6-Pad2
+  Net-(C8-Pad2): Net-_C8-Pad2
+  Net-(C9-Pad2): Net-_C9-Pad2
+  Net-(D1-Pad2): Net-_D1-Pad2
+  Net-(D2-Pad1): Net-_D2-Pad1
+  Net-(D2-Pad2): Net-_D2-Pad2
+  Net-(J1-Pad10): Net-_J1-Pad10
+  Net-(J3-PadT): Net-_J3-PadT
+  Net-(R1-Pad2): Net-_R1-Pad2
+  Net-(R13-Pad1): Net-_R13-Pad1
+  Net-(R15-Pad2): Net-_R15-Pad2
+  Net-(R16-Pad2): Net-_R16-Pad2
+  Net-(R18-Pad1): Net-_R18-Pad1
+  Net-(R22-Pad2): Net-_R22-Pad2
+  Net-(R3-Pad2): Net-_R3-Pad2
+  Net-(R7-Pad2): Net-_R7-Pad2
+  Net-(R9-Pad2): Net-_R9-Pad2
+  unconnected-(J3-PadTN): unconnected-_J3-PadTN
+  unconnected-(U2-Pad11): unconnected-_U2-Pad11
+  unconnected-(U2-Pad12): unconnected-_U2-Pad12
+not_imported:
+  zones:
+    GND: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: ecg.kicad_pro
+terminals: []
+warnings: []

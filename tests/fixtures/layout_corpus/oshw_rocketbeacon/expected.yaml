@@ -1,0 +1,119 @@
+source:
+  url: https://github.com/ElvinC/rocketbeacon
+  commit: 405957578e98e7582a6a6f67ac73d233a4f5690d
+  file: Hardware/beacon/beacon.kicad_pcb
+  license: CERN-OHL-P-2.0
+  attribution: ElvinC (Elvin Chen)
+  oshwa: null
+  category: battery-iot
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 192.2
+    per_layer_mm:
+      B.Cu: 35.3
+      F.Cu: 156.9
+    segments: 192
+    vias: 51
+    nets_with_copper: 19
+  drc_source_rules:
+    errors: 2
+    unconnected: 0
+    types:
+      copper_edge_clearance: 2
+  drc_hwflow_rules:
+    errors: 8
+    unconnected: 0
+    types:
+      copper_edge_clearance: 6
+      starved_thermal: 2
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 2
+    codes: []
+  parts: 35
+  nets: 19
+  board_mm:
+  - 13.0
+  - 27.0
+  placement_violations:
+  - BT1 pad 1 copper closer than 0.3 mm to the board edge
+  - J1 pad 1 copper closer than 0.3 mm to the board edge
+  - courtyard overlap AE1/BT1
+  - courtyard overlap C11/BT1
+  - courtyard overlap C15/BT1
+  - courtyard overlap C2/BT1
+  - courtyard overlap C3/BT1
+  - courtyard overlap C4/BT1
+  - courtyard overlap C5/BT1
+  - courtyard overlap C6/BT1
+  - courtyard overlap C7/BT1
+  - courtyard overlap C8/BT1
+  - courtyard overlap D1/BT1
+  - courtyard overlap J1/BT1
+  - courtyard overlap J2/BT1
+  - courtyard overlap L1/BT1
+  - courtyard overlap L2/BT1
+  - courtyard overlap L3/BT1
+  - courtyard overlap R1/BT1
+  - courtyard overlap R3/BT1
+  - courtyard overlap R4/BT1
+  - courtyard overlap TP1/BT1
+  - courtyard overlap TP2/BT1
+  - courtyard overlap U1/BT1
+  - courtyard overlap U2/BT1
+  - courtyard overlap Y1/BT1
+  fixed_violations:
+  - BT1 inside floorplan region 'outline_cut1' (4.0 mm2)
+  - BT1 inside floorplan region 'outline_cut2' (4.0 mm2)
+  corridors: {}
+  placement_cost: 89573.7
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 91
+    nets_no_exit_at_width:
+    - GND
+    necked: []
+    no_access:
+    - U1.49
+  seconds:
+    check: 0.5
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 3
+  open_nets:
+  - GND
+  - OSC_IN
+  - VFBSMPS
+  drc_errors: 8
+  drc_types:
+    copper_edge_clearance: 5
+  placement_violations: 26
+  isolation: []
+  router: '1 unrouted, krt 1 completed pass(es); retried in another net order (0.15 mm: default order 4 unrouted, --ordering
+    inside_out 4 unrouted, --mps-reverse-rounds 2 unrouted, --direction backward 1 unrouted); pour stitch: 4 vias, 3 stubs'
+  vias: 19
+  track_mm: 182.8
+  route_groups: []
+  seconds: 93.9
+  cpu_s: 252.0
+  timing:
+    drc_s: 8.2
+    place_s: 0.1
+    predict_s: 0.2
+    repair_s: 29.4
+    route_s: 31.8
+    stitch_s: 27.5
+  firstpass: null

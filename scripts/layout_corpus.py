@@ -149,7 +149,10 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
         cutout.unfix(w / "design.yaml")
     t0 = time.time()
     c0 = os.times()
-    env = dict(os.environ, **(env_extra or {}))
+    # expected.yaml `env`: the case's own layout environment (an imported board: HWFLOW_FAST=1, and
+    # HWFLOW_ROUTE_ILLEGAL=1 where the source placement breaks the placer's legality rules); env_extra wins
+    case_env = {str(k): str(v) for k, v in (expected(case).get("env") or {}).items()}
+    env = dict(os.environ, **case_env, **(env_extra or {}))
     try:
         p = subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(w)], capture_output=True, text=True,
                            timeout=timeout, env=env, cwd=str(ROOT))

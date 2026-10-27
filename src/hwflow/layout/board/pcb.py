@@ -100,8 +100,8 @@ def _quote_tokens(node: list) -> None:
         node[1] = Q(str(node[1]))
     if head in ("layer", "layers"):
         for i in range(1, len(node)):
-            if not isinstance(node[i], list):
-                node[i] = Q(str(node[i]))
+            if not isinstance(node[i], list) and not (head == "layer" and str(node[i]) == "knockout"):
+                node[i] = Q(str(node[i]))  # `(layer "F.SilkS" knockout)`: the flag stays a bare word
     for x in node:
         if isinstance(x, list):
             _quote_tokens(x)
@@ -146,7 +146,7 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
             sexpr.set_at_angle(at, (sexpr.at_angle(at) + part.r) % 360)
             net = pin_nets.get(str(item[1]))
             item = [x for x in item if not (isinstance(x, list) and x and x[0] in ("net", "uuid"))]
-            if net is not None and str(item[1]):
+            if net is not None and str(item[1]) and net.upper() not in ("NC", "~"):  # design.nets() skips them too
                 item.append(["net", netidx[net], Q(net)])
             item.append(["uuid", uid()])
         elif head == "model":
@@ -555,11 +555,18 @@ def write_project(dirpath: Path, name: str, design: Design):
         nc.append({"name": x["class"], "priority": 100})
         assignments += [{"netclass": x["class"], "pattern": n} for n in x["members"]]
     pro = {
-        "board": {"design_settings": {"rules": {"min_clearance": min(b["clearance_mm"], 0.15),
-                                                "min_track_width": 0.15, "min_via_diameter": 0.45,
-                                                "min_through_hole_diameter": 0.2, "min_copper_edge_clearance": EDGE_CLEARANCE_MM,
-                                                "min_hole_clearance": 0.25, "min_hole_to_hole": 0.25,
-                                                "min_via_annular_width": 0.1}}},
+        # the design's own rules are never below the DRC minimums (a 0.127 mm track board, a 0.4 / 0.2 mm via)
+        "board": {"design_settings": {"rules": {"min_clearance": min([b["clearance_mm"], 0.15]
+                                                                     + [v["clearance"] for v in classes.values()]),
+                                                "min_track_width": min([0.15, float(b["track_mm"])]
+                                                                       + [v["width"] for v in classes.values()]),
+                                                "min_via_diameter": min(0.45, float(b["via_dia_mm"])),
+                                                "min_through_hole_diameter": min(0.2, float(b["via_drill_mm"])),
+                                                "min_copper_edge_clearance": EDGE_CLEARANCE_MM,
+                                                "min_hole_clearance": min(0.25, float(b["clearance_mm"])),
+                                                "min_hole_to_hole": 0.25,
+                                                "min_via_annular_width": min(0.1, round((float(b["via_dia_mm"]) - float(
+                                                    b["via_drill_mm"])) / 2, 4))}}},
         "meta": {"filename": f"{name}.kicad_pro", "version": 3},
         "net_settings": {"classes": nc, "meta": {"version": 4}, "net_colors": None,
                          "netclass_assignments": None, "netclass_patterns": assignments},

@@ -1,0 +1,108 @@
+source:
+  url: https://github.com/rvt/espgaggia
+  commit: 9c1e82d372343871f555d4e18a19b2f75ea00521
+  file: kicad/gaggia_print/gaggia_print.kicad_pcb
+  license: MIT
+  attribution: R. van Twisk (rvt)
+  oshwa: null
+  category: mains
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+  HWFLOW_ROUTE_ILLEGAL: '1'
+human:
+  copper:
+    track_mm: 1908.5
+    per_layer_mm:
+      B.Cu: 836.5
+      F.Cu: 1072.0
+    segments: 325
+    vias: 12
+    nets_with_copper: 34
+  drc_source_rules:
+    errors: 13
+    unconnected: 0
+    types:
+      courtyards_overlap: 13
+  drc_hwflow_rules:
+    errors: 37
+    unconnected: 0
+    types:
+      courtyards_overlap: 13
+      pth_inside_courtyard: 24
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 1
+    codes: []
+  parts: 29
+  nets: 34
+  board_mm:
+  - 111.76
+  - 57.15
+  placement_violations:
+  - courtyard overlap J1/J10
+  - courtyard overlap J2/J1
+  - courtyard overlap J8/J3
+  - courtyard overlap J8/J9
+  - courtyard overlap Q1/Q2
+  - courtyard overlap R3/R4
+  - courtyard overlap U3/C1
+  - courtyard overlap U3/Q1
+  - courtyard overlap U3/Q2
+  - courtyard overlap U3/R3
+  - courtyard overlap U3/R4
+  - courtyard overlap U6/U1
+  - courtyard overlap U7/U2
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 237559.6
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 113
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 2.6
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: none
+replace:
+  free: 14
+  violations:
+  - courtyard overlap J1/J10
+  - courtyard overlap J2/J1
+  - courtyard overlap J8/J3
+  - courtyard overlap J8/J9
+  - courtyard overlap PS1/U1
+  seconds: 50.6
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 0
+  open_nets: []
+  drc_errors: 37
+  drc_types:
+    courtyards_overlap: 13
+    pth_inside_courtyard: 24
+  placement_violations: 13
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); pour stitch: 0 vias, 0 stubs'
+  vias: 49
+  track_mm: 1652.5
+  route_groups: []
+  seconds: 17.1
+  cpu_s: 35.9
+  timing:
+    drc_s: 3.4
+    place_s: 0.1
+    predict_s: 0.8
+    repair_s: 0.0
+    route_s: 8.6
+    stitch_s: 0.2
+  firstpass: null

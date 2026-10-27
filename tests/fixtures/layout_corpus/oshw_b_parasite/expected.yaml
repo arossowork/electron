@@ -1,0 +1,97 @@
+source:
+  url: https://github.com/rbaron/b-parasite
+  commit: bf15ebdea04510444007a2cd30b709951ef62fd7
+  file: kicad/parasite.kicad_pcb
+  license: CC-BY-SA-4.0
+  attribution: rbaron (Raphael Baron)
+  oshwa: null
+  category: battery-iot
+kind: oshw board (whole board, source placement, tracks stripped)
+env:
+  HWFLOW_FAST: '1'
+human:
+  copper:
+    track_mm: 401.4
+    per_layer_mm:
+      B.Cu: 125.2
+      F.Cu: 276.2
+    segments: 182
+    vias: 51
+    nets_with_copper: 19
+  drc_source_rules:
+    errors: 33
+    unconnected: 0
+    types:
+      footprint_type_mismatch: 3
+      solder_mask_bridge: 29
+      starved_thermal: 1
+  drc_hwflow_rules:
+    errors: 2
+    unconnected: 0
+    types:
+      clearance: 1
+      starved_thermal: 1
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 0
+    codes: []
+  parts: 29
+  nets: 19
+  board_mm:
+  - 22.0
+  - 126.414
+  placement_violations: []
+  fixed_violations:
+  - BT1 inside floorplan region 'outline_cut3' (18.3 mm2)
+  - BT1 inside floorplan region 'outline_cut4' (18.3 mm2)
+  - Q4 inside floorplan region 'outline_cut6' (0.9 mm2)
+  - R10 inside floorplan region 'outline_cut6' (0.1 mm2)
+  - TP7 inside floorplan region 'outline_cut5' (0.3 mm2)
+  - TP8 inside floorplan region 'outline_cut5' (1.0 mm2)
+  corridors: {}
+  placement_cost: 20017.8
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 69
+    nets_no_exit_at_width: []
+    necked: []
+    no_access: []
+  seconds:
+    check: 0.6
+    pin_access: 0.1
+tiers:
+  check: fast
+  replace: fast
+replace:
+  free: 19
+  violations: []
+  seconds: 5.5
+measured: '2026-10-27'
+route:
+  ok: false
+  unrouted: 5
+  open_nets:
+  - GND
+  drc_errors: 5
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '0 unrouted, krt 1 completed pass(es); retried in another net order (0.25 mm: default order 1 unrouted, --ordering
+    inside_out 5 unrouted, --mps-reverse-rounds 1 unrouted, --direction backward 0 unrouted); pour stitch: 0 vias, 0 stubs'
+  vias: 24
+  track_mm: 334.6
+  route_groups: []
+  seconds: 51.1
+  cpu_s: 122.8
+  timing:
+    drc_s: 7.2
+    place_s: 0.1
+    predict_s: 0.4
+    repair_s: 9.4
+    route_s: 35.3
+    stitch_s: 0.3
+  firstpass: null

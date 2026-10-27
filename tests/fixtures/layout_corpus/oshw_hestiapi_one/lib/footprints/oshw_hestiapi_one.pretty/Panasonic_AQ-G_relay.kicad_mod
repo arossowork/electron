@@ -1,0 +1,58 @@
+(footprint "Panasonic_AQ-G_relay"
+  (version 20241229)
+  (generator "hwflow-import")
+  (layer "F.Cu")
+  (property "Reference" "RL2"
+    (at 12.117 -2.434)
+    (unlocked yes)
+    (layer "F.SilkS")
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (property "Value" "RL"
+    (at 19.229 -0.91)
+    (unlocked yes)
+    (layer "F.Fab")
+    (hide yes)
+    (effects
+      (font (size 1 1) (thickness 0.15))
+    )
+  )
+  (attr through_hole)
+  (fp_rect
+    (start 0 -4.55)
+    (end 25.44 0)
+    (stroke (width 0.12) (type solid))
+    (fill no)
+    (layer "F.SilkS")
+  )
+  (pad "1" thru_hole circle
+    (at 22.86 -1.2)
+    (size 1.524 1.524)
+    (drill 1)
+    (layers "*.Cu" "*.Mask")
+    (remove_unused_layers no)
+  )
+  (pad "2" thru_hole circle
+    (at 15.24 -1.2)
+    (size 1.524 1.524)
+    (drill 1)
+    (layers "*.Cu" "*.Mask")
+    (remove_unused_layers no)
+  )
+  (pad "3" thru_hole circle
+    (at 5.08 -1.2)
+    (size 1.524 1.524)
+    (drill 1)
+    (layers "*.Cu" "*.Mask")
+    (remove_unused_layers no)
+  )
+  (pad "4" thru_hole circle
+    (at 2.54 -1.2)
+    (size 1.524 1.524)
+    (drill 1)
+    (layers "*.Cu" "*.Mask")
+    (remove_unused_layers no)
+  )
+)

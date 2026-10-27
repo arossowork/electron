@@ -1,0 +1,165 @@
+source:
+  url: https://github.com/OLIMEX/ESP32-C3-DevKit-Lipo
+  commit: 5d93e79d46cf3b05782d9fe0f95a8a2e1ca6abbe
+  file: HARDWARE/ESP32-C3-DevKit-Lipo_Rev_D/ESP32-C3-DevKit-Lipo_Rev_D.kicad_pcb
+  license: GPL-3.0
+  attribution: OLIMEX Ltd
+  oshwa: null
+  category: battery-iot
+source_project: ESP32-C3-DevKit-Lipo_Rev_D
+importer: hwflow.layout.board.kicad_import
+source_format: 20221018
+copper_layers:
+- F.Cu
+- B.Cu
+offset:
+- -129.54
+- -77.47
+board_mm:
+- 27.94
+- 38.1
+outline_fill: 1.0
+free:
+- BAT1
+- BAT_PWR_E1
+- BAT_SENS_E1
+- BUT1
+- C1
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- CHARGING1
+- D1
+- D2
+- EXT1
+- EXT2
+- FET1
+- L1
+- LED1
+- PWR_SENS_E1
+- R1
+- R10
+- R11
+- R12
+- R13
+- R14
+- R15
+- R16
+- R17
+- R18
+- R2
+- R3
+- R4
+- R5
+- R6
+- R7
+- R8
+- R9
+- U1
+- U2
+- U3
+- UEXT1
+- USB-C1
+dropped_footprints:
+- Logo_OLIMEX_2
+- REF*
+- Sign_Antistatic
+- Sign_CE
+- Sign_OSHW_7.3x6.0mm
+- Sign_PB-Free
+- Sign_RecycleBin_1
+net_renames:
+  /CC1: CC1
+  /CC2: CC2
+  /ESP_EN: ESP_EN
+  /GPIO0: GPIO0
+  /GPIO10\FSPICS0: GPIO10_FSPICS0
+  /GPIO1\BAT_MEASURE: GPIO1_BAT_MEASURE
+  /GPIO20\U0RXD: GPIO20_U0RXD
+  /GPIO21\U0TXD: GPIO21_U0TXD
+  /GPIO2\FSPIQ: GPIO2_FSPIQ
+  /GPIO3\I2C_SCK: GPIO3_I2C_SCK
+  /GPIO4\FSPIHD: GPIO4_FSPIHD
+  /GPIO5\EXT_PWR_SENSE: GPIO5_EXT_PWR_SENSE
+  /GPIO6\FSPICLK: GPIO6_FSPICLK
+  /GPIO7\I2C_SDA: GPIO7_I2C_SDA
+  /GPIO8\USER_LED: GPIO8_USER_LED
+  /GPIO9\USER_BUT: GPIO9_USER_BUT
+  /USB_DN: USB_DN
+  /USB_DP: USB_DP
+  Net-(BAT_PWR_E1-Pad1): Net-_BAT_PWR_E1-Pad1
+  Net-(BAT_SENS_E1-Pad1): Net-_BAT_SENS_E1-Pad1
+  Net-(BUT1-Pad2): Net-_BUT1-Pad2
+  Net-(CHARGING1-K): Net-_CHARGING1-K
+  Net-(D2-K): Net-_D2-K
+  Net-(LED1-A): Net-_LED1-A
+  Net-(PWR_SENS_E1-Pad1): Net-_PWR_SENS_E1-Pad1
+  Net-(U1-CHRGb): Net-_U1-CHRGb
+  Net-(U1-PROG): Net-_U1-PROG
+  Net-(U2-FB): Net-_U2-FB
+  Net-(U2-LX): Net-_U2-LX
+  unconnected-(FID1-FID*-PadFid1): unconnected-_FID1-FID_-PadFid1
+  unconnected-(FID2-FID*-PadFid1): unconnected-_FID2-FID_-PadFid1
+  unconnected-(FID3-FID*-PadFid1): unconnected-_FID3-FID_-PadFid1
+  unconnected-(FID4-FID*-PadFid1): unconnected-_FID4-FID_-PadFid1
+  unconnected-(FID5-FID*-PadFid1): unconnected-_FID5-FID_-PadFid1
+  unconnected-(FID6-FID*-PadFid1): unconnected-_FID6-FID_-PadFid1
+  unconnected-(U3-NC-Pad10): unconnected-_U3-NC-Pad10
+  unconnected-(U3-NC-Pad15): unconnected-_U3-NC-Pad15
+  unconnected-(U3-NC-Pad17): unconnected-_U3-NC-Pad17
+  unconnected-(U3-NC-Pad24): unconnected-_U3-NC-Pad24
+  unconnected-(U3-NC-Pad25): unconnected-_U3-NC-Pad25
+  unconnected-(U3-NC-Pad28): unconnected-_U3-NC-Pad28
+  unconnected-(U3-NC-Pad29): unconnected-_U3-NC-Pad29
+  unconnected-(U3-NC-Pad32): unconnected-_U3-NC-Pad32
+  unconnected-(U3-NC-Pad33): unconnected-_U3-NC-Pad33
+  unconnected-(U3-NC-Pad34): unconnected-_U3-NC-Pad34
+  unconnected-(U3-NC-Pad35): unconnected-_U3-NC-Pad35
+  unconnected-(U3-NC-Pad4): unconnected-_U3-NC-Pad4
+  unconnected-(U3-NC-Pad7): unconnected-_U3-NC-Pad7
+  unconnected-(U3-NC-Pad9): unconnected-_U3-NC-Pad9
+  unconnected-(USB-C1-SBU1-PadA8): unconnected-_USB-C1-SBU1-PadA8
+  unconnected-(USB-C1-SBU2-PadB8): unconnected-_USB-C1-SBU2-PadB8
+not_imported:
+  zones:
+    GND: 2
+    +3.3V: 17
+    +5V: 10
+    GPIO2_FSPIQ: 8
+    USB_DP: 3
+    Net-_BUT1-Pad2: 5
+    GPIO7_I2C_SDA: 9
+    GPIO8_USER_LED: 9
+    GPIO3_I2C_SCK: 10
+    +5V_USB: 3
+    GPIO6_FSPICLK: 2
+    Net-_LED1-A: 2
+    GPIO5_EXT_PWR_SENSE: 4
+    GPIO21_U0TXD: 6
+    USB_DN: 4
+    GPIO9_USER_BUT: 5
+    CC1: 3
+    CC2: 3
+    GPIO4_FSPIHD: 6
+    Net-_CHARGING1-K: 4
+    VBAT: 2
+    GPIO1_BAT_MEASURE: 4
+    Net-_U1-CHRGb: 3
+    ESP_EN: 6
+    GPIO20_U0RXD: 6
+    Net-_U1-PROG: 3
+    GPIO0: 1
+    GPIO10_FSPICS0: 6
+    __keepout__: 1
+    Net-_D2-K: 1
+    Net-_U2-FB: 4
+    Net-_PWR_SENS_E1-Pad1: 4
+    Net-_U2-LX: 1
+  custom_rules: false
+  blind_vias: 0
+  rules_source: ESP32-C3-DevKit-Lipo_Rev_D.kicad_pro
+terminals: []
+warnings: []
