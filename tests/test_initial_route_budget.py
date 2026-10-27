@@ -127,7 +127,7 @@ def test_auto_keeps_and_diagnoses_first_attempt_at_budget(tmp_path, monkeypatch)
     monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "0")
     monkeypatch.setattr(kicad, "drc", lambda *a, **k: [{"sev": "error", "type": "unconnected", "msg": "B open",
                                                      "items": ["Pad 2 [B] of R1", "Pad 2 [B] of R2"]}])
-    monkeypatch.setattr(pl_stages, "layout_diagnosis", lambda d, libs, attempts: {"retained": len(attempts)})
+    monkeypatch.setattr(pl_stages, "layout_diagnosis", lambda d, libs, attempts, kept=None: {"retained": len(attempts)})
     result = pl_stages.layout_auto(d, libs, attempts=1, seeds=1, iters=1)
     assert result["segments"] == 1 and result["budget_exhausted"]
     assert result["auto"]["kept"] == 1 and "wall-time budget" in result["auto"]["stopped"]

@@ -158,7 +158,7 @@ def test_auto_stops_at_the_wall_time_budget(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(pl_stages, "_auto_attempt", attempt)
     monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
-    monkeypatch.setattr(pl_stages, "layout_diagnosis", lambda d, libs, att: {"attempts": len(att)})
+    monkeypatch.setattr(pl_stages, "layout_diagnosis", lambda d, libs, att, kept=None: {"attempts": len(att)})
     t = time.time()
     r = pl_stages.layout_auto(d, Libs(design=d), attempts=4, workers=3)
     assert time.time() - t < 2.5, "running attempts are not waited for past the budget"
