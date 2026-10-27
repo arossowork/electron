@@ -49,7 +49,7 @@ class _Group(BaseSettings):
 
 
 # HWFLOW_FAST=1: layout fields and their values under the preset (only where the field is not given explicitly)
-FAST_PRESET: dict[str, Any] = {"pour_stitch": True, "place_escape": "1", "firstpass": "roads"}
+FAST_PRESET: dict[str, Any] = {"pour_stitch": True, "place_escape": "1", "roads": "route"}
 
 
 class LayoutSettings(_Group):
@@ -97,7 +97,8 @@ class LayoutSettings(_Group):
     portfolio_workers: int = Field(0, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_WORKERS"))  # 0: cpu count - 2
     portfolio_grace: float = Field(1.5, validation_alias=AliasChoices("HWFLOW_PORTFOLIO_GRACE"))
     # fast preset (docs/layout-flow.md "Fast preset"): HWFLOW_FAST=1 turns on the switches that measured faster to a
-    # clean first placement: pour_stitch, place_escape=1 (step 1 only) and firstpass=roads. A switch given explicitly
+    # clean first placement: pour_stitch, place_escape=1 (step 1 only) and roads=route (roads preseeded only, no
+    # reservations in placement). A switch given explicitly
     # (env or field) wins over the preset. Off by default.
     fast: bool = Field(False, validation_alias=AliasChoices("HWFLOW_FAST"))
 

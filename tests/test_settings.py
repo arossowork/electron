@@ -94,14 +94,14 @@ def test_cas_dir_default(monkeypatch):
 def test_fast_preset(monkeypatch):
     from hwflow.core.settings import Settings, with_layout_env
     keys = ("HWFLOW_FAST", "HWFLOW_POUR_STITCH", "HWFLOW_PLACE_ESCAPE", "HWFLOW_PLACE_ESCAPE_INFL",
-            "HWFLOW_PLACE_ESCAPE_ROT", "HWFLOW_FIRSTPASS", "HWFLOW_PORTFOLIO")
+            "HWFLOW_PLACE_ESCAPE_ROT", "HWFLOW_FIRSTPASS", "HWFLOW_ROADS", "HWFLOW_PORTFOLIO")
     for k in keys:
         monkeypatch.delenv(k, raising=False)
     L = get_settings().layout
     assert (L.fast, L.pour_stitch, L.place_escape, L.firstpass) == (False, False, None, None)  # all off by default
     monkeypatch.setenv("HWFLOW_FAST", "1")
     L = get_settings().layout
-    assert (L.pour_stitch, L.place_escape, L.firstpass) == (True, "1", "roads")
+    assert (L.pour_stitch, L.place_escape, L.roads, L.firstpass) == (True, "1", "route", None)
     assert L.place_escape_infl is None and L.place_escape_rot is None and not L.portfolio
     monkeypatch.setenv("HWFLOW_POUR_STITCH", "0")  # an explicit switch wins over the preset
     monkeypatch.setenv("HWFLOW_FIRSTPASS", "1")
@@ -112,4 +112,4 @@ def test_fast_preset(monkeypatch):
     for k in keys:
         monkeypatch.delenv(k, raising=False)
     f = with_layout_env(get_settings(), {"HWFLOW_FAST": "1"}).layout
-    assert (f.pour_stitch, f.place_escape, f.firstpass) == (True, "1", "roads")
+    assert (f.pour_stitch, f.place_escape, f.roads, f.firstpass) == (True, "1", "route", None)

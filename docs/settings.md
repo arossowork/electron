@@ -34,7 +34,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.pour_stitch` | `HWFLOW_POUR_STITCH` | off | Join a split GND pour after routing: vias in the fill, in exposed pads, pad stubs to a via, stubs that displace routed nets (layout/route/pourstitch.py) |
 | `layout.firstpass` | `HWFLOW_FIRSTPASS` | none (design `placement.firstpass`, then off) | Routable first pass: `1` (every step) or a list of `roads`, `hot`, `quick` (layout/route/firstpass.py) |
 | `layout.firstpass_quick_s`, `layout.firstpass_hot_w` | `HWFLOW_FIRSTPASS_QUICK_S`, `_HOT_W` | 240, 4 | Wall cap of the quick route; weight of the hotspot placer term |
-| `layout.fast` | `HWFLOW_FAST` | off | Fast preset: `pour_stitch` on, `place_escape=1`, `firstpass=roads`, each unless given explicitly (docs/layout-flow.md "Fast preset") |
+| `layout.fast` | `HWFLOW_FAST` | off | Fast preset: `pour_stitch` on, `place_escape=1`, `roads=route`, each unless given explicitly (docs/layout-flow.md "Fast preset") |
 | `layout.portfolio` | `HWFLOW_PORTFOLIO` | off | Attempt 1 of `--auto` as the layout portfolio (pipeline/portfolio.py) |
 | `layout.portfolio_workers` | `HWFLOW_PORTFOLIO_WORKERS` | 0 (CPU count - 2) | Portfolio strategies at once |
 | `layout.portfolio_grace` | `HWFLOW_PORTFOLIO_GRACE` | 1.5 | Running strategies get this x the first converged one's time; `inf` waits for all |

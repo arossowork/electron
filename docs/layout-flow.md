@@ -183,11 +183,16 @@ placement" and "Routable first pass", and step 8 for the pour stitch):
 |---|---|
 | `HWFLOW_POUR_STITCH` | `1` |
 | `HWFLOW_PLACE_ESCAPE` | `1` (step 1, the slot term; `_INFL` and `_ROT` stay off) |
-| `HWFLOW_FIRSTPASS` | `roads` (the `hot` and `quick` steps stay off) |
+| `HWFLOW_ROADS` | `route` (roads preseeded and routed first; no reservations in placement) |
 
 A switch set explicitly wins over the preset (`HWFLOW_FAST=1 HWFLOW_POUR_STITCH=0` runs without the stitch). The
 preset sets the settings, so the route cache key and `status.json` `settings` show the resolved values. The layout
 portfolio stays off.
+
+Why `roads=route` and not `firstpass=roads`: on home-thermostat-4 seeds 1, 5, 9, 13, 17, 21 the preseed-only variant
+converged at attempt 1 on 5 of 6 seeds with a mean of 353 s wall / 719 s CPU, against 4 of 6 and 604 s / 1274 s with
+firstpass roads (reservations in placement). The placement screen (`HWFLOW_SCREEN`) cost about 3x the CPU for no extra
+reliability and stays opt-in.
 
 ## Switches
 
@@ -200,7 +205,7 @@ portfolio stays off.
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
 | `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
 | `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
-| `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_FIRSTPASS=roads` (above); an explicit switch wins |
+| `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_ROADS=route` (above); an explicit switch wins |
 | `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
