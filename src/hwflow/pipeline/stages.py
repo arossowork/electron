@@ -290,6 +290,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     cache = _out(d) / "routecache"
     pj = out / "placement.json"
     t0 = time.time()
+    placer.WORK.update(pack_evals=0, aborts=[])  # the placement's work counters and safety aborts (place_work)
     weights = (d.raw.get("placement") or {}).get("weights")
     declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
@@ -368,7 +369,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                 "corridors": corridors, "router": "-", "segments": 0, "vias": 0, "drc_errors": 0, "drc_warnings": 0,
                 "unrouted": 0, "drc": [], "repair": None, "route_cache": None,
                 "fixed_parts_only": blocks if verdict is None or verdict["back_to"] == "architecture" else [],
-                "placement_verdict": verdict, "eco": eco_info, "timing": tm, "seconds": round(time.time() - t0, 1)}
+                "placement_verdict": verdict, "eco": eco_info, "timing": tm,
+                "place_work": _place_work(), "seconds": round(time.time() - t0, 1)}
 
     # the routability prediction of this legal placement (seconds, no routing): a report and a run log
     # (build/routab/), never a gate; HWFLOW_ROUTAB_PREDICT=0 turns it off
@@ -517,7 +519,13 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "route_cache": key if hit else None, "pour_stitch": stitch, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
-            "eco": eco_info, "timing": tm, "seconds": round(time.time() - t0, 1)}
+            "eco": eco_info, "timing": tm, "place_work": _place_work(), "seconds": round(time.time() - t0, 1)}
+
+
+def _place_work() -> dict:
+    """The placement's work counters and its wall-clock safety aborts (placer.WORK): an empty `aborts` means the
+    placement stopped on counts only, so the same design and seed reproduce it bit for bit."""
+    return {"pack_evals": placer.WORK["pack_evals"], "aborts": list(placer.WORK["aborts"])}
 
 
 def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:

@@ -48,6 +48,23 @@ failure in every attempt; settle now moves the boost block 0.1 mm into the regio
 (near, then from the corner) and keeps the result with the fewest violations; it is never worse than its input.
 With the routability ranking on (`HWFLOW_ROUTAB_RANK=1`), `place` keeps, among the legal seeds, the one with the
 fewest predicted hard nets.
+When violations are left after settle, `unstick` runs once more on the settled placement and is kept only with fewer
+violations: settle's raster has no isolation distances, so on thermo-e2e-4 it fixed the regions but put R19 0.5-1 mm
+inside F1's mains isolation; the grid search cleared it in 6 s.
+
+### Reproducibility
+
+The same design and `seed0` give the same placement bit for bit, whatever the CPU load and in any process
+(`tests/test_place_determinism.py`; `scripts/place_repro.py <project>` prints a placement hash). Every normal stop
+of a placement step is a count: seeds, annealing iterations, L-BFGS-B iterations, detailed passes, unstick grid
+points and units, and the packing search's `placer.PACK_EVALS` tries (60, about the 45 s the old time cap allowed on
+thermo-e2e-4). Wall-clock limits are safety aborts only: `PACK_ABORT_S` (600 s) in the packing search, and the layout
+budget (no new seed, unstick and the incremental detailed moves stop). Each one that fires prints
+`[place] safety abort: ...`, goes to `placer.WORK["aborts"]`, status.json `layout.place_work` and REPORT.md. No step
+may depend on the iteration order of a set of strings (it changes with the per-process hash seed): the through-hole
+pads of `hole_boxes`, taken in set order, changed the order of the density blockages of the global placement, so the
+float sums, so every later stage; 1 of 5 hash seeds of thermo-e2e-4 then ended with 2 isolation violations. The
+router subprocess gets `PYTHONHASHSEED=0` (krt.router_env) unless the caller sets one.
 
 ## Incremental layout after a clean layout (ECO, `layout/place/eco.py`)
 

@@ -160,6 +160,8 @@ def write_report(d: Design, history: bool = False) -> str:
                      f"parts stayed; new or changed: {', '.join(e['touched']) or 'none'}; in conflict with the edit: "
                      f"{', '.join(e['conflicts']) or 'none'}; re-placed: {', '.join(e['moved'][:20]) or 'none'}"
                      f"{' ...' if len(e['moved']) > 20 else ''} (largest move {e.get('max_shift_mm', 0)} mm)")
+        for a in (c.get("place_work") or {}).get("aborts") or []:  # placer.WORK: a wall-clock stop, not a count
+            L.append(f"  - placement safety abort: {a} (this placement is not reproducible)")
         if c.get("routability"):
             ra = c["routability"]
             L.append(f"  - routability prediction ({ra['seconds']} s, no routing): {ra['message']}")

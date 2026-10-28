@@ -62,7 +62,7 @@ def _seed_xy(d, parts, ref, placed):
         if ref not in refs or net in gnds:
             continue
         cls = (d.net_info(net) or {}).get("class")
-        others = [parts[r] for r in refs if r != ref and r in placed and r in parts]
+        others = [parts[r] for r in sorted(refs) if r != ref and r in placed and r in parts]  # sorted: same sum bits
         (weak if cls == "power" or len(refs) > 8 else near).extend(others)
     pts = near or weak
     if not pts:
@@ -147,7 +147,9 @@ def place(d, libs, good: dict, deadline: float | None = None):
              if any(abs(before[r][0] - pl.parts[r].x) > 1e-6 or abs(before[r][1] - pl.parts[r].y) > 1e-6
                     or before[r][2] != pl.parts[r].r for r in pl._refs(u) if r in before)
              or any(r in touched for r in pl._refs(u))]
-    if moved and not viol and (deadline is None or time.time() < deadline):
+    if moved and not viol and deadline is not None and time.time() >= deadline:
+        placer.safety_abort("incremental placement: detailed moves skipped at the layout budget")
+    elif moved and not viol:
         s = pl._state()
         pl.detailed(moved)
         v2 = pl.violations()

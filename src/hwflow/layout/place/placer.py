@@ -81,7 +81,7 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
 def hole_boxes(p: "Part") -> list:
     """Boxes of everything of part `p` that goes through the board: its plated through-hole pads (the pad) and its
     non-plated holes (mounting pegs): no courtyard of another part on either side may cover them."""
-    return [part_pad_box(p, n) for n in p.tht] + p.npth_boxes()
+    return [part_pad_box(p, n) for n in sorted(p.tht, key=str)] + p.npth_boxes()
 
 
 def part_pad_box(p: "Part", n):
@@ -211,6 +211,16 @@ DP_PASSES = 4  # detailed placement passes at most
 DP_STEPS = (0.25, 0.5, 1.0, 2.0)  # detailed placement shifts, in track pitches (board track + clearance)
 DP_RADIUS = 3.0  # detailed placement swap and window neighbourhood (Manhattan), in typical part sizes (_unit_size)
 ANNEAL = {"moves": 0, "s": 0.0}  # annealing moves and seconds in this process (the anneal rate, docs/asic-ideas.md)
+# Work of the bounded placement steps in this process. Every normal stop is a count (seeds, iterations, tries), so the
+# same design and seed give the same placement under any CPU load; a wall-clock limit is only a safety abort, and each
+# one that fires is listed in `aborts` (the placement is then not reproducible). Reset by stages.stage_layout.
+WORK: dict = {"pack_evals": 0, "aborts": []}
+
+
+def safety_abort(what: str) -> None:
+    """Record and print a wall-clock safety abort of a placement step (WORK["aborts"])."""
+    WORK["aborts"].append(what)
+    print(f"[place] safety abort: {what} (wall-clock limit; this placement may differ from run to run)")
 _REPORTED: set = set()  # fixed-part violations already printed, once per process
 _BLOCKS: dict = {}  # corridor block verdicts per net and fixed-part placement (the corridor proof is slow)
 REFINE = 0.2  # refine pass length, as a share of the per-seed iterations
@@ -219,8 +229,11 @@ UNSTICK_UNITS = 50  # unstick: most parts moved per round, worst violation first
 SETTLE_CELLS = 4e6    # Placer.settle: occupancy raster cells over the board (cell side 0.05-0.25 mm)
 SETTLE_TURN_MM = 0.5  # Placer.settle: a rotated spot must be this much nearer than one in the current rotation
 PACK_UNITS = 5        # Placer.settle: the largest units of a tight spot whose put-back order the packing search permutes
-PACK_EVALS = 240      # Placer.settle: at most this many orders x rotations tried there (it stops at the first legal one)
-PACK_S = 45.0         # Placer.settle: and at most this many seconds
+# Placer.settle: at most this many orders x rotations tried there (it stops at the first legal one). A work budget,
+# not a time budget, so the result does not depend on the CPU load: 60 tries took about 45 s on thermo-e2e-4
+# (0.76 s per try), the time cap (PACK_S = 45) this count replaces.
+PACK_EVALS = 60
+PACK_ABORT_S = 600.0  # Placer.settle: safety abort of the packing search only (reported: the result is then load-dependent)
 SETTLE_WINDOW = 4.0   # Placer.settle: first search a window of this many unit sizes around the unit, then the board
 
 
@@ -1679,8 +1692,9 @@ class Placer:
         import time
         P = self.parts
         self.cost()
-        for _ in range(rounds):
+        for k in range(rounds):
             if deadline is not None and time.time() >= deadline:
+                safety_abort(f"unstick stopped at the layout budget before round {k + 1} of {rounds}")
                 break
             bad: dict = {}
             for (a, b), v in self.pairs.items():
@@ -1716,6 +1730,7 @@ class Placer:
             units = {id(self._unit(P[r])): self._unit(P[r]) for r in bad}  # a block moves as one
             for p in list(units.values())[:UNSTICK_UNITS]:  # worst first
                 if deadline is not None and time.time() >= deadline:
+                    safety_abort(f"unstick stopped at the layout budget in round {k + 1} of {rounds}")
                     break
                 cur = self._total()
                 best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
@@ -1956,7 +1971,7 @@ class Placer:
         units first, then their other permutations; the violating units lead, the units that only sit in the regions
         go back last), the first unit in each of its four rotations, near where they are and packed from the corner of
         their region; the first legal result is kept, else the one with the fewest violations. Bounded by PACK_EVALS
-        tries and PACK_S seconds. Returns the violations left."""
+        tries (PACK_ABORT_S seconds is only a safety abort). Returns the violations left."""
         import itertools
         import time
         bad = self._violators(v)
@@ -1999,10 +2014,14 @@ class Placer:
         for perm in orders:
             for r0 in (0.0, 90.0, 180.0, 270.0):
                 for mode, c in [("near", (0.0, 0.0))] + [("corner", c) for c in corners]:
-                    if n >= PACK_EVALS or time.time() - t0 > PACK_S:
+                    if n >= PACK_EVALS or time.time() - t0 > PACK_ABORT_S:
+                        if n < PACK_EVALS:
+                            safety_abort(f"packing search stopped after {n} of {PACK_EVALS} tries, "
+                                         f"{time.time() - t0:.0f} s > PACK_ABORT_S {PACK_ABORT_S:.0f} s")
                         self._restore(best[1])
                         return best[2]
                     n += 1
+                    WORK["pack_evals"] += 1
                     self._restore(start)
                     self._settle(S, mode, corner=c, order=list(perm) + rest, rots={id(perm[0]): r0})
                     vv = self.violations()
@@ -2436,8 +2455,10 @@ class Placer:
 def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None, seed0: int = 1,
           refine: float = REFINE, deadline: float | None = None, areas=None):
     """Best of several seeds (seed0 .. seed0 + seeds - 1), then a short low-temperature refine pass of
-    `refine * iters` moves on the best one (taken out of the seeds' budget). `deadline` (time.time()): no new seed
-    starts after it (the first always runs) and unstick stops. Returns (parts, cost, violations)."""
+    `refine * iters` moves on the best one (taken out of the seeds' budget). Every step stops on a count (seeds,
+    iterations, tries; seeded RNG), so the same design and seed0 give the same placement under any CPU load.
+    `deadline` (time.time(), the layout budget) is only a safety abort: no new seed starts after it (the first always
+    runs) and unstick stops, each reported in WORK["aborts"]. Returns (parts, cost, violations)."""
     import time
     b = design.board
     best = None
@@ -2447,7 +2468,7 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
     rank = routability.rank_on(design) and seeds > 1
     for seed in range(seed0, seed0 + seeds):
         if best is not None and deadline is not None and time.time() >= deadline:
-            print(f"[place] layout budget used up: seeds {seed}..{seed0 + seeds - 1} skipped")
+            safety_abort(f"layout budget used up: seeds {seed}..{seed0 + seeds - 1} skipped")
             break
         parts = build_parts(design, libs, areas=areas)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
@@ -2485,6 +2506,18 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         else:
             pl._restore(before)
             pl.cost()
+        if v:
+            # settle's raster knows courtyards, keep-outs and regions but not the isolation distances: a part it puts
+            # back can land too close to another isolation side (thermo-e2e-4: R19 0.5-1 mm short of F1 after settle
+            # fixed the regions). unstick's grid search counts every term; kept only when it leaves fewer violations
+            before = pl._state()
+            cost2 = pl.unstick(deadline=deadline)
+            v2 = pl.violations()
+            if len(v2) < len(v):
+                cost, v, key = cost2, v2, (len(v2), cost2)
+            else:
+                pl._restore(before)
+                pl.cost()
     from . import asicflow
     if asicflow.on(design):  # the layout flow has its own short anneal: no refine pass
         refine = 0
