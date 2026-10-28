@@ -204,6 +204,9 @@ def write_report(d: Design, history: bool = False) -> str:
                     if r.get("current_a") else f" at the operating point (worst at {r['worst_pin']})"))
         if c.get("scope"):
             L.append(f"  - scope: {c['scope']}")
+        for g in c.get("geometry") or []:
+            L.append(f"  - layout check {g['name']}{' (' + g['req'] + ')' if g.get('req') else ''}: "
+                     f"{'ok' if g['ok'] else 'FAIL'}; {g['detail']}")
         lc = c.get("lump_check")
         if lc:
             L.append(f"  - lumping check on {lc['analysis']}: " + (lc["error"] if "error" in lc else

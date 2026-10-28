@@ -58,6 +58,14 @@ def trace(d: Design) -> dict:
         for rid in str(r.get("req") or "").replace(" ", "").split(","):
             if rid:
                 results.setdefault(rid, []).append((f"budget {r['name']} {r['value']}/{r['limit']:g} {r['unit']}", r["ok"]))
+    for r in (s.get("post") or {}).get("geometry") or []:   # layout_checks with req: (outline, distance, keep-out, side)
+        for rid in str(r.get("req") or "").replace(" ", "").split(","):
+            if rid:
+                val = r["value"]
+                val = "x".join(f"{v:g}" for v in val) if isinstance(val, list) else "n/a" if val is None else f"{val:g}"
+                lim = r["limit"]
+                lim = "x".join(f"{v:g}" for v in lim) if isinstance(lim, list) else "n/a" if lim is None else f"{lim:g}"
+                results.setdefault(rid, []).append((f"{r['kind']} {r['name']} {val}/{lim} {r['unit']}", r["ok"]))
     nst = (s.get("layout") or {}).get("nets") or {}
     lays = pcb.net_layers(d)
     for n, mw in pcb.net_min_widths(d).items():   # nets.<name>.req: the routed copper of that net (min width, layers)

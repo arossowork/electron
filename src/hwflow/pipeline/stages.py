@@ -14,7 +14,7 @@ from ..sim import budgets
 from ..layout.board import kicad, pcb
 from ..layout.route import krt
 from ..layout.place import placer
-from ..verify import postlayout
+from ..verify import geomchecks, postlayout
 from ..layout.place import barrier, corridor, pinaccess
 from ..layout.route import regionroute, repair, seedroute
 from ..layout.board import routing
@@ -988,6 +988,8 @@ def stage_post(d: Design) -> dict:
     t = time.time()
     ex = postlayout.Extraction(d, board)
     checks = postlayout.layout_checks(d, ex)
+    geometry = geomchecks.evaluate(d, board)   # layout_checks: in design.yaml, measured on the built board
+    checks += [{"sev": "error", "code": "layout-check", "msg": f"{g['name']}: {g['detail']}"} for g in geometry if not g["ok"]]
     w = out / "post"
     ir = postlayout.ir_drop(d, ex, w)
     nm = postlayout.PostLayoutNodeMap(d, ex)
@@ -1014,7 +1016,7 @@ def stage_post(d: Design) -> dict:
     regress = [x for x in deltas if x["pass_pre"] and not x["pass_post"]]
     return {"ok": not errs and not regress and all(x["pass_post"] for x in deltas), "checks": checks,
             "ir_drop": ir, "deltas": deltas, "regressions": regress, "metrics": postlayout.board_metrics(d, ex),
-            "runs": _run_summary(post), "scope": _post_scope(d, nm), "lump_check": _lump_check(d, ex, w, post),
+            "geometry": geometry, "runs": _run_summary(post), "scope": _post_scope(d, nm), "lump_check": _lump_check(d, ex, w, post),
             "distances": {"decap": postlayout.decap_paths(d, ex), "clearance": postlayout.group_clearances(d, ex)},
             "timing": tm}
 

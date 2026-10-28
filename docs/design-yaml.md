@@ -78,7 +78,7 @@ nets:
 
 `min_width_mm` is the narrowest copper the net may have: the router does not neck the net under it (no pad-entry or neck-down pass at a smaller width, no corridor-proof narrow-first pass or seed route when it is above the 0.15 mm neck floor), so a net that does not fit at that width stays open. A track of the net narrower than it is a layout failure (`too_narrow` in the layout status). Use it where a neck is a safety problem, for example a mains track that must carry the fuse's let-through I²t.
 
-`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no current board check names (no `req:` on a net, a `board.isolation` group or a budget) stays `UNVERIFIED` in `hwflow trace`; evidence prose does not verify routed copper. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
+`req` on a net (`req: R13`, several as `R13,R14`) ties that net's routed copper to requirements: with `min_width_mm` its narrowest track must reach it, with `layers` its tracks must stay on them; `hwflow trace` lists each as a measure (`net AC min width 1.0/1 mm`). A `verification: layout` requirement that no current board check names (no `req:` on a net, a `board.isolation` group, a budget or a `layout_checks` entry) stays `UNVERIFIED` in `hwflow trace`; evidence prose does not verify routed copper. `uv run hwflow nets <proj> [net...]` prints the routed copper of each net from the last layout (class width, narrowest and widest track, length, length under the class width, vias, layers); `status.json` holds it under `layout.nets`.
 
 `layers` lists the copper layers the router may use for the net (KiCad names; globs such as `In*.Cu` match the board's layers). KiCadRoutingTools routes those nets in passes of their own, with every other layer forbidden (`--layers <all> --layer-costs`, -1 on the others: an obstacle that through vias may cross, no track on it); repair reroutes keep the same passes. The Freerouting path writes the net class with `(circuit (use_layer ...))`. `hwflow check` fails on a name that matches no copper layer of the board, and on an SMD pad of the net that sits only on layers outside the list (through-hole pads reach every layer). A track of the net on another layer is a layout failure (`off_layer` in the layout status) and a post-layout error (`net-layer`), so the build cannot pass with it. The net's layers win over a `board.drc_rules` `disallow` rule on a named rule area (`A.intersectsArea('Z')`, for example a mains-off-the-inner-layers rule): when the list shares a copper layer with area Z and the rule names the net (NetName, its class or its isolation class) or no net at all, hwflow writes the rule with `&& A.NetName != '<net>'`, for KiCad DRC and the router alike, and `hwflow check` warns about the overlap.
 
@@ -422,6 +422,21 @@ After the answer, run `hwflow approve <proj>` so the new state becomes the basel
 
 Identifiers (R7, C23, q2, round 2) are not numbers of the spec. Wording that changes no number, priority, acceptance or method is not flagged.
 
+
+### layout_checks
+
+`layout_checks:` (top level) lists geometric checks that `hwflow build` measures on the built `.kicad_pcb` in the post-layout stage (deterministic, no router; result in `status.json` under `post.geometry`, lines `layout check ...` in `REPORT.md`). `req: R24` (several as `R24,R25`) ties a check to requirements, so `hwflow trace` lists it as a measure and a `verification: layout` requirement becomes verified (all its checks pass) or failing (one fails). A failing check is also a post-layout error; `hwflow check` rejects a malformed entry.
+
+```yaml
+layout_checks:
+  - {name: outline, kind: outline_max, width_mm: 90, height_mm: 48, req: R1}          # Edge.Cuts bounding box; rotate_ok: true also accepts 48 x 90
+  - {name: ant-relays, kind: min_distance, from: {region: antenna}, to: {parts: [K1, K2]}, min_mm: 15, req: R24}
+  - {name: ant-mains, kind: min_distance, from: {parts: [U1]}, to: {net_class: mains}, min_mm: 15, req: R24}
+  - {name: ant-nocopper, kind: keepout_free, area: {region: antenna}, layers: [F.Cu, B.Cu], except_parts: [U1], req: R24}
+  - {name: smd-top, kind: side_only, side: front, parts: [smd], req: R28}              # parts: refs, globs (J*), smd (no through-hole pad), tht
+```
+
+A selector (`from`, `to`, `area`) is a mapping with one or more of `parts` (refs or globs, courtyard and pads), `role` (component `role`, for example `antenna`), `nets` / `net_class` (all copper of the nets: tracks, vias, pads, zone fills; `layers:` restricts it), `rect: [x0, y0, x1, y1]`, `circle: [x, y, r]` and `region` (a `floorplan.regions` name with a rect or circle); `margin_mm` grows it. `min_distance` is the closest approach of the two selections in the plane (every layer) and must be at least `min_mm`. `keepout_free` needs no copper of the checked layers (default F.Cu and B.Cu) inside the area, except `except_nets`, `except_parts` and overlaps under `tolerance_mm2` (default 0.02, the slits of a fractured pour). `side_only` needs the listed parts on the `front` (F.Cu) or `back` face.
 
 ## Requirement verification evidence
 
