@@ -25,6 +25,7 @@ from shapely.ops import unary_union
 from ...core.floorplan import EDGES, EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, cuts, depth, fixed_pad_isolation, members, outline, parse, placer_regions, region_distances, resolve
 from ...core.floorplan import *  # noqa: F401,F403  (the data model moved to core.floorplan; its public names stay here)
 from ...core.settings import get_settings
+from .routability import AREA_FAIL_MM2, RATIO_FAIL
 
 
 def _fits(w, h, poly) -> bool:
@@ -405,6 +406,7 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
         place = False
     if place and parts:
         place_out = _quick_place(design, d2, parts, fp, iters, seeds)
+        alts = place_out.pop("_alts", [])
         for msg in place_out["fixed_violations"]:
             ok, why = _fixed_severity(parts, fp, msg, m)
             add("fixed-placement", ok, msg + why, None if ok is None else "architecture")
@@ -421,14 +423,8 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
                 + "; no routability or congestion estimate from an illegal placement",
                 pv["back_to"] if pv["back_to"] != "layout" else None)
         if not v:  # the routability prediction of the quick placement (routability.py; a legal placement only)
-            from . import routability
-            try:
-                rp = routability.predict(d2, libs, parts=parts)
-                place_out["routability"] = routability.public(rp)
-                # a report, not a gate: a prediction short of `routable` is a risk, never a FAIL
-                add("routability-prediction", True if rp["verdict"] == "routable" else None, rp["message"])
-            except Exception as e:  # noqa: BLE001 - an estimate; the other checks stand without it
-                add("routability-prediction", None, f"not run: {type(e).__name__}: {e}")
+            for name, ok, msg, back in _routability_checks(design, d2, libs, parts, place_out, alts):
+                add(name, ok, msg, back)
     if place_out is not None and not place_out["violations"]:  # a congestion figure of an illegal placement misleads
         c = place_out["congestion"]
         ok = True if c["util"] <= UTIL_RISK and c["peak"] <= PEAK_RISK else (False if c["util"] > UTIL_FAIL else None)
@@ -914,7 +910,7 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
         W = max(W, max(b["x"] + b["w"] for b in fp["boards"]))
         H = max(H, max(b["y"] + b["h"] for b in fp["boards"]))
     weights = (design.raw.get("placement") or {}).get("weights")
-    best = None
+    best, legal = None, []
     for seed in range(1, seeds + 1):
         for p in parts.values():
             if not p.fixed:
@@ -934,6 +930,8 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
             if len(v2) < len(v):
                 cost, v = pl.cost(), v2
         key = (_region_viol(v), len(v), cost)
+        if not v:
+            legal.append((seed, pl._state()))
         if best is None or key < best[0]:
             best = (key, pl._state(), v, seed)
     (_, _, cost), state, viol, seed = best
@@ -962,7 +960,68 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
     return {"seed": seed, "iters": iters, "cost": round(cost, 1), "violations": viol, "fixed_violations": fixed_viol, "congestion": cong,
             "crossing": dict(sorted(cross.items(), key=lambda kv: -kv[1])), "crossing_nets": sum(cross.values()),
             "positions": {r: [round(p.x, 2), round(p.y, 2), p.r] for r, p in parts.items()}, "W": W, "H": H,
-            "cell": pl.cell}
+            "cell": pl.cell, "_alts": [(sd, st) for sd, st in legal if sd != seed]}
+
+
+def _routability_checks(design, d2, libs, parts, place_out, alts) -> list[tuple]:
+    """The routability prediction of the legal quick placement (routability.py, the predictor the layout stage runs),
+    with the requirement-budget track widths of this placement set as the layout stage sets them, and its congestion
+    gate. The gate FAILs the floorplan when the best placement and every other legal seed are congested (a seed that
+    is not shows a placement can avoid it); otherwise a prediction short of `routable` is a risk. Also the narrowest
+    straight or L-shaped channel of each constrained net on the quick placement (the layout's corridor report), as a
+    risk: on routed boards it reads 0 or less for nets the router still connects, so it names a place, not a proof."""
+    from . import placer, routability
+    from .barrier import with_budgets
+    out = []
+    try:
+        from ...sim import budgets
+        _, rows = budgets.widths(d2, parts) if d2.raw.get("budgets") else ({}, [])
+    except Exception:  # noqa: BLE001 - a budget that cannot be estimated adds no width
+        rows = []
+    names, wmax = {}, {}
+    for r in rows:  # the budget that sets each net's width (the widest)
+        for n in r.get("nets") or []:
+            if r.get("width_mm", 0.0) > wmax.get(n, -1.0):
+                names[n], wmax[n] = r["name"], r.get("width_mm", 0.0)
+    try:
+        rp = with_budgets(d2, parts, lambda: routability.predict(d2, libs, parts=parts))
+        place_out["routability"] = {k: v for k, v in routability.public(rp).items() if k not in ("per_net", "bounds")}
+        g = rp["gate"]
+        tried = [place_out["seed"]]
+        if g["fail"] and alts:  # does another legal seed avoid the congestion?
+            state = {r: (p.x, p.y, p.r) for r, p in parts.items()}
+            for sd, st in alts:
+                for r, (x, y, a) in st.items():
+                    parts[r].x, parts[r].y, parts[r].r = x, y, a
+                tried.append(sd)
+                g2 = with_budgets(d2, parts, lambda: routability.predict(d2, libs, parts=parts, corridors=False,
+                                                                       access=False))["gate"]
+                if not g2["fail"]:
+                    g = None
+                    break
+            for r, (x, y, a) in state.items():
+                parts[r].x, parts[r].y, parts[r].r = x, y, a
+        if g is not None and g["fail"]:
+            seeds = f"placer seed{'s' if len(tried) > 1 else ''} {', '.join(map(str, tried))}"
+            out.append(("routability-prediction", False, f"quick placement ({seeds}), layout not routable: "
+                        + routability.gate_message(g, int(d2.board.get("layers", 2)), names) + f" [{rp['message']}]",
+                        "architecture"))
+        else:
+            out.append(("routability-prediction", True if rp["verdict"] == "routable" else None, rp["message"], None))
+    except Exception as e:  # noqa: BLE001 - an estimate; the other checks stand without it
+        out.append(("routability-prediction", None, f"not run: {type(e).__name__}: {e}", None))
+    try:
+        W, H = float(d2.board["width_mm"]), float(d2.board["height_mm"])
+        cors = with_budgets(d2, parts, lambda: placer.Placer(d2, parts, W, H).corridors())
+        zero = [c for c in cors if not c["ok"]]
+        place_out["corridors"] = cors
+        if zero:
+            out.append(("corridors", None, "narrow channels on the quick placement (straight or L-shaped, the layout's "
+                        "corridor report; the corridor proof and the router may still pass around): "
+                        + "; ".join(c["msg"] for c in zero[:6]), None))
+    except Exception as e:  # noqa: BLE001
+        out.append(("corridors", None, f"corridor report not run: {type(e).__name__}: {e}", None))
+    return out
 
 
 _PAIR = re.compile(r"courtyard overlap (\S+)/(\S+)$")
@@ -1163,10 +1222,17 @@ def report(design, res: dict) -> str:
                   f"{c['peak']:.1f} x, {len(c['hot'])} cells over.",
                   f"Nets with pads in more than one region: {p['crossing_nets']}"
                   + (" (" + "; ".join(f"{k}: {v}" for k, v in list(p["crossing"].items())[:6]) + ")" if p["crossing"] else "")]
+            g = (p.get("routability") or {}).get("gate")
+            if g:
+                L += ["", f"Window cuts (the layout's routability predictor, budget widths on): peak {g['peak']:.1f} x, "
+                      f"{g['area_mm2']:g} mm2 at {g['ratio_fail']:g} x or more (FAIL from {g['area_fail_mm2']:g} mm2)"
+                      + "".join(f"; x {h['at'][0]:g}-{h['at'][2]:g}, y {h['at'][1]:g}-{h['at'][3]:g} {h['peak']:.1f} x "
+                                f"({', '.join(h['refs'][:6])})" for h in g["spots"][:3]) + "."]
         L += ["", "Picture: build/floorplan.svg (front and back face, red cells over capacity)."]
     L += ["", "Thresholds: fill <= limit per region and face; depth <= limit; region distance >= isolation_mm; "
           f"routability fails above {UTIL_FAIL:.0%} of the track capacity, is at risk above {UTIL_RISK:.0%} or a peak "
-          f"above {PEAK_RISK:g} x."]
+          f"above {PEAK_RISK:g} x (a board average); the routability prediction fails where "
+          f"windows at {RATIO_FAIL:g} x or more cover {AREA_FAIL_MM2:g} mm2 on every legal quick-placement seed."]
     return "\n".join(L) + "\n"
 
 

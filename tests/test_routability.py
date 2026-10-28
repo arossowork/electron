@@ -80,3 +80,30 @@ def test_forced_corridor_proof():
                                                                       "margin": 0.2}]
     out = routability.forced_corridors(rows)
     assert len(out) == 1 and out[0].startswith("net A")
+
+
+def test_supply_takes_the_face_of_the_pads():
+    # a back-side window escapes on B.Cu: before, F.Cu (nearly free on a back-side board) was the pad layer everywhere
+    f, b = np.full((1, 1), 10.0), np.full((1, 1), 2.0)
+    vias = np.full((1, 1), 1.0)
+    on = lambda n: np.full((1, 1), n)  # noqa: E731
+    assert routability._supply([f, b], vias, [on(0), on(5)])[0, 0] == 3.0  # B.Cu tracks + 1 via
+    assert routability._supply([f, b], vias, [on(5), on(0)])[0, 0] == 11.0
+    assert routability._supply([f, b], vias, [on(0), on(0)])[0, 0] == 11.0  # no SMD pad: the better face
+
+
+def test_congestion_gate_names_the_spot_its_parts_and_nets(tmp_path):
+    d, libs, parts = _placed(tmp_path)
+    res = routability.predict(d, libs, parts=parts, corridors=False, access=False)
+    assert not res["gate"]["fail"]  # the channel board routes
+    r = res["_ratio"].copy()
+    p = parts["R2"]
+    i, j = int(p.x / routability.POS_MM), int(p.y / routability.POS_MM)
+    r[i - 3:i + 4, j - 3:j + 4] = routability.RATIO_FAIL + 1  # 12.25 mm2 over the gate around R2
+    res["_ratio"] = r
+    g = routability.gate(res, d, parts)
+    assert g["fail"] and g["area_mm2"] >= routability.AREA_FAIL_MM2
+    h = g["spots"][0]
+    assert "R2" in h["refs"] and "R2" in h["movable"] and h["nets"]
+    msg = routability.gate_message(g, 2)
+    assert "hot spot x" in msg and "R2" in msg and "Moves: spread the movable parts" in msg

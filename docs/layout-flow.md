@@ -165,7 +165,9 @@ connected components, and via sites. `Raster` is the reusable primitive (`.edt`,
 
 - **Window cuts** (the estimate). Every square window of 2, 4 and 8 mm at every 0.5 mm position: the nets with pads
   inside and outside must cross its border (demand, sum of w + c), against the track centre lines that fit along
-  the border's free runs on the pad layer plus the other layers up to the via sites inside. The worst ratio per
+  the border's free runs on the pad layer plus the other layers up to the via sites inside. The pad layer is the face
+  of the window's SMD pad copper (F.Cu or B.Cu, weighted by pad area; the better face when it has none): with F.Cu
+  taken everywhere, a board with its SMD parts on the back counted its nearly free front as the escape layer. The worst ratio per
   0.5 mm cell is the overflow map. A net with a pad at ratio >= `RATIO_HARD` (3.0) is hard. Pads with at most one
   exit (`pinaccess`) and constrained nets whose widest no-neck corridor is less than 0.3 mm wider than the net
   (`corridor.margin`) are listed in the message but do not make a net hard (see the calibration).
@@ -175,9 +177,20 @@ connected components, and via sites. `Raster` is the reusable primitive (`.edt`,
   than its width), and 2D packing per floorplan region (area, and a member that fits the region's box in neither
   orientation). A failed bound is reported with the prediction; it does not stop the layout (the
   prediction is a report and a run log, never a gate).
-- **Verdict**: 0 hard nets `routable`; under 25 % of the routed nets `marginal`; from 25 % (or a proof) `not
-  routable`. `hwflow floorplan` reports it as the check `routability-prediction` (pass when `routable`, else a
-  risk, never a FAIL); REPORT.md shows the prediction and, after routing, how it compared with the router.
+- **Congestion gate** (`routability.gate`): the cells at `RATIO_FAIL` (6) or more; from `AREA_FAIL_MM2` (8 mm2) of
+  them the verdict is `not routable`. Each spot names its box, peak, parts (the movable ones apart), the face of its
+  SMD pads and the nets that cross it, widest first, with the requirement budget that set a width.
+- **Verdict**: 0 hard nets `routable`; under 25 % of the routed nets `marginal`; from 25 % (or a proof, or the
+  congestion gate) `not routable`. REPORT.md shows the prediction and, after routing, how it compared with the router.
+- **In the floorplan gate** (`hwflow floorplan`, check `routability-prediction`, `floorplan._routability_checks`): the
+  prediction of the legal quick placement, with the budget track widths of that placement set as the layout stage
+  sets them (without them the floorplan saw a 1.35-1.5 mm budget net at its 0.3 mm class width). The congestion gate
+  is a FAIL back to architecture when the best quick placement and every other legal seed fail it; else `routable`
+  passes and anything else is a risk. The message names the hot spot, its parts and wide nets, and the moves (spread
+  the movable parts named, give a budget's high-current path its own net when its width lands on every pad of a
+  shared net, parts to the other face, more layers or a larger board). The narrow straight or L-shaped channels of
+  the layout's corridor report on the quick placement are listed as the `corridors` risk only: the routed boards
+  (home-thermostat-4, thermo-e2e-4) read 0 mm there for mains and crystal nets the router connected.
 - **Run log** (a dataset, never in git): each layout run appends (cheap features, outcome) to
   `build/routab/runs.jsonl` and saves the raster channels as `build/routab/run_<n>.npz`; the format is in
   `scripts/routab_bench.py`.
@@ -393,6 +406,26 @@ synth60's failure is caught earlier by `hwflow check` (its +3V3 0.4 mm track can
 The legality gate turns an over-full board from 13 minutes of routing an invalid placement into a 22 s verdict. On
 the routable designs the options changed nothing in the result (same boards). The retry policy cut synth60's route
 time 3.6x but left 8 more nets open (the board fails either way, back to parts), so the options stay off.
+
+**Floorplan congestion gate** (`hwflow floorplan`, October 2026). The quick placements of the floorplan check
+(4 placer seeds each, 20000 moves) against the layout outcome of each design; window ratios with the budget widths
+and the face-aware supply. The hard-net share does not separate the designs (thermo-e2e-4 routed clean at 17-32 %, its
+layout placement at 32 %); the peak and the area at 6 x or more do.
+
+| design | layers | layout outcome | hard share | peak ratio | mm2 at >= 5 x | mm2 at >= 7 x |
+|---|---|---|---|---|---|---|
+| home-thermostat-4 | 4 | routed | 5 % | 3.6 | 0 | 0 |
+| thermo-e2e-4 (final) | 2 | routed | 17-32 % | 4.7 | 0 | 0 |
+| thermo-e2e-4-live | 2 | routed on attempt 2 | 27-44 % | 4.7 | 0 | 0 |
+| thermo-e2e-6 (stage 4 design) | 2 | 40-41 unrouted | 35-49 % | 9.7-12.8 | 86-151 | 40-85 |
+| thermo-e2e-6 (layout run 3) | 4 | 27 unrouted | 35-84 % | 8.3-18.6 | 80-144 | 42-60 |
+
+Without the budget widths the thermo-e2e-6 peaks were 4.8-14.8 and 5 of its 8 seeds had no cell at 7 x; with F.Cu as the
+pad layer its hard share was 5-16 points lower. The layout's own predictions on the routed placements agree:
+4.7 for both thermo-e2e-4 boards, 9.3-12.8 for the three thermo-e2e-6 attempts. Gate run times (whole floorplan
+check, 2 seeds): 38-80 s; the prediction itself 5-8 s per seed. The failures of thermo-e2e-6 were mostly VBAT
+(23 of 27 open items): the vbat_radio_supply budget set 1.45 mm on the whole net, 24 pads (MCU, drivers, decaps),
+through the BT1/M4/U1 hot spot; its zero-width corridor lines (L, OUT1, XTAL) were not among the open nets.
 
 ## Removed after the experiments
 
