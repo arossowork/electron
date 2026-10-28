@@ -156,8 +156,9 @@ SCHEMAS: dict[str, tuple[str, dict]] = {
         {"type": _OBJ, "properties": {}},
     ),
     "floorplan": (
-        "Early layout feasibility of the floorplan (as `hwflow floorplan .`).",
-        {"type": _OBJ, "properties": {}},
+        "Early layout feasibility of the floorplan (as `hwflow floorplan .`); stage `arch` is the stage-2 check "
+        "of the mechanical parts only, in seconds (as `hwflow floorplan . --stage arch`).",
+        {"type": _OBJ, "properties": {"stage": {"type": "string", "enum": ["full", "arch"]}}},
     ),
     "fetch_url": (
         "Download a datasheet or document (public http(s) only, at most 20 MiB) into datasheets/<name>; "
@@ -317,7 +318,7 @@ class ToolBox:
         return await self._engine("fw_test", {}, ws=True)
 
     async def t_floorplan(self, a: dict) -> dict:
-        return await self._engine("floorplan", {}, ws=True)
+        return await self._engine("floorplan", {"stage": "arch" if a.get("stage") == "arch" else "full"}, ws=True)
 
     async def t_optimize(self, a: dict) -> dict:
         args: dict[str, Any] = {"apply": bool(a.get("apply"))}

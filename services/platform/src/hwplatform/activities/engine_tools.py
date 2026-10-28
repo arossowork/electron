@@ -94,7 +94,7 @@ def argv_for(tool: str, args: dict, proj: str) -> list[str]:
     if tool == "trace":
         return ["trace", proj]
     if tool == "floorplan":
-        return ["floorplan", proj]
+        return ["floorplan", proj, *(["--stage", "arch"] if args.get("stage") == "arch" else [])]
     if tool == "fw_test":
         return ["fw", "test", proj]
     if tool == "fw":

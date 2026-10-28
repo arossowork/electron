@@ -22,7 +22,7 @@ import time
 from shapely.geometry import LineString, Point, box
 from shapely.ops import unary_union
 
-from ...core.floorplan import EDGES, EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, cuts, depth, fixed_pad_isolation, members, outline, parse, region_distances, resolve
+from ...core.floorplan import EDGES, EXCLUSIVE, UTIL_FAIL, UTIL_RISK, FILL_RISK, FloorplanError, PEAK_RISK, cuts, depth, fixed_pad_isolation, members, outline, parse, placer_regions, region_distances, resolve
 from ...core.floorplan import *  # noqa: F401,F403  (the data model moved to core.floorplan; its public names stay here)
 from ...core.settings import get_settings
 
@@ -124,7 +124,8 @@ def _parts(design, libs, fp: dict):
     raw = copy.deepcopy(design.raw)
     d2 = Design(path=design.path, raw=raw)
     d2.components = {r: c for r, c in design.components.items()}
-    pins = {}
+    from .fpsynth import is_synthetic
+    pins, syn = {}, {}
     for k, (a, b, n) in enumerate(fp["nets"]):
         for i in range(n):
             for x, other in ((a, b), (b, a)):
@@ -132,6 +133,18 @@ def _parts(design, libs, fp: dict):
                 if names and names[0] not in design.components:  # placeholder: one pad per estimated net
                     tgt = names[i % len(names)]
                     pins.setdefault(tgt, {})[f"n{k}_{i}"] = f"~{a}~{b}~{i}"
+                elif names and is_synthetic(design, names[0]):  # a drawn item: on a pad without a net of its own
+                    syn.setdefault(names[i % len(names)], []).append(f"~{a}~{b}~{i}")
+    for ref, nets in syn.items():
+        if ref not in parts:
+            continue
+        c = d2.components[ref]
+        free = [n for n in parts[ref].pads if n not in c.pins]
+        if free:
+            pn = dict(c.pins)
+            for j, net in enumerate(nets):
+                pn.setdefault(free[j % len(free)], net)
+            d2.components[ref] = Component(ref, {**c.data, "pins": pn})
     m = placer.COURTYARD_MARGIN
     for it in fp["items"]:
         names = res[it["name"]]
@@ -161,13 +174,21 @@ def _side_box(p, s, margin):
     return None if b is None else (b[0] + margin, b[1] + margin, b[2] - margin, b[3] - margin)
 
 
-def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, extra=None) -> dict:
+def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, extra=None, stage: str = "full") -> dict:
     """Area, depth, region geometry, connector edges and envelopes, isolation groups, and a quick placement with a
     congestion estimate. `extra(design, libs) -> [{name, ok, msg, back_to?}]` adds checks of a higher layer (the
     feasibility proofs, layout.feasibility.floorplan_checks). Returns the result dict with `ok`, `checks` (each
-    {name, ok (True, False, or None for a risk), msg}) and the numbers behind them."""
+    {name, ok (True, False, or None for a risk), msg}) and the numbers behind them.
+
+    Footprint and pin-row items become parts with real pads (fpsynth). `stage="arch"` is the stage-2 mechanical
+    check: only the mechanical parts (footprint, pin-row and box items, and of a captured design the fixed,
+    through-hole or large parts) are checked, as fixed copper with their nets; the rest of the circuit (`area_mm2`
+    items, the other captured parts) is an area budget; no quick placement (_arch_scope, _arch_checks)."""
     from . import placer
+    from . import fpsynth
     t0 = time.time()
+    if stage == "arch":
+        place = False
     try:
         fp = parse(design)
     except FloorplanError as e:
@@ -182,8 +203,26 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
     def add(name, ok, msg, back_to=None):
         checks.append({"name": name, "ok": ok, "msg": msg, **({"back_to": back_to} if back_to else {})})
 
+    syn: list[dict] = []
+    design, libs, made = fpsynth.synth(design, libs, fp, syn)
+    for c in syn:
+        add(c["name"], c["ok"], c["msg"])
+    rest = {"face": {}, "pool": {}, "items": []}  # the area budget of the parts not drawn (stage arch)
+    excl_names = {r["name"] for r in fp["regions"] if r["kind"] in EXCLUSIVE and r["kind"] != "keepout"}
+    for it in fp["items"]:  # area_mm2 alone: parts not drawn yet, counted in the face fill only
+        if it["area_mm2"] is not None and not it["size"] and not it["footprint"] and not it["pin_rows"] \
+                and not it["refs"] and not it["groups"]:
+            k = (it["board"], it["side"])
+            rest["face"][k] = rest["face"].get(k, 0.0) + float(it["area_mm2"])
+            inr = it["region"] in excl_names or any(it["name"] in r["items"] for r in fp["regions"] if r["name"] in excl_names)
+            if not inr:
+                rest["pool"][k] = rest["pool"].get(k, 0.0) + float(it["area_mm2"])
+            rest["items"].append(it["name"])
+    design_full = design
+    if stage == "arch":
+        design = _arch_scope(design, libs, fp, rest)
     for it in fp["items"]:  # a footprint chosen in the parts stage gives a placeholder its real courtyard
-        if it["footprint"] and not it["size"]:
+        if it["footprint"] and not it["size"] and it["name"] not in made:
             try:
                 b = libs.footprint(it["footprint"])["bbox"]
                 it["size"] = (b[2] - b[0], b[3] - b[1])
@@ -191,13 +230,22 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
                 add("field", False, f"item {it['name']}: footprint {it['footprint']} not found ({type(e).__name__}: {e})")
                 it["size"] = (1.0, 1.0)
     parts, d2 = _parts(design, libs, fp)
+    keep_out = {it["name"]: it["keepout"] for it in fp["items"] if it["keepout"]}
+    for x, p in parts.items():  # an item's keepout_mm grows its courtyard (room to fit a cell, a lever, a tool)
+        c = design.components.get(x)
+        k = keep_out.get(c.get("floorplan_item")) if c is not None and c.get("floorplan_item") else None
+        if k and p.sides:
+            p.sides = {s: (v[0] + 2 * k, v[1] + 2 * k, v[2], v[3]) for s, v in p.sides.items()}
+            p.w, p.h = p.w + 2 * k, p.h + 2 * k
     res = resolve(fp, design, list(parts))
     mem = members(fp, design, list(parts))
 
-    real = [r for r in parts if r in design.components]
+    real = [r for r in parts if r in design.components and not fpsynth.is_synthetic(design, r)]
+    drawn = [r for r in parts if fpsynth.is_synthetic(design, r)]
+    res_full = res if design_full is design else resolve(fp, design_full, list(design_full.components))
     for it in fp["items"]:
-        if (it["refs"] or it["groups"]) and not (res[it["name"]] and res[it["name"]][0] in design.components):
-            if design.components:
+        if (it["refs"] or it["groups"]) and not (res_full[it["name"]] and res_full[it["name"]][0] in design_full.components):
+            if design_full.components:
                 add("items", None if it["size"] else False, f"item {it['name']}: refs {it['refs'] + it['groups']} "
                     f"match no part" + (" (placeholder size used)" if it["size"] else ""))
     # board of each part (stacked: from its item or region; else the only board)
@@ -267,7 +315,7 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             ko = [r["poly"] for r in fp["regions"] if r["board"] == b["name"] and r["kind"] == "keepout" and s in r["sides"]]
             usable = inset.difference(unary_union(ko)) if ko else inset
             on = [x for x in parts if bname[x] == b["name"] and s in area[x]]
-            load = sum(area[x][s] for x in on)
+            load = sum(area[x][s] for x in on) + rest["face"].get((b["name"], s), 0.0)
             if fp["construction"] == "single" and s == "back" and not load:
                 continue
             f = load / usable.area if usable.area > 0 else math.inf
@@ -277,7 +325,7 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             band = [r["poly"].buffer(r["iso"]) if r["kind"] == "mains" and r["iso"] else r["poly"] for r in excl]
             pool = usable.difference(unary_union(band)) if band else usable
             in_excl = set().union(*[mem[r["name"]] for r in excl]) if excl else set()
-            free = sum(area[x][s] for x in on if x not in in_excl)
+            free = sum(area[x][s] for x in on if x not in in_excl) + rest["pool"].get((b["name"], s), 0.0)
             fpool = free / pool.area if pool.area > 0 else (0.0 if not free else math.inf)
             sides_out.append({"board": b["name"], "side": s, "usable_mm2": round(usable.area, 1), "load_mm2": round(load, 1),
                               "fill": round(f, 3), "pool_mm2": round(pool.area, 1), "pool_load_mm2": round(free, 1),
@@ -392,6 +440,11 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
     if fp["construction"] != "stacked" and (placed or any(p.fixed for p in parts.values())):
         for name, ok, msg, back in _envelope_checks(parts, fp, res, m, placed):  # fixed or quick-placed (legal only)
             add(name, ok, msg, back)
+    arch = None
+    if stage == "arch" and parts:
+        arch = _arch_checks(design, parts, fp, mem, rest, sides_out, m)
+        for name, ok, msg, back in arch.pop("checks"):
+            add(name, ok, msg, back)
     if extra is not None:
         try:
             for c in extra(design, libs):
@@ -404,7 +457,153 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             "boards": [{k: b[k] for k in ("name", "w", "h", "x", "y", "t")} for b in fp["boards"]],
             "fill_max": fill, "regions": regions_out, "sides": sides_out, "depth": dep, "distances": dists,
             "placement": place_out, "checks": checks, "parts": len(parts), "real_parts": len(real),
+            "drawn_parts": len(drawn), "stage": stage, "arch": arch, "rest_items": rest["items"],
             "seconds": round(time.time() - t0, 1), "_fp": fp, "_parts": parts}
+
+
+ARCH_BIG_MM2 = 100.0  # stage arch: a captured part with a courtyard this large is mechanical (a module, a holder)
+
+
+def _arch_scope(design, libs, fp: dict, rest: dict):
+    """Stage arch: the design with only its mechanical parts (the items drawn by fpsynth, and the captured parts that
+    are fixed, through-hole or at least ARCH_BIG_MM2 of courtyard); the courtyard area of every other captured part
+    goes into the area budget `rest` (per board face, and the pool outside the exclusive regions)."""
+    from ...core.design import Design
+    from .fpsynth import is_synthetic
+    mem = members(fp, design, list(design.components))
+    excl = set().union(*[mem[r["name"]] for r in fp["regions"] if r["kind"] in EXCLUSIVE and r["kind"] != "keepout"]
+                       or [set()])
+    res = resolve(fp, design, list(design.components))
+    board_of = {x: it["board"] for it in fp["items"] for x in res[it["name"]]}
+    keep, n = {}, 0
+    for ref, c in design.components.items():
+        if c.get("virtual"):
+            continue
+        if is_synthetic(design, ref):
+            keep[ref] = c
+            continue
+        pl = c.get("placement") or {}
+        try:
+            f = libs.footprint(c.get("footprint"))
+        except Exception:  # noqa: BLE001 - the parts check reports it; keep it so the floorplan check does too
+            keep[ref] = c
+            continue
+        x0, y0, x1, y1 = f["bbox"]
+        big = (x1 - x0) * (y1 - y0) >= ARCH_BIG_MM2
+        tht = any(q["kind"] in ("thru_hole", "np_thru_hole") for q in f["pads"])
+        if ("x" in pl and "y" in pl and pl.get("fixed", True)) or tht or big:
+            keep[ref] = c
+            continue
+        side = "back" if set(f["sides"]) == {"back"} else str(c.get("side", "front"))
+        b = f["sides"].get(side) or f["bbox"]
+        k = (board_of.get(ref, fp["boards"][0]["name"]), side)
+        a = (b[2] - b[0]) * (b[3] - b[1])
+        rest["face"][k] = rest["face"].get(k, 0.0) + a
+        if ref not in excl:
+            rest["pool"][k] = rest["pool"].get(k, 0.0) + a
+        n += 1
+    if n:
+        rest["items"].append(f"{n} captured parts")
+    raw = dict(design.raw)
+    raw["blocks"] = {}  # layout blocks move parts that are not drawn here
+    d2 = Design(path=design.path, raw=raw)
+    d2.components = keep
+    d2.budget_widths = dict(design.budget_widths)
+    return d2
+
+
+def _arch_checks(design, parts, fp: dict, mem: dict, rest: dict, sides_out: list, m: float) -> dict:
+    """Stage arch: the fixed mechanical parts against each other (courtyards on one face, through-hole pins and pegs
+    under a courtyard on either face), their region, keep-out and isolation rules (the placer's fixed-part rules),
+    the movable mechanical parts that no region holds against the room the board leaves them, and the room left for
+    the rest of the circuit. Returns {checks: [(name, ok, msg, back_to)], room: [...]}."""
+    from . import placer
+    out = []
+    fixed = sorted(x for x, p in parts.items() if p.fixed and p.sides)
+
+    def yard(p, s):
+        b = _side_box(p, s, m)
+        return b if b and b[2] > b[0] and b[3] > b[1] else None
+    for i, a in enumerate(fixed):
+        for b in fixed[i + 1:]:
+            pa, pb = parts[a], parts[b]
+            for s in ("front", "back"):
+                ya, yb = yard(pa, s), yard(pb, s)
+                if ya and yb and placer._overlap(ya, yb) > 0.01:
+                    g = box(*ya).intersection(box(*yb))
+                    out.append(("overlap", False, f"{a} and {b} overlap on the {s} face ({g.area:.1f} mm2 at "
+                                f"{_span(g)}): move or turn one of them, or put one on the other face", "architecture"))
+            for p1, n1, p2, n2 in ((pa, a, pb, b), (pb, b, pa, a)):
+                for s in ("front", "back"):
+                    y2 = yard(p2, s)
+                    if not y2 or s in (p1.sides or {}):  # same face: the courtyard overlap above says it
+                        continue
+                    hit = [n for n in sorted(p1.tht) if placer._overlap(placer.part_pad_box(p1, n), y2) > 0]
+                    pegs = [hb for hb in p1.npth_boxes() if placer._overlap(hb, y2) > 0]
+                    if not hit and not pegs:
+                        continue
+                    g = unary_union([box(*placer.part_pad_box(p1, n)) for n in hit] + [box(*hb) for hb in pegs])
+                    what = ", ".join([f"{n1}.{n}" for n in hit] + ([f"{len(pegs)} pegs"] if pegs else []))
+                    out.append(("tht-under", False, f"{what} go through the board under {n2} on the {s} face "
+                                f"({_span(g)}; {n2} courtyard {_span(box(*y2))}): move or turn {n1} or {n2} so "
+                                f"the pins clear the courtyard", "architecture"))
+    if fixed:
+        W, H = float(design.board["width_mm"]), float(design.board["height_mm"])
+        boards = {b["name"]: b["rect"].bounds for b in fp["boards"]}
+        rb = {r["name"]: boards[r["board"]] for r in fp["regions"]}
+        try:
+            pl = placer.Placer(design, parts, W, H, seed=1)
+            for msg in pl.fixed_violations(rb):
+                ok, why = _fixed_severity(parts, fp, msg, m)
+                out.append(("fixed-placement", ok, msg + why, None if ok is None else "architecture"))
+        except Exception as e:  # noqa: BLE001 - the geometric checks above stand without the placer's rules
+            out.append(("fixed-placement", None, f"placer rules not run: {type(e).__name__}: {e}", None))
+    # movable mechanical parts that no region holds: room on the board face, clear of fixed parts and exclusive regions
+    inreg = set().union(*mem.values()) if mem else set()
+    rules, _ = placer_regions(design, parts)
+    for x in sorted(parts):
+        p = parts[x]
+        if p.fixed or x in inreg or not p.sides or x not in design.components:
+            continue
+        bname = fp["boards"][0]["name"]
+        b = fp["boards"][0]
+        for s in p.sides:
+            inset = box(b["x"] + fp["margin"], b["y"] + fp["margin"], b["x"] + b["w"] - fp["margin"],
+                        b["y"] + b["h"] - fp["margin"])
+            bad = [g for g in rules if g["excl"] and s in g["sides"] and x not in g["members"] and x not in g["allow"]]
+            poly = inset.difference(unary_union([g["poly"] for g in bad])) if bad else inset
+            w, h = p.sides[s][0] - 2 * m, p.sides[s][1] - 2 * m
+            r = {"name": f"{bname} {s} face", "poly": poly, "board": bname, "forbid_names": [g["name"] for g in bad]}
+            if not _fits(w, h, poly):
+                out.append(("fit", False, f"{x} ({w:.1f} x {h:.1f} mm, {s}) fits nowhere on the {s} face clear of the "
+                            f"exclusive regions {', '.join(r['forbid_names']) or '(none)'}: a smaller part, another "
+                            f"face or a larger board", "architecture"))
+                continue
+            msg = _fit_with_fixed(design, parts, fp, r, x, s, m)
+            if msg:
+                out.append(("fit", False, msg, "architecture"))
+    room = []
+    for row in sides_out:
+        k = (row["board"], row["side"])
+        need = rest["pool"].get(k, 0.0)
+        mech = row["pool_load_mm2"] - need
+        left = row["pool_mm2"] - mech
+        room.append({"board": row["board"], "side": row["side"], "pool_mm2": row["pool_mm2"],
+                     "mechanical_mm2": round(mech, 1), "left_mm2": round(left, 1), "rest_mm2": round(need, 1)})
+    if not rest["items"]:
+        out.append(("budget", None, "no area estimate for the rest of the circuit: add items with area_mm2 and side "
+                    "(the blocks not drawn yet) so the fill check sees them; room left outside the exclusive regions: "
+                    + "; ".join(f"{x['board']} {x['side']} {x['left_mm2']:.0f} mm2" for x in room), None))
+    else:
+        for x in room:
+            if x["rest_mm2"] or x["side"] == "front":
+                f = x["rest_mm2"] / x["left_mm2"] if x["left_mm2"] > 0 else math.inf
+                out.append(("budget", True, f"{x['board']} {x['side']} face: the mechanical parts leave "
+                            f"{x['left_mm2']:.0f} of {x['pool_mm2']:.0f} mm2 outside the exclusive regions; the rest "
+                            f"of the circuit needs {x['rest_mm2']:.0f} mm2 ({f:.0%} of it; the area check above "
+                            f"holds the limit)", None))
+    return {"checks": out, "room": room, "fixed": fixed,
+            "movable": sorted(x for x, p in parts.items() if not p.fixed and x in design.components)}
 
 
 def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
@@ -417,6 +616,17 @@ def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
     fixed = {q: parts[q] for q in parts if q != x and parts[q].fixed and parts[q].side_box(side)}
     yards = {q: box(*_side_box(o, side, m)) for q, o in fixed.items()}
     yards = {q: g for q, g in yards.items() if g.intersects(r["poly"])}
+    # what goes through the board from a fixed part on either face (through-hole pins, pegs): no courtyard over it
+    from .placer import part_pad_box
+    holes, hole_names = {}, {}
+    for q, o in parts.items():
+        if q == x or not o.fixed or q in yards or not (o.tht or o.npth):
+            continue
+        hs = [(f"{q}.{n}", box(*part_pad_box(o, n))) for n in sorted(o.tht)] + [(f"{q} peg", box(*b)) for b in o.npth_boxes()]
+        hs = [(n, g) for n, g in hs if g.intersects(r["poly"])]
+        if hs:
+            holes[q] = unary_union([g for _, g in hs])
+            hole_names[q] = [n for n, _ in hs]
     c = design.components.get(x)
     pad_rules, mains = [], []
     for g in fp["regions"]:
@@ -426,7 +636,15 @@ def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
             if num in p.pads and num not in p.nocu and any(fnmatch.fnmatchcase(net, pat) for pat in g["nets"]):
                 pad_rules.append((num, g["poly"]))
                 mains.append((net, g))
-    if not yards and not pad_rules:
+    # its own through-hole pins and pegs must clear the courtyards of the fixed parts on the other face
+    other = "back" if side == "front" else "front"
+    under = {q: box(*_side_box(o, other, m)) for q, o in parts.items() if q != x and o.fixed and o.side_box(other)
+             and other not in (p.sides or {})}
+    under = {q: g for q, g in under.items() if g.intersects(r["poly"])}
+    if p.tht and under:
+        ok_pins = bd["rect"].buffer(60, join_style="mitre").difference(unary_union(list(under.values())))
+        pad_rules = pad_rules + [(n, ok_pins) for n in sorted(p.tht)]
+    if not yards and not pad_rules and not holes:
         return None
     allowed = r["poly"]
     if p.fixed or p.edge:  # off the board: a body may overhang the edge
@@ -434,18 +652,27 @@ def _fit_with_fixed(design, parts, fp, r, x, side, m) -> str | None:
     kos = [k for k in fp["regions"] if k["kind"] == "keepout" and k["board"] == r["board"] and side in k["sides"]]
     areas = [a for a in getattr(parts, "areas", []) or [] if "footprints" in a["forbids"] and a["owner"] != x
              and ({"front": "F.Cu", "back": "B.Cu"}[side] in a["layers"] or "*.Cu" in a["layers"])]
-    free = allowed.difference(unary_union([k["poly"] for k in kos] + [a["poly"] for a in areas] + list(yards.values())))
+    free = allowed.difference(unary_union([k["poly"] for k in kos] + [a["poly"] for a in areas] + list(yards.values())
+                                          + list(holes.values()) + list(r.get("forbid") or [])))
     if fit_anywhere(p, side, free, pad_rules, m):
         return None
     w, h = p.sides[side][0] - 2 * m, p.sides[side][1] - 2 * m
     why = []
     if yards:
         why.append("the fixed parts " + ", ".join(f"{q} ({_span(g)})" for q, g in sorted(yards.items())))
+    if holes:
+        why.append("the through-hole pins of fixed parts on the other face, " + ", ".join(
+            f"{' '.join(hole_names[q])} ({_span(g)})" for q, g in sorted(holes.items())))
+    if r.get("forbid"):
+        why.append("the exclusive regions " + ", ".join(r.get("forbid_names") or []))
     near = [k["name"] for k in kos if k["poly"].distance(r["poly"]) < 1e-6]
     if near:
         why.append("keep-outs " + ", ".join(near))
+    if p.tht and under:
+        why.append(f"its own through-hole pins off the {other}-face courtyards of " + ", ".join(
+            f"{q} ({_span(g)})" for q, g in sorted(under.items())))
     msg = f"{x} ({w:.1f} x {h:.1f} mm, {side}) fits nowhere in region {r['name']}: clear of " + " and ".join(why)
-    if pad_rules:
+    if mains:
         nets = sorted({n for n, _ in mains})
         cond = sorted({k["name"] for _, g in mains for k in fp["regions"] if k["kind"] == "keepout" and k["conductive"]
                        and k["board"] == g["board"] and k["poly"].distance(g["poly"]) <= g["iso"] + 1e-3})
@@ -870,13 +1097,17 @@ def _congestion(d2, pl, fp) -> dict:
 
 def report(design, res: dict) -> str:
     """build/FLOORPLAN.md text."""
-    L = [f"# {design.name}: floorplan check", "", f"Verdict: {res.get('verdict', 'FAIL')} ({res['seconds']} s)", ""]
+    arch = res.get("stage") == "arch"
+    L = [f"# {design.name}: floorplan check" + (" (stage arch: mechanical parts)" if arch else ""), "",
+         f"Verdict: {res.get('verdict', 'FAIL')} ({res['seconds']} s)", ""]
     if "depth" not in res:
         L += [f"- {c['msg']}" for c in res["checks"]]
         return "\n".join(L) + "\n"
     bs = ", ".join(f"{b['name']} {b['w']:g} x {b['h']:g} mm" for b in res["boards"])
     L += [f"Construction: {res['construction']}; {bs}; {res['layers']} layers; fill limit {res['fill_max']:.0%}; "
-          f"{res['parts']} parts ({res['real_parts']} real, {res['parts'] - res['real_parts']} placeholders).", ""]
+          f"{res['parts']} parts ({res['real_parts']} real, {res.get('drawn_parts', 0)} drawn from item footprints or "
+          f"pin rows, {res['parts'] - res['real_parts'] - res.get('drawn_parts', 0)} box placeholders)"
+          + (f"; area budget only: {', '.join(res['rest_items'])}" if res.get("rest_items") else "") + ".", ""]
     bad = [c for c in res["checks"] if c["ok"] is False]
     risk = [c for c in res["checks"] if c["ok"] is None]
     if bad:
@@ -904,6 +1135,14 @@ def report(design, res: dict) -> str:
     if res["distances"]:
         L += ["", "## Region isolation", ""] + [f"- {x['a']} to {x['b']}: {x['mm']:.2f} mm (need {x['need']:g}) "
                                                  f"{'ok' if x['ok'] else 'FAIL'}" for x in res["distances"]]
+    a = res.get("arch")
+    if a:
+        L += ["", "## Mechanical parts", "", f"Fixed: {', '.join(a['fixed']) or 'none'}. Movable: "
+              f"{', '.join(a['movable']) or 'none'}.", "", "| face | outside exclusive regions mm2 | mechanical mm2 | "
+              "left mm2 | rest of the circuit mm2 |", "|---|---|---|---|---|"]
+        for x in a["room"]:
+            L.append(f"| {x['board']} {x['side']} | {x['pool_mm2']:.0f} | {x['mechanical_mm2']:.0f} | "
+                     f"{x['left_mm2']:.0f} | {x['rest_mm2']:.0f} |")
     p = res.get("placement")
     if p:
         c = p["congestion"]
@@ -983,11 +1222,12 @@ def svg(res: dict) -> str:
     return "\n".join(out) + "\n"
 
 
-def run(design, libs, out, iters: int = 20000, seeds: int = 2, extra=None) -> tuple[str, dict]:
+def run(design, libs, out, iters: int = 20000, seeds: int = 2, extra=None, stage: str = "full") -> tuple[str, dict]:
     """`hwflow floorplan`: the check, build/FLOORPLAN.md and build/floorplan.svg. Returns (report text, status data)."""
-    res = check(design, libs, iters=iters, seeds=seeds, extra=extra)
+    res = check(design, libs, iters=iters, seeds=seeds, extra=extra, stage=stage)
     text = report(design, res)
-    (out / "FLOORPLAN.md").write_text(text)
+    sfx = "" if stage == "full" else f"-{stage}"
+    (out / f"FLOORPLAN{sfx}.md").write_text(text)
     if "_fp" in res:
-        (out / "floorplan.svg").write_text(svg(res))
+        (out / f"floorplan{sfx}.svg").write_text(svg(res))
     return text, {k: v for k, v in res.items() if not k.startswith("_")}
