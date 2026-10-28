@@ -67,6 +67,10 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - and {len(c['findings']) - len(shown)} more (status.json check.findings)")
         if not c["ok"]:
             fail("check", "design check errors")
+        if c.get("decisions_pending"):
+            L.append(f"  - {c['decisions_pending']} product decision(s) pending: later stages run, the verdict stays FAIL "
+                     f"until the requirement is met or the product person changes it")
+            fail("check", "product decision pending")
     if "sch" in s:
         c = s["sch"]
         L.append(f"- ERC{st('sch')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")

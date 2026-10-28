@@ -207,7 +207,7 @@ def cost_findings(d) -> list[dict]:
             continue
         over = total >= lim["limit"] if lim["strict"] else total > lim["limit"] + 1e-9
         if over:
-            f.append({"sev": "error" if lim["priority"] == "must" else "warn", "code": "cost-limit",
+            f.append({"sev": "error" if lim["priority"] == "must" else "warn", "code": "cost-limit", "decision": True,
                       "msg": f"{lim['id']}: unit cost from design.yaml is ${total:.2f} ({how}), limit "
                              f"{'<' if lim['strict'] else '<='} ${lim['limit']:g}. A cost lever or the limit is a "
                              f"product decision: ask the product person with the numbers"})
@@ -219,7 +219,7 @@ def cost_findings(d) -> list[dict]:
         for x in usd:  # the document itself says the limit is missed
             if stated is not None and (stated >= x["limit"] if x["strict"] else stated > x["limit"] + 1e-9) \
                     and stated > total + 1e-9:
-                f.append({"sev": "error" if x["priority"] == "must" else "warn", "code": "cost-limit",
+                f.append({"sev": "error" if x["priority"] == "must" else "warn", "code": "cost-limit", "decision": True,
                           "msg": f"{x['id']}: {rel} states a unit cost of ${stated:.2f}, limit "
                                  f"{'<' if x['strict'] else '<='} ${x['limit']:g}. A cost lever or the limit is a "
                                  f"product decision: ask the product person with the numbers"})

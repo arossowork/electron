@@ -18,7 +18,7 @@ The reviewer will check what is below (from `.claude/agents/hw-reviewer.md`); de
 - each testbench scenario's `realism:`; every requirement verified by a fitting method, and every file a requirement names (an analysis note) written;
 - the cost recomputed from `price_usd` and `cost.extra` within the limit; no requirement's acceptance or number changed without the product person (`hwflow check` `acceptance`);
 - the layout-facing points of step 6 below.
-`uv run hwflow check <proj> --json` computes part of this (`abs-max`, `cap-voltage`, `reset-state`, `mains-fuse`, `model-mpn`, `cost-limit`, `cost-doc`, `req-file`, `footprint-link`, `acceptance`); fix every error it lists before the stage ends.
+`uv run hwflow check <proj> --json` computes part of this (`abs-max`, `cap-voltage`, `reset-state`, `mains-fuse`, `model-mpn`, `cost-limit`, `cost-doc`, `req-file`, `footprint-link`, `acceptance`); fix every error it lists before the stage ends, except `cost-limit`: it is a pending product decision that does not stop the build. Make at most one quick cost pass, then tell the lead the numbers and levers so the question goes to the inbox, and carry on with sim and layout.
 
 1. Write or update `design.yaml`. Use the datasheet application circuit for each IC, starting from the reference
    design that `notes/parts.md` names (`uv run hwflow ref search <mpn>` shows its parts, values and nets). Add decoupling for each supply pin (`decouples: Ux`), and pull-ups and protection where the datasheet asks for them. Set `group` per functional block.

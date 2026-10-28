@@ -41,7 +41,7 @@ For each block:
    Cost: `price_usd` at the build quantity for every BOM part, and the non-BOM lines of the cost requirement's scope
    (PCB, assembly and extended-part fees divided by the quantity, cables, probes, mechanics) as `cost.extra` YAML lines
    with their source. `hwflow check` recomputes the unit cost from them against the requirement (`cost-limit`) and
-   against `notes/cost.md` (`cost-doc`); a miss is a product question now, not after review.
+   against `notes/cost.md` (`cost-doc`); a miss is a product question now, not after review: after one quick pass over the obvious levers, report the unit cost, the limit, the gap and each lever with its saving, and do not iterate cost-down further without the lead asking the product person.
 9. Datasheet checklist (each item was a late review finding once; write the number and its page, or `n/a`):
    - pulse and surge ratings (IDM, single-pulse SOA, I2t) against the hot-plug or inrush current;
    - min and max of the parameters the circuit depends on (VGS(th), RDS(on), output accuracy, leakage such as IDSS),

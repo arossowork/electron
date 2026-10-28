@@ -38,9 +38,14 @@ def stage_check(d: Design, libs: Libs) -> dict:
         f += h(d)
     for flt in reg.check_filters:
         f = flt(d, f)
-    errs = [x for x in f if x["sev"] == "error"]
+    # A finding with `decision: True` is a limit that only a product decision can settle (cost over a must limit): it
+    # does not stop sim, layout, post or fab, but the report verdict stays FAIL until the requirement is verified.
+    errs = [x for x in f if x["sev"] == "error" and not x.get("decision")]
+    pending = [x for x in f if x["sev"] == "error" and x.get("decision")]
     warns = [x for x in f if x["sev"] == "warn"]
     res = {"ok": not errs, "errors": len(errs), "warnings": len(warns), "findings": f}
+    if pending:
+        res["decisions_pending"] = len(pending)
     for s in reg.check_state:
         res.update(s(d, f))
     return res

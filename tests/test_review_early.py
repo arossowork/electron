@@ -254,3 +254,18 @@ def test_check_key_facts_follow_the_prose_the_checks_read(tmp_path):
     assert _check_facts(_proj(tmp_path, {"project": "k", "components": {}}, reqs)) == a
     reqs[0]["text"] = "Unit cost less than 22 USD"
     assert _check_facts(_proj(tmp_path, {"project": "k", "components": {}}, reqs)) != a
+
+
+def test_cost_limit_is_a_pending_decision_not_a_stage_blocker(tmp_path, monkeypatch):
+    from hwflow.pipeline import stages
+    d = _proj(tmp_path, _priced([{"name": "fees", "usd": 14.0}]), REQ_COST)
+    assert any(x["code"] == "cost-limit" and x["sev"] == "error" and x["decision"]
+               for x in reviewchecks.cost_findings(d))
+    fake = [{"sev": "error", "code": "cost-limit", "decision": True, "msg": "R42: over"},
+            {"sev": "warn", "code": "x", "msg": "w"}]
+    monkeypatch.setattr(stages, "check", lambda d, libs: list(fake))
+    r = stages.stage_check(d, None)
+    assert r["ok"] and r["errors"] == 0 and r["decisions_pending"] == 1
+    fake.append({"sev": "error", "code": "abs-max", "msg": "real"})  # a real error still blocks
+    r = stages.stage_check(d, None)
+    assert not r["ok"] and r["errors"] == 1 and r["decisions_pending"] == 1
