@@ -229,8 +229,9 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
         h.update(Path(m.__file__).read_bytes())
     h.update(asicflow.flow(d).encode())  # the layout flow (HWFLOW_FLOW or placement.flow): pin access necked or not
     h.update(Path(regionroute.__file__).read_bytes())  # route groups and their cache
-    from ..layout.route import pourstitch
+    from ..layout.route import pourstitch, taps
     h.update(Path(pourstitch.__file__).read_bytes())  # pour stitching after routing (settings.layout.pour_stitch)
+    h.update(Path(taps.__file__).read_bytes())  # pour taps before routing (settings.layout.pour_taps)
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed

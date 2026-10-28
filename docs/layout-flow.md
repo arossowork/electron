@@ -175,6 +175,19 @@ retrying with more than 3 nets open).
    route for corridor nets (`HWFLOW_SEEDROUTE`). The route groups are split by region and cached (`regionroute`).
    After routing, DRC repair (`repair.py`) and pruning of dangling vias and tracks (`prune.py`) run. Nets with
    `nets.<n>.min_width_mm` never neck below that width.
+   **Pour taps** (`taps.py`, `HWFLOW_POUR_TAPS=1`, off by default and not in the fast preset): before any signal
+   net is routed, every single-layer SMD pad of a pour net that its copper does not already join to a via or a
+   through-hole pad (a layout block's track) gets its tap, kept by the router as fixed copper: a straight track (at
+   most 3 mm) to the net's copper already on the same footprint, else a stub (at most 2.5 mm beyond the pad) to a
+   via that keeps every clearance and lands in the pour of another layer. No via goes in a pad (a pasted pad keeps
+   its paste), and none in the courtyard of a surface-mount module (courtyard 25 mm2 or more) unless the component
+   sets `vias_under: true`. Signal tracks then route around the taps and cannot wall a ground pad into a pocket. Pads
+   with `thermal_vias` and through-hole pads are left alone; a pad without a tap is listed and the pour stitch
+   (step 8) stays the fallback. The plan takes under 1 s. Measured on fixed placements (taps off against on):
+   home-thermostat-4 OK against OK (no stitch needed with taps; routing +10%); thermo-e2e-4 2 signal nets open
+   against 0 signal nets open but 2 GND groups left (the module's whole ground area cut off on both layers, and a tap
+   via walled in on B.Cu, which a tap cannot prevent); a congested thermo-e2e-4-live placement 3 against 6 signal
+   nets open (the tap vias take routing room). It stays opt-in until it wins on more placements.
 8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net,
    so a GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads
    and vias. Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the
@@ -284,6 +297,7 @@ reliability and stays opt-in.
 | `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_ROADS=route` (above); an explicit switch wins |
 | `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
+| `HWFLOW_POUR_TAPS=1` | pour taps before signal routing (step 7): every SMD pour-net pad gets a link or a stub via first |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
 | `HWFLOW_FIRSTPASS=1` or a list of `roads,hot,quick` (or `placement: {firstpass: ...}`), `HWFLOW_FIRSTPASS_QUICK_S`, `HWFLOW_FIRSTPASS_HOT_W` | routable first pass (experiment, off): roads reserved and routed first, the window cuts as a local placer penalty, a quick truncated route that drives a local placement fix (`layout/route/firstpass.py`; measurements in `docs/asic-ideas.md`, "Routable first pass") |

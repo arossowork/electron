@@ -749,6 +749,7 @@ def read_board(path: Path) -> dict:
                          "net": netname(n),
                          "kind": str(p[2]), "shape": "custom" if hull else str(p[3]) if len(p) > 3 else "rect",
                          "rratio": float(sexpr.value(p, "roundrect_rratio") or 0.25),  # KiCad's default 0.25
+                         "clearance": float(sexpr.value(p, "clearance") or 0.0),  # the pad's own override (0: none)
                          "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}
     segs = []
