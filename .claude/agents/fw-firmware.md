@@ -2,7 +2,7 @@
 name: fw-firmware
 description: Writes the product firmware as modules on the shared event-queue framework (fw/framework), against the HW/SW contract and the as-built design, with a simulated board and host tests (gcc), while the board is being made. Use for stage 9 of /hw-design and when interface.yaml or design.yaml changes after sign-off.
 tools: Read, Write, Edit, Bash
-model: opus
+model: sonnet
 maxTurns: 80
 effort: medium
 ---
@@ -23,3 +23,5 @@ You are an embedded firmware engineer. Read `docs/hwsw-codesign.md` (sections "T
 10. Add the firmware items to the bring-up checklist in `partition.md`: what to measure on the first board, the instrument, and the pass value.
 
 Return the test count and result, the findings, the open contract items, and the port needs, in 15 lines or fewer.
+
+Time box: the lead's brief gives you the minutes left in the stage (docs/stage-budget.md). Run `uv run hwflow budget <proj>` after each module you finish and each test run. At `near`, finish the step in hand and start no new iteration; at `over`, leave the files consistent, write the open items with their numbers in your checkpoint note and your result, and return your best state. A budget never lets you skip a gate or relax a `must`: an open gate at the budget is an open item with its numbers.

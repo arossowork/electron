@@ -38,6 +38,8 @@ The hwflow lookups are already bounded: `lib sym` returns at most 30 lines, `lib
 | subagent hw-circuit | schematic, SPICE debug loop | opus | inherited | opus / `medium` | the hardest reasoning and the most turns; A/B `sonnet`/`high` later |
 | subagent hw-reviewer | adversarial review | opus | inherited | opus / **`high`** | read-only, one pass, highest value per token; it reads datasheet notes first |
 | subagent hw-layout | knob turning against DRC/post-layout report | opus | inherited | **sonnet** / `medium` | mechanical loop; the placer, router, and area search are deterministic in hwflow |
+| subagent hw-partition | decision table, interface.yaml | opus | inherited | **sonnet** / `medium` (branch stage-budget) | contract checked by `hwflow fw`; Sonnet test in docs/stage-budget.md |
+| subagent fw-firmware | modules, host tests | opus | inherited | **sonnet** / `medium` (branch stage-budget) | beside layout, off the critical path; gated by host tests and `hwflow fw` |
 
 Not tiered further: Haiku 4.5 for a subagent. It has a 200k window and no tool search, so its full tool schemas load (a smoke call measured about 20k tokens of prefix), and hw-parts needs judgment on alternatives.
 

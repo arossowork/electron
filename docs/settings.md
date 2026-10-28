@@ -47,6 +47,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `tools.java` | `JAVA` | PATH `java`, then Homebrew openjdk, then `java` | Java for Freerouting |
 | `tools.ngspice` | `HWFLOW_NGSPICE` (new) | PATH `ngspice`, then `/opt/homebrew/bin/ngspice` | ngspice binary |
 | `tools.openems_python` | `HWFLOW_OPENEMS_PYTHON` | `~/opt/openEMS/venv/bin/python` | Python with the openEMS bindings |
+| `tools.stage_budgets` | `HWFLOW_STAGE_BUDGETS` | empty | /hw-design stage budget overrides, `3-parts=40,7-layout=60` (`hwflow budget`, docs/stage-budget.md) |
 | `tools.em_reexec` | `HWFLOW_EM_REEXEC` | off | Set by hwflow for its own child; stops re-exec loops |
 | `tools.em_verbose` | `HWFLOW_EM_VERBOSE` | 0 | openEMS verbosity |
 | `paths.root` | `HWFLOW_ROOT` | the repository root | Base of the data dirs below |

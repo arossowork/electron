@@ -228,6 +228,10 @@ def main(argv=None):
     p.add_argument("project"); p.add_argument("--mark", metavar="STAGE",
                                               help="record that this stage starts now (e.g. 2-architecture, done)")
     p.add_argument("--note"); p.add_argument("--last", type=int, help="only the newest N builds")
+    p = sub.add_parser("budget", help="stage time budgets: elapsed minutes per /hw-design stage (from the stage marks) "
+                                      "against the budget; says when the current stage must wrap up "
+                                      "(docs/stage-budget.md)")
+    p.add_argument("project"); p.add_argument("--json", action="store_true")
     p = sub.add_parser("optimize"); p.add_argument("project"); p.add_argument("--budget", type=int)
     p.add_argument("--apply", action="store_true")
     p = sub.add_parser("lib"); p.add_argument("what", choices=["sym", "fp", "show", "pads"]); p.add_argument("query", nargs="+")
@@ -315,10 +319,19 @@ def main(argv=None):
         pd = Path(a.project)
         pd = pd.parent if pd.name == "design.yaml" else pd
         if a.mark:
+            from .pipeline import budget
             r = timing.mark(pd, a.mark, a.note)
-            print(f"{r['ts']}: stage {r['stage']}")
+            print(f"{r['ts']}: stage {r['stage']}" + (f"; {b}" if (b := budget.line(r["stage"], pd)) else ""))
             return 0
         print(timing.summary(pd, last=a.last))
+        return 0
+    if a.cmd == "budget":  # before _load, like time
+        import json as json_mod
+
+        from .pipeline import budget
+        pd = Path(a.project)
+        pd = pd.parent if pd.name == "design.yaml" else pd
+        print(json_mod.dumps(budget.status(pd)) if a.json else budget.summary(pd).rstrip("\n"))
         return 0
     if a.cmd == "build":
         from .commands import run as runcmd
