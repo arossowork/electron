@@ -509,6 +509,7 @@ def _arch_scope(design, libs, fp: dict, rest: dict):
     d2 = Design(path=design.path, raw=raw)
     d2.components = keep
     d2.budget_widths = dict(design.budget_widths)
+    d2.budget_trunks = dict(getattr(design, "budget_trunks", None) or {})
     return d2
 
 

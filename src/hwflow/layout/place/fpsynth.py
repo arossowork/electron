@@ -118,6 +118,7 @@ def synth(design, libs, fp: dict, findings: list | None = None):
     d2 = Design(path=design.path, raw=raw)
     d2.components = dict(design.components)
     d2.budget_widths = dict(design.budget_widths)
+    d2.budget_trunks = dict(getattr(design, "budget_trunks", None) or {})
     out_dir = design.path.parent / "build" / "fpsynth" / f"{LIB}.pretty"
     out_dir.mkdir(parents=True, exist_ok=True)
     libs2 = copy.copy(libs)

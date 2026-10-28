@@ -165,3 +165,47 @@ def test_budget_with_req_verifies_the_requirement_in_trace(tmp_path):
         "ok": False, "budgets": [row], "design_hash": _design_hash(d)}}))
     (r,) = trace(d)["rows"]
     assert r["status"] == "FAIL" and r["measures"] == ["budget guard 25.0/20 mOhm:FAIL"]
+
+
+def test_budget_width_goes_on_the_path_only_when_the_net_has_other_pads(tmp_path):
+    """thermo-e2e-6: a copper_r width on every pad of a supply net (decouplers, QFN pins) left the net open. A net
+    with pads off the budget path keeps its class width; the path pads become a trunk tier (krt routes it first)."""
+    comps = {"J1": {"pins": {"1": "VIN", "2": "GND"}}, "Q1": {"pins": {"1": "G", "2": "VP", "3": "VIN"}},
+             "Q2": {"pins": {"1": "G", "2": "VP", "3": "VIN"}}, "C1": {"pins": {"1": "VP", "2": "GND"}},
+             "C2": {"pins": {"1": "VP", "2": "GND"}}}
+    d = _design(tmp_path, [GUARD, dict(GUARD, name="wide", path=["Q1.2 -> C1.1"], max_mohm=2)], comps)
+    parts = {"J1": _part(0, 0, {"1": (0, 0)}), "Q1": _part(10, 0, {"2": (0, 5), "3": (0, 0)}),
+             "Q2": _part(10, 20, {"2": (0, 5), "3": (0, 0)}), "C1": _part(30, 10, {"1": (0, 0)}),
+             "C2": _part(40, 10, {"1": (0, 0)})}
+    w, rows = budgets.widths(d, parts)
+    guard, wide = rows
+    assert w == {"VIN": guard["width_mm"]}  # every VIN pad is on the path; VP has C2 off it
+    t = budgets.trunks(d, rows)
+    assert set(t) == {"VP"}
+    (w1, p1), (w2, p2) = t["VP"]
+    assert w1 == wide["width_mm"] > w2 == guard["width_mm"]
+    assert p1 == [("C1", "1"), ("Q1", "2")] and p2 == [("C1", "1"), ("Q1", "2"), ("Q2", "2")]  # wider tier included
+
+
+def test_trunk_split_and_join_round_trip(tmp_path):
+    from hwflow.core import sexpr
+    from hwflow.layout.route import trunks
+    src = tmp_path / "b.kicad_pcb"
+    src.write_text('(kicad_pcb (net 0 "") (net 1 "VP") (net 2 "GND")'
+                   ' (footprint "x" (property "Reference" "C1") (pad "1" smd (net 1 "VP")) (pad "2" smd (net 2 "GND")))'
+                   ' (footprint "x" (property "Reference" "C2") (pad "1" smd (net 1 "VP")) (pad "2" smd (net 2 "GND")))'
+                   ' (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 2)))')
+    sp = trunks.split(src, tmp_path / "s.kicad_pcb", {"VP": {("C1", "1")}})
+    t = sexpr.loads(sp.read_text())
+    pads = {(trunks._ref(fp), str(p[1])): sexpr.find(p, "net") for fp in sexpr.find_all(t, "footprint")
+            for p in sexpr.find_all(fp, "pad")}
+    assert str(pads[("C1", "1")][2]) == "VP" and str(pads[("C2", "1")][2]) == "VP~off"
+    assert str(pads[("C2", "2")][2]) == "GND"
+    back = trunks.join(sp, tmp_path / "j.kicad_pcb")
+    assert "~off" not in back.read_text()
+    assert sexpr.loads(back.read_text()) == sexpr.loads(src.read_text())
+    # a KiCad 10 board names the net in the pad
+    src.write_text('(kicad_pcb (footprint "x" (property "Reference" "C2") (pad "1" smd (net "VP"))))')
+    sp = trunks.split(src, tmp_path / "s.kicad_pcb", {"VP": {("C1", "1")}})
+    assert '(net "VP~off")' in sp.read_text()
+    assert sexpr.loads(trunks.join(sp, tmp_path / "j.kicad_pcb").read_text()) == sexpr.loads(src.read_text())

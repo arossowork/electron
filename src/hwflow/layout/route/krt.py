@@ -247,7 +247,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                          for n, s in sorted(stats.items()))
         return all(s[2] <= routing.NECK_MAX_MM for s in stats.values()), text
 
-    def route_group(cur, tag, pnets, w, i, lays=()):
+    def route_group(cur, tag, pnets, w, i, lays=(), trunk=False):
         """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
         (any net, signal or power) at the track width and at the neck floor, widened back where they fit. Nets the
         corridor proof marks as needing a neck skip the full-width pass. `lays`: the only layers the nets may use
@@ -267,7 +267,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                     raise
                 return None, []
         notes = []
-        if widths and set(pnets) <= set(necked):
+        if widths and set(pnets) <= set(necked) and not trunk:  # `necked` is at the class width, not a trunk's
             # every net open at the start: the board as it is, its summary listing them as failed
             best = (cur, {"failed_single": list(pnets), "failed": len(pnets)}, len(pnets))
             notes.append(f"{w} mm: {', '.join(pnets)} routed narrow first (corridor proof, exact spacings; the router "
@@ -291,6 +291,8 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                     best = pb
                     notes.append(f"{w} mm: {', '.join(open_nets)} routed with the router's pad-entry neck-down: {text}")
                 else:
+                    if not trunk:  # a trunk left open: the net's own pass still routes it at its class width
+                        design.width_limited |= set(open_nets)
                     notes.append(f"{w} mm: router pad-entry neck-down rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         for k, nw in enumerate(widths):
             if budget_exhausted:
@@ -309,10 +311,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 best = nb
                 notes.append(f"{w} mm: neck-down to {nw:g} mm: {text}")
             else:  # a long narrow stretch is a thinner net, not a neck: leave the net open and say so
+                if not trunk:
+                    design.width_limited |= set(open_nets)
                 notes.append(f"{w} mm: neck-down to {nw:g} mm rejected (a neck over {routing.NECK_MAX_MM:g} mm): {text}")
         # a constrained net still open: a seed route through the corridor proof's free space (seedroute)
         open_nets = sorted(set(krt_open_nets(best[1])) & set(pnets) & seedable) if best[2] and not budget_exhausted else []
-        if open_nets:
+        if open_nets and not trunk:
             best, text = seed_open(best, f"{tag}s", open_nets)
             notes += [f"{w} mm: {t}" for t in text]
         return best, notes
@@ -332,6 +336,25 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             best = (dst, summ, krt_unrouted(summ))
         return best, [r["msg"] for r in res.values()]
 
+    # budget trunks (trunks.py): a copper_r budget's width on its path only, routed first with the net's other pads
+    # on a stand-in net; the net's own pass then joins those pads to the trunk at the class width
+    from . import trunks as _trunks
+    tiers = []  # a tier per layer set: a net with nets.<name>.layers keeps to its layers on its trunk too
+    for w, keep in _trunks.tiers(design, nets, classes, gnds):
+        for lays in sorted({only.get(n, ()) for n in keep}):
+            tiers.append((w, {n: v for n, v in keep.items() if only.get(n, ()) == lays}, lays))
+    for k, (w, keep, lays) in enumerate(tiers):
+        if budget_exhausted:
+            break
+        split = _trunks.split(cur, workdir / f"{stem}t{k}_split.kicad_pcb", keep)
+        tb, tnotes = route_group(split, f"t{k}", sorted(keep), w, k, lays, trunk=True)
+        cur = _trunks.join(tb[0], workdir / f"{stem}t{k}_joined.kicad_pcb")
+        keep_first = True  # the passes below keep the trunk copper
+        left = sorted(set(krt_open_nets(tb[1])) & set(keep)) if tb[2] else []
+        retried += [f"budget trunk {w:g} mm: " + ", ".join(f"{n} ({len(keep[n])} pads)" for n in sorted(keep))
+                    + (f"; open: {', '.join(left)} (the net's own pass joins its pads at the class width)"
+                       if left else "")] + [f"trunk {t}" for t in tnotes]
+        last[f"t{k}: trunk {w} mm"] = {"failed": 0, "trunk_open": left}  # its open pads: the net's own pass
     for i, (w, gnets, lays) in enumerate(passes):
         best, notes = route_group(cur, i, gnets, w, i, lays)
         got = {f"{i}: {w} mm" + (f" on {' '.join(lays)}" if lays else ""): best[1]}

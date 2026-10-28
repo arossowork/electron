@@ -35,6 +35,11 @@ class Design:
     raw: dict
     components: dict[str, Component] = field(default_factory=dict)
     budget_widths: dict[str, float] = field(default_factory=dict)  # net -> mm from budgets: on the current placement
+    # net -> [(mm, [(ref, pad)])]: copper_r widths on the budget paths only (budgets.trunks; krt routes them first)
+    budget_trunks: dict = field(default_factory=dict)
+    # nets the router left open because a neck-down past routing.NECK_MAX_MM was rejected (krt_route; the repair
+    # does not re-route them: the same widths give the same failure)
+    width_limited: set = field(default_factory=set)
 
     @classmethod
     def load(cls, path: str | Path) -> "Design":

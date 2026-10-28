@@ -183,10 +183,57 @@ def widths(design, parts: dict) -> tuple[dict[str, float], list[dict]]:
                         f"({detour:g} x Manhattan) + {vias} vias = {r_at:.1f} mOhm against {bd['max_mohm']} mOhm"
                         + ("" if ok else f"; width alone cannot meet it (needs {need:.2f} mm, cap {cap:g} mm): "
                                          f"the path is too long for the budget, bring its parts closer")))
+        all_pads = design.nets()
+        trunk = {}
+        for x in lg:  # the pads the path runs between, per net (a whole-net leg: every pad of the net)
+            pads = all_pads.get(x["net"], []) if x["a"] is None else list(x["a"]) + list(x["b"])
+            trunk.setdefault(x["net"], set()).update((str(r), str(p)) for r, p in pads)
+        row["trunk"] = {n: sorted(v) for n, v in trunk.items()}
         rows.append(row)
-        for x in lg:
-            out[x["net"]] = max(out.get(x["net"], 0.0), round(w, 2))
-    return out, rows
+    return split_widths(design, rows), rows
+
+
+def split_widths(design, rows: list[dict]) -> dict[str, float]:
+    """The copper_r widths that go on whole nets: {net: mm} for a net whose budget paths reach every pad of it. A net
+    with pads off the paths (a decoupler, an IC supply pin) keeps its own class width; its paths get the width as a
+    trunk (trunks()). Before, the width went on every pad of the net: thermo-e2e-6 put 2.45 mm on all of VBAT and
+    VBAT_RF, QFN pins and 0402 decouplers too, and both nets stayed open (necks over 3 mm)."""
+    out = {}
+    for net, tiers in _tiers(rows).items():
+        pads = {(str(r), str(p)) for r, p in design.nets().get(net, [])}
+        for w, tp in tiers:
+            if pads <= tp:
+                out[net] = max(out.get(net, 0.0), w)
+    return out
+
+
+def _tiers(rows: list[dict]) -> dict[str, list[tuple[float, set]]]:
+    t: dict[str, list[tuple[float, set]]] = {}
+    for r in rows:
+        if r.get("kind") != "copper_r" or not r.get("width_mm"):
+            continue
+        for net, pads in (r.get("trunk") or {}).items():
+            t.setdefault(net, []).append((float(r["width_mm"]), {tuple(x) for x in pads}))
+    return t
+
+
+def trunks(design, rows: list[dict]) -> dict[str, list[tuple[float, list]]]:
+    """The copper_r widths that go only on the budget paths: {net: [(mm, [(ref, pad) the trunk joins])]}, widest
+    first, each tier with the pads of every wider tier (the router routes a tier on the copper of the wider ones).
+    Only nets with pads off the paths (split_widths takes the others)."""
+    whole = split_widths(design, rows)
+    out = {}
+    for net, tiers in _tiers(rows).items():
+        tiers = [t for t in tiers if t[0] > whole.get(net, 0.0) + 1e-9]  # a whole-net width covers the narrower
+        if not tiers:
+            continue
+        acc: set = set()
+        lst = []
+        for w in sorted({w for w, _ in tiers}, reverse=True):
+            acc |= set().union(*(tp for w2, tp in tiers if w2 == w))
+            lst.append((w, sorted(acc)))
+        out[net] = lst
+    return out
 
 
 # ------------------------------------------------------------------ after routing: measurement

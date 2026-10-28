@@ -187,7 +187,9 @@ def _minimize_area(d: Design, libs: Libs, seeds: int, iters: int, passes: int, w
         if viol:
             tried.append(f"{W}x{H}: placement fails")
             break
-        d.budget_widths = budgets.widths(d, parts)[0]  # requirement budgets: track widths on this placement
+        d.budget_widths, _rows = budgets.widths(d, parts)  # requirement budgets: track widths on this placement
+        d.budget_trunks = budgets.trunks(d, _rows)
+        d.width_limited = set()
         d.route_budget_exhausted = False
         tracks, vias, summary, unrouted = _route_once(d, libs, parts, passes, out,
                                                      **({"deadline": deadline} if deadline is not None else {}))
@@ -232,6 +234,9 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     from ..layout.route import pourstitch, taps
     h.update(Path(pourstitch.__file__).read_bytes())  # pour stitching after routing (settings.layout.pour_stitch)
     h.update(Path(taps.__file__).read_bytes())  # pour taps before routing (settings.layout.pour_taps)
+    from ..layout.route import trunks
+    h.update(Path(trunks.__file__).read_bytes())  # budget trunks routed first
+    h.update(json.dumps(getattr(d, "budget_trunks", None) or {}, sort_keys=True, default=str).encode())
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
     h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
@@ -343,6 +348,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                               "__board_mm__": [d.board["width_mm"], d.board["height_mm"]],
                               **{r: [p.x, p.y, p.r] for r, p in parts.items()}}, indent=1))
     d.budget_widths, bud_w = budgets.widths(d, parts)  # requirement budgets: track widths on this placement
+    d.budget_trunks = budgets.trunks(d, bud_w)  # widths on the budget paths only (krt routes those trunks first)
+    d.width_limited = set()
     for r in bud_w:
         print(f"[layout] budget {r['name']}: {r['msg']}")
     name = d.name
