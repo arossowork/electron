@@ -109,6 +109,17 @@ def test_auto_hopeless_and_fixed_all_run_one_attempt():
     assert [k for k in order if k.startswith("layout_attempt")] == ["layout_attempt.1"]
 
 
+def test_auto_counts_each_open_connection_once():
+    # drc_errors already holds the unconnected items (`unrouted`); 41 + 41 must not read as 82 > 40
+    s = bp.layout_search(AUTO, {1: {"ok": False, "drc_errors": 40, "unrouted": 40}}, LAY, 1, 0)
+    assert not s.hopeless
+    # `load`: each open net once (thermo-e2e-6: 41 unconnected items on 6 nets): the other attempts run
+    s = bp.layout_search(AUTO, {1: {"ok": False, "drc_errors": 41, "unrouted": 41, "load": 6}}, LAY, 1, 0)
+    assert not s.hopeless and s.n > 1
+    s = bp.layout_search(AUTO, {1: {"ok": False, "drc_errors": 41, "unrouted": 0, "load": 41}}, LAY, 1, 0)
+    assert s.hopeless
+
+
 def test_auto_budget_ends_the_search():
     res = {k: OK for k in ("check", "sch", "sim")}
     res["layout_attempt.1"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 3}}

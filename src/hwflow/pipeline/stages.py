@@ -516,6 +516,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
             "corridors": corridors, "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
+            "open_nets": repair.open_nets(drc), "load": repair.load(drc),
             "route_cache": key if hit else None, "pour_stitch": stitch, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
@@ -686,7 +687,8 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
         pass
     how = ("saved placement" if use_saved else "incremental from the last good layout" if r.get("eco")
            else f"{'shared ' if placement else ''}placer seeds {seed0}-{seed0 + seeds - 1}")
-    line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
+    line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted"
+            + (f" ({len(r['open_nets'])} open nets)" if r.get("open_nets") else "") + ", "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
             + (", route cache" if r.get("route_cache") else "")
@@ -703,6 +705,7 @@ def attempt_summary(res: dict, fixed_all: bool = False) -> dict:
         return {"error": res["error"], "fixed_all": fixed_all}
     r = res["r"]
     return {"ok": bool(r.get("ok")), "drc_errors": r.get("drc_errors", 0), "unrouted": r.get("unrouted", 0),
+            **({"load": r["load"]} if "load" in r else {}),
             "fixed_parts_only": bool(r.get("fixed_parts_only")), "fixed_all": fixed_all,
             "budget_exhausted": bool(r.get("budget_exhausted"))}
 
@@ -866,7 +869,9 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
         stopped = ("stopped: remaining errors are on fixed parts: "
                    + ", ".join(results[cutoff]["r"]["fixed_parts_only"]))
     elif hopeless:
-        stopped = (f"stopped: attempt 1 has {r0['drc_errors'] + r0['unrouted']} errors (limit {_hopeless_limit()}); "
+        stopped = (f"stopped: attempt 1 has {r0.get('load', r0['drc_errors'])} errors and open nets "
+                   f"(limit {_hopeless_limit()}; {r0['drc_errors']} DRC errors, {len(r0.get('open_nets') or [])} open "
+                   "nets); "
                    "more attempts will not fix it: a structural change is needed (more layers, fewer or smaller "
                    "parts, a larger board), which is a product decision")
     elif s.fixed_all and not r["ok"]:

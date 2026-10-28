@@ -41,6 +41,31 @@ def score(drc: list[dict]) -> tuple[int, int]:
     return len(e), sum(x["type"] == "unconnected" for x in e)
 
 
+def open_nets(drc: list[dict]) -> list[str]:
+    """The nets of the DRC `unconnected` errors, each once. KiCad writes one item per missing ratsnest edge (a 25-pad
+    net the router left open is 24 items); the router and the repair work per net."""
+    out: list[str] = []
+    for x in errors(drc):
+        if x["type"] != "unconnected":
+            continue
+        for s in x.get("items") or [x.get("msg") or ""]:
+            m = _NET.search(str(s))
+            if m:
+                if m.group(1) not in out:
+                    out.append(m.group(1))
+                break
+        else:
+            out.append(f"?{len(out)}")  # an unconnected error without a net name still counts once
+    return out
+
+
+def load(drc: list[dict]) -> int:
+    """The size of a board's problem for the repair and `--auto` limits: each DRC error once, each open net once
+    (not each missing ratsnest edge), creepage and parity left out as in `score`."""
+    e = [x for x in errors(drc) if x["type"] not in ("creepage", "unconnected") and not x["type"].startswith("parity:")]
+    return len(e) + len(open_nets(drc))
+
+
 def parse_item(desc: str, at) -> dict:
     m, ly = _NET.search(desc), _ON.search(desc)
     return {"kind": desc.split(" ", 1)[0], "net": m.group(1) if m else None, "layer": ly.group(1) if ly else None,
@@ -293,9 +318,11 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     max_err, budget = rs.max_errors, rs.budget_s
     fixed = [x for x in errors(drc) if fixed_error(x, parts) is not None]  # errors no re-route can change
     stall = 1 if fixed else rs.max_stall
-    skipped = first[0] > max_err or bool(fixed and len(fixed) == len(errors(drc)))
-    if first[0] > max_err:
-        log.append(f"repair skipped: {first[0]} errors > limit {max_err}")
+    size = load(drc)  # open nets once each: 41 unconnected items on 6 open nets is a repairable board
+    skipped = size > max_err or bool(fixed and len(fixed) == len(errors(drc)))
+    if size > max_err:
+        log.append(f"repair skipped: {size} errors and open nets > limit {max_err} ({first[0]} DRC errors, "
+                   f"{len(open_nets(drc))} open nets)")
     elif skipped:
         refs = sorted(set().union(*(fixed_error(x, parts) for x in fixed)))
         log.append(f"repair skipped: the {len(fixed)} errors are on fixed parts ({', '.join(refs)}), "

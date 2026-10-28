@@ -114,7 +114,9 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
     fixed_all = bool(a1.get("fixed_all"))
     if fixed_all:
         n = 1  # no movable part: another seed gives the same placement
-    errs = int(a1.get("drc_errors") or 0) + int(a1.get("unrouted") or 0)
+    # each DRC error once and each open net once (`load`); `unrouted` (the unconnected items) is already in
+    # drc_errors, so adding it counted every open connection twice (thermo-e2e-6: 41 items on 6 nets -> 82)
+    errs = int(a1["load"]) if a1.get("load") is not None else int(a1.get("drc_errors") or 0)
     hopeless = (not _final(a1) and not a1.get("error") and not a1.get("budget_exhausted") and "drc_errors" in a1
                 and errs > int(settings_layout.get("auto_max_errors", 40)))
     if hopeless:

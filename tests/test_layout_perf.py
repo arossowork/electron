@@ -181,7 +181,7 @@ def test_hopeless_first_attempt_starts_no_pool(tmp_path, monkeypatch):
     started = []
     monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(121), "line": "a"})
     r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
-    assert started == [0] and r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors (limit 40)")
+    assert started == [0] and r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors and open nets (limit 40")
     monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "200")  # under the limit: the other attempts run
     monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
     started.clear()

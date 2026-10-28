@@ -186,6 +186,35 @@ def test_repair_skipped_above_error_limit(tmp_path, monkeypatch):
     assert r["skipped"] and r["rounds"] == 0 and "repair skipped" in repair.summary(r)
 
 
+def _open_drc(edges: dict[str, int]):
+    """KiCad's unconnected items: one per missing ratsnest edge."""
+    return [{"sev": "error", "type": "unconnected", "msg": "Missing connection between items",
+             "items": [f"Pad {i} [{n}] of U1 on B.Cu", f"Pad {i + 1} [{n}] of C1 on B.Cu"], "at": [(0, 0), (1, 1)]}
+            for n, k in edges.items() for i in range(k)]
+
+
+def test_open_connections_count_once_per_net():
+    # thermo-e2e-6: 41 unconnected items on 6 nets (VBAT 21 edges, VBAT_RF 13, three signals, a GND zone split)
+    drc = _open_drc({"VBAT": 21, "VBAT_RF": 13, "K2_SET": 1, "K2_RESET": 1, "OUT2": 1, "GND": 1})
+    drc += [{"sev": "error", "type": "unconnected", "msg": "Missing connection",
+             "items": ["Zone [GND] on B.Cu, priority 0", "Zone [GND] on F.Cu, priority 0"], "at": None}] * 3
+    assert len(drc) == 41
+    assert repair.open_nets(drc) == ["VBAT", "VBAT_RF", "K2_SET", "K2_RESET", "OUT2", "GND"]
+    assert repair.load(drc) == 6
+    assert repair.load(drc + _stub_drc(2) + [{"sev": "error", "type": "creepage", "desc": "x"}]) == 8
+
+
+def test_repair_runs_on_many_edges_of_few_open_nets(tmp_path, monkeypatch):
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    planned = []
+    monkeypatch.setattr(repair, "plan", lambda *a, **k: planned.append(1) or {"rip": [], "islands": [], "drop_vias": []})
+    class D: name = "d"
+    drc = _open_drc({"VBAT": get_settings().repair.max_errors + 5, "VBAT_RF": 3})
+    r = repair.repair(D(), None, {}, [], [], drc, board, lambda *a: [], 3)["report"]
+    assert not r["skipped"] and planned
+
+
 def test_repair_wall_limit_is_a_reported_safety_abort(tmp_path, monkeypatch):
     board = tmp_path / "b.kicad_pcb"
     board.write_text("x")
