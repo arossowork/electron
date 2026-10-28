@@ -29,10 +29,29 @@ def test_legalize_pushes_a_courtyard_off_a_through_hole_pad_of_the_other_side(tm
     pl = placer.Placer(d, parts, W, H, seed=1)
     assert placer._tht_pair(j1, r0) is not None
     assert "courtyard overlap J1/R0" in pl.violations()
-    pl.legalize()  # the placer's own passes: as before (their trajectories stay)
-    assert placer._tht_pair(j1, r0) is not None
-    pl.legalize(tht=True)
+    pl.legalize()  # always: the placer's own passes too
     assert placer._tht_pair(j1, r0) is None
+    assert not [v for v in pl.violations() if "J1/R0" in v]
+
+
+def test_a_non_plated_hole_of_the_other_side_is_an_obstacle(tmp_path):
+    """A mounting-peg hole (NPTH, no pad number) of a back-side part goes through the board: a front courtyard over it
+    is a violation (KiCad npth_inside_courtyard), legalize pushes it off and settle keeps it off."""
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    j1 = parts["J1"]
+    j1.sides = {"back": j1.sides["front"]}
+    j1.tht, j1.npth = frozenset(), ((0.0, 5.08, 3.0, 3.0),)  # surface-mount pins, one 3 mm peg hole
+    for r, p in parts.items():
+        if r.startswith("R"):
+            p.x, p.y, p.r = 25.0, 3.0 + 2.4 * int(r[1:]), 0.0
+    r0 = parts["R0"]
+    hx, hy = j1.x, j1.y + 5.08
+    r0.x, r0.y = hx + 1.0, hy
+    pl = placer.Placer(d, parts, W, H, seed=1)
+    assert "courtyard overlap J1/R0" in pl.violations()
+    assert pl._side_boxes(j1)["front"] == j1.npth_boxes()
+    pl.legalize()
     assert not [v for v in pl.violations() if "J1/R0" in v]
 
 
@@ -67,6 +86,23 @@ def test_settle_repacks_a_fragmented_region_when_the_part_alone_finds_no_spot(tm
     assert pl.settle() == []
     assert all(parts[r].box()[2] - 0.25 <= 13 + 1e-6 for r in ("R0", "R1", "R2"))
     assert all((parts[f"R{i}"].x, parts[f"R{i}"].y) == (20.0 + 4 * (i - 3), 20.0) for i in range(3, 8))
+
+
+def test_pack_search_clears_a_region_of_a_part_that_sits_in_it(tmp_path):
+    """The three members of the one-row region pile up at one spot and a free resistor sits in the row: the members
+    fit only when the free one goes back after them, outside the row (another order than largest first)."""
+    d, libs = _row(tmp_path)
+    parts = placer.build_parts(d, libs)
+    for i in range(4, 8):
+        parts[f"R{i}"].x, parts[f"R{i}"].y = 20.0 + 4 * (i - 4), 20.0
+    y = 1.0 + parts["R0"].h / 2
+    for r, x in (("R0", 4.0), ("R1", 4.3), ("R2", 4.6), ("R3", 9.0)):
+        parts[r].x, parts[r].y, parts[r].r = x, y, 0.0
+    pl = placer.Placer(d, parts, 50, 30, seed=1)
+    v = pl.violations()
+    assert v and "R3" not in {u.ref for u in pl._violators(v)}
+    assert pl._pack_search(v) == []
+    assert all(1 - 1e-6 <= parts[r].box()[0] + 0.25 and parts[r].box()[2] - 0.25 <= 13 + 1e-6 for r in ("R0", "R1", "R2"))
 
 
 def test_verdict_names_the_constraints_of_a_part_that_cannot_fit_alone(tmp_path):

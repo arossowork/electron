@@ -609,7 +609,7 @@ def _findings(design, libs, parts, board) -> list[dict]:
             nodes = barrier_nodes(model, design, net, {})
             fm.pads, fm._free = [p for p in base if p["net"] != net] + nodes, {}
             w = model.floor if f["check"] == "barrier" else f["width_mm"]
-            f["fixed"] = len(fm.groups(net, nodes, w, necks=f["check"] == "channel")) > 1
+            f["fixed"] = len(fm.groups(net, nodes, w, necks=f["check"] == "channel")) > 1 and not f.get("movable")
     return out
 
 
@@ -625,8 +625,12 @@ def _barrier(model, net, nodes, g) -> dict:
            f"{'the part or change its footprint' if back == 'parts' else 'the keep-out, region, connector or fixed part'}"
            f" so one copper path stays open, or another footprint for "
            f"{', '.join(sorted({nodes[k]['ref'] for k in g[1]}))}")
+    # a side of the cut made only of pads of movable parts (placed on a fixed hole or among other pads): the placer
+    # can move those parts to the rest of the net, so the cut is the placement's, not the design's
+    movable = not model.pre and any(all(not nodes[k].get("fixed") and not nodes[k].get("region") for k in grp)
+                                    for grp in g)
     return {"check": "barrier", "back_to": back, "refs": refs, "nets": [net], "need_mm": model.floor,
-            "have_mm": 0.0, "msg": msg, "at": at, "fixed": model.pre, "width_mm": model.floor}
+            "have_mm": 0.0, "msg": msg, "at": at, "fixed": model.pre, "width_mm": model.floor, "movable": movable}
 
 
 def _channel(model, net, nodes, g, w) -> dict:

@@ -127,6 +127,21 @@ def test_after_placement_movable_copper_counts_and_the_finding_says_it_depends_o
     assert barrier.findings(d, Libs(fps), parts) == []
 
 
+def test_after_placement_a_cut_off_movable_part_is_the_placements_finding(tmp_path):
+    """A fixed wall cuts the net, but one side of the cut is a movable part only: the placer can move it to the rest
+    of the net, so the finding is not fixed (the diagnosis does not send the design back for it)."""
+    fps = {k: (v, "") for k, v in _two_pads().items()}
+    fps["W"] = (_wall(0.4, 6.0), "")
+    comps = {"U1": ("A", {"1": "PWR"}, True), "U2": ("B", {"1": "PWR"}, False), "W1": ("W", {"1": "X1", "2": "X2"}, True)}
+    d = _design(tmp_path, comps)
+    parts = {r: SimpleNamespace(x=0.0, y=0.0, r=0.0, fixed=r != "U2") for r in comps}
+    f = barrier.findings(d, Libs(fps), parts)
+    assert [(x["check"], x["movable"], x["fixed"]) for x in f] == [("barrier", True, False)]
+    parts["U2"].fixed = True
+    f = barrier.findings(d, Libs(fps), parts)
+    assert [(x["check"], x["movable"], x["fixed"]) for x in f] == [("barrier", False, True)]
+
+
 def test_drc_rule_parsing():
     d = SimpleNamespace(board={"drc_rules": [
         "(rule fine_pitch (condition \"A.memberOfFootprint('U2') || A.memberOfFootprint('U5')\") "

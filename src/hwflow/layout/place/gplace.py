@@ -100,6 +100,7 @@ class Global:
                     if b:
                         mbox.append((i, s, (b[0] + b[2]) / 2 - u.x, (b[1] + b[3]) / 2 - u.y, (b[2] - b[0]) / 2,
                                      (b[3] - b[1]) / 2))
+        from .placer import hole_boxes
         fbox = []
         for r, p in P.items():
             if r in own:
@@ -108,6 +109,8 @@ class Global:
                 b = p.side_box(s)
                 if b:
                     fbox.append((s, *b))
+            for b in hole_boxes(p):  # through the board: no courtyard over it on either side
+                fbox += [("front", *b), ("back", *b)]
         for b, sides, owner, name in pl.ko_fp:
             for s in sides:
                 fbox.append((s, *b, frozenset({owner}) | getattr(pl, "ko_exempt", {}).get((owner, name), frozenset())))

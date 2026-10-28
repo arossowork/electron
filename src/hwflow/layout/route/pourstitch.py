@@ -222,6 +222,10 @@ def plan(d, board: Path, net: str, rip: bool = False, avoid=()) -> dict:
             landing.setdefault(ly, []).append(g)
     landing = {ly: unary_union(gs).buffer(-0.05) for ly, gs in landing.items()}
     no_rip = fixed_nets(d) | set(avoid)
+    size = {n: len(pins) for n, pins in d.nets().items()}  # a displaced net's re-route grows with its pads
+
+    def cost(nets, rad):  # the cheapest displacement: the fewest pads to re-route, then the fewest nets, the shortest
+        return sum(size.get(n, 0) for n in nets), len(nets), rad
     widths = sorted({float(b["track_mm"]), routing.neck_floor(b)}, reverse=True)
 
     def lands(q: Point, not_on=()) -> bool:
@@ -269,7 +273,8 @@ def plan(d, board: Path, net: str, rip: bool = False, avoid=()) -> dict:
 
     def stub(p, allow: bool):
         """The stub from pad `p` to a via that lands in the main fill: (line, layer, width, via, nets crossed). The
-        shortest free one; with `allow` the one that crosses the fewest routed nets (then the shortest)."""
+        shortest free one; with `allow` the one whose crossed routed nets have the fewest pads in all (a large net
+        such as a supply rail takes the re-route past its budget), then the fewest nets, then the shortest."""
         c = Point(p["x"], p["y"])
         half = math.hypot(p["w"], p["h"]) / 2
         rad = min(p["w"], p["h"]) / 2 + r + 0.1
@@ -294,11 +299,11 @@ def plan(d, board: Path, net: str, rip: bool = False, avoid=()) -> dict:
                             continue
                         if not nets:
                             return line, layer, w, q, nets
-                        if best is None or len(nets) < len(best[4]):
-                            best = (line, layer, w, q, nets)
+                        if best is None or cost(nets, rad) < best[5]:
+                            best = (line, layer, w, q, nets, cost(nets, rad))
                         break
             rad += STEP_MM
-        return best
+        return best[:5] if best else None
 
     def join(pidx: list[int]) -> bool:
         for k in pidx:
@@ -452,7 +457,48 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
             if (deadline is not None and time.time() > deadline) or not one(False, f"{tag}round {k + 1}"):
                 break
 
+    def plane_round():
+        """KiCadRoutingTools' plane repair (`planes`) for the pockets the free vias and stubs leave: it traces a pad
+        to the plane with a via, ripping and re-routing the signal nets in its way in the same run; a ripped net it
+        leaves open is routed again once (repair.reroute). Kept only when `better`, with no net of fixed_nets moved
+        and no other net left open."""
+        nonlocal tracks, vias, drc, snap
+        left = split(d, drc)
+        if not left or libs is None or (deadline is not None and time.time() > deadline):
+            return
+        from ...core.settings import get_settings
+        stop = time.time() + get_settings().repair.budget_s
+        stop = stop if deadline is None else min(stop, deadline)
+        try:
+            res = planes(d, libs, parts, board, left, stop)
+            if res is None:
+                return
+            tr, vi = res
+            cand = check(tr, vi)
+            opened = sorted((open_nets(cand) - open_nets(drc)) - set(left))
+            if opened:  # nets the plane repair ripped and could not put back: one re-route on its board
+                tr, vi = repair.reroute(d, libs, parts, board.parent, [t for t in tr if t["net"] not in opened],
+                                        [v for v in vi if v["net"] not in opened], opened, 0, 0, stop)
+                cand = check(tr, vi)
+        except Exception as e:  # noqa: BLE001 - a router failure leaves the board as it was
+            log.append(f"plane repair: {type(e).__name__}: {str(e)[:100]}")
+            board.write_bytes(snap)
+            return
+        moved = _changed(tracks, tr) - set(left)  # a net with a layer rule or in an isolation group stays put
+        bad = sorted((moved & fixed_nets(d)) | ((open_nets(cand) - open_nets(drc)) - set(left)))
+        if not bad and better(cand, drc):
+            added[0] += max(0, sum(t["net"] in left for t in tr) - sum(t["net"] in left for t in tracks))
+            added[1] += max(0, sum(v["net"] in left for v in vi) - sum(v["net"] in left for v in vias))
+            tracks, vias, drc, snap = tr, vi, cand, board.read_bytes()
+            log.append(f"plane repair kept: {repair.score(drc)[0]} errors")
+        else:
+            why = f"moved or left open {', '.join(bad)}" if bad else \
+                f"{repair.score(cand)[0]} errors ({dict(_other(cand))})"
+            log.append(f"plane repair rejected: {why}")
+            board.write_bytes(snap)
+
     free()
+    plane_round()
     for k in range(DISPLACE_ROUNDS):
         if not split(d, drc) or libs is None or (deadline is not None and time.time() > deadline):
             break
@@ -472,3 +518,58 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
             break
         tried |= set(moved)  # the next round displaces other nets
     return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added)}
+
+
+def _changed(old: list, new: list) -> set[str]:
+    """Nets whose routed tracks differ between two track lists."""
+    def key(ts):
+        out: dict[str, set] = {}
+        for t in ts:
+            out.setdefault(t["net"], set()).add((round(t["x1"], 3), round(t["y1"], 3), round(t["x2"], 3),
+                                                 round(t["y2"], 3), t["layer"]))
+        return out
+    a, b = key(old), key(new)
+    return {n for n in set(a) | set(b) if a.get(n) != b.get(n)}
+
+
+def planes(d, libs, parts, board: Path, nets: list[str], stop: float):
+    """KiCadRoutingTools' plane repair (py_router/repair_planes.py) on the refilled `board`, for the pour
+    `nets`: a pad of the pour in a pocket of the fill gets a trace and a via to the plane, the signal nets in its way
+    ripped and re-routed in the same run (at most MAX_RIP per pad), at the board's sizes (no escalation, no via in a
+    pad). Returns (tracks, vias) of the result, or None when the router changed nothing."""
+    import shutil
+    import sys
+    import time
+    from . import krt
+    b = d.board
+    wd = board.parent
+    src = wd / f"{d.name}_planes.kicad_pcb"
+    dst = wd / f"{d.name}_planes_out.kicad_pcb"
+    shutil.copy(board, src)
+    for suf in (".kicad_pro", ".kicad_dru"):  # the router reads net-class clearances and rules from the siblings
+        f = wd / f"{d.name}{suf}"
+        if f.exists():
+            shutil.copy(f, src.with_suffix(suf))
+    script = krt.krt_dir() / "py_router" / "repair_planes.py"
+    if not script.exists():
+        return None
+    args = [sys.executable, str(script), str(src), str(dst), "--nets", *nets,
+            "--clearance", str(b["clearance_mm"]), "--track-width", str(b["track_mm"]),
+            "--min-track-width", str(routing.neck_floor(b)), "--via-size", str(b["via_dia_mm"]),
+            "--via-drill", str(b["via_drill_mm"]), "--same-net-pad-clearance", "0.15", "--fab-tier", "standard",
+            "--escalation", "off", "--no-fix-drc-settings", "--rip-blocker-nets", "--max-rip-nets", str(MAX_RIP),
+            "--no-kicad-recheck"]  # the caller's DRC judges the result
+    dst.unlink(missing_ok=True)
+    try:
+        krt.run_group(args, timeout=max(1.0, stop - time.time()), cwd=krt.krt_dir(),
+                      env=krt.router_env())
+        if not dst.exists():
+            return None
+        rb = pcb.read_board(dst)
+    finally:
+        for f in wd.glob(f"{d.name}_planes*"):
+            f.unlink()
+    skip = repair.thermal_keys(d, libs, parts)  # build_board adds the declared thermal vias itself
+    tr = [dict(s) for s in rb["segments"] if s["net"]]
+    vi = [dict(v) for v in rb["vias"] if v["net"] and (round(v["x"], 2), round(v["y"], 2)) not in skip]
+    return tr, vi
