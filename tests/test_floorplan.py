@@ -401,3 +401,25 @@ def test_stacked_board_rule_admits_the_blocks_of_its_parts(tmp_path):
     a = next(r for r in rules if r["name"] == "board A")
     b = next(r for r in rules if r["name"] == "board B")
     assert "block:blk" in a["allow"] and "block:blk" not in b["allow"]
+
+
+def test_congested_quick_placement_fails_the_floorplan(tmp_path, monkeypatch):
+    """thermo-e2e-6: the routability prediction of the quick placement was only a risk, so the floorplan passed a
+    board that left 27-41 nets unrouted. The congestion gate now FAILs it back to architecture; a board under the
+    gate keeps PASS (with risks)."""
+    from test_placer import channel
+    from hwflow.layout.place import routability
+    d, _ = channel(tmp_path)
+    raw = yaml.safe_load((tmp_path / "design.yaml").read_text())
+    raw["floorplan"] = {"construction": "double", "items": []}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
+    rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
+    assert rp["ok"] is not False and res["placement"]["routability"]["gate"]["fail"] is False
+    monkeypatch.setattr(routability, "RATIO_FAIL", 0.01)
+    monkeypatch.setattr(routability, "AREA_FAIL_MM2", 1.0)
+    res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
+    rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
+    assert res["verdict"] == "FAIL" and rp["ok"] is False and rp.get("back_to") == "architecture"
+    assert "hot spot x" in rp["msg"] and "Moves:" in rp["msg"]

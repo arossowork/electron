@@ -54,6 +54,13 @@ CORRIDOR_MARGIN_MM = 0.3   # a constrained net whose no-neck corridor is less th
 # with 1 open net: 5 %); from it, not routable (the boards with 20+ open nets: 55-61 %)
 HARD_SHARE_MARGINAL = 0.0
 HARD_SHARE_FAIL = 0.25
+# The congestion gate (`gate`, a FAIL of `hwflow floorplan`): windows at RATIO_FAIL or more over AREA_FAIL_MM2 of the
+# board. Calibrated on quick placements (4 placer seeds each, budget widths on) against the real layout outcome: the
+# boards that routed (home-thermostat-4, thermo-e2e-4, thermo-e2e-4-live) peak at 3.6-4.7 with no cell at 5 or more;
+# thermo-e2e-6 (27-41 unrouted on 2 and 4 layers) peaks at 8.3-18.6 with 40-85 mm2 at 7 or more on every seed, and its
+# routed-attempt placements at 9.3-12.8. The hard-net share does not separate them (thermo-e2e-4 routed clean at 32 %).
+RATIO_FAIL = 6.0
+AREA_FAIL_MM2 = 8.0
 VERDICTS = ("routable", "marginal", "not routable")
 
 
@@ -169,15 +176,19 @@ class Raster:
 # ------------------------------------------------------------------ window cuts
 
 
-def _windows(R: Raster, nets: dict, pos: float, k: float, widths: dict):
+def _windows(R: Raster, nets: dict, pos: float, k: float, widths: dict, extra: dict | None = None):
     """Per window of side k at the positions of a `pos` grid (lower-left corner at (i, j) * pos): (crossing nets,
-    the crossings' width (sum of w + c), the tracks that fit across its border on each layer, via sites inside)."""
+    the crossings' width (sum of w + c), the tracks that fit across its border on each layer, via sites inside).
+    `extra`: {net: (trunk pad points, mm)}, the width a budget trunk adds over its net's own width where the trunk
+    crosses the border (trunks()); not a crossing net of its own."""
     gx, gy = int(math.ceil(R.W / pos)), int(math.ceil(R.H / pos))
     kk = max(1, int(round(k / pos)))
     nwx, nwy = max(1, gx - kk + 1), max(1, gy - kk + 1)
     cross = np.zeros((nwx, nwy))
     need = np.zeros((nwx, nwy))
-    for net, pts in nets.items():
+    items = [(pts, widths.get(net, R.track) + R.clr, 1) for net, pts in nets.items()]
+    items += [(pts, add, 0) for pts, add in (extra or {}).values()]
+    for pts, wc, one in items:
         if len(pts) < 2:
             continue
         ci = np.clip((np.array([p[0] for p in pts]) / pos).astype(int), 0, gx - 1)
@@ -195,8 +206,8 @@ def _windows(R: Raster, nets: dict, pos: float, k: float, widths: dict):
         if i1 - i0 < kk and j1 - j0 < kk:  # windows that hold every pad: corner in [i1-kk+1, i0] x [j1-kk+1, j0]
             allin[max(0, i1 - kk + 1) - a0:min(nwx, i0 + 1) - a0, max(0, j1 - kk + 1) - b0:min(nwy, j0 + 1) - b0] = True
         c = hold & ~allin
-        cross[a0:a1, b0:b1] += c
-        need[a0:a1, b0:b1] += c * (widths.get(net, R.track) + R.clr)
+        cross[a0:a1, b0:b1] += c * one
+        need[a0:a1, b0:b1] += c * wc
     # supply: free centre-line length along the four sides, per layer, as tracks of the board width
     pitch = R.track + R.clr
     step = max(1, int(round(pos / R.res)))
@@ -223,7 +234,30 @@ def _windows(R: Raster, nets: dict, pos: float, k: float, widths: dict):
     Y1 = np.minimum(Y0 + kk * step, R.ny)
     cnt = S[X1[:, None], Y1[None, :]] - S[X0[:, None], Y1[None, :]] - S[X1[:, None], Y0[None, :]] + S[X0[:, None], Y0[None, :]]
     vias = cnt * R.res ** 2 / (R.via + R.clr) ** 2  # via sites: packing of discs of via_dia + clearance
-    return cross, need, tracks, vias, kk
+    # single-layer (SMD) pad copper per outer layer inside each window: which face the window's pads escape on
+    side = []
+    for li in (0, len(R.layers) - 1):
+        o = len(R.layers) - 1 - li
+        M = ((R.pad[li] != 0) & (R.pad[o] == 0)).astype(np.int32)
+        T = np.zeros((R.nx + 1, R.ny + 1), np.int32)
+        T[1:, 1:] = M.cumsum(0).cumsum(1)
+        side.append(T[X1[:, None], Y1[None, :]] - T[X0[:, None], Y1[None, :]] - T[X1[:, None], Y0[None, :]]
+                    + T[X0[:, None], Y0[None, :]])
+    return cross, need, tracks, vias, kk, side
+
+
+def _supply(tracks, vias, side):
+    """Tracks across a window's border: those of the pad layer, plus those of the other layers up to the via sites
+    inside (a pad reaches another layer through a via). The pad layer is the face of the window's SMD pad copper,
+    F.Cu or B.Cu, weighted by the pad area on each (a back-side window escapes on B.Cu; before, F.Cu was taken as
+    the pad layer everywhere, so a back-side board counted its nearly free front layer as the escape layer); a window
+    without SMD pads (through-hole pads only, or none) takes the better face."""
+    total = sum(tracks)
+    sF = tracks[0] + np.minimum(total - tracks[0], vias)
+    sB = tracks[-1] + np.minimum(total - tracks[-1], vias)
+    cF, cB = side[0].astype(float), side[1].astype(float)
+    n = cF + cB
+    return np.where(n > 0, (cF * sF + cB * sB) / np.maximum(n, 1.0), np.maximum(sF, sB))
 
 
 def window_map(R: Raster, design, libs=None) -> dict:
@@ -239,6 +273,7 @@ def window_map(R: Raster, design, libs=None) -> dict:
             c = p["own"].centroid
             nets.setdefault(n, []).append((c.x, c.y))
     widths = {n: float(classes.get(n, {}).get("width", R.track)) for n in nets}
+    extra = trunks(R, design, widths)
     pitch = R.track + R.clr
     gx, gy = int(math.ceil(R.W / POS_MM)), int(math.ceil(R.H / POS_MM))
     worst = np.zeros((gx, gy))
@@ -246,10 +281,8 @@ def window_map(R: Raster, design, libs=None) -> dict:
     for k in WINDOWS_MM:
         if k > min(R.W, R.H):
             continue
-        cross, need, tracks, vias, kk = _windows(R, nets, POS_MM, k, widths)
-        front = tracks[0]  # the pad layer (SMD parts sit on F.Cu)
-        other = sum(tracks[i] for i in range(1, len(tracks)))
-        supply = (front + np.minimum(other, vias)) * pitch  # mm of border, in w + c units of the board track
+        cross, need, tracks, vias, kk, side = _windows(R, nets, POS_MM, k, widths, extra)
+        supply = _supply(tracks, vias, side) * pitch  # mm of border, in w + c units of the board track
         ratio = need / np.maximum(supply, pitch)
         sizes.append({"k": k, "max": round(float(ratio.max()), 3), "hot": int((ratio > RATIO_HOT).sum()),
                       "cross_max": int(cross.max())})
@@ -260,7 +293,29 @@ def window_map(R: Raster, design, libs=None) -> dict:
         r2 = ndimage.maximum_filter(full, size=kk, origin=(kk - 1) // 2, mode="constant")
         worst = np.maximum(worst, r2)
     # maps: per window size (k mm, k in position cells, ratio per window lower-left corner) for hotspot.py
-    return {"ratio": worst, "sizes": sizes, "nets": nets, "widths": widths, "maps": maps}
+    return {"ratio": worst, "sizes": sizes, "nets": nets, "widths": widths, "maps": maps, "extra": extra}
+
+
+def trunks(R: Raster, design, widths: dict) -> dict:
+    """{net: ([(x, y) of the trunk pads], mm)}: the budget trunks of design.budget_trunks (budgets.trunks, set by
+    the layout stage and by barrier.with_budgets), each the width its widest tier adds over the net's own width. The
+    layout routes a copper_r budget's width on its path only (krt_route), so the prediction does too: the net at its
+    own width between all its pads, plus the trunk's extra width where the trunk pads lie on both sides of a cut.
+    Before, the budget width went on the whole net, and the prediction with it."""
+    out = {}
+    tr = getattr(design, "budget_trunks", None) or {}
+    if not tr:
+        return out
+    at = {(p["ref"], str(p["number"])): (p["own"].centroid.x, p["own"].centroid.y) for p in R.model.pads}
+    for net, tiers in tr.items():
+        if net not in widths or not tiers:
+            continue
+        w, pads = max(tiers, key=lambda t: t[0])
+        add = float(w) - widths[net]
+        pts = [at[(str(r), str(n))] for r, n in pads if (str(r), str(n)) in at]
+        if add > 1e-9 and len(pts) >= 2:
+            out[net] = (pts, add)
+    return out
 
 
 # ------------------------------------------------------------------ placed board
@@ -304,6 +359,8 @@ def line_cuts(R: Raster, wm: dict) -> dict:
     nets, widths = wm["nets"], wm["widths"]
     spans = [(min(p[0] for p in pts), max(p[0] for p in pts), min(p[1] for p in pts), max(p[1] for p in pts),
               (widths.get(n, R.track) + R.clr) / pitch) for n, pts in nets.items() if len(pts) >= 2]
+    spans += [(min(p[0] for p in pts), max(p[0] for p in pts), min(p[1] for p in pts), max(p[1] for p in pts),
+               add / pitch) for pts, add in (wm.get("extra") or {}).values()]
     F = [R.free(li) for li in range(len(R.layers))]
     P = [R.pad[li] != 0 for li in range(len(R.layers))]
     out = {"x": None, "y": None, "proofs": []}
@@ -359,6 +416,10 @@ def ring_cuts(R: Raster, wm: dict) -> list[dict]:
             ins = [x0 < x < x1 and y0 < y < y1 for x, y in pts]
             if any(ins) and not all(ins):
                 need += (wm["widths"].get(n, R.track) + R.clr) / pitch
+        for pts, add in (wm.get("extra") or {}).values():  # a budget trunk across the ring: its extra width
+            ins = [x0 < x < x1 and y0 < y < y1 for x, y in pts]
+            if any(ins) and not all(ins):
+                need += add / pitch
         if need <= 0:
             continue
 
@@ -521,9 +582,112 @@ def predict(design, libs, parts=None, board=None, corridors: bool = True, access
            "bounds": {"line_x": lines["x"], "line_y": lines["y"], "rings": rings[:10]},
            "seconds": round(time.time() - t0, 2),
            "_ratio": wm["ratio"], "_raster": R}
+    res["_widths"] = wm["widths"]
+    res["_extra"] = wm.get("extra") or {}
+    res["gate"] = gate(res, design, parts)
+    if res["gate"]["fail"]:
+        res["verdict"] = VERDICTS[2]
     res["score"] = res["hard_share"]
     res["message"] = message(res)
     return res
+
+
+def gate(res: dict, design, parts=None) -> dict:
+    """The congestion gate of a prediction: {fail, area_mm2, peak, spots}. The cells at RATIO_FAIL or more form the
+    spots; each spot names its box, its peak ratio, its parts (movable ones apart), the face its SMD pads are on, and
+    the nets that cross its border (widest first, with the width and where a requirement budget set it; a budget
+    trunk's width under `trunk`)."""
+    from ..board import pcb
+    r = res["_ratio"]
+    R = res["_raster"]
+    over = r >= RATIO_FAIL
+    area = float(over.sum()) * POS_MM ** 2
+    out = {"fail": area >= AREA_FAIL_MM2, "area_mm2": round(area, 1), "peak": round(float(r.max()), 2),
+           "ratio_fail": RATIO_FAIL, "area_fail_mm2": AREA_FAIL_MM2, "track": R.track, "spots": []}
+    if not over.any():
+        return out
+    widths = res.get("_widths") or {}
+    extra = res.get("_extra") or {}
+    bud = getattr(design, "budget_widths", None) or {}
+    own = {}
+    if bud:  # the nets' own widths, without the budgets
+        design.budget_widths = {}
+        try:
+            own = {n: float(c.get("width", R.track)) for n, c in pcb.net_classes(design).items()}
+        finally:
+            design.budget_widths = bud
+    lab, n = ndimage.label(over)
+    pads = R.model.pads
+    spots = []
+    for k in range(1, n + 1):
+        cells = np.argwhere(lab == k)
+        x0, y0 = cells.min(0) * POS_MM
+        x1, y1 = (cells.max(0) + 1) * POS_MM
+        x0, y0, x1, y1 = (float(v) for v in (x0, y0, x1, y1))
+        # the windows behind these cells reach up to the largest window side around them
+        g = max(WINDOWS_MM) / 2
+        bx = (x0 - g, y0 - g, x1 + g, y1 + g)
+        inside, refs, faces = {}, set(), {}
+        for p in pads:
+            c = p["own"].centroid
+            if x0 <= c.x <= x1 and y0 <= c.y <= y1:
+                refs.add(p["ref"])
+                if len(p["layers"]) == 1:
+                    faces[p["layers"][0]] = faces.get(p["layers"][0], 0) + 1
+            if p["net"]:
+                inside.setdefault(p["net"], [0, 0])[0 if (bx[0] <= c.x <= bx[2] and bx[1] <= c.y <= bx[3]) else 1] += 1
+        cross = [m for m, (a, b) in inside.items() if a and b and m in widths]
+        tw = {m: widths[m] + extra[m][1] for m in cross if m in extra}  # the trunk width of a budget trunk
+        cross.sort(key=lambda m: (-tw.get(m, widths[m]), m))
+        nets = [{"net": m, "width": round(widths[m], 2),
+                 "budget": bool((bud.get(m) and bud[m] > own.get(m, 0) + 1e-9) or m in tw),
+                 "pads": sum(inside[m]), **({"trunk": round(tw[m], 2), "trunk_pads": len(extra[m][0])}
+                                            if m in tw else {})} for m in cross]
+        movable = sorted(x for x in refs if parts is not None and x in parts and not parts[x].fixed)
+        spots.append({"at": [round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1)],
+                      "peak": round(float(r[lab == k].max()), 2), "area_mm2": round(len(cells) * POS_MM ** 2, 1),
+                      "refs": sorted(refs), "movable": movable, "nets": nets,
+                      "face": max(faces, key=faces.get) if faces else None})
+    spots.sort(key=lambda s: -s["area_mm2"] * s["peak"])
+    out["spots"] = spots[:5]
+    return out
+
+
+def gate_message(g: dict, layers: int, budgets: dict | None = None) -> str:
+    """The FAIL text of the congestion gate: where, how much over, which nets, and the moves that reduce it."""
+    sp = g["spots"]
+    s = (f"congestion: {g['area_mm2']:g} mm2 of the board where the nets that must cross a window's border need at "
+         f"least {g['ratio_fail']:g} x the tracks that fit across it (FAIL from {g['area_fail_mm2']:g} mm2; boards "
+         f"that routed stay under 5 x everywhere); peak {g['peak']:.1f} x")
+    for i, h in enumerate(sp[:2]):
+        wide = [x for x in h["nets"] if max(x["width"], x.get("trunk", 0.0)) > g["track"] + 1e-9][:4]
+        s += (f"; {'hot spot' if i == 0 else 'next'} x {h['at'][0]:g}-{h['at'][2]:g}, y {h['at'][1]:g}-{h['at'][3]:g} "
+              f"mm ({h['area_mm2']:g} mm2, {h['peak']:.1f} x), parts {', '.join(h['refs'][:10])}"
+              + (f", SMD pads on {h['face']}" if h["face"] else "")
+              + f", {len(h['nets'])} nets cross it")
+        if wide:
+            s += " (wide: " + ", ".join(
+                (f"{x['net']} {x['trunk']:g} mm trunk to {x['trunk_pads']} of its {x['pads']} pads" if "trunk" in x
+                 else f"{x['net']} {x['width']:g} mm to {x['pads']} pads")
+                + (f" from budget {budgets[x['net']]}" if budgets and x["net"] in budgets
+                                                   else " from a budget" if x["budget"] else "")
+                for x in wide) + ")"
+    h = sp[0] if sp else None
+    moves = []
+    if h and h["movable"]:
+        moves.append(f"spread the movable parts {', '.join(h['movable'][:8])} out of the hot spot (a floorplan "
+                     "region or placement for them elsewhere)")
+    wide = [x for x in h["nets"] if x["budget"]] if h else []
+    if wide:
+        moves.append("a requirement budget sets a wide track through it ("
+                     + ", ".join(f"{x['net']} {x.get('trunk', x['width']):g} mm" for x in wide[:3])
+                     + "): bring the budget's parts closer (a shorter path needs a narrower track), a pour for the "
+                     "path, or loosen the budget")
+    if h and h["face"]:
+        other = "F.Cu" if h["face"] == "B.Cu" else "B.Cu"
+        moves.append(f"move some of its SMD parts to the other face ({other})")
+    moves.append(f"more than {layers} layers or a larger board")
+    return s + ". Moves: " + "; ".join(moves)
 
 
 def rank_on(design=None) -> bool:
@@ -589,6 +753,9 @@ def message(res: dict) -> str:
          f"({res['hard_share']:.0%}; marginal from 1 net, not routable from {HARD_SHARE_FAIL:.0%})")
     if res.get("proofs"):
         s += f"; proven: {'; '.join(res['proofs'][:3])}" + (" ..." if len(res["proofs"]) > 3 else "")
+    g = res.get("gate") or {}
+    if g.get("fail"):
+        s += f"; congested: {g['area_mm2']:g} mm2 at {g['ratio_fail']:g} x or more (gate from {g['area_fail_mm2']:g} mm2)"
     if res["hot_spots"]:
         h = res["hot_spots"][0]
         s += (f"; worst hot spot x {h['at'][0]}-{h['at'][2]}, y {h['at'][1]}-{h['at'][3]} mm: {h['peak']:.1f} x its "

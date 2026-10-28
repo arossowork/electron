@@ -571,16 +571,19 @@ def with_budgets(design, parts, fn):
     """fn() with the budget widths of this placement set on `design` (the layout stage sets them the same way), for
     this check only."""
     saved = getattr(design, "budget_widths", None)
-    if parts is not None and not saved and design.raw.get("budgets"):
+    saved_t = getattr(design, "budget_trunks", None)
+    if parts is not None and not saved and not saved_t and design.raw.get("budgets"):
         try:
             from ...sim import budgets
-            design.budget_widths = budgets.widths(design, parts)[0]
+            design.budget_widths, rows = budgets.widths(design, parts)
+            design.budget_trunks = budgets.trunks(design, rows)  # the widths on the budget paths only (krt_route)
         except Exception:  # noqa: BLE001 - a budget that cannot be estimated adds no width
             pass
     try:
         return fn()
     finally:
         design.budget_widths = saved if saved is not None else {}
+        design.budget_trunks = saved_t if saved_t is not None else {}
 
 
 def _findings(design, libs, parts, board) -> list[dict]:

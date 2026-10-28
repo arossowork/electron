@@ -80,3 +80,49 @@ def test_forced_corridor_proof():
                                                                       "margin": 0.2}]
     out = routability.forced_corridors(rows)
     assert len(out) == 1 and out[0].startswith("net A")
+
+
+def test_supply_takes_the_face_of_the_pads():
+    # a back-side window escapes on B.Cu: before, F.Cu (nearly free on a back-side board) was the pad layer everywhere
+    f, b = np.full((1, 1), 10.0), np.full((1, 1), 2.0)
+    vias = np.full((1, 1), 1.0)
+    on = lambda n: np.full((1, 1), n)  # noqa: E731
+    assert routability._supply([f, b], vias, [on(0), on(5)])[0, 0] == 3.0  # B.Cu tracks + 1 via
+    assert routability._supply([f, b], vias, [on(5), on(0)])[0, 0] == 11.0
+    assert routability._supply([f, b], vias, [on(0), on(0)])[0, 0] == 11.0  # no SMD pad: the better face
+
+
+def test_congestion_gate_names_the_spot_its_parts_and_nets(tmp_path):
+    d, libs, parts = _placed(tmp_path)
+    res = routability.predict(d, libs, parts=parts, corridors=False, access=False)
+    assert not res["gate"]["fail"]  # the channel board routes
+    r = res["_ratio"].copy()
+    p = parts["R2"]
+    i, j = int(p.x / routability.POS_MM), int(p.y / routability.POS_MM)
+    r[i - 3:i + 4, j - 3:j + 4] = routability.RATIO_FAIL + 1  # 12.25 mm2 over the gate around R2
+    res["_ratio"] = r
+    g = routability.gate(res, d, parts)
+    assert g["fail"] and g["area_mm2"] >= routability.AREA_FAIL_MM2
+    h = g["spots"][0]
+    assert "R2" in h["refs"] and "R2" in h["movable"] and h["nets"]
+    msg = routability.gate_message(g, 2)
+    assert "hot spot x" in msg and "R2" in msg and "Moves: spread the movable parts" in msg
+
+
+def test_budget_trunk_adds_width_on_its_pads_only(tmp_path):
+    # the layout routes a copper_r width on the budget path only (budgets.trunks): the prediction counts the trunk's
+    # extra width where its pads lie on both sides of a cut, not the whole net at the budget width
+    d, libs, parts = _placed(tmp_path)
+    net = max((n for n, p in d.nets().items() if len(p) >= 3), key=lambda n: len(d.nets()[n]), default=None)
+    net = net or next(n for n, p in d.nets().items() if len(p) >= 2)
+    pads = sorted((str(r), str(p)) for r, p in d.nets()[net])[:2]
+    R = routability.Raster(d, libs, parts=parts)
+    base = routability.window_map(R, d)
+    assert base["extra"] == {}
+    d.budget_trunks = {net: [(base["widths"][net] + 1.0, pads)]}
+    wm = routability.window_map(R, d)
+    pts, add = wm["extra"][net]
+    assert len(pts) == 2 and abs(add - 1.0) < 1e-9
+    assert (wm["ratio"] >= base["ratio"] - 1e-9).all() and wm["ratio"].max() > base["ratio"].max()
+    assert set(wm["nets"]) == set(base["nets"])  # the trunk is not a net of its own (hard share, per-net rows)
+    d.budget_trunks = {}
