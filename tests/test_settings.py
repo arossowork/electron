@@ -17,7 +17,7 @@ def test_defaults(monkeypatch):
               "HWFLOW_LAYOUT_BUDGET_S", "HWFLOW_KEEPOUT_STRICT", "HWFLOW_NECKDOWN", "KRT_DIR", "HWFLOW_ROOT"):
         monkeypatch.delenv(k, raising=False)
     s = get_settings()
-    assert (s.repair.max_errors, s.repair.budget_s, s.repair.max_stall) == (40, 120.0, 2)
+    assert (s.repair.max_errors, s.repair.budget_s, s.repair.max_stall) == (40, 1800.0, 2)
     assert s.layout.budget_s == 3000 and s.layout.auto_max_errors == 40 and s.layout.seed0 == 1
     assert s.layout.flow is None and s.layout.keepout_strict and s.layout.neckdown and s.layout.seedroute
     assert s.paths.krt_dir.endswith("tools/KiCadRoutingTools") and Path(s.paths.blocks_dir).name == "blocks"

@@ -186,7 +186,7 @@ def test_repair_skipped_above_error_limit(tmp_path, monkeypatch):
     assert r["skipped"] and r["rounds"] == 0 and "repair skipped" in repair.summary(r)
 
 
-def test_repair_stops_on_wall_budget(tmp_path, monkeypatch):
+def test_repair_wall_limit_is_a_reported_safety_abort(tmp_path, monkeypatch):
     board = tmp_path / "b.kicad_pcb"
     board.write_text("x")
     clock = iter(range(0, 10000, 100))
@@ -199,4 +199,21 @@ def test_repair_stops_on_wall_budget(tmp_path, monkeypatch):
         return _stub_drc(10 - n["c"])
     class D: name = "d"; board = {}
     r = repair.repair(D(), None, {}, [], [], _stub_drc(10), board, check, 10)["report"]
-    assert r["rounds"] < 10 and any("budget" in l for l in r["log"])
+    assert r["rounds"] < 10 and any("safety abort" in l for l in r["log"]) and r["aborts"]
+
+
+def test_repair_stops_on_counts_not_on_the_clock(tmp_path, monkeypatch):
+    """A slow clock (100 s per call) under the default limit: the repair runs all its rounds, no abort."""
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    clock = iter(range(0, 10 ** 6, 100))
+    monkeypatch.setattr(repair.time, "time", lambda: next(clock))
+    monkeypatch.delenv("HWFLOW_REPAIR_BUDGET_S", raising=False)
+    monkeypatch.setattr(repair, "plan", lambda *a, **k: {"rip": [], "islands": [], "drop_vias": ["v"]})
+    n = {"c": 0}
+    def check(t, v, i):
+        n["c"] += 1
+        return _stub_drc(10 - n["c"])
+    class D: name = "d"; board = {}
+    r = repair.repair(D(), None, {}, [], [], _stub_drc(10), board, check, 3)["report"]
+    assert r["rounds"] == 3 and not r["aborts"]

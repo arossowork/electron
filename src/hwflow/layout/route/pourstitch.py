@@ -383,17 +383,26 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
     """Join the split pours of the routed board. `check(tracks, vias) -> drc` writes `board` and runs the DRC with
     refill (the board then holds the fill). Every pour net is planned (a floating plane is no DRC error), in at most
     ROUNDS rounds of free vias and stubs, then up to DISPLACE_ROUNDS rounds that displace routed nets
-    (repair.reroute, within the repair budget settings.repair.budget_s). A free round is kept only when `better`.
+    (repair.reroute). A free round is kept only when `better`. The rounds are counts; a router call stopped at the
+    wall-time limit settings.repair.budget_s (or the layout `deadline`) is a safety abort, listed in `aborts`.
     A displacing round changes the copper around the island: the re-routed nets take new paths, so the new via can
     land in another pocket of the fill and a new free via can become possible. It is therefore kept provisionally
     (no more errors) and followed by free rounds on the re-routed board; the whole sequence is kept only when it ends
     `better` than the board before it, else that board is restored. The board left in `board` is the one returned.
-    Returns {tracks, vias, drc, log, added}."""
+    Returns {tracks, vias, drc, log, added, aborts}."""
     import time
-    pour = list(d.ground_nets()) if d.board["gnd_pour"] else []
-    log, added = [], [0, 0]
+    pour = sorted(d.ground_nets()) if d.board["gnd_pour"] else []
+    log, added, aborts = [], [0, 0], []
     if not pour:
-        return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added)}
+        return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added), "aborts": aborts}
+
+    def failed(label, e):
+        import subprocess
+        if isinstance(e, subprocess.TimeoutExpired):
+            aborts.append(f"pour stitch {label}: router stopped at the wall-time limit")
+            log.append(f"{label}: safety abort: router stopped at the wall-time limit (HWFLOW_REPAIR_BUDGET_S)")
+        else:
+            log.append(f"{label}: {type(e).__name__}: {str(e)[:100]}")
     if not repair.zone_fill(board):
         drc = check(tracks, vias)
     snap = board.read_bytes()
@@ -432,7 +441,7 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
                 log.append(f"re-routed {len(nets)} displaced nets ({', '.join(nets[:4])}{'...' if len(nets) > 4 else ''})")
             cand = check(keep_t, keep_v)
         except Exception as e:  # noqa: BLE001 - a router failure rejects the round
-            log.append(f"{label}: {type(e).__name__}: {str(e)[:100]}")
+            failed(label, e)
             board.write_bytes(snap)
             return False
         broken = sorted((open_nets(cand) - open_nets(drc)) & set(nets))
@@ -481,7 +490,7 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
                                         [v for v in vi if v["net"] not in opened], opened, 0, 0, stop)
                 cand = check(tr, vi)
         except Exception as e:  # noqa: BLE001 - a router failure leaves the board as it was
-            log.append(f"plane repair: {type(e).__name__}: {str(e)[:100]}")
+            failed("plane repair", e)
             board.write_bytes(snap)
             return
         moved = _changed(tracks, tr) - set(left)  # a net with a layer rule or in an isolation group stays put
@@ -517,7 +526,7 @@ def stitch(d, libs, parts, board: Path, tracks: list, vias: list, drc: list[dict
         if not moved:  # nothing left to displace
             break
         tried |= set(moved)  # the next round displaces other nets
-    return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added)}
+    return {"tracks": tracks, "vias": vias, "drc": drc, "log": log, "added": tuple(added), "aborts": aborts}
 
 
 def _changed(old: list, new: list) -> set[str]:

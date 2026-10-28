@@ -20,7 +20,11 @@ _NET = re.compile(r"\[([^\]]+)\]")
 _ON = re.compile(r" on (\S+?)(?:,| -|$)")
 MAX_RIPUP = 12  # nets ripped in one round, the ones named by errors first
 # HWFLOW_REPAIR_MAX_ERRORS (settings.repair.max_errors, default 40): above this many errors local repair cannot converge: skip it
-# HWFLOW_REPAIR_BUDGET_S (settings.repair.budget_s, default 120): wall time for the whole repair, router calls included
+# HWFLOW_REPAIR_BUDGET_S (settings.repair.budget_s, default 1800): a safety abort of the whole repair, router calls
+# included, never its normal stop. The repair is bounded by counts (rounds, max_stall, MAX_RIPUP nets per round, the
+# router's own A* iteration limits), so the same board repairs the same way under any CPU load; a stop at this wall
+# time is reported as a safety abort (report["aborts"]). It was a 120 s budget that stopped thermo-e2e-4's second
+# round under load and not without it.
 # rounds in a row without improvement before the repair stops; 1 when some errors are on fixed parts (a floor no
 # re-route lowers: home-thermostat-3 spent 598 s going 5 -> 5 on courtyard errors of fixed parts and one open net)
 # (settings.repair.max_stall, HWFLOW_REPAIR_MAX_STALL, default 2)
@@ -271,14 +275,20 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     `check` should be the fast DRC; the caller runs the full one on the kept board. A round is kept only if it has fewer errors (or equal errors and fewer unrouted) and no more unrouted than the
     best board so far; the best board is left in `board`. Skipped when every error is on fixed parts (fixed_error).
     Stops after `rounds` rounds, when nothing can be repaired, or after max_stall rounds in a row without improvement
-    (one round when some errors are on fixed parts), or at `deadline` (time.time(), the layout wall-time budget).
-    Returns the best copper, DRC and a report."""
+    (one round when some errors are on fixed parts). Wall-clock stops are safety aborts only (settings.repair.budget_s,
+    and `deadline`, the layout wall-time budget), listed in report["aborts"]. Returns the best copper, DRC and a
+    report."""
     t0 = time.time()
     workdir = board.parent
     best = {"tracks": tracks, "vias": vias, "drc": drc, "island": 0, "score": score(drc)}
     drc_json = board.with_suffix(".drc.json")
     snap = (board.read_bytes(), drc_json.read_bytes() if drc_json.exists() else None)
     first, log, fails, island, done = best["score"], [], 0, 0, 0
+    aborts: list[str] = []
+
+    def abort(msg):
+        aborts.append(msg)
+        log.append(f"safety abort: {msg}")
     rs = get_settings().repair
     max_err, budget = rs.max_errors, rs.budget_s
     fixed = [x for x in errors(drc) if fixed_error(x, parts) is not None]  # errors no re-route can change
@@ -297,10 +307,11 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             log.append("the errors left are on fixed parts: nothing the router can repair")
             break
         if time.time() - t0 > budget:
-            log.append(f"repair stopped: {time.time() - t0:.0f} s > budget {budget:.0f} s")
+            abort(f"repair stopped before round {r + 1}: {time.time() - t0:.0f} s > {budget:.0f} s "
+                  "(HWFLOW_REPAIR_BUDGET_S)")
             break
         if deadline is not None and time.time() > deadline:
-            log.append("repair stopped: the layout wall-time budget is used up")
+            abort(f"repair stopped before round {r + 1}: the layout wall-time budget is used up")
             break
         p = plan(d, best["tracks"], best["vias"], best["drc"], radius=2.0 * fails)
         if not (p["rip"] or p["islands"] or p["drop_vias"]):
@@ -328,7 +339,8 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             cand = check(keep_t, keep_v, new_isl)
         except Exception as e:  # noqa: BLE001 - a router failure rejects the round
             if isinstance(e, subprocess.TimeoutExpired) and time.time() >= stop - 1e-3:
-                log.append(f"round {r + 1}: stopped at the repair budget ({time.time() - t0:.0f} s, budget {budget:.0f} s)")
+                abort(f"round {r + 1}: router stopped at the repair wall-time limit ({time.time() - t0:.0f} s, "
+                      f"limit {budget:.0f} s)")
                 board.write_bytes(snap[0])
                 break
             log.append(f"round {r + 1}: {type(e).__name__}: {str(e)[:100]}")
@@ -359,6 +371,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     return {"tracks": best["tracks"], "vias": best["vias"], "drc": best["drc"], "island": best["island"],
             "report": {"before": first[0], "after": best["score"][0], "unrouted_before": first[1],
                        "unrouted_after": best["score"][1], "rounds": done, "log": log, "skipped": skipped,
+                       "aborts": aborts,
                        "seconds": round(time.time() - t0, 1)}}
 
 

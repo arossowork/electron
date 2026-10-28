@@ -249,7 +249,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
                      ["drill", b["via_drill_mm"]], ["layers", Q("F.Cu"), Q("B.Cu")], ["net", netidx[v["net"]]],
                      ["uuid", uid()]])
     if b["gnd_pour"]:
-        for g in design.ground_nets():
+        for g in sorted(design.ground_nets()):
             if g not in netidx:
                 continue
             for layer in cu_layers(nl):

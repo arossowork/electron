@@ -66,6 +66,14 @@ pads of `hole_boxes`, taken in set order, changed the order of the density block
 float sums, so every later stage; 1 of 5 hash seeds of thermo-e2e-4 then ended with 2 isolation violations. The
 router subprocess gets `PYTHONHASHSEED=0` (krt.router_env) unless the caller sets one.
 
+Routing is reproducible the same way. KiCadRoutingTools stops on its own counts (A* iterations, rip-up limits):
+`scripts/route_repro.py` routed the thermo-e2e-4-live placement twice to the same copper hash. The repair loop
+stops on counts (`repair_rounds`, `HWFLOW_REPAIR_MAX_STALL`, `MAX_RIPUP` nets a round) and the pour stitch on its
+`ROUNDS` and `DISPLACE_ROUNDS`; `HWFLOW_REPAIR_BUDGET_S` (1800 s) is only a safety abort of the repair and of each
+pour-stitch router call, reported in `repair.aborts` / `pour_stitch.aborts` and REPORT.md. It was a 120 s budget that
+was the normal stop: thermo-e2e-4-live's second repair round and its plane repair were killed by it, earlier or later
+depending on the load.
+
 ## Incremental layout after a clean layout (ECO, `layout/place/eco.py`)
 
 A layout that converged (0 unrouted, 0 DRC errors, a legal placement) writes `build/placement.good.json`: every

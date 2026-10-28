@@ -162,6 +162,8 @@ def write_report(d: Design, history: bool = False) -> str:
                      f"{' ...' if len(e['moved']) > 20 else ''} (largest move {e.get('max_shift_mm', 0)} mm)")
         for a in (c.get("place_work") or {}).get("aborts") or []:  # placer.WORK: a wall-clock stop, not a count
             L.append(f"  - placement safety abort: {a} (this placement is not reproducible)")
+        for a in ((c.get("repair") or {}).get("aborts") or []) + ((c.get("pour_stitch") or {}).get("aborts") or []):
+            L.append(f"  - routing safety abort: {a} (this copper is not reproducible)")
         if c.get("routability"):
             ra = c["routability"]
             L.append(f"  - routability prediction ({ra['seconds']} s, no routing): {ra['message']}")

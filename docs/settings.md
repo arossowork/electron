@@ -40,7 +40,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.portfolio_workers` | `HWFLOW_PORTFOLIO_WORKERS` | 0 (CPU count - 2) | Portfolio strategies at once |
 | `layout.portfolio_grace` | `HWFLOW_PORTFOLIO_GRACE` | 1.5 | Running strategies get this x the first converged one's time; `inf` waits for all |
 | `repair.max_errors` | `HWFLOW_REPAIR_MAX_ERRORS` | 40 | Above this many errors, local repair is skipped |
-| `repair.budget_s` | `HWFLOW_REPAIR_BUDGET_S` | 120 | Wall time of the whole repair |
+| `repair.budget_s` | `HWFLOW_REPAIR_BUDGET_S` | 1800 | Safety abort (wall time) of the whole repair and of each pour-stitch router call; the normal stops are counts (rounds, max_stall, nets per round). A stop here is reported as a routing safety abort |
 | `repair.max_stall` | `HWFLOW_REPAIR_MAX_STALL` | 2 | Rounds in a row without improvement before repair stops |
 | `router.env_knobs` | `KICAD_*`, `KRT_*` (not `KICAD_CLI`) | none | Passed to the router process; part of the cache key |
 | `tools.kicad_cli` | `KICAD_CLI` | PATH `kicad-cli`, then the macOS app | kicad-cli binary |
