@@ -2053,9 +2053,11 @@ class Placer:
             o[:, j1:] = True
 
         def boxes(p):
-            """side -> boxes of part p that block that side: its courtyards and, through-hole, its whole body on both
-            sides; in a dry run only what `violations` counts, its courtyards and its through-hole pads on both."""
-            if not (dry and p.tht):
+            """side -> boxes of part p that block that side: what `violations` counts, its courtyards on their sides and
+            its through-hole pads on both (a back-side holder may sit under top parts: _side_overlap). The whole body
+            of a through-hole part on both sides, as this used to take, left no free spot in a region over a large
+            back-side holder (thermo-e2e-4: L1 outside power_in over BT1, "placer failure" in 4 attempts)."""
+            if not p.tht:
                 return self._side_boxes(p)
             out = {s: [b] if (b := p.side_box(s)) else [] for s in ("front", "back")}
             for n in p.tht:
@@ -2118,20 +2120,34 @@ class Placer:
             self._refs(u)
             need = {"front": [], "back": []}
             pads = []
+            own = {}  # ref -> bounding box of that part's courtyards: a region holds its members' courtyards only
             for p in self._unit_parts(u):
+                pb = []
                 for s, bs in boxes(p).items():
                     need[s] += bs
+                    pb += bs
+                if pb:
+                    own[p.ref] = (min(b[0] for b in pb), min(b[1] for b in pb), max(b[2] for b in pb),
+                                  max(b[3] for b in pb))
                 pads += [part_pad_box(p, n) for n in p.pads if n not in p.nocu]
             allb = need["front"] + need["back"]
             if not allb:
                 return None
             bb = (min(b[0] for b in allb), min(b[1] for b in allb), max(b[2] for b in allb), max(b[3] for b in allb))
-            return need, bb, pads
+            return need, bb, pads, own
+
+        def member_box(sh, g):
+            """The bounding box of the unit's parts that are members of region g (a block's courtyard part and its
+            other members may stick out of the region: `violations` tests each member's courtyard), or None."""
+            bs = [b for r, b in sh[3].items() if r in g["members"]]
+            if not bs:
+                return None
+            return min(b[0] for b in bs), min(b[1] for b in bs), max(b[2] for b in bs), max(b[3] for b in bs)
 
         def search(u, refs, sh, win):
             """Free windows of the unit shape `sh` with its bounding-box corner in cells win = (a0, b0, a1, b1):
             (origins x, origins y) arrays."""
-            need, (ux0, uy0, ux1, uy1), pads = sh
+            need, (ux0, uy0, ux1, uy1), pads, _ = sh
             bw, bh = int(math.ceil((ux1 - ux0) / res - 1e-9)), int(math.ceil((uy1 - uy0) / res - 1e-9))
             a0, b0 = max(0, win[0]), max(0, win[1])
             a1, b1 = min(nx - bw, win[2]), min(ny - bh, win[3])
@@ -2169,11 +2185,19 @@ class Placer:
                         continue
                     S = rS[gi][1 if member else 0]
                     e = int(math.ceil(cm / res - 1e-9))  # the courtyard without the placer margin
-                    wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
+                    mb = member_box(sh, g) if member else None
+                    if mb is None:
+                        di = dj = 0
+                        wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
+                    else:  # a member: only the box of its member parts must be inside
+                        di = int(math.floor((mb[0] - ux0) / res + 1e-9))
+                        dj = int(math.floor((mb[1] - uy0) / res + 1e-9))
+                        wi = max(1, int(math.ceil((mb[2] - ux0) / res - 1e-9)) - di - 2 * e)
+                        wj = max(1, int(math.ceil((mb[3] - uy0) / res - 1e-9)) - dj - 2 * e)
                     # window sums at the clipped corners min(a + e, nx - wi): slices over the corner range, then
                     # a 1-D take per axis (the clip repeats the last row or column)
-                    ia = np.minimum(np.arange(a0, a1 + 1) + e, nx - wi)
-                    jc = np.minimum(np.arange(b0, b1 + 1) + e, ny - wj)
+                    ia = np.minimum(np.arange(a0, a1 + 1) + di + e, nx - wi)
+                    jc = np.minimum(np.arange(b0, b1 + 1) + dj + e, ny - wj)
                     p0, p1, q0, q1 = int(ia[0]), int(ia[-1]) + 1, int(jc[0]), int(jc[-1]) + 1
                     D = (S[p0 + wi:p1 + wi, q0 + wj:q1 + wj] - S[p0:p1, q0 + wj:q1 + wj]
                          - S[p0 + wi:p1 + wi, q0:q1] + S[p0:p1, q0:q1])
@@ -2181,8 +2205,13 @@ class Placer:
                     continue
                 gx0, gy0, gx1, gy1 = g["rect"]
                 if refs & set(g["members"]):
-                    free &= (lo_x + cm >= gx0 - 1e-6) & (hi_x - cm <= gx1 + 1e-6) & \
-                            (lo_y + cm >= gy0 - 1e-6) & (hi_y - cm <= gy1 + 1e-6)
+                    mb = member_box(sh, g)
+                    if mb is None:
+                        continue
+                    mx0, my0 = lo_x + (mb[0] - ux0), lo_y + (mb[1] - uy0)
+                    mx1, my1 = lo_x + (mb[2] - ux0), lo_y + (mb[3] - uy0)
+                    free &= (mx0 + cm >= gx0 - 1e-6) & (mx1 - cm <= gx1 + 1e-6) & \
+                            (my0 + cm >= gy0 - 1e-6) & (my1 - cm <= gy1 + 1e-6)
                 elif g["excl"] and not refs & set(g["allow"]) and any(need[s] for s in g["sides"] if s in need):
                     free &= (hi_x - cm <= gx0 + 1e-6) | (lo_x + cm >= gx1 - 1e-6) | \
                             (hi_y - cm <= gy0 + 1e-6) | (lo_y + cm >= gy1 - 1e-6)

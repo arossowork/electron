@@ -100,3 +100,76 @@ def test_a_feasible_illegal_placement_is_a_placer_failure_not_a_blockage(tmp_pat
     g = diagnose.placement_diagnosis(d, pv, 4)
     assert not g["blocked"] and g["placer_failure"]
     assert diagnose.summary(g).startswith("PLACER FAILURE") and "BLOCKED" not in diagnose.summary(g)
+
+
+def test_settle_uses_the_space_over_a_back_side_through_hole_body(tmp_path):
+    """thermo-e2e-4: settle took a through-hole part's whole body as blocked on both sides, so no free spot was left in
+    the region over a large back-side battery holder and L1 stayed outside `power_in` ("placer failure" in 4 attempts).
+    `violations` counts only the courtyards on their side and the through-hole pads on both (_side_overlap)."""
+    import yaml
+    from hwflow.core.design import Design
+    comps = {"K1": {"value": "relay", "symbol": "Device:R", "footprint": "Relay_THT:Relay_SPST_Panasonic_ADW11",
+                    "pins": {"A1": "A", "A2": "B", "13": "C", "14": "D"},
+                    "placement": {"x": 8, "y": 10, "rot": 0, "fixed": True}},
+             "R0": {"value": "1k", "symbol": "Device:R", "footprint": RS, "pins": {"1": "A", "2": "B"}},
+             "R1": {"value": "1k", "symbol": "Device:R", "footprint": RS, "pins": {"1": "C", "2": "D"}}}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump({"project": "tht", "board": {
+        "width_mm": 40, "height_mm": 30, "layers": 2}, "components": comps}))
+    d = Design.load(tmp_path)
+    parts = placer.build_parts(d, Libs(design=d))
+    k1 = parts["K1"]
+    k1.sides = {"back": k1.sides["front"]}  # a back-side holder: its body is under the front parts
+    for r in ("R0", "R1"):  # both on the front over the relay body, clear of its pins, on top of each other
+        parts[r].x, parts[r].y, parts[r].r = 18.0, 13.75, 0.0
+    pl = placer.Placer(d, parts, 40, 30, seed=1)
+    assert pl.violations() == ["courtyard overlap R0/R1"]
+    assert pl.settle() == []
+    moved = [r for r in ("R0", "R1") if (parts[r].x, parts[r].y) != (18.0, 13.75)]
+    assert len(moved) == 1
+    p = parts[moved[0]]
+    assert abs(p.x - 18.0) + abs(p.y - 13.75) < 3.0  # the nearest free spot, still over the holder's body
+    kb = k1.side_box("back")
+    assert kb[0] < p.x < kb[2] and kb[1] < p.y < kb[3]
+
+
+def test_settle_holds_a_block_by_its_members_courtyards_in_a_region(tmp_path):
+    """A block's courtyard part may be larger than its members (port stubs): `violations` tests each member's courtyard
+    against the region, so settle may not ask the whole block box to fit (it found no spot in a region the members
+    fit: thermo-e2e-4 boost block, L1 outside power_in)."""
+    import yaml
+    from hwflow.core.design import Design
+    comps = {"Y1": {"value": "32k", "symbol": "Device:Crystal", "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+                    "pins": {"1": "XP", "2": "XN"}},
+             "C9": {"value": "5p6", "symbol": "Device:C", "footprint": "Capacitor_SMD:C_0402_1005Metric",
+                    "pins": {"1": "XP", "2": "GND"}},
+             "C10": {"value": "5p6", "symbol": "Device:C", "footprint": "Capacitor_SMD:C_0402_1005Metric",
+                     "pins": {"1": "XN", "2": "GND"}}}
+    raw = {"project": "blk", "board": {"width_mm": 30, "height_mm": 20, "layers": 2}, "components": comps,
+           "nets": {"GND": {"class": "ground"}},
+           "blocks": {"xtal": {"use": "xtal32k_3215", "parts": {"Y": "Y1", "CP": "C9", "CN": "C10"}}}}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    parts = placer.build_parts(d, Libs(design=d))
+    pl = placer.Placer(d, parts, 30, 20, seed=1)
+    u = pl._unit(pl.parts["Y1"])
+    u.x, u.y, u.r = 15.0, 10.0, 0.0
+    pl._refs(u)
+    m = placer.COURTYARD_MARGIN
+    mb = [pl.parts[r].box() for r in ("Y1", "C9", "C10")]
+    rect = [min(b[0] for b in mb) + m - 0.1, min(b[1] for b in mb) + m - 0.05,
+            max(b[2] for b in mb) - m + 0.1, max(b[3] for b in mb) - m + 0.05]
+    yb = pl.parts[u.ref].box()
+    assert yb[1] + m < rect[1] - 0.3  # the block box sticks out of the region; its members do not
+    raw["floorplan"] = {"regions": [{"name": "zone", "kind": "other", "rect": [round(v, 3) for v in rect],
+                                     "items": ["x"]}], "items": [{"name": "x", "refs": ["Y1", "C9", "C10"]}]}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    parts = placer.build_parts(d, Libs(design=d))
+    pl = placer.Placer(d, parts, 30, 20, seed=1)
+    u = pl._unit(pl.parts["Y1"])
+    u.x, u.y, u.r = 15.6, 10.4, 0.0  # 0.6 / 0.4 mm off: the members stick out of the region
+    pl._refs(u)
+    assert any("outside floorplan region 'zone'" in v for v in pl.violations())
+    assert pl._settle([u]) == 1  # a free spot for the block (none when its whole box had to fit)
+    assert pl.violations() == []
+    assert abs(u.x - 15.0) < 0.3 and abs(u.y - 10.0) < 0.3
