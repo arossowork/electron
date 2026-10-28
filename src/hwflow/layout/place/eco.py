@@ -55,7 +55,6 @@ def load_good(path: Path) -> dict | None:
 def _seed_xy(d, parts, ref, placed):
     """Mean position of the placed parts that share a signal net with `ref` (power and ground nets connect too
     much to say where a part belongs), else of every net neighbour, else the board centre."""
-    from ...core.design import Design  # noqa: F401  (type only)
     gnds = set(d.ground_nets())
     near, weak = [], []
     for net, conns in d.nets().items():
@@ -74,7 +73,8 @@ def _seed_xy(d, parts, ref, placed):
 def place(d, libs, good: dict, deadline: float | None = None):
     """The incremental placement of design `d` from the last good placement `good` (load_good). Returns
     (parts, cost, violations, info), or None with info printed when the edit is too large for it (the caller places
-    from scratch). info: {kept, touched, moved, conflicts, seconds}."""
+    from scratch). info: {kept (stayed where they were), seeded, touched, conflicts, moved, movable, max_shift_mm,
+    violations, seconds}."""
     from . import placer
     t0 = time.time()
     W, H = d.board["width_mm"], d.board["height_mm"]

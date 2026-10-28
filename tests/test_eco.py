@@ -131,3 +131,38 @@ def test_blocked_structure_reopens_when_the_floorplan_or_a_fixed_position_change
     h[-1].pop("constraints")  # an entry written before the key: blocked as before
     (out / "layout_history.json").write_text(json.dumps(h))
     assert diagnose.blocked(d2, out) is not None
+
+
+def test_every_placement_constraint_is_in_the_constraints_key(tmp_path):
+    """e2e-4 had to use --retry-layout after adding a floorplan zone: no placement constraint may leave the key."""
+    base = _raw()
+    base["blocks"] = {"xtal": {"use": "xtal32k_3215", "parts": {"Y": "Y1", "CP": "C9", "CN": "C10"}}}
+    base["components"].update({
+        "Y1": {"value": "32k", "symbol": "Device:Crystal", "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+               "pins": {"1": "XP", "2": "XN"}},
+        "C9": {"value": "5p6", "symbol": "Device:C", "footprint": "Capacitor_SMD:C_0402_1005Metric",
+               "pins": {"1": "XP", "2": "GND"}},
+        "C10": {"value": "5p6", "symbol": "Device:C", "footprint": "Capacitor_SMD:C_0402_1005Metric",
+                "pins": {"1": "XN", "2": "GND"}}})
+    base["floorplan"] = {"regions": [{"name": "zone", "kind": "other", "rect": [0, 0, 10, 10], "items": ["x"]}],
+                         "items": [{"name": "x", "refs": ["R1"]}]}
+    k0 = diagnose.constraints_key(_design(tmp_path, base)[0])
+    import copy
+    edits = {
+        "a new zone": lambda r: r["floorplan"]["regions"].append({"name": "z2", "kind": "other", "rect": [1, 1, 5, 5]}),
+        "a zone moved": lambda r: r["floorplan"]["regions"][0].update(rect=[0, 0, 12, 10]),
+        "a keep-out": lambda r: r["floorplan"]["regions"].append({"name": "ko", "kind": "keepout", "circle": [5, 5, 1]}),
+        "an item's refs": lambda r: r["floorplan"]["items"][0].update(refs=["R1", "R2"]),
+        "a block anchor": lambda r: r["blocks"]["xtal"].update(at={"x": 10, "y": 10, "rot": 180, "fixed": True}),
+        "a block rotation only": lambda r: r["blocks"]["xtal"].update(at={"rot": 90}),
+        "a fixed part": lambda r: r["components"]["R2"].update(placement={"x": 5, "y": 5, "fixed": True}),
+        "an edge": lambda r: r["components"]["R3"].update(placement={"edge": "top"}),
+        "the board margin": lambda r: r["board"].update(margin_mm=1.5),
+    }
+    for what, f in edits.items():
+        raw = copy.deepcopy(base)
+        f(raw)
+        assert diagnose.constraints_key(_design(tmp_path, raw)[0]) != k0, what
+    raw = copy.deepcopy(base)
+    raw["components"]["R1"]["mpn"] = "x"  # not a placement constraint
+    assert diagnose.constraints_key(_design(tmp_path, raw)[0]) == k0

@@ -124,16 +124,26 @@ def structure_key(design) -> str:
 
 
 def constraints_key(design) -> str:
-    """What the placement verdicts point at and `structure_key` leaves out: fixed and anchored positions (component
-    `placement`, block `at`), the floorplan (regions, keep-outs, items) and the board margin. A blocked structure is
-    built again when one of them changed: that is the change the verdict asked for."""
-    comps = sorted((r, json.dumps(c.get("placement") or {}, sort_keys=True, default=str))
+    """What the placement verdicts point at and `structure_key` leaves out: every placement constraint. Fixed and
+    anchored positions and edges (component `placement`, side), the block entries (`at`, `use`, roles) and the resolved
+    block geometry (member placement, courtyard, keep-outs, copper: a project-local block edit counts), the floorplan
+    (regions and zones, keep-outs, items, walls, construction) and the board margins. A blocked structure is built
+    again when one of them changed: that is the change the verdict asked for. Weights and router knobs stay out."""
+    comps = sorted((r, json.dumps({k: c.get(k) for k in ("placement", "side", "group", "decouples")},
+                                  sort_keys=True, default=str))
                    for r, c in design.components.items())
-    blocks = sorted((n, json.dumps({k: v for k, v in (b or {}).items() if k in ("at", "use", "side")},
-                                   sort_keys=True, default=str))
+    blocks = sorted((n, json.dumps(b or {}, sort_keys=True, default=str))
                     for n, b in (design.raw.get("blocks") or {}).items())
+    try:
+        from ..core import blocks as blk
+        geo = sorted((g["name"], json.dumps({k: g["block"].get(k) for k in ("placement", "courtyard", "keepouts",
+                                                                            "copper")}, sort_keys=True, default=str))
+                     for g in blk.bindings(design))
+    except Exception:  # noqa: BLE001 - an unresolved block: check reports it; the entry above still counts
+        geo = []
+    blocks.append(json.dumps(geo))
     fp = json.dumps(design.raw.get("floorplan") or {}, sort_keys=True, default=str)
-    board = [design.board.get("margin_mm"), design.board.get("copper_edge_mm")]
+    board = [design.board.get(k) for k in ("margin_mm", "copper_edge_mm", "keepouts", "edge_clearance_mm")]
     return hashlib.sha256(json.dumps([comps, blocks, fp, board], default=str).encode()).hexdigest()[:12]
 
 

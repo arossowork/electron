@@ -275,7 +275,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                  passes: int = 30, seed0: int | None = None, workdir: Path | None = None, deadline: float | None = None,
                  shared: bool = False, eco: Path | None = None) -> dict:
     """Place, route, repair and check. `eco`: a last good placement (build/placement.good.json, layout/place/eco.py)
-    that an incremental placement starts from; when the edit is too large for it, the parts are placed from scratch. `workdir` (default build/) holds this call's files; the route cache
+    that an incremental placement starts from; when the edit is too large for it, the parts are placed from scratch.
+    `workdir` (default build/) holds this call's files; the route cache
     (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
     `deadline` (time.time()) bounds routing search, including the first pass and retries, and repair rounds.
     Final DRC, candidate preservation and diagnosis may continue afterwards; this is a search budget, not a

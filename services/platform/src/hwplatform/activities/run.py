@@ -115,6 +115,8 @@ class RunActivities:
         state = await runs.project_state(inp.ctx.project_id)
         if not inp.options.get("reuse"):
             state.pop("placement", None)  # as inline: the last placement is a start only with --reuse
+        if inp.options.get("reuse") or not ((settings or {}).get("layout") or {}).get("eco", True):
+            state.pop("placement_good", None)  # as inline: the last clean layout seeds attempt 1
         store = self.deps.store(inp.ctx.tenant_id)
 
         def blocked():
