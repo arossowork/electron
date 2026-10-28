@@ -218,6 +218,9 @@ UNSTICK_POINTS = 1500  # unstick: most grid points per rotation (a full-board 1.
 UNSTICK_UNITS = 50  # unstick: most parts moved per round, worst violation first
 SETTLE_CELLS = 4e6    # Placer.settle: occupancy raster cells over the board (cell side 0.05-0.25 mm)
 SETTLE_TURN_MM = 0.5  # Placer.settle: a rotated spot must be this much nearer than one in the current rotation
+PACK_UNITS = 5        # Placer.settle: the largest units of a tight spot whose put-back order the packing search permutes
+PACK_EVALS = 240      # Placer.settle: at most this many orders x rotations tried there (it stops at the first legal one)
+PACK_S = 20.0         # Placer.settle: and at most this many seconds
 SETTLE_WINDOW = 4.0   # Placer.settle: first search a window of this many unit sizes around the unit, then the board
 
 
@@ -1924,6 +1927,8 @@ class Placer:
             self._restore(best[1])
             v = best[2]
         if v and self._violators(v):
+            v = self._pack_search(v)
+        if v and self._violators(v):
             # still no free spot: repack every unit, near where it is, then from the corner; the result with the
             # fewest violations is kept
             start = self._state()
@@ -1944,6 +1949,55 @@ class Placer:
             v = v_in
         self.cost()
         return v
+
+    def _pack_search(self, v: list[str]) -> list[str]:
+        """A tight spot the greedy put-back (largest first, nearest free spot) does not solve: the violating units and
+        the movable units of their floorplan regions are put back in other orders (permutations of the PACK_UNITS
+        largest, the rest after them largest first), the first unit in each of its four rotations, near where they are
+        and packed from the corner of their region; the first legal result is kept, else the one with the fewest
+        violations. Bounded by PACK_EVALS tries and PACK_S seconds. Returns the violations left."""
+        import itertools
+        import time
+        bad = self._violators(v)
+        units = {id(u): u for u in bad}
+        rects = []
+        for u in bad:
+            refs = set(self._refs(u))
+            for g in self.regions:
+                if refs & set(g["members"]):
+                    rects.append(tuple(g["rect"]) if g["rect"] else tuple(g["poly"].bounds))
+                    rect = rects[-1]
+                    for w in self._movable():  # its members, and the units that sit in it (they make the room short)
+                        if set(self._refs(w)) & set(g["members"]) or any(
+                                _overlap(p.box(), rect) > 0 for p in self._unit_parts(w)):
+                            units.setdefault(id(w), w)
+
+        def area(u):
+            y = getattr(u, "yard", u)
+            return y.w * y.h
+        S = sorted(units.values(), key=area, reverse=True)
+        head, rest = S[:PACK_UNITS], S[PACK_UNITS:]
+        bx = [p.box() for u in S for p in self._unit_parts(u)]
+        corners = list(dict.fromkeys([(r[0], r[1]) for r in rects]
+                                     + [(min(b[0] for b in bx), min(b[1] for b in bx))]))
+        start, best = self._state(), (len(v), self._state(), v)
+        t0, n = time.time(), 0
+        for perm in itertools.permutations(head):
+            for r0 in (0.0, 90.0, 180.0, 270.0):
+                for mode, c in [("near", (0.0, 0.0))] + [("corner", c) for c in corners]:
+                    if n >= PACK_EVALS or time.time() - t0 > PACK_S:
+                        self._restore(best[1])
+                        return best[2]
+                    n += 1
+                    self._restore(start)
+                    self._settle(S, mode, corner=c, order=list(perm) + rest, rots={id(perm[0]): r0})
+                    vv = self.violations()
+                    if len(vv) < best[0]:
+                        best = (len(vv), self._state(), vv)
+                    if not vv:
+                        return vv
+        self._restore(best[1])
+        return best[2]
 
     def infeasible(self, viol=None) -> list[dict]:
         """The movable units of the violations `viol` (default: the current ones) that have no legal spot even with
@@ -2027,13 +2081,14 @@ class Placer:
             out["back"].append(b)
         return out
 
-    def _settle(self, bad, mode: str = "near", first=(), dry: bool = False, corner=(0.0, 0.0)):
+    def _settle(self, bad, mode: str = "near", first=(), dry: bool = False, corner=(0.0, 0.0), order=None, rots=None):
         """Put the units `bad` back one by one, largest first (the units of `first` before the others), on free spots
         of the occupancy raster (see `settle`). mode `near`: the free spot nearest to where the unit was (searched in a
         window around it first, then the whole board); `corner`: packed from the top left corner (the lowest y, then
         x; from `corner` (x, y) outward when given), for a repack. Returns the number of units moved. `dry`: a feasibility test that moves
         nothing: only the fixed parts, keep-outs, the board margin and the regions count, and it returns the units of
-        `bad` with no free spot even then (their constraints exclude each other)."""
+        `bad` with no free spot even then (their constraints exclude each other). `order`: put the units back in this
+        order instead; `rots`: id(unit) -> the only rotation tried for that unit (the packing search)."""
         import numpy as np
         m = float(self.d.board["margin_mm"])
         ce = float(self.d.board.get("copper_edge_mm", 0.3)) + 0.02
@@ -2190,13 +2245,18 @@ class Placer:
             return y.w * y.h
         moved = 0
         fid = {id(u) for u in first}
-        order = [u for u in bad if id(u) in fid] + sorted((u for u in bad if id(u) not in fid), key=area, reverse=True)
+        if order is None:
+            order = [u for u in bad if id(u) in fid] + sorted((u for u in bad if id(u) not in fid), key=area,
+                                                              reverse=True)
         none = []
         for u in order:
             refs = {p.ref for p in self._unit_parts(u)}
             here = (u.x, u.y, u.r)
             shapes = []
-            for k, rot_ in enumerate([u.r, (u.r + 90) % 360, (u.r + 180) % 360, (u.r + 270) % 360]):
+            cand = [u.r, (u.r + 90) % 360, (u.r + 180) % 360, (u.r + 270) % 360]
+            if rots and id(u) in rots:
+                cand = [rots[id(u)]]
+            for k, rot_ in enumerate(cand):
                 sh = shape(u, rot_)
                 if sh is not None:
                     shapes.append((k, rot_, sh))
