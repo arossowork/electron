@@ -154,6 +154,12 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - budget {r['name']} width: {r['msg']}")
         for r in c.get("budgets") or []:
             L.append(f"  - {r['msg']}")
+        if c.get("eco"):  # the kept board was placed incrementally from the last clean layout (layout/place/eco.py)
+            e = c["eco"]
+            L.append(f"  - incremental placement from the last clean layout: {e['kept']} of {e['movable']} movable "
+                     f"parts stayed; new or changed: {', '.join(e['touched']) or 'none'}; in conflict with the edit: "
+                     f"{', '.join(e['conflicts']) or 'none'}; re-placed: {', '.join(e['moved'][:20]) or 'none'}"
+                     f"{' ...' if len(e['moved']) > 20 else ''} (largest move {e.get('max_shift_mm', 0)} mm)")
         if c.get("routability"):
             ra = c["routability"]
             L.append(f"  - routability prediction ({ra['seconds']} s, no routing): {ra['message']}")

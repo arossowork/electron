@@ -39,11 +39,38 @@ The layout budget (`HWFLOW_LAYOUT_BUDGET_S`) reaches placement: `stage_layout` g
 past it no new seed starts and `unstick` stops.
 Then `Placer.settle` runs on what is left (`HWFLOW_SETTLE=0`: off). Settle takes every unit in a violation
 out and puts it back, largest first, on the free spot nearest to where it was, in the four rotations, on an occupancy
-raster of the board (courtyards per side, a through-hole part on both, keep-outs, the board margin, the copper-edge
-distance of the pads, rectangular and polygon floorplan regions). When a unit finds no spot it repacks every unit
+raster of the board (courtyards per side and through-hole pads on both, as `violations` counts them: a back-side
+holder's body does not block the front; keep-outs, the board margin, the copper-edge distance of the pads,
+rectangular and polygon floorplan regions, which hold a block by its members' courtyards, not its larger block
+courtyard). Taking a through-hole body as blocked on both sides, or the whole block box for its region, left
+thermo-e2e-4 with no free spot in `power_in` over the back-side battery holder: "L1 outside power_in", a placer
+failure in every attempt; settle now moves the boost block 0.1 mm into the region in 1.3 s. When a unit finds no spot it repacks every unit
 (near, then from the corner) and keeps the result with the fewest violations; it is never worse than its input.
 With the routability ranking on (`HWFLOW_ROUTAB_RANK=1`), `place` keeps, among the legal seeds, the one with the
 fewest predicted hard nets.
+
+## Incremental layout after a clean layout (ECO, `layout/place/eco.py`)
+
+A layout that converged (0 unrouted, 0 DRC errors, a legal placement) writes `build/placement.good.json`: every
+part's position and rotation, its footprint and the board size (`layout_select`, project state `placement_good`).
+A later build starts attempt 1 from it instead of placing from scratch (attempts 2.. of `--auto` place from scratch
+with new seeds, as before):
+
+- a movable part with the same footprint keeps its last good position; an MPN or value swap keeps it too;
+- a part that is new or has another footprint is *touched* (a block is touched as a whole when one member is): it
+  starts at the mean position of the parts it shares a signal net with and goes to the nearest free spot
+  (`Placer._settle`), without moving the kept parts;
+- a part the design now fixes (a component `placement`, a block `at`) takes its new position; the kept parts it
+  lands on, and those a new keep-out, region or rule now rejects, are the violators: `Placer.settle` moves them to
+  the nearest free spot, then (only when that fails) repacks their neighbourhood;
+- the units that moved get `Placer.detailed` (greedy local moves) for wire length, kept only while legal.
+
+Routing then runs as usual on the result (the route cache keeps the route groups whose nets and parts did not
+change). Edits that only change routing (a net width, `layers`, a track keep-out) keep every part where it was.
+The build places from scratch when more than `eco.MAX_TOUCHED` (25 %) of the movable parts are touched, the declared
+board size changed, the incremental placement keeps a violation, `--reuse` is given (it takes `placement.json`, the
+last placement, clean or not) or `HWFLOW_ECO=0`. The attempt line says `incremental from the last good layout` and
+REPORT.md / status.json `layout.eco` give the kept, touched, conflicting and re-placed parts.
 
 ## Placement legality gate
 
@@ -251,6 +278,7 @@ reliability and stays opt-in.
 | `HWFLOW_SEED0` | the first placer seed of `--auto` (attempt k uses seed0 + 4k) |
 | `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0` | router fallbacks off |
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
+| `HWFLOW_ECO=0` | no incremental placement from `build/placement.good.json` (above): attempt 1 places from scratch |
 | `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
 | `HWFLOW_KRT_ROTATE=k` | the router's net-order retries start from `KRT_VARIANTS[k]` |
 | `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_ROADS=route` (above); an explicit switch wins |

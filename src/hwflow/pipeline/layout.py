@@ -32,7 +32,8 @@ def attempt(d: Design, libs: Libs, p: Mapping[str, Any]) -> dict:
     k = int(p.get("k") or 1)
     seeds, iters, passes = int(p.get("seeds") or 4), int(p.get("iters") or 30000), int(p.get("passes") or 30)
     if not p.get("auto"):
-        r = st.stage_layout(d, libs, reuse=bool(p.get("reuse")), seeds=seeds, iters=iters, passes=passes)
+        r = st.stage_layout(d, libs, reuse=bool(p.get("reuse")), seeds=seeds, iters=iters, passes=passes,
+                            eco=None if p.get("reuse") else st.eco_path(_out(d)))
         return {**r, "attempt": {"k": 1}}
     out = _out(d)
     fixed_all = st.all_fixed(d, libs) if k == 1 else False

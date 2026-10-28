@@ -273,8 +273,9 @@ def _cache_save(cache: Path, key: str, data: dict):
 
 def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, iters: int = 30000,
                  passes: int = 30, seed0: int | None = None, workdir: Path | None = None, deadline: float | None = None,
-                 shared: bool = False) -> dict:
-    """Place, route, repair and check. `workdir` (default build/) holds this call's files; the route cache
+                 shared: bool = False, eco: Path | None = None) -> dict:
+    """Place, route, repair and check. `eco`: a last good placement (build/placement.good.json, layout/place/eco.py)
+    that an incremental placement starts from; when the edit is too large for it, the parts are placed from scratch. `workdir` (default build/) holds this call's files; the route cache
     (build/routecache/<key>.json) is shared. A cache hit skips the router and the repair; the full DRC still runs.
     `deadline` (time.time()) bounds routing search, including the first pass and retries, and repair rounds.
     Final DRC, candidate preservation and diagnosis may continue afterwards; this is a search budget, not a
@@ -293,9 +294,18 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pre = None
     firstpass_info = None
     d.route_budget_exhausted = False
-    if d.board.get("optimize_area") and not reuse:
+    eco_res, eco_info = None, None
+    if eco is not None and not reuse and not shared:
+        eco_res = _eco_place(d, libs, eco, declared, None if deadline is None else t0 + max(0.0, deadline - t0) / 2)
+        if eco_res is not None:
+            eco_info = eco_res[3]
+    if eco_res is not None:
+        parts, cost, viol = eco_res[:3]
+    elif d.board.get("optimize_area") and not reuse:
         pre, area_log = _minimize_area(d, libs, seeds, iters, passes, weights, seed0, out, deadline=deadline)
-    if pre:
+    if eco_res is not None:
+        pass  # placed incrementally above
+    elif pre:
         _, _, parts, cost, viol, tracks, vias, summary, _, d.route_budget_exhausted = pre
     elif (reuse and pj.exists() and _saved_board(pj) in (None, declared)) or (shared and pj.exists()):
         if not shared:
@@ -324,6 +334,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             parts, cost, viol = placer.place(d, libs, seeds=seeds, iters=iters, weights=weights, seed0=seed0,
                                              deadline=pdl)
     tm = {"place_s": round(time.time() - t0, 1)}  # wall time per step (experiment metrics, docs/asic-ideas.md)
+    if eco_info is not None:
+        tm["eco_s"] = eco_info["seconds"]
     pj.write_text(json.dumps({"__design_board__": list(declared),
                               "__board_mm__": [d.board["width_mm"], d.board["height_mm"]],
                               **{r: [p.x, p.y, p.r] for r, p in parts.items()}}, indent=1))
@@ -354,7 +366,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                 "corridors": corridors, "router": "-", "segments": 0, "vias": 0, "drc_errors": 0, "drc_warnings": 0,
                 "unrouted": 0, "drc": [], "repair": None, "route_cache": None,
                 "fixed_parts_only": blocks if verdict is None or verdict["back_to"] == "architecture" else [],
-                "placement_verdict": verdict, "timing": tm, "seconds": round(time.time() - t0, 1)}
+                "placement_verdict": verdict, "eco": eco_info, "timing": tm, "seconds": round(time.time() - t0, 1)}
 
     # the routability prediction of this legal placement (seconds, no routing): a report and a run log
     # (build/routab/), never a gate; HWFLOW_ROUTAB_PREDICT=0 turns it off
@@ -503,7 +515,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "route_cache": key if hit else None, "pour_stitch": stitch, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
-            "timing": tm, "seconds": round(time.time() - t0, 1)}
+            "eco": eco_info, "timing": tm, "seconds": round(time.time() - t0, 1)}
 
 
 def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
@@ -588,12 +600,45 @@ def place_shared(d: Design, libs: Libs, out: Path, k: int, path: Path, *, size0,
     return True
 
 
+def eco_path(out: Path) -> Path | None:
+    """build/placement.good.json when the incremental placement may start from it (HWFLOW_ECO=0: never)."""
+    from ..layout.place import eco
+    p = Path(out) / eco.GOOD
+    return p if get_settings().layout.eco and p.is_file() else None
+
+
+def _eco_place(d: Design, libs: Libs, path: Path, declared: list, deadline: float | None):
+    """The incremental placement from the last good placement at `path` (layout/place/eco.py), or None to place from
+    scratch: no file, a placement made for another declared board size, an edit that touches too many parts, or a
+    placement with a violation left. An area-searched board keeps the size the good layout found."""
+    from ..layout.place import eco
+    good = eco.load_good(path)
+    if good is None:
+        return None
+    if good.get("__design_board__") not in (None, declared):
+        print(f"[layout] incremental: the last good layout was made for a {good['__design_board__']} mm board, "
+              f"the design now declares {declared}: placing from scratch")
+        return None
+    size0 = d.board["width_mm"], d.board["height_mm"]
+    if d.board.get("optimize_area") and good.get("__board_mm__"):
+        d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = good["__board_mm__"]
+    res = eco.place(d, libs, good, deadline=deadline)
+    if res is None or res[2]:
+        if res is not None:
+            print(f"[layout] incremental placement left {len(res[2])} violations ({'; '.join(res[2][:3])}): "
+                  "placing from scratch")
+        d.raw.setdefault("board", {})["width_mm"], d.raw["board"]["height_mm"] = size0
+        return None
+    return res
+
+
 def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, iters: int, passes: int,
                 reuse: bool, deadline: float | None = None, workdir: Path | None = None,
                 placement: Path | None = None) -> dict:
     """Attempt `k` (0-based) of the layout search in build/auto/a<k+1>/ (or `workdir`: a layout portfolio strategy):
     placer seeds `seed0 + k*seeds`, the saved placement for attempt 1 with `reuse`, or the shared `placement` of the
-    portfolio. Returns {"k", "r", "line"}, or {"k", "error"} when the attempt crashed."""
+    portfolio. Attempt 1 without `reuse` starts from the last good layout (eco_path) when there is one. Returns
+    {"k", "r", "line"}, or {"k", "error"} when the attempt crashed."""
     import shutil
     _reset_size(d, size0)
     w = Path(workdir) if workdir else out / "auto" / f"a{k + 1}"
@@ -611,9 +656,11 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
         shutil.copy(out / "placement.json", w / "placement.json")
     elif placement:
         shutil.copy(placement, w / "placement.json")
+    eco = eco_path(out) if k == 0 and not use_saved and not placement else None
     try:
         r = stage_layout(d, libs, reuse=use_saved, seeds=seeds, iters=iters, passes=passes, seed0=seed0,
-                         workdir=w, deadline=deadline, **({"shared": True} if placement and not use_saved else {}))
+                         workdir=w, deadline=deadline, **({"eco": eco} if eco is not None else {}),
+                         **({"shared": True} if placement and not use_saved else {}))
     except Exception as e:  # noqa: BLE001 - a router or DRC crash ends this attempt, not the search
         return {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
     r["post_warnings"] = _post_warnings(d, w)  # tie-break of layout_auto: post-layout layout checks (no SPICE)
@@ -627,7 +674,8 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
             json.dumps(m, indent=1))
     except Exception:  # noqa: BLE001 - metrics only
         pass
-    how = "saved placement" if use_saved else f"{'shared ' if placement else ''}placer seeds {seed0}-{seed0 + seeds - 1}"
+    how = ("saved placement" if use_saved else "incremental from the last good layout" if r.get("eco")
+           else f"{'shared ' if placement else ''}placer seeds {seed0}-{seed0 + seeds - 1}")
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
             f"{r['vias']} vias" + (f", {r['repair']['text']}" if r.get("repair") else "")
@@ -875,7 +923,11 @@ def _layout_blocked(d: Design, retry: bool = False) -> dict | None:
 def _record_layout(d: Design, r: dict, override: bool):
     from ..layout import diagnose
     g = r.get("diagnosis") or {}
+    if r.get("ok"):  # the placement of a clean layout: later small edits start from it (layout/place/eco.py)
+        from ..layout.place import eco
+        eco.save_good(_out(d), d, None)
     diagnose.record(_out(d), {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "structure": diagnose.structure_key(d),
+                              "constraints": diagnose.constraints_key(d),
                               "ok": bool(r.get("ok")), "unrouted": r.get("unrouted"), "drc_errors": r.get("drc_errors"),
                               "persistent": g.get("persistent") or [], "blocked": bool(g.get("blocked")),
                               "override": override, "diagnosis": g})

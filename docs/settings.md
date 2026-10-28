@@ -22,6 +22,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.budget_s` | `HWFLOW_LAYOUT_BUDGET_S` | 3000 | Wall time of `layout --auto` |
 | `layout.auto_max_errors` | `HWFLOW_AUTO_MAX_ERRORS` | `repair.max_errors` | Errors above which `--auto` starts no other attempt |
 | `layout.settle` | `HWFLOW_SETTLE` | on | `Placer.settle` legalizer after the placement; off only when exactly `0` |
+| `layout.eco` | `HWFLOW_ECO` | on | Incremental (ECO) placement: attempt 1 starts from `build/placement.good.json`, the last clean layout (docs/layout-flow.md); off only when exactly `0` |
 | `layout.route_illegal` | `HWFLOW_ROUTE_ILLEGAL` | off | Route a placement with violations anyway (debugging only; the legality gate stops it) |
 | `layout.routab_predict` | `HWFLOW_ROUTAB_PREDICT` | on | Routability prediction (a report) and its run log `build/routab/`; off only when exactly `0` |
 | `layout.routab_rank`, `layout.routab_feedback`, `layout.routab_retry` | `HWFLOW_ROUTAB_RANK`, `_FEEDBACK`, `_RETRY` | none (design `placement.routability_rank` etc., then off) | Prediction-driven seed ranking, density feedback, router retry policy (docs/layout-flow.md) |

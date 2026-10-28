@@ -64,6 +64,8 @@ class LayoutSettings(_Group):
     budget_s: float = Field(3000.0, validation_alias=AliasChoices("HWFLOW_LAYOUT_BUDGET_S"))
     auto_max_errors: int | None = Field(None, validation_alias=AliasChoices("HWFLOW_AUTO_MAX_ERRORS"))
     settle: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SETTLE"))  # Placer.settle legalizer
+    # incremental (ECO) placement from build/placement.good.json after a clean layout (layout/place/eco.py)
+    eco: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ECO"))
     route_illegal: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROUTE_ILLEGAL"))  # debugging only
     routab_predict: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ROUTAB_PREDICT"))
     # raw values; None: the design's placement.routability_<name>, then off (routability.py)

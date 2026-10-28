@@ -123,6 +123,20 @@ def structure_key(design) -> str:
     return hashlib.sha256(json.dumps([comps, nets, board], default=str).encode()).hexdigest()[:12]
 
 
+def constraints_key(design) -> str:
+    """What the placement verdicts point at and `structure_key` leaves out: fixed and anchored positions (component
+    `placement`, block `at`), the floorplan (regions, keep-outs, items) and the board margin. A blocked structure is
+    built again when one of them changed: that is the change the verdict asked for."""
+    comps = sorted((r, json.dumps(c.get("placement") or {}, sort_keys=True, default=str))
+                   for r, c in design.components.items())
+    blocks = sorted((n, json.dumps({k: v for k, v in (b or {}).items() if k in ("at", "use", "side")},
+                                   sort_keys=True, default=str))
+                    for n, b in (design.raw.get("blocks") or {}).items())
+    fp = json.dumps(design.raw.get("floorplan") or {}, sort_keys=True, default=str)
+    board = [design.board.get("margin_mm"), design.board.get("copper_edge_mm")]
+    return hashlib.sha256(json.dumps([comps, blocks, fp, board], default=str).encode()).hexdigest()[:12]
+
+
 def history(out: Path) -> list[dict]:
     f = out / "layout_history.json"
     try:
@@ -143,6 +157,8 @@ def blocked(design, out: Path) -> dict | None:
         if e.get("structure") != key:
             return None
         if e.get("blocked"):
+            if e.get("constraints") not in (None, constraints_key(design)):
+                return None  # the fixed positions, blocks or floorplan changed since: the change the verdict asked for
             return e
         if e.get("ok") or e.get("override"):
             return None

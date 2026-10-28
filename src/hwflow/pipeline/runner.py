@@ -28,7 +28,7 @@ from .exec import execute_stage, verdict_of
 from .report import _brief, write_report
 from .spec import (JSON_MEDIA_TYPE, STAGE_SPECS, STATE_PATHS, LocalStageCache, StageInput, StageResult, StageSpec,
                    canonical_json, tool_versions)
-from .stages import _auto_summary, _layout_blocked, _record_layout, layout_auto, layout_diagnosis, stage_check, stage_fab, stage_layout, stage_post, stage_sch, stage_sim
+from .stages import _auto_summary, _layout_blocked, _record_layout, eco_path, layout_auto, layout_diagnosis, stage_check, stage_fab, stage_layout, stage_post, stage_sch, stage_sim
 from .status import _design_hash, _out, _status
 
 STAGES = list(buildplan.STAGES)  # the user stages (`--until`); layout is the layout_attempt and layout_select specs
@@ -73,7 +73,7 @@ def run_stage(d: Design, libs: Libs, st: str, o: BuildOptions) -> dict:
         if o.auto:
             r = layout_auto(d, libs, reuse=o.reuse, attempts=o.attempts, workers=o.workers, **kw)
         else:
-            r = stage_layout(d, libs, reuse=o.reuse, **kw)
+            r = stage_layout(d, libs, reuse=o.reuse, eco=None if o.reuse else eco_path(_out(d)), **kw)
             if not r["ok"]:
                 r["diagnosis"] = layout_diagnosis(d, libs, [r])
         _record_layout(d, r, o.retry_layout)
@@ -151,6 +151,10 @@ def state_from_build(d: Design, name: str, store: ArtifactStore, o: BuildOptions
             doc["__board_mm__"] = size
             return store.put_bytes(json.dumps(doc, indent=1).encode(), media_type=JSON_MEDIA_TYPE, name=name)
         return store.put_file(p, media_type=JSON_MEDIA_TYPE, name=name)
+    if name == "placement_good":  # the last clean layout's placement: attempt 1 starts from it (not with --reuse)
+        p = out / STATE_PATHS[name]
+        ok = p.is_file() and not o.reuse and get_settings().layout.eco
+        return store.put_file(p, media_type=JSON_MEDIA_TYPE, name=name) if ok else None
     if name == "layout_history":
         p = out / STATE_PATHS[name]
         return store.put_file(p, media_type=JSON_MEDIA_TYPE, name=name) if p.is_file() else None

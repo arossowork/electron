@@ -63,7 +63,8 @@ class StageSpec:
     project_files: Callable[[Any], list[str]]   # project relpaths read (a folder ends in "/"), present or not
     shared_files: Callable[[Any], list[Path]]   # repository data read (library/, blocks/), present or not
     upstream: tuple[str, ...]       # stages whose StageResult (result + outputs) is an input
-    state_in: tuple[str, ...]       # project state read: "placement" (--reuse), "layout_history", "monte_carlo"
+    state_in: tuple[str, ...]       # project state read: "placement" (--reuse), "placement_good" (incremental
+    #                                 layout), "layout_history", "monte_carlo"
     settings_groups: tuple[str, ...]  # subset of Settings.key_dump(): () or ("layout", "repair", "router")
     params: tuple[str, ...]         # BuildOptions fields that change the result (e.g. "mc")
     code_modules: tuple[str, ...]   # hwflow modules and packages whose source is hashed
@@ -82,7 +83,8 @@ class StageSpec:
 
 
 # Where project state lives in build/ (ADR 2.5: materialized at its canonical path).
-STATE_PATHS = {"placement": "placement.json", "layout_history": "layout_history.json"}
+STATE_PATHS = {"placement": "placement.json", "layout_history": "layout_history.json",
+               "placement_good": "placement.good.json"}  # the last clean layout's placement (layout/place/eco.py)
 
 
 def _rel_inputs(d) -> list[str]:
@@ -253,14 +255,19 @@ def _specs() -> dict[str, StageSpec]:
                   code_modules=CODE["sim"], tools=("ngspice", "kicad-libs"), outputs={"sim": "sim"}, run=_run_sim,
                   summarize=_summary(("passed", "total", "mc_runs")), **common),
         StageSpec(name="layout_attempt", queue="hwflow-layout", project_files=_rel_inputs, upstream=("sch", "sim"),
-                  state_in=("placement",), cache_verdicts=("pass",), settings_groups=("layout", "repair", "router"),
+                  state_in=("placement", "placement_good"), cache_verdicts=("pass",),
+                  # the last clean layout only seeds attempt 1 (layout/place/eco.py), and only passes are cached: a
+                  # passing board is valid for its inputs whichever good placement it started from, so a build right
+                  # after a pass (`--until post`) hits the cache instead of placing and routing again
+                  unkeyed_state=("placement_good",),
+                  settings_groups=("layout", "repair", "router"),
                   params=ATTEMPT_PARAMS, code_modules=CODE["layout_attempt"],
                   tools=("krt", "freerouting", "kicad-cli", "kicad-libs"), outputs=ATTEMPT_OUTPUTS, run=_run_attempt,
                   summarize=_summarize_attempt, **common),
         # upstream order matters: the attempts' files (their own .kicad_pro, .kicad_dru) land over sch's
         StageSpec(name="layout_select", queue="hwflow-layout", project_files=_rel_inputs,
                   upstream=("sch", "sim", "layout_attempt"), state_in=("layout_history",),
-                  state_out=("placement", "layout_history"), unkeyed_state=("layout_history",),
+                  state_out=("placement", "layout_history", "placement_good"), unkeyed_state=("layout_history",),
                   cache_verdicts=("pass",), settings_groups=("layout", "repair", "router"), params=SELECT_PARAMS,
                   code_modules=CODE["layout_select"], tools=("kicad-cli", "kicad-libs"), outputs=LAYOUT_OUTPUTS,
                   run=_run_select, summarize=_summary(("drc_errors", "unrouted", "vias", "segments", "board_mm")),

@@ -45,7 +45,7 @@ def test_registry_covers_the_stages():
     assert list(STAGE_SPECS) == SPECS
     assert [s if s != "layout" else "layout_attempt" for s in STAGES] == [s for s in SPECS if s != "layout_select"]
     for s in STAGE_SPECS.values():
-        assert set(s.state_out) <= set(s.state_in) | {"monte_carlo", "placement"}
+        assert set(s.state_out) <= set(s.state_in) | {"monte_carlo", "placement", "placement_good"}
         assert set(s.unkeyed_state) <= set(s.state_in)
         assert set(s.upstream) <= set(SPECS[:SPECS.index(s.name)])
 
