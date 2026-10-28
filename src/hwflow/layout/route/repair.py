@@ -295,14 +295,17 @@ def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list,
 
 
 def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Path, check, rounds: int = 3,
-           deadline: float | None = None) -> dict:
+           deadline: float | None = None, skip_nets=()) -> dict:
     """Repair loop. `check(tracks, vias, island_removal) -> drc` writes the board and runs DRC (refilling the zones).
     `check` should be the fast DRC; the caller runs the full one on the kept board. A round is kept only if it has fewer errors (or equal errors and fewer unrouted) and no more unrouted than the
     best board so far; the best board is left in `board`. Skipped when every error is on fixed parts (fixed_error).
     Stops after `rounds` rounds, when nothing can be repaired, or after max_stall rounds in a row without improvement
     (one round when some errors are on fixed parts). Wall-clock stops are safety aborts only (settings.repair.budget_s,
     and `deadline`, the layout wall-time budget), listed in report["aborts"]. Returns the best copper, DRC and a
-    report."""
+    report.
+    Open nets it cannot fix are not re-routed: `skip_nets` (the router left them open because their width needs a
+    neck over routing.NECK_MAX_MM: Design.width_limited) and every net re-routed in two rounds that stayed open (the same
+    failure again). thermo-e2e-6 spent 1293 s on two rounds re-routing VBAT and VBAT_RF to the same open result."""
     t0 = time.time()
     workdir = board.parent
     best = {"tracks": tracks, "vias": vias, "drc": drc, "island": 0, "score": score(drc)}
@@ -314,6 +317,7 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
     def abort(msg):
         aborts.append(msg)
         log.append(f"safety abort: {msg}")
+    stuck, told, tries = set(skip_nets), set(), {}
     rs = get_settings().repair
     max_err, budget = rs.max_errors, rs.budget_s
     fixed = [x for x in errors(drc) if fixed_error(x, parts) is not None]  # errors no re-route can change
@@ -340,7 +344,12 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
         if deadline is not None and time.time() > deadline:
             abort(f"repair stopped before round {r + 1}: the layout wall-time budget is used up")
             break
-        p = plan(d, best["tracks"], best["vias"], best["drc"], radius=2.0 * fails)
+        live = [x for x in best["drc"] if not (x["sev"] == "error" and x["type"] == "unconnected"
+                                                and set(open_nets([x])) <= stuck)]
+        if stuck & set(open_nets(best["drc"])) and stuck - told:
+            log.append(f"not re-routed: {', '.join(sorted(stuck - told))} (width-limited or the same failure again)")
+            told |= stuck
+        p = plan(d, best["tracks"], best["vias"], live, radius=2.0 * fails)
         if not (p["rip"] or p["islands"] or p["drop_vias"]):
             log.append("nothing the router can repair")
             break
@@ -386,6 +395,10 @@ def repair(d, libs, parts, tracks: list, vias: list, drc: list[dict], board: Pat
             snap = (board.read_bytes(), drc_json.read_bytes() if drc_json.exists() else None)
             fails = 0
         else:
+            for n in set(p["rip"]) & set(open_nets(best["drc"])) & set(open_nets(cand)):
+                tries[n] = tries.get(n, 0) + 1
+                if tries[n] >= 2:  # open again after a round that ripped its neighbours too: the same failure
+                    stuck.add(n)
             board.write_bytes(snap[0])  # the best board stays in place (its DRC report too)
             if snap[1] is not None:
                 drc_json.write_bytes(snap[1])

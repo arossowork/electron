@@ -446,7 +446,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             pre = (tracks, vias, drc, board.read_bytes())
             t = time.time()
             r = repair.repair(d, libs, parts, tracks, vias, drc, board,
-                              lambda *a: route_check(*a, fast=True), rounds, deadline=deadline)  # local repair, not a rebuild
+                              lambda *a: route_check(*a, fast=True), rounds, deadline=deadline,
+                              skip_nets=set(d.width_limited))  # local repair, not a rebuild
             tracks, vias, rep, island = r["tracks"], r["vias"], r["report"], r["island"]
             tm["repair_s"] = round(time.time() - t, 1)  # router calls and fast DRC of the repair included
             if rep["rounds"] and (tracks, vias) != pre[:2]:

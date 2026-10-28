@@ -246,3 +246,23 @@ def test_repair_stops_on_counts_not_on_the_clock(tmp_path, monkeypatch):
     class D: name = "d"; board = {}
     r = repair.repair(D(), None, {}, [], [], _stub_drc(10), board, check, 3)["report"]
     assert r["rounds"] == 3 and not r["aborts"]
+
+
+def test_repair_does_not_reroute_width_limited_or_repeat_failures(tmp_path, monkeypatch):
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    seen = []
+
+    def plan(d, tr, vi, drc, radius=0.0):
+        nets = repair.open_nets(drc)
+        seen.append(nets)
+        return {"rip": nets, "islands": [], "drop_vias": []}
+    monkeypatch.setattr(repair, "plan", plan)
+    monkeypatch.setattr(repair, "reroute", lambda *a, **k: ([], []))
+    class D: name = "d"
+    drc = _open_drc({"VBAT": 20, "SIG": 1})
+    # VBAT width-limited: never re-routed; SIG open after two rounds: not re-routed a third time
+    monkeypatch.setenv("HWFLOW_REPAIR_MAX_STALL", "5")
+    r = repair.repair(D(), None, {}, [], [], drc, board, lambda *a: drc, 5, skip_nets={"VBAT"})["report"]
+    assert seen == [["SIG"], ["SIG"], []] and r["rounds"] == 2
+    assert any("not re-routed: VBAT" in x for x in r["log"]) and r["log"][-1] == "nothing the router can repair"
