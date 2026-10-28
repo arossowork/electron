@@ -150,7 +150,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                                only.get(net, ())), []).append(net)
     passes = [(-k[2], groups[k], k[4]) for k in sorted(groups)]  # isolation members first, then necked, then widest
     # subprocess environment: the router inherits the parent environment (KICAD_*/KRT_* knobs) on purpose
-    env = dict(os.environ, KICAD_CLI=_kicad_cli())
+    env = router_env()
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
     # home-thermostat-3 0.25 mm pass 5 of 26 nets routed with it, 25 without. Set to 1 to restore the router default.
     env.setdefault("KICAD_RIP_PREEXISTING", "0")
@@ -435,6 +435,11 @@ def router_version(design: Design) -> str:
                 h.update(str(f.name).encode() + f.read_bytes())
         _ROUTER_VERSION[key] = h.hexdigest()[:16]
     return _ROUTER_VERSION[key]
+
+
+def router_env() -> dict:
+    """The router subprocess environment: the parent's (KICAD_*/KRT_* knobs, on purpose) and KICAD_CLI."""
+    return dict(os.environ, KICAD_CLI=_kicad_cli())
 
 
 def _kicad_cli() -> str:

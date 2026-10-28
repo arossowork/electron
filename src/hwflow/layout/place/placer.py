@@ -220,7 +220,7 @@ SETTLE_CELLS = 4e6    # Placer.settle: occupancy raster cells over the board (ce
 SETTLE_TURN_MM = 0.5  # Placer.settle: a rotated spot must be this much nearer than one in the current rotation
 PACK_UNITS = 5        # Placer.settle: the largest units of a tight spot whose put-back order the packing search permutes
 PACK_EVALS = 240      # Placer.settle: at most this many orders x rotations tried there (it stops at the first legal one)
-PACK_S = 20.0         # Placer.settle: and at most this many seconds
+PACK_S = 45.0         # Placer.settle: and at most this many seconds
 SETTLE_WINDOW = 4.0   # Placer.settle: first search a window of this many unit sizes around the unit, then the board
 
 
@@ -1952,37 +1952,51 @@ class Placer:
 
     def _pack_search(self, v: list[str]) -> list[str]:
         """A tight spot the greedy put-back (largest first, nearest free spot) does not solve: the violating units and
-        the movable units of their floorplan regions are put back in other orders (permutations of the PACK_UNITS
-        largest, the rest after them largest first), the first unit in each of its four rotations, near where they are
-        and packed from the corner of their region; the first legal result is kept, else the one with the fewest
-        violations. Bounded by PACK_EVALS tries and PACK_S seconds. Returns the violations left."""
+        the movable units of their floorplan regions are put back in other orders (each of the PACK_UNITS leading
+        units first, then their other permutations; the violating units lead, the units that only sit in the regions
+        go back last), the first unit in each of its four rotations, near where they are and packed from the corner of
+        their region; the first legal result is kept, else the one with the fewest violations. Bounded by PACK_EVALS
+        tries and PACK_S seconds. Returns the violations left."""
         import itertools
         import time
         bad = self._violators(v)
-        units = {id(u): u for u in bad}
+        members = {id(u): u for u in bad}
+        sitting = {}
         rects = []
         for u in bad:
             refs = set(self._refs(u))
             for g in self.regions:
                 if refs & set(g["members"]):
-                    rects.append(tuple(g["rect"]) if g["rect"] else tuple(g["poly"].bounds))
-                    rect = rects[-1]
+                    rect = tuple(g["rect"]) if g["rect"] else tuple(g["poly"].bounds)
+                    rects.append(rect)
                     for w in self._movable():  # its members, and the units that sit in it (they make the room short)
-                        if set(self._refs(w)) & set(g["members"]) or any(
-                                _overlap(p.box(), rect) > 0 for p in self._unit_parts(w)):
-                            units.setdefault(id(w), w)
+                        if set(self._refs(w)) & set(g["members"]):
+                            members.setdefault(id(w), w)
+                        elif any(_overlap(p.box(), rect) > 0 for p in self._unit_parts(w)):
+                            sitting.setdefault(id(w), w)
 
         def area(u):
             y = getattr(u, "yard", u)
             return y.w * y.h
-        S = sorted(units.values(), key=area, reverse=True)
-        head, rest = S[:PACK_UNITS], S[PACK_UNITS:]
+        ids = {id(u) for u in bad}
+        # the violating units lead the permutations, then the other members; the units only sitting in the
+        # region go back last, wherever there is room
+        ms = sorted(bad, key=area, reverse=True) + sorted((u for k, u in members.items() if k not in ids), key=area,
+                                                         reverse=True)
+        head, rest = ms[:PACK_UNITS], ms[PACK_UNITS:] + sorted((u for k, u in sitting.items() if k not in members),
+                                                                 key=area, reverse=True)
+        S = head + rest
         bx = [p.box() for u in S for p in self._unit_parts(u)]
         corners = list(dict.fromkeys([(r[0], r[1]) for r in rects]
                                      + [(min(b[0] for b in bx), min(b[1] for b in bx))]))
         start, best = self._state(), (len(v), self._state(), v)
         t0, n = time.time(), 0
-        for perm in itertools.permutations(head):
+        # each unit first (the others in their order), then the other permutations: the unit put back first is the
+        # one whose spot and rotation decide the packing
+        firsts = [tuple([u] + [w for w in head if w is not u]) for u in head]
+        seen = {tuple(map(id, o)) for o in firsts}
+        orders = firsts + [o for o in itertools.permutations(head) if tuple(map(id, o)) not in seen]
+        for perm in orders:
             for r0 in (0.0, 90.0, 180.0, 270.0):
                 for mode, c in [("near", (0.0, 0.0))] + [("corner", c) for c in corners]:
                     if n >= PACK_EVALS or time.time() - t0 > PACK_S:

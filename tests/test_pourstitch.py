@@ -14,6 +14,7 @@ board: {width_mm: 20, height_mm: 20, layers: 2}
 nets:
   GND: {class: ground}
   SIG: {class: signal}
+  BIG: {class: signal}
 components: {}
 """
 
@@ -37,10 +38,10 @@ def _board(path, tracks, vias, pad=1.0, paste=True):
                                                    ["island_removal_mode", 0]],
                 ["polygon", ["pts", ["xy", 0.3, 0.3], ["xy", 19.7, 0.3], ["xy", 19.7, 19.7], ["xy", 0.3, 19.7]]]]
 
-    nets = {"GND": 1, "SIG": 2}
+    nets = {"GND": 1, "SIG": 2, "BIG": 3}
     tree = ["kicad_pcb", ["version", "20241229"], ["generator", Q("hwflow")], ["general", ["thickness", 1.6]],
             ["paper", Q("A4")], pcb._layers(2), ["setup", ["pad_to_mask_clearance", 0]], ["net", 0, Q("")],
-            ["net", 1, Q("GND")], ["net", 2, Q("SIG")],
+            ["net", 1, Q("GND")], ["net", 2, Q("SIG")], ["net", 3, Q("BIG")],
             ["gr_rect", ["start", 0, 0], ["end", 20, 20], ["stroke", ["width", 0.1], ["type", "default"]],
              ["fill", "no"], ["layer", Q("Edge.Cuts")], ["uuid", Q(next(uid))]],
             ["footprint", Q("X"), ["layer", Q("F.Cu")], ["uuid", Q(next(uid))], ["at", 10, 10],
@@ -74,6 +75,12 @@ def design(tmp_path):
     return Design.load(proj)
 
 
+@pytest.fixture(autouse=True)
+def _no_plane_repair(monkeypatch):
+    """The router's plane repair only where a test asks for it (it runs KiCadRoutingTools)."""
+    monkeypatch.setattr(pourstitch, "planes", lambda *a, **k: None)
+
+
 def _unconnected(drc):
     return [x for x in drc if x["type"] == "unconnected"]
 
@@ -96,6 +103,25 @@ def test_walled_in_pad_needs_a_displacing_stub(design, tmp_path):
     # without the displaced net, the stub and via join the pad: no unconnected item, no other error
     _board(board, rip["tracks"], JOIN + rip["vias"])
     assert not [x for x in kicad.drc(board) if x["sev"] == "error"]
+
+
+def test_the_displacing_stub_crosses_the_net_with_the_fewest_pads(design, tmp_path, monkeypatch):
+    """A pad walled in by a supply rail (many pads) on three sides and a two-pad signal on the fourth: the stub crosses
+    the signal, whose re-route is short, not the rail, although the rail side comes first."""
+    board = tmp_path / "b.kicad_pcb"
+    ring = _ring(10, 10, 1.3)
+    for t in ring:  # the west side (x 8.7) stays SIG, 0.25 mm of copper gap off the corners; the others the rail
+        if t["x1"] == t["x2"] == 8.7:
+            t["y1"], t["y2"] = 11.3 - 0.5, 8.7 + 0.5
+        else:
+            t["net"] = "BIG"
+    _board(board, ring, JOIN)
+    assert _unconnected(kicad.drc(board))
+    monkeypatch.setattr(design, "nets", lambda: {"GND": [("TP1", "1"), ("TP2", "1")], "SIG": [("A", "1"), ("B", "1")],
+                                                 "BIG": [(f"U{i}", "1") for i in range(20)]})
+    rip = pourstitch.plan(design, board, "GND", rip=True)
+    assert rip["rip"] == ["SIG"] and len(rip["vias"]) == 1
+    assert rip["vias"][0]["x"] < 10
 
 
 def test_exposed_pad_gets_a_via_in_pad(design, tmp_path):
@@ -248,3 +274,35 @@ def test_displace_that_opens_the_displaced_net_is_rejected(tmp_path, monkeypatch
     r = pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
     assert r["drc"] == [] and [v["tag"] for v in r["vias"]] == ["B"], r["log"]
     assert any("the displaced A left open" in x for x in r["log"])
+
+
+def _plane_case(tmp_path, monkeypatch, result_drc):
+    """No stub joins the island; the plane repair returns a GND trace and via whose board has DRC `result_drc`."""
+    from hwflow.layout.route import repair
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)")
+    monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
+    left = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 1}
+    monkeypatch.setattr(pourstitch, "plan", lambda *a, **k: {"tracks": [], "vias": [], "rip": [], "stats": left})
+    monkeypatch.setattr(pourstitch, "fixed_nets", lambda d: set())
+    tr = [{"net": "GND", "x1": 0, "y1": 0, "x2": 1, "y2": 0, "w": 0.25, "layer": "F.Cu"}]
+    vi = [{"net": "GND", "x": 1, "y": 0}]
+    monkeypatch.setattr(pourstitch, "planes", lambda d, libs, parts, b, nets, stop: (tr, vi))
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+
+    def check(tracks, vias):
+        return result_drc if vias else [_unc("GND")]
+    return pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
+
+
+def test_plane_repair_joins_a_pocket_no_stub_reaches(tmp_path, monkeypatch):
+    r = _plane_case(tmp_path, monkeypatch, [])
+    assert r["drc"] == [] and r["vias"] == [{"net": "GND", "x": 1, "y": 0}] and r["added"] == (1, 1)
+    assert any(x.startswith("plane repair kept") for x in r["log"])
+
+
+def test_plane_repair_that_leaves_a_ripped_net_open_is_rejected(tmp_path, monkeypatch):
+    sig = {"sev": "error", "type": "unconnected", "items": ["Pad 1 [SIG] of U1", "Pad 2 [SIG] of U2"], "at": []}
+    r = _plane_case(tmp_path, monkeypatch, [sig])
+    assert r["vias"] == [] and r["drc"] == [_unc("GND")]
+    assert any("plane repair rejected: moved or left open SIG" in x for x in r["log"])
