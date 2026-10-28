@@ -105,6 +105,10 @@ class LayoutSettings(_Group):
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
     # HWFLOW_POUR_STITCH=1
     pour_stitch: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_STITCH"))
+    # pour taps (layout.route.taps): before signal routing, every surface-mount pad of a pour net gets a link or a stub
+    # and via to the plane, kept as fixed copper; off by default, on with HWFLOW_POUR_TAPS=1 (measurements in
+    # docs/layout-flow.md, step 7)
+    pour_taps: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_TAPS"))
     # routable first pass (layout.route.firstpass, experiment, off by default): "1" (every step) or a comma list of
     # roads (planned roads reserved in placement and routed first), hot (the routability window cuts as a local
     # placer penalty), quick (a truncated route as a filter that drives one local placement fix); None: the

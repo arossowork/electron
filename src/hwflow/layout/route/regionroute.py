@@ -108,6 +108,12 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
         x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
         near = [row(r, p) for r, fp in sorted(board["footprints"].items()) for p in fp["pads"]
                 if p["net"] not in routed and x0 <= p["x"] <= x1 and y0 <= p["y"] <= y1]
+        # copper of the nets not routed here already on the board (the pour taps) inside the extent
+        near += [[s["net"], s["layer"], round(s["x1"], 3), round(s["y1"], 3), round(s["x2"], 3), round(s["y2"], 3),
+                  s["w"]] for s in board.get("segments", []) if s["net"] not in routed
+                 and x0 <= s["x1"] <= x1 and y0 <= s["y1"] <= y1]
+        near += [[v["net"], round(v["x"], 3), round(v["y"], 3)] for v in board.get("vias", [])
+                 if v["net"] not in routed and x0 <= v["x"] <= x1 and y0 <= v["y"] <= y1]
     classes = pcb.net_classes(design)
     lays = pcb.net_layers(design)
     h = hashlib.sha256(json.dumps([sorted(nets), mine, near, {n: classes.get(n) for n in sorted(nets)},
@@ -117,8 +123,8 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from ..board import pcb as board_pcb
     from ..place import pinaccess
     from ..board import routing
-    from . import roads
-    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads):
+    from . import roads, taps
+    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads, taps):
         h.update(Path(m.__file__).read_bytes())
     from ..place import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
@@ -180,6 +186,10 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800, 
         keep = any(blocks.copper(design, parts))
     gnds = design.ground_nets() if design.board["gnd_pour"] else set()
     routed = [n for n in pcb.net_classes(design) if n not in gnds and n not in closed]
+    tap_t, tap_v = [], []
+    from . import taps
+    if taps.on(design):  # every pour pad's tap first: each group routes around it
+        src, tap_t, tap_v, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
     board = pcb.read_board(src)
     groups = partition(routed, pads_by_net(board), seeds(design))
     if len(groups) < 2:
@@ -197,7 +207,7 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800, 
         rows.append(dict(g, key=key, cache="hit" if hit else "miss"))
         if hit:
             entries[key] = hit
-    tracks, vias = [], []
+    tracks, vias = list(tap_t), list(tap_v)
     for r in rows:  # reused copper first: the groups routed now route around it
         if r["cache"] == "hit":
             tracks += entries[r["key"]]["tracks"]

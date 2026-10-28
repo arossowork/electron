@@ -1,6 +1,8 @@
 """Pour stitching (layout.route.pourstitch): a GND pad walled in by a signal track on F.Cu, on a board whose B.Cu
 GND pour is joined to the F.Cu pour by one via."""
 
+import math
+
 import pytest
 
 from hwflow.core.design import Design
@@ -306,3 +308,32 @@ def test_plane_repair_that_leaves_a_ripped_net_open_is_rejected(tmp_path, monkey
     r = _plane_case(tmp_path, monkeypatch, [sig])
     assert r["vias"] == [] and r["drc"] == [_unc("GND")]
     assert any("plane repair rejected: moved or left open SIG" in x for x in r["log"])
+
+
+def test_pour_taps_give_each_pour_pad_a_stub_via_outside_modules(design, tmp_path, monkeypatch):
+    """Before routing (layout.route.taps): each surface-mount GND pad gets a stub to a via clear of the pad, and no via
+    lands in a module courtyard; the taps keep the DRC clean."""
+    from shapely.geometry import box
+
+    from hwflow.layout.route import taps
+    board = tmp_path / "b.kicad_pcb"
+    _board(board, [], [])
+    monkeypatch.setattr(taps, "_modules", lambda *a: [box(7, 7, 13, 10.6)])  # TP1 under a module, open below
+    p = taps.plan(design, None, {}, board)
+    assert p["stats"]["stub"] == 2 and not p["untapped"]
+    v1 = min(p["vias"], key=lambda v: (v["x"] - 10) ** 2 + (v["y"] - 10) ** 2)
+    assert v1["y"] > 10.6 and abs(v1["x"] - 10) < 3.1  # below the module, close to the pad
+    _board(board, p["tracks"], p["vias"])
+    assert not [x for x in kicad.drc(board) if x["sev"] == "error"]
+
+
+def test_pour_taps_skip_a_pad_whose_copper_already_reaches_a_via(design, tmp_path):
+    """A pad joined by a track already on the board (a layout block's) to a via of its net needs no tap; the other
+    pad still gets one."""
+    from hwflow.layout.route import taps
+    board = tmp_path / "b.kicad_pcb"
+    _board(board, [{"net": "GND", "x1": 10, "y1": 10, "x2": 13, "y2": 10, "w": 0.3, "layer": "F.Cu"}],
+           [{"net": "GND", "x": 13, "y": 10}])
+    p = taps.plan(design, None, {}, board)
+    assert p["stats"]["joined"] == 1 and p["stats"]["stub"] == 1 and not p["untapped"]
+    assert all(math.hypot(v["x"] - 16, v["y"] - 4) < 3.5 for v in p["vias"])  # TP2's via, none for TP1

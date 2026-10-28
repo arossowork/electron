@@ -111,6 +111,7 @@ components:
     current_rating_a: 2.0                   # fuses: rated current (fuse-derating check)
     sourcing: "Mouser 123-ABC, hand solder" # optional: where a part without `lcsc` comes from
     thermal_vias: {pad: "2", count: 6}     # via grid inside a thermal pad, to the opposite-layer pour
+    vias_under: true                        # optional: pour-tap vias may lie in this module's courtyard (default false for SMD footprints of 25 mm2 or more)
     bom: false                              # optional: copper, not a purchased part (default false for a KiCad NetTie symbol or footprint, true otherwise): left out of the BOM, the cost and bom.csv
     role: temp_sensor                       # optional: temp_sensor | antenna | none. Placement roles; inferred from the symbol (Sensor_Temperature:*, Device:Thermistor*; RF_Module:*, footprint with Antenna) when absent, none turns the inference off
     theta_ja: 250                           # junction temperature estimate

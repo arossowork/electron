@@ -65,6 +65,10 @@ def run_krt(design: Design, libs, parts: dict[str, Part], workdir: Path, timeout
         closed = blocks.closed_nets(design, libs)
         nets = set(design.nets()) - closed if closed else None
         keep = any(blocks.copper(design, parts))
+    from . import taps
+    if taps.on(design):  # every pour pad's tap first: the signal nets route around it
+        src, ttr, tvi, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
+        keep = keep or bool(ttr or tvi)
     cur, last, retried, ngroups = krt_route(design, src, workdir, f"{name}_krt", nets=nets, keep_first=keep,
                                             timeout=timeout, libs=libs, deadline=deadline, keep_partial=deadline is not None)
     design.route_budget_exhausted = any(v.get("budget_exhausted") for v in last.values())
