@@ -180,6 +180,8 @@ class ToolSettings(_Group):
     openems_python: str = Field("", validation_alias=AliasChoices("HWFLOW_OPENEMS_PYTHON"))
     em_reexec: bool = Field(False, validation_alias=AliasChoices("HWFLOW_EM_REEXEC"))  # set by hwflow for its child
     em_verbose: int = Field(0, validation_alias=AliasChoices("HWFLOW_EM_VERBOSE"))
+    # /hw-design stage time budgets, "3-parts=40,7-layout=60" (pipeline.budget, docs/stage-budget.md); not a cache key
+    stage_budgets: str = Field("", validation_alias=AliasChoices("HWFLOW_STAGE_BUDGETS"))
 
     @model_validator(mode="after")
     def _resolve(self):

@@ -45,3 +45,5 @@ Keep a checkpoint in `notes/progress-hw-circuit.md` (blocks captured, builds run
 Run each build as one blocking call with a timeout and never end your turn while a build you started is running (the session kills it). If `hwflow build --help` lists options such as `--brief` or `timeout_s`, use them.
 
 Never relax a measure limit to pass. A miss on a `should`, or on a derived budget whose product target still holds (see the /hw-design rules), is not a blocker. Write the numbers in `notes/circuit.md` and return them; do not spend more than 3 builds on one measure. Return the measure table, the yield, and any requirement that you could not verify by simulation.
+
+Time box: the lead's brief gives you the minutes left in the stage (docs/stage-budget.md). Run `uv run hwflow budget <proj>` after each build and each finished block. At `near`, finish the step in hand and start no new iteration; at `over`, leave the files consistent, write the open items with their numbers in your checkpoint note and your result, and return your best state. A budget never lets you skip a gate or relax a `must`: an open gate at the budget is an open item with its numbers.
