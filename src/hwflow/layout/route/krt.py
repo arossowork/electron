@@ -442,8 +442,12 @@ def router_version(design: Design) -> str:
 
 
 def router_env() -> dict:
-    """The router subprocess environment: the parent's (KICAD_*/KRT_* knobs, on purpose) and KICAD_CLI."""
-    return dict(os.environ, KICAD_CLI=_kicad_cli())
+    """The router subprocess environment: the parent's (KICAD_*/KRT_* knobs, on purpose) and KICAD_CLI.
+    PYTHONHASHSEED is fixed (0) unless the parent sets it: the router iterates sets of strings, and with a random hash
+    seed per process the same board and arguments could route differently from run to run."""
+    env = dict(os.environ, KICAD_CLI=_kicad_cli())
+    env.setdefault("PYTHONHASHSEED", "0")
+    return env
 
 
 def _kicad_cli() -> str:
