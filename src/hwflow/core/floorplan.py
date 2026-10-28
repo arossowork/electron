@@ -468,11 +468,9 @@ def fixed_pad_isolation(design, parts: dict, fp: dict) -> list[str]:
     keep-out. A fixed part is where the design puts it, so a pad in the band is a floorplan failure, not a placement
     task."""
     out = []
-    bd = {b["name"]: b for b in fp["boards"]}
     for r in fp["regions"]:
         if r["kind"] != "mains" or not r["nets"] or not r["iso"]:
             continue
-        ox, oy = bd[r["board"]]["x"], bd[r["board"]]["y"]
         cond = [k for k in fp["regions"] if k["kind"] == "keepout" and k["conductive"] and k["board"] == r["board"]]
         for ref, p in parts.items():
             c = design.components.get(ref)
@@ -485,7 +483,9 @@ def fixed_pad_isolation(design, parts: dict, fp: dict) -> list[str]:
                 w, h = (p.pad_size or {}).get(num, (0.0, 0.0))
                 if p.r % 180:
                     w, h = h, w
-                g = box(x + ox - w / 2, y + oy - h / 2, x + ox + w / 2, y + oy + h / 2)
+                # part positions and region polygons are both panel coordinates (parse translates the regions of
+                # a stacked board by its offset): no board offset here (thermo-e2e-3: 11 false "outside region")
+                g = box(x - w / 2, y - h / 2, x + w / 2, y + h / 2)
                 near = [(g.distance(k["poly"]), k["name"]) for k in cond]
                 bad = [(d, n) for d, n in near if d < r["iso"] - 1e-6]
                 if bad:
@@ -587,9 +587,7 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         if r["poly"].is_empty:
             continue
         allow = {x for e in r["allow"] for x in (res.get(e) or [y for y in refs if fnmatch.fnmatchcase(y, e)])}
-        # a layout block that holds an allowed part is allowed with it: its courtyard (ref block:<name>) carries the part
-        allow |= {f"{YARD}{b}" for b, e in (design.raw.get("blocks") or {}).items()
-                  if isinstance(e, dict) and set(map(str, (e.get("parts") or {}).values())) & allow}
+        allow |= _block_yards(design, allow)
         if r["cut"]:  # a hole in the board: every part keeps the board margin from its edge, as from the outline
             out.append(_rule(r["name"], r["poly"].buffer(float(design.board["margin_mm"]), join_style="mitre"),
                              r["sides"], set(), True, allow, {}))
@@ -611,10 +609,20 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         for b in fp["boards"]:
             own = {x for it in fp["items"] if it["board"] == b["name"] for x in res[it["name"]]}
             own |= {x for r in fp["regions"] if r["board"] == b["name"] for x in mem[r["name"]]}
-            out.append(_rule(f"board {b['name']}", b["rect"], ("front", "back"), own & set(refs), True, set(), {}))
+            # the courtyard of a layout block of this board's parts belongs to the board too (thermo-e2e-3: the
+            # block:* courtyards of board A read as parts of no board, "inside region board A")
+            out.append(_rule(f"board {b['name']}", b["rect"], ("front", "back"), own & set(refs), True,
+                             _block_yards(design, own), {}))
             for x in own:
                 start.setdefault(x, b["rect"].bounds)
     return out, start
+
+
+def _block_yards(design, refs: set) -> set[str]:
+    """The placer refs (block:<name>) of the layout blocks that hold one of `refs`: a block's courtyard carries its
+    parts, so it is allowed wherever they are."""
+    return {f"{YARD}{b}" for b, e in (design.raw.get("blocks") or {}).items()
+            if isinstance(e, dict) and set(map(str, (e.get("parts") or {}).values())) & set(refs)}
 
 
 def _rule(name, poly, sides, mem, excl, allow, pads) -> dict:

@@ -66,7 +66,10 @@ def fit_anywhere(part, side: str, free, pad_rules: list, margin: float) -> bool:
     mask = shapely.contains_xy(free, xs, ys).astype(np.int32)
     sat = np.zeros((nx + 1, ny + 1), dtype=np.int64)
     sat[1:, 1:] = mask.cumsum(0).cumsum(1)
-    rules = [(n, prep(poly.buffer(res))) for n, poly in pad_rules]
+    rules = [(n, poly.buffer(res)) for n, poly in pad_rules]
+    for _, g in rules:
+        shapely.prepare(g)
+    rules = [(n, g, prep(g)) for n, g in rules]
     for a in (0.0, 90.0, 180.0, 270.0):
         q = copy.copy(part)
         q.x, q.y, q.r = 0.0, 0.0, a
@@ -84,10 +87,19 @@ def fit_anywhere(part, side: str, free, pad_rules: list, margin: float) -> bool:
             continue
         if not rules:
             return True
-        pads = [(placer.part_pad_box(q, n), pr) for n, pr in rules]
+        pads = [(placer.part_pad_box(q, n), g, pr) for n, g, pr in rules]
+        # necessary test, vectorised: the four corners of every pad box on or in its polygon (a box inside a
+        # polygon has its corners there); only the candidates that pass get the exact polygon test
+        keep = np.ones(len(cand), dtype=bool)
+        dx, dy = x0 + cand[:, 0] * res - bx0, y0 + cand[:, 1] * res - by0
+        for pb, g, _ in pads:
+            for cx, cy in ((pb[0], pb[1]), (pb[2], pb[1]), (pb[0], pb[3]), (pb[2], pb[3])):
+                keep &= shapely.intersects_xy(g, cx + dx, cy + dy)
+        cand = cand[keep]
         # a spread sample finds a fit quickly; a miss is reported only after every candidate was tried
         step = max(1, len(cand) // 4000)
         order = np.concatenate([cand[::step], np.delete(cand, np.s_[::step], axis=0)]) if step > 1 else cand
+        pads = [(pb, pr) for pb, _, pr in pads]
         for i, j in order:
             dx, dy = x0 + i * res - bx0, y0 + j * res - by0
             if all(pr.contains(box(pb[0] + dx, pb[1] + dy, pb[2] + dx, pb[3] + dy)) for pb, pr in pads):
@@ -353,9 +365,13 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             from .legality import placement_verdict
             pv = placement_verdict(d2, parts, place_out["W"], place_out["H"], v)
             place_out["verdict"] = pv
+            place_out["illegal"] = illegal_parts(parts, v)
             add("placement", False, f"quick placement is illegal, {pv['msg'][len('placement illegal: '):]}"
                 + "".join(f"; region {g['name']} {g['fill']:.0%} full ({g['load_mm2']:.0f} of {g['area_mm2']:.0f} mm2)"
                           for g in pv["regions"]), pv["back_to"] if pv["back_to"] != "layout" else None)
+            add("placement", False, "illegal placement, by part: " + illegal_text(place_out["illegal"])
+                + "; no routability or congestion estimate from an illegal placement",
+                pv["back_to"] if pv["back_to"] != "layout" else None)
         if not v:  # the routability prediction of the quick placement (routability.py; a legal placement only)
             from . import routability
             try:
@@ -365,14 +381,16 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
                 add("routability-prediction", True if rp["verdict"] == "routable" else None, rp["message"])
             except Exception as e:  # noqa: BLE001 - an estimate; the other checks stand without it
                 add("routability-prediction", None, f"not run: {type(e).__name__}: {e}")
+    if place_out is not None and not place_out["violations"]:  # a congestion figure of an illegal placement misleads
         c = place_out["congestion"]
         ok = True if c["util"] <= UTIL_RISK and c["peak"] <= PEAK_RISK else (False if c["util"] > UTIL_FAIL else None)
         add("routability", ok, f"{design.board.get('layers', 2)} layers: estimated wire {c['demand_mm']:.0f} mm on "
             f"{c['capacity_mm']:.0f} mm of track capacity where each net may run = {c['util']:.0%} (risk > "
             f"{UTIL_RISK:.0%}, fail > {UTIL_FAIL:.0%}); peak cell {c['peak']:.1f} x capacity (risk > {PEAK_RISK:g}); "
             f"{c['overflow']:.1%} of the wire over capacity, {c['detour']:.1%} over forbidden cells")
-    if fp["construction"] != "stacked" and (place and parts or any(p.fixed for p in parts.values())):
-        for name, ok, msg, back in _envelope_checks(parts, fp, res, m, bool(place)):  # fixed or quick-placed
+    placed = bool(place and place_out is not None and not place_out["violations"])  # an illegal placement is no position
+    if fp["construction"] != "stacked" and (placed or any(p.fixed for p in parts.values())):
+        for name, ok, msg, back in _envelope_checks(parts, fp, res, m, placed):  # fixed or quick-placed (legal only)
             add(name, ok, msg, back)
     if extra is not None:
         try:
@@ -720,6 +738,50 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
             "cell": pl.cell}
 
 
+_PAIR = re.compile(r"courtyard overlap (\S+)/(\S+)$")
+
+
+def illegal_parts(parts, viol: list[str]) -> list[dict]:
+    """The violations of an illegal placement by part: [{ref, fixed, overlaps: [refs], other: [violation texts]}],
+    the parts with the most violations first. A courtyard overlap names both parts; any other violation (keep-out,
+    region, edge, isolation) is listed under each part it names."""
+    rows: dict[str, dict] = {}
+
+    def row(r):
+        return rows.setdefault(r, {"ref": r, "fixed": bool(getattr(parts.get(r), "fixed", False)), "overlaps": [],
+                                   "other": []})
+    for v in viol:
+        m = _PAIR.match(v)
+        if m:
+            a, b = m.groups()
+            row(a)["overlaps"].append(b)
+            row(b)["overlaps"].append(a)
+            continue
+        refs = [r for r in dict.fromkeys(re.split(r"[\s/.,()']+", v)) if r in parts]
+        for r in refs[:2]:  # without the part's own name in front ("R9 courtyard ..." under R9)
+            row(r)["other"].append(v[len(r) + 1:] if v.startswith(r + " ") else v)
+    return sorted(rows.values(), key=lambda x: (-(len(x["overlaps"]) + len(x["other"])), x["ref"]))
+
+
+def illegal_text(rows: list[dict], limit: int = 30) -> str:
+    """One line per part of `illegal_parts`: `BT2 overlaps M3 (fixed), C1`, `K1: <violation>`."""
+    fixed = {x["ref"] for x in rows if x["fixed"]}
+    out = []
+    for x in rows[:limit]:
+        name = x["ref"] + (" (fixed)" if x["fixed"] else "")
+        bits = []
+        if x["overlaps"]:
+            bits.append("overlaps " + ", ".join(o + (" (fixed)" if o in fixed else "") for o in sorted(set(x["overlaps"]))))
+        bits += x["other"]
+        out.append(f"{name} " + "; ".join(bits))
+    if len(rows) > limit:
+        out.append(f"and {len(rows) - limit} more parts")
+    return " | ".join(out)
+
+
+SETTLE_POSITIONS = 300  # _settle: grid points per rotation over a region's bounding box
+
+
 def _settle(pl, viol, step: float = 2.0) -> float:
     """Each movable part that breaks a floorplan region: the cheapest position on a coarse grid over the bounding box
     of its region, in the four rotations (the placer's `unstick`, restricted to the region, so it takes seconds)."""
@@ -731,11 +793,14 @@ def _settle(pl, viol, step: float = 2.0) -> float:
         if p.fixed or not bounds:
             continue
         x0, y0, x1, y1 = bounds
+        # at most SETTLE_POSITIONS grid points per rotation: a whole stacked board as the region (94 x 57 mm) took
+        # two minutes at 2 mm; small regions keep the 2 mm grid
+        st = max(step, math.sqrt(max(x1 - x0, 0.0) * max(y1 - y0, 0.0) / SETTLE_POSITIONS))
         best = (pl._total(), p.x, p.y, p.r)
         for a in (0.0, 90.0, 180.0, 270.0):
-            for i in range(int((x1 - x0) / step) + 1):
-                for j in range(int((y1 - y0) / step) + 1):
-                    p.x, p.y, p.r = x0 + i * step, y0 + j * step, a
+            for i in range(int((x1 - x0) / st) + 1):
+                for j in range(int((y1 - y0) / st) + 1):
+                    p.x, p.y, p.r = x0 + i * st, y0 + j * st, a
                     c = pl._update([ref])
                     if c < best[0] - 1e-9:
                         best = (c, p.x, p.y, p.r)
@@ -842,13 +907,23 @@ def report(design, res: dict) -> str:
     p = res.get("placement")
     if p:
         c = p["congestion"]
-        L += ["", "## Quick placement", "",
-              f"Seed {p['seed']}, {p['iters']} moves, {len(p['violations'])} placement violations, "
-              f"{len(p.get('fixed_violations', []))} fixed-rule violations. Congestion (RUDY, "
-              f"{p['cell']:g} mm cells): wire {c['demand_mm']:.0f} mm on {c['capacity_mm']:.0f} mm capacity "
-              f"({c['util']:.0%}), overflow {c['overflow']:.1%}, peak {c['peak']:.1f} x, {len(c['hot'])} cells over.",
-              f"Nets with pads in more than one region: {p['crossing_nets']}"
-              + (" (" + "; ".join(f"{k}: {v}" for k, v in list(p["crossing"].items())[:6]) + ")" if p["crossing"] else "")]
+        head = (f"Seed {p['seed']}, {p['iters']} moves, {len(p['violations'])} placement violations, "
+                f"{len(p.get('fixed_violations', []))} fixed-rule violations.")
+        if p["violations"]:  # no congestion or region-crossing figures from an illegal placement
+            L += ["", "## Quick placement", "", head + " The placement is illegal: no congestion or routability "
+                  "estimate.", "", "| part | overlaps | other violations |", "|---|---|---|"]
+            fixed = {x["ref"] for x in p.get("illegal", []) if x["fixed"]}
+            for x in p.get("illegal", []):
+                L.append(f"| {x['ref']}{' (fixed)' if x['fixed'] else ''} | "
+                         f"{', '.join(o + (' (fixed)' if o in fixed else '') for o in sorted(set(x['overlaps'])))} | "
+                         f"{'; '.join(x['other'])} |")
+        else:
+            L += ["", "## Quick placement", "",
+                  head + f" Congestion (RUDY, {p['cell']:g} mm cells): wire {c['demand_mm']:.0f} mm on "
+                  f"{c['capacity_mm']:.0f} mm capacity ({c['util']:.0%}), overflow {c['overflow']:.1%}, peak "
+                  f"{c['peak']:.1f} x, {len(c['hot'])} cells over.",
+                  f"Nets with pads in more than one region: {p['crossing_nets']}"
+                  + (" (" + "; ".join(f"{k}: {v}" for k, v in list(p["crossing"].items())[:6]) + ")" if p["crossing"] else "")]
         L += ["", "Picture: build/floorplan.svg (front and back face, red cells over capacity)."]
     L += ["", "Thresholds: fill <= limit per region and face; depth <= limit; region distance >= isolation_mm; "
           f"routability fails above {UTIL_FAIL:.0%} of the track capacity, is at risk above {UTIL_RISK:.0%} or a peak "
@@ -886,7 +961,7 @@ def svg(res: dict) -> str:
             x0, y0, _, y1 = r["poly"].bounds
             out.append(f'<text x="{ox + max(x0, 0) * k + 3:.1f}" y="{pad + min(y1, H) * k - 3:.1f}" '
                        f'fill="{COLORS[r["kind"]]}" font-weight="bold">{r["name"]}</text>')
-        if p:
+        if p and not p["violations"]:
             c = p["cell"]
             for i, j in p["congestion"]["hot"]:
                 out.append(f'<rect x="{ox + i * c * k:.1f}" y="{pad + j * c * k:.1f}" width="{c * k:.1f}" '

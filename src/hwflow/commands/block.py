@@ -62,9 +62,18 @@ def _match(d: Design, as_json: bool = False) -> int:
 
     from ..core import blocks
     res = blocks.suggest(d)
+    matched = {m["block"] for m in res} | {str((e or {}).get("use")) for e in (d.raw.get("blocks") or {}).values()
+                                            if isinstance(e, dict)}
+    fn = [m for m in blocks.by_function(d) if m["block"] not in matched]
     if as_json:
-        print(json.dumps({"schema": "hwflow.block-match/1", "matches": res}, separators=(",", ":")))
+        print(json.dumps({"schema": "hwflow.block-match/1", "matches": res, "by_function": fn}, separators=(",", ":")))
         return 0
+    if fn:  # the parts stage: nothing to match on footprints yet, but the texts name the function or the part
+        print(f"{d.name}: {len(fn)} library blocks named by part or function in the project texts (take the block's "
+              f"parts and values in the parts stage, or record in notes/parts.md why not):")
+        for m in fn:
+            print(f"  {m['block']}: {', '.join(m['terms'])} in {', '.join(m['files'][:3])}"
+                  f"{' ...' if len(m['files']) > 3 else ''}; {m['description'][:100]}")
     if not res:
         print(f"{d.name}: no library block fits the unbound parts (footprints and pin nets must match a block's roles)")
         return 0

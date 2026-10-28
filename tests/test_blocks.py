@@ -248,3 +248,32 @@ def test_routed_board_keeps_the_block_copper(tmp_path):
     have = {(s["net"], s["layer"], s["x1"], s["y1"], s["x2"], s["y2"]) for s in rb["segments"]}
     assert all((t["net"], t["layer"], t["x1"], t["y1"], t["x2"], t["y2"]) in have for t in bt)
     assert len([s for s in rb["segments"] if s["net"] == "boost_SW"]) == 2  # the closed net is not routed again
+
+
+def test_library_root_follows_env_and_use(tmp_path, monkeypatch):
+    """library_root is cached on its environment variables (the placer asks for it thousands of times) but still
+    follows a changed HWFLOW_BLOCKS_DIR and the settings a `use()` block sets."""
+    from hwflow.core import blocks as B
+    from hwflow.core.settings import Settings, use
+    monkeypatch.setenv("HWFLOW_BLOCKS_DIR", str(tmp_path / "a"))
+    assert B.library_root() == tmp_path / "a"
+    monkeypatch.setenv("HWFLOW_BLOCKS_DIR", str(tmp_path / "b"))
+    assert B.library_root() == tmp_path / "b"
+    s = Settings()
+    s.paths.blocks_dir = str(tmp_path / "c")
+    with use(s):
+        assert B.library_root() == tmp_path / "c"
+    assert B.library_root() == tmp_path / "b"
+
+
+def test_block_match_by_function_before_capture(tmp_path):
+    """The parts stage has no captured parts to match on footprints: `block match` names the library blocks whose
+    active part or function the architecture names (thermo-e2e-3 drew a discrete H-bridge next to a DRV8837 block)."""
+    from hwflow.core import blocks as B
+    from hwflow.core.design import Design
+    (tmp_path / "design.yaml").write_text("project: t\nboard: {width_mm: 30, height_mm: 20, layers: 2}\n")
+    (tmp_path / "architecture.md").write_text("Relay drive: an H-bridge per latching coil (DRV8837 or discrete).\n")
+    res = B.by_function(Design.load(tmp_path))
+    hb = next(m for m in res if m["block"] == "drv8837_hbridge")
+    assert "DRV8837" in hb["terms"] and hb["active_part"] and hb["files"] == ["architecture.md"]
+    assert res[0]["active_part"]

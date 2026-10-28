@@ -137,7 +137,10 @@ are ports, and no internal block net reaching a part outside the binding (the ru
 `blocks:` entries, the value differences, and the parts whose own `placement:` must go. On home-thermostat-4 it finds the
 four bindings that home-thermostat-4-blocks has by hand (adc, boost switch, xtal, VBAT divider) plus the boost and both
 H-bridges; with them applied, `check` reports no block error. A block from an external board comes through
-`hwflow block extract <board.kicad_pcb>` (the board found by `ref search`), then `block match`.
+`hwflow block extract <board.kicad_pcb>` (the board found by `ref search`), then `block match`. Before any part is
+captured (the parts stage), it also lists the blocks that the project texts (architecture.md, partition.md,
+notes/parts*.md, notes/datasheets/) name by active part or by the words of the block name (`by_function` in the JSON):
+the parts stage takes such a block's parts and values, or records in notes/parts.md why not.
 
 **Design (soft seed, not built).** A rigid preset fails when the design differs from the reference (other values, a
 fixed part in the way: ht4-blocks left max17227a_boost unbound because its courtyard overlapped the fixed MCU block).

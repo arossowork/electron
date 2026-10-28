@@ -12,6 +12,7 @@ import shutil
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -287,6 +288,29 @@ def with_layout_env(settings: Settings, env: Mapping[str, Any]) -> Settings:
         base = {k: v for k, v in base.items() if k not in FAST_PRESET}
     layout = LayoutSettings(**{**base, **fields})
     return settings.model_copy(update={"layout": layout})
+
+
+def override() -> Settings | None:
+    """The settings `use()` set (in this context or a thread it started), or None when they come from the environment."""
+    cur = _CURRENT.get()
+    if cur is not None:
+        return cur
+    return _PROCESS[-1] if _PROCESS else None
+
+
+@lru_cache(maxsize=8)
+def _env_blocks_dir(blocks_dir: str, root: str) -> str:  # the key: the environment variables blocks_dir comes from
+    return Settings().paths.blocks_dir
+
+
+def blocks_dir() -> str:
+    """paths.blocks_dir, cheap: the placer asks for it thousands of times (blocks.library_root), and building the
+    settings each time took a third of a floorplan run. From the environment it is cached on the two variables it
+    depends on (HWFLOW_BLOCKS_DIR, HWFLOW_ROOT); under `use()` it is that snapshot's."""
+    cur = override()
+    if cur is not None:
+        return cur.paths.blocks_dir
+    return _env_blocks_dir(os.environ.get("HWFLOW_BLOCKS_DIR", ""), os.environ.get("HWFLOW_ROOT", ""))
 
 
 def get_settings() -> Settings:

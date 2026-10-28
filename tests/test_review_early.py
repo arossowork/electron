@@ -269,3 +269,12 @@ def test_cost_limit_is_a_pending_decision_not_a_stage_blocker(tmp_path, monkeypa
     fake.append({"sev": "error", "code": "abs-max", "msg": "real"})  # a real error still blocks
     r = stages.stage_check(d, None)
     assert not r["ok"] and r["errors"] == 1 and r["decisions_pending"] == 1
+
+
+def test_pending_cost_decision_is_not_shown_as_a_check_error():
+    """thermo-e2e-3: agents read the check JSON and REPORT; a cost over a must limit read as a design error."""
+    from hwflow.pipeline import summary
+    c = {"ok": True, "errors": 0, "warnings": 0, "decisions_pending": 1,
+         "findings": [{"sev": "error", "code": "cost-limit", "decision": True, "msg": "R42: over"}]}
+    v = summary.check_view(c)
+    assert v["ok"] and v["errors"] == 0 and v["decisions_pending"] == 1 and v["findings"][0]["decision"] is True

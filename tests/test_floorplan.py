@@ -327,3 +327,77 @@ def test_routability_prediction_runs_with_footprintless_placeholders(tmp_path):
     out = floorplan.check(d, libs)
     rp = [c for c in out["checks"] if c["name"] == "routability-prediction"]
     assert not rp or "AttributeError" not in rp[0]["msg"]
+
+
+def test_illegal_quick_placement_names_parts_and_gives_no_congestion(tmp_path):
+    """thermo-e2e-3: an illegal quick placement still reported a congestion % (and FAILed on it); the floorplan now
+    names each part of the illegal placement with what it overlaps and gives no routability figure from it."""
+    comps = {r: {"value": "1k", "footprint": RS, "pins": {"1": f"N{r}", "2": "B"},
+                 "placement": {"x": 10, "y": 10, "fixed": True}} for r in ("R1", "R2")}
+    d = make(tmp_path, {"construction": "single", "items": [{"name": "rs", "refs": ["R1", "R2"], "height_mm": 1}]},
+             board={"width_mm": 30, "height_mm": 20, "layers": 2}, comps=comps)
+    res = floorplan.check(d, Libs(design=d), iters=10, seeds=1)
+    assert res["verdict"] == "FAIL"
+    names = [c["name"] for c in res["checks"]]
+    assert "routability" not in names and "routability-prediction" not in names
+    by_part = next(c for c in res["checks"] if c["msg"].startswith("illegal placement, by part:"))
+    assert by_part["ok"] is False and "R1 (fixed) overlaps R2 (fixed)" in by_part["msg"]
+    rows = {x["ref"]: x for x in res["placement"]["illegal"]}
+    assert rows["R1"]["overlaps"] == ["R2"] and rows["R2"]["fixed"]
+    text = floorplan.report(d, res)
+    assert "no congestion or routability estimate" in text and "| R1 (fixed) | R2 (fixed) |" in text
+
+
+def test_illegal_parts_groups_violations_by_part():
+    class P:
+        def __init__(self, fixed=False):
+            self.fixed = fixed
+    parts = {"C1": P(), "M3": P(), "BT2": P(True), "R9": P()}
+    rows = floorplan.illegal_parts(parts, ["courtyard overlap BT2/M3", "courtyard overlap C1/M3",
+                                           "R9 courtyard or pad in keep-out 'iso'"])
+    assert [r["ref"] for r in rows][0] == "M3" and rows[0]["overlaps"] == ["BT2", "C1"]
+    r9 = next(r for r in rows if r["ref"] == "R9")
+    assert r9["other"] == ["courtyard or pad in keep-out 'iso'"]
+    assert "M3 overlaps BT2 (fixed), C1" in floorplan.illegal_text(rows)
+
+
+STACKED = {"construction": "stacked",
+           "boards": [{"name": "A", "size_mm": [30, 20], "at": [0, 0], "stack_mm": 6},
+                      {"name": "B", "size_mm": [30, 20], "at": [40, 0]}],
+           "regions": [{"name": "mains", "board": "B", "kind": "mains", "rect": [0, 0, 15, 20], "isolation_mm": 2,
+                        "nets": ["L"], "items": ["rb"]}],
+           "items": [{"name": "ra", "board": "A", "refs": ["R1"], "height_mm": 1},
+                     {"name": "rb", "board": "B", "refs": ["R2"], "height_mm": 1}]}
+
+
+def _stacked(tmp_path, blocks=None):
+    comps = {"R1": {"value": "1k", "footprint": RS, "pins": {"1": "A1", "2": "B1"}},
+             "R2": {"value": "1k", "footprint": RS, "pins": {"1": "L", "2": "L2"},
+                    "placement": {"x": 47, "y": 10, "fixed": True}}}  # panel coordinates: board B starts at x 40
+    d = make(tmp_path, STACKED, board={"width_mm": 70, "height_mm": 20, "layers": 2}, comps=comps)
+    if blocks:
+        d.raw["blocks"] = blocks
+    return d
+
+
+def test_stacked_fixed_mains_pad_is_in_panel_coordinates(tmp_path):
+    """thermo-e2e-3 (C15): pads of fixed parts on board B got the board offset added a second time, 11 false
+    "outside region mains" failures."""
+    from hwflow.core import floorplan as core
+    d = _stacked(tmp_path)
+    fp = floorplan.parse(d)
+    parts, _ = floorplan._parts(d, Libs(design=d), fp)
+    assert core.fixed_pad_isolation(d, parts, fp) == []
+    parts["R2"].x = 60  # outside the mains region (x 40..55 on the panel)
+    assert any("R2.1" in m and "outside region mains" in m for m in core.fixed_pad_isolation(d, parts, fp))
+
+
+def test_stacked_board_rule_admits_the_blocks_of_its_parts(tmp_path):
+    """thermo-e2e-3 (C15): the block:* courtyard of a board-A part read as "inside region board A"."""
+    from hwflow.core import floorplan as core
+    d = _stacked(tmp_path, blocks={"blk": {"use": "x", "parts": {"R": "R1"}}})
+    parts, _ = floorplan._parts(d, Libs(design=d), floorplan.parse(d))
+    rules, _ = core.placer_regions(d, parts)
+    a = next(r for r in rules if r["name"] == "board A")
+    b = next(r for r in rules if r["name"] == "board B")
+    assert "block:blk" in a["allow"] and "block:blk" not in b["allow"]

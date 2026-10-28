@@ -2064,11 +2064,21 @@ class Placer:
                 out["back"].append(pb)
             return out
 
+        integ: dict = {}  # side -> integral image of occ[side], (nx + 1, ny + 1); dropped when occ changes
+
         def mark(p):
+            integ.clear()
             for s, bs in boxes(p).items():
                 for b in bs:
                     a0, b0, a1, b1 = cells(b)
                     occ[s][a0:a1, b0:b1] = True
+
+        def integral(s):
+            if s not in integ:
+                S = np.zeros((nx + 1, ny + 1), np.int32)
+                S[1:, 1:] = occ[s].cumsum(0).cumsum(1)
+                integ[s] = S
+            return integ[s]
         seen = set()
         for p in list(self.parts.values()) + [u.yard for u in self.units]:
             if id(p) not in out_ids and id(p) not in seen and (not dry or p.fixed):
@@ -2130,19 +2140,19 @@ class Placer:
             ai = np.arange(a0, a1 + 1)[:, None]
             aj = np.arange(b0, b1 + 1)[None, :]
             free = np.ones((a1 - a0 + 1, b1 - b0 + 1), bool)
+            na, nb = a1 - a0 + 1, b1 - b0 + 1
             for s, bs in need.items():
                 if not bs:
                     continue
-                sub = occ[s][a0:a1 + bw + 1, b0:b1 + bh + 1]
-                S = np.zeros((sub.shape[0] + 1, sub.shape[1] + 1), np.int32)
-                S[1:, 1:] = sub.cumsum(0).cumsum(1)
+                S = integral(s)  # the board's integral image, shared by every search until a unit is placed
                 for b in bs:  # each box of the unit at its offset in the unit's bounding box
                     di = int(math.floor((b[0] - ux0) / res + 1e-9))
                     dj = int(math.floor((b[1] - uy0) / res + 1e-9))
                     wi = int(math.ceil((b[2] - ux0) / res - 1e-9)) - di
                     wj = int(math.ceil((b[3] - uy0) / res - 1e-9)) - dj
-                    a, c = ai - a0 + di, aj - b0 + dj
-                    free &= (S[a + wi, c + wj] - S[a, c + wj] - S[a + wi, c] + S[a, c]) == 0
+                    a, c = a0 + di, b0 + dj  # window sums as slices of S (views, not fancy indexing)
+                    free &= (S[a + wi:a + wi + na, c + wj:c + wj + nb] - S[a:a + na, c + wj:c + wj + nb]
+                             - S[a + wi:a + wi + na, c:c + nb] + S[a:a + na, c:c + nb]) == 0
             lo_x, lo_y = ai * res, aj * res
             hi_x, hi_y = lo_x + (ux1 - ux0), lo_y + (uy1 - uy0)
             if pads:  # copper keeps copper_edge_mm from the board edge (a body may overhang it, a pad may not)
@@ -2160,9 +2170,14 @@ class Placer:
                     S = rS[gi][1 if member else 0]
                     e = int(math.ceil(cm / res - 1e-9))  # the courtyard without the placer margin
                     wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
-                    a, c = ai + e, aj + e
-                    a, c = np.minimum(a, nx - wi), np.minimum(c, ny - wj)
-                    free &= (S[a + wi, c + wj] - S[a, c + wj] - S[a + wi, c] + S[a, c]) == 0
+                    # window sums at the clipped corners min(a + e, nx - wi): slices over the corner range, then
+                    # a 1-D take per axis (the clip repeats the last row or column)
+                    ia = np.minimum(np.arange(a0, a1 + 1) + e, nx - wi)
+                    jc = np.minimum(np.arange(b0, b1 + 1) + e, ny - wj)
+                    p0, p1, q0, q1 = int(ia[0]), int(ia[-1]) + 1, int(jc[0]), int(jc[-1]) + 1
+                    D = (S[p0 + wi:p1 + wi, q0 + wj:q1 + wj] - S[p0:p1, q0 + wj:q1 + wj]
+                         - S[p0 + wi:p1 + wi, q0:q1] + S[p0:p1, q0:q1])
+                    free &= D.take(ia - p0, 0).take(jc - q0, 1) == 0
                     continue
                 gx0, gy0, gx1, gy1 = g["rect"]
                 if refs & set(g["members"]):

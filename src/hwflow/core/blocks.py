@@ -10,15 +10,17 @@ from pathlib import Path
 
 import yaml
 
-from .settings import get_settings
+from .settings import blocks_dir
 from .units import parse_value
 from .geometry import Part, Rigid, rot
 
 
 
 def library_root() -> Path:
-    """The repository's block library (settings.paths.blocks_dir)."""
-    return Path(get_settings().paths.blocks_dir)
+    """The repository's block library (settings.paths.blocks_dir). The placer asks for it thousands of times; building
+    the settings each time took a third of a floorplan run, so the value from the environment is cached on the two
+    variables it depends on (HWFLOW_BLOCKS_DIR, HWFLOW_ROOT)."""
+    return Path(blocks_dir())
 
 
 YARD = "block:"  # ref prefix of a block courtyard in the placer
@@ -605,6 +607,60 @@ def suggest(design) -> list[dict]:
             m["entry"] = f"{m['block']}_{next(iter(m['parts'].values())).lower()}"
     return out
 
+
+# project texts the parts stage writes before any part is captured (architecture, partition and parts notes)
+FUNCTION_TEXTS = ("architecture.md", "partition.md", "notes/parts*.md", "notes/datasheets/*.md")
+_GENERIC = {"rc", "switch", "decoupling", "mini", "3ch", "2pfet", "pfet", "nfet", "divider"}
+
+
+def _norm(t: str) -> str:
+    import re
+    return re.sub(r"[^a-z0-9]+", "", t.lower())
+
+
+def function_terms(block: dict) -> dict[str, str]:
+    """normalised term -> as written: the block's active parts (role values that are not passive values such as 100n
+    or 1k, and not a bare R/C/L) and the specific words of its name (`drv8837_hbridge`: DRV8837, hbridge)."""
+    out = {}
+    for r in (block.get("roles") or {}).values():
+        v = str(r.get("value") or "")
+        try:
+            parse_value(v)
+            continue  # a passive value
+        except Exception:  # noqa: BLE001 - not a number: a part name
+            pass
+        if len(_norm(v)) >= 4:
+            out[_norm(v)] = v
+    for w in str(block.get("name") or "").split("_"):
+        if len(_norm(w)) >= 4 and _norm(w) not in _GENERIC:
+            out.setdefault(_norm(w), w)
+    return out
+
+
+def by_function(design) -> list[dict]:
+    """Library blocks that the project's texts name by part or function (`FUNCTION_TEXTS`), for the parts stage, when
+    nothing is captured yet to match on footprints and nets: [{block, terms, files, description}], the blocks that
+    name an active part first. A candidate, not a proof: the parts stage takes the block or says why not."""
+    texts = {}
+    for pat in FUNCTION_TEXTS:
+        for f in sorted(design.dir.glob(pat)):
+            try:
+                texts[str(f.relative_to(design.dir))] = _norm(f.read_text(errors="replace"))
+            except OSError:
+                continue
+    out = []
+    for n in names(design):
+        b = load(n, design)
+        terms = function_terms(b)
+        hit = {t: [f for f, x in texts.items() if t in x] for t in terms}
+        hit = {t: fs for t, fs in hit.items() if fs}
+        if not hit:
+            continue
+        active = [terms[t] for t in hit if terms[t] != next((w for w in str(n).split("_") if _norm(w) == t), None)]
+        out.append({"block": n, "terms": [terms[t] for t in hit], "active_part": bool(active),
+                    "files": sorted({f for fs in hit.values() for f in fs}),
+                    "description": " ".join(str(b.get("description") or "").split())[:160]})
+    return sorted(out, key=lambda m: (not m["active_part"], -len(m["terms"]), m["block"]))
 
 
 def write(block: dict, root: Path | None = None) -> Path:

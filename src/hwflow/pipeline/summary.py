@@ -18,7 +18,8 @@ TOP = 8  # list items kept per section; the count of all of them is next to the 
 
 
 def _finding(x: dict) -> dict:
-    return {"sev": x.get("sev"), "code": x.get("code"), "msg": x.get("msg")}
+    return {"sev": x.get("sev"), "code": x.get("code"), "msg": x.get("msg"),
+            **({"decision": True} if x.get("decision") else {})}  # a pending product decision, not a design error
 
 
 def check_view(c: dict | None) -> dict:
@@ -26,6 +27,7 @@ def check_view(c: dict | None) -> dict:
         return {"ran": False}
     f = c.get("findings") or []
     return {"ok": bool(c.get("ok")), "errors": c.get("errors", 0), "warnings": c.get("warnings", 0),
+            **({"decisions_pending": c["decisions_pending"]} if c.get("decisions_pending") else {}),
             "findings": [_finding(x) for x in f if x.get("sev") in ("error", "warn")]}
 
 

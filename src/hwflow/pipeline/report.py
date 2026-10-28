@@ -58,11 +58,12 @@ def write_report(d: Design, history: bool = False) -> str:
         fail(k, f"{k} did not run")
     if "check" in s:
         c = s["check"]
-        L.append(f"- check{st('check')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings)")
+        L.append(f"- check{st('check')}: {'OK' if c['ok'] else 'FAIL'} ({c['errors']} errors, {c['warnings']} warnings"
+                 + (f", {c['decisions_pending']} product decision(s) pending" if c.get("decisions_pending") else "") + ")")
         rank = {"error": 0, "warn": 1}  # errors first: a long list of warnings never hides the error that fails the check
         shown = sorted(c["findings"], key=lambda x: rank.get(x["sev"], 2))[:12]
-        for x in shown:
-            L.append(f"  - {x['sev']}: {x['msg']}")
+        for x in shown:  # a pending product decision (cost over a must) is not a design error: say which it is
+            L.append(f"  - {'decision pending' if x.get('decision') and x['sev'] == 'error' else x['sev']}: {x['msg']}")
         if len(c["findings"]) > len(shown):
             L.append(f"  - and {len(c['findings']) - len(shown)} more (status.json check.findings)")
         if not c["ok"]:
