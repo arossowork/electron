@@ -306,7 +306,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             if r in saved and not p.fixed:  # a fixed part keeps the position the design gives it now
                 p.x, p.y, p.r = saved[r]
         pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
-        pl.legalize(tht=True)
+        pl.legalize()
         viol, cost = pl.violations(), pl.cost()
         if viol and get_settings().layout.settle:  # a saved placement with violations: settle them
             viol, cost = pl.settle(), pl.cost()

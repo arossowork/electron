@@ -208,6 +208,10 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, 
             reasons.append(f"(feasibility proofs not run: {type(e).__name__}: {e})")
         # a finding that depends on the placement of movable parts counts only on the persistent parts
         proofs = [f for f in proofs if f.get("fixed", True) or set(f.get("refs") or []) & set(pers)]
+        for f in proofs:  # gone with only the fixed parts in place: the placer made it and can undo it
+            if f.get("fixed") is False and f.get("back_to") in ("architecture", "parts"):
+                f["back_to"] = "layout"
+                f["msg"] += " (made by the placement of movable parts: a placer issue, not a design one)"
         for f in sorted(proofs, key=lambda f: ("architecture", "parts", "circuit").index(f["back_to"])
                         if f["back_to"] in ("architecture", "parts", "circuit") else 3):
             back = back or f["back_to"]
@@ -235,7 +239,7 @@ def diagnose(design, parts: dict, attempts: list[dict], board: dict, out: Path, 
     res = {"structure": key, "attempts": len(per), "persistent": pers, "parts": rows,
            "fill": {k: round(v, 2) for k, v in fill.items()}, "back_to": back, "stage": STAGES.get(back),
            "reasons": reasons, "repeat": repeat, "proofs": proofs,
-           "blocked": back not in (None, "layout") or repeat}
+           "blocked": back not in (None, "layout") or (repeat and back != "layout")}
     return res
 
 

@@ -74,8 +74,9 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
         if rf > fmax:
             over.append(f"region {g['name']} is {rf:.0%} full ({load:.0f} of {poly.area:.0f} mm2; at most {fmax:.0%} "
                         f"places: it needs {load / fmax:.0f} mm2, or fewer or smaller members)")
-    refs = {r for v in viol for r in re.split(r"[\s/.]+", v) if r in parts}
-    fixed_only = bool(refs) and all(parts[r].fixed for r in refs)
+    units = {u.ref: u for u in getattr(parts, "blocks", ()) or ()}  # a block's courtyard part: block:<name>
+    refs = {r for v in viol for r in re.split(r"[\s/.]+", v) if r in parts or r in units}
+    fixed_only = bool(refs) and all((parts[r] if r in parts else units[r]).fixed for r in refs)
     k = math.sqrt(f / fmax) if f > 0 else 1.0  # on the area inside the margin
     head = f"placement illegal: {len(viol)} violation{'s' if len(viol) != 1 else ''} ({'; '.join(viol[:4])}" \
            + ("; ..." if len(viol) > 4 else "") + ")"

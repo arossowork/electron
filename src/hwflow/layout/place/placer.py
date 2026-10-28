@@ -42,7 +42,9 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
                     sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"),
                     nocu=frozenset(p["number"] for p in fp["pads"]
                                    if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])),
-                    cu=cu, round=frozenset(rnd))
+                    cu=cu, round=frozenset(rnd),
+                    npth=tuple((p["x"], p["y"], *((p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])))
+                               for p in fp["pads"] if p["kind"] == "np_thru_hole"))
         if "x" in pl and "y" in pl:
             part.x, part.y, part.r = float(pl["x"]), float(pl["y"]), float(pl.get("rot", 0))
             part.fixed = bool(pl.get("fixed", True))
@@ -70,11 +72,16 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
         if ba and bb:
             total += _overlap(ba, bb)
     for a, b in ((pa, pb), (pb, pa)):
-        if a.tht and b.sides:
-            for n in a.tht:
-                pad = part_pad_box(a, n)
+        if (a.tht or a.npth) and b.sides:
+            for pad in hole_boxes(a):
                 total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
     return total
+
+
+def hole_boxes(p: "Part") -> list:
+    """Boxes of everything of part `p` that goes through the board: its plated through-hole pads (the pad) and its
+    non-plated holes (mounting pegs): no courtyard of another part on either side may cover them."""
+    return [part_pad_box(p, n) for n in p.tht] + p.npth_boxes()
 
 
 def part_pad_box(p: "Part", n):
@@ -90,11 +97,10 @@ def _tht_pair(pa: "Part", pb: "Part"):
     side), or None: the overlap `_side_overlap` counts across sides, as boxes `legalize` can push apart."""
     best = None
     for a, b, flip in ((pa, pb, False), (pb, pa, True)):
-        if not a.tht or not b.sides:
+        if not (a.tht or a.npth) or not b.sides:
             continue
         yards = [y for y in (b.side_box("front"), b.side_box("back")) if y]
-        for n in a.tht:
-            pad = part_pad_box(a, n)
+        for pad in hole_boxes(a):
             for y in yards:
                 o = _overlap(pad, y)
                 if o > 0 and (best is None or o > best[0]):
@@ -1736,11 +1742,11 @@ class Placer:
                 break
         return self.cost()
 
-    def legalize(self, rounds: int = 200, refs=None, tht: bool = False):
+    def legalize(self, rounds: int = 200, refs=None):
         """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board. `refs`: only
-        these parts move and only they and the fixed parts count (the macro legalization of asicflow). `tht`: also
-        push a courtyard off a through-hole pad of a part on the other side (an overlap `violations` counts; off in
-        the placer's own passes, whose trajectories it would change, on for a placement taken as it is)."""
+        these parts move and only they and the fixed parts count (the macro legalization of asicflow). A courtyard is
+        also pushed off what goes through the board under it from a part on the other side (through-hole pads,
+        non-plated holes: an overlap `violations` counts)."""
         P = [p for p in self.parts.values() if refs is None or p.ref in refs or self._unit(p).fixed]
         m = self.d.board["margin_mm"]
         for _ in range(rounds):
@@ -1771,7 +1777,7 @@ class Placer:
                         if ba and bb and _overlap(ba, bb) > 0:
                             pair = (ba, bb)
                             break
-                    if pair is None and tht:  # a through-hole pad of one inside a courtyard of the other, on
+                    if pair is None:  # a through-hole pad of one inside a courtyard of the other, on
                         pair = _tht_pair(a, b)  # either side (violations counts it: _side_overlap, pth_inside_courtyard)
                     if pair is None:
                         continue
@@ -2013,13 +2019,12 @@ class Placer:
 
     @staticmethod
     def _side_boxes(p) -> dict:
-        """side -> courtyard boxes of part `p` that block that side (a through-hole part blocks both)."""
-        out = {"front": [], "back": []}
-        for s in ("front", "back"):
-            b = p.side_box(s)
-            if b:
-                for t in (("front", "back") if p.tht else (s,)):
-                    out[t].append(b)
+        """side -> boxes of part `p` that block that side: its courtyard on its own side, and on both sides everything
+        of it that goes through the board (through-hole pads, non-plated holes), the rule `violations` checks."""
+        out = {s: [b] if (b := p.side_box(s)) else [] for s in ("front", "back")}
+        for b in hole_boxes(p):
+            out["front"].append(b)
+            out["back"].append(b)
         return out
 
     def _settle(self, bad, mode: str = "near", first=(), dry: bool = False, corner=(0.0, 0.0)):
@@ -2052,18 +2057,7 @@ class Placer:
             o[:, :j0] = True
             o[:, j1:] = True
 
-        def boxes(p):
-            """side -> boxes of part p that block that side: its courtyards and, through-hole, its whole body on both
-            sides; in a dry run only what `violations` counts, its courtyards and its through-hole pads on both."""
-            if not (dry and p.tht):
-                return self._side_boxes(p)
-            out = {s: [b] if (b := p.side_box(s)) else [] for s in ("front", "back")}
-            for n in p.tht:
-                pb = part_pad_box(p, n)
-                out["front"].append(pb)
-                out["back"].append(pb)
-            return out
-
+        boxes = self._side_boxes  # the rule `violations` checks: courtyards, and through-board items on both sides
         integ: dict = {}  # side -> integral image of occ[side], (nx + 1, ny + 1); dropped when occ changes
 
         def mark(p):

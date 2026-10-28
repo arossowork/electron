@@ -32,6 +32,7 @@ class Part:
     pad_size: dict | None = None  # pad number -> (w, h) at rot 0, for the copper-to-edge check
     sides: dict | None = None     # "front"/"back" -> (w, h, cx, cy) courtyard per board side
     tht: frozenset = frozenset()  # numbers of the plated through-hole pads (KiCad: not inside another courtyard)
+    npth: tuple = ()  # (x, y, w, h) at rot 0 of the non-plated holes (mounting pegs, no number): through the board too
     nocu: frozenset = frozenset()  # numbers of the pads without copper (a keep-out marker's dummy pad)
     cu: dict | None = None        # pad number -> its copper layers (frozenset, "*" = every layer); None: every layer
     round: frozenset = frozenset()  # numbers of the circular pads (the corridor term measures them as circles)
@@ -51,6 +52,16 @@ class Part:
         w, h = (self.w, self.h) if self.r % 180 == 0 else (self.h, self.w)
         x, y = self.x + cx, self.y + cy
         return x - w / 2, y - h / 2, x + w / 2, y + h / 2
+
+    def npth_boxes(self) -> list:
+        """Board boxes of the non-plated holes (KiCad npth_inside_courtyard: no other courtyard over them, either side)."""
+        out = []
+        for hx, hy, w, h in self.npth:
+            dx, dy = rot(hx, hy, self.r)
+            if self.r % 180:
+                w, h = h, w
+            out.append((self.x + dx - w / 2, self.y + dy - h / 2, self.x + dx + w / 2, self.y + dy + h / 2))
+        return out
 
     def pad(self, n):
         px, py = self.pads[n]

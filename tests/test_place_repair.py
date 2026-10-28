@@ -29,10 +29,29 @@ def test_legalize_pushes_a_courtyard_off_a_through_hole_pad_of_the_other_side(tm
     pl = placer.Placer(d, parts, W, H, seed=1)
     assert placer._tht_pair(j1, r0) is not None
     assert "courtyard overlap J1/R0" in pl.violations()
-    pl.legalize()  # the placer's own passes: as before (their trajectories stay)
-    assert placer._tht_pair(j1, r0) is not None
-    pl.legalize(tht=True)
+    pl.legalize()  # always: the placer's own passes too
     assert placer._tht_pair(j1, r0) is None
+    assert not [v for v in pl.violations() if "J1/R0" in v]
+
+
+def test_a_non_plated_hole_of_the_other_side_is_an_obstacle(tmp_path):
+    """A mounting-peg hole (NPTH, no pad number) of a back-side part goes through the board: a front courtyard over it
+    is a violation (KiCad npth_inside_courtyard), legalize pushes it off and settle keeps it off."""
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    j1 = parts["J1"]
+    j1.sides = {"back": j1.sides["front"]}
+    j1.tht, j1.npth = frozenset(), ((0.0, 5.08, 3.0, 3.0),)  # surface-mount pins, one 3 mm peg hole
+    for r, p in parts.items():
+        if r.startswith("R"):
+            p.x, p.y, p.r = 25.0, 3.0 + 2.4 * int(r[1:]), 0.0
+    r0 = parts["R0"]
+    hx, hy = j1.x, j1.y + 5.08
+    r0.x, r0.y = hx + 1.0, hy
+    pl = placer.Placer(d, parts, W, H, seed=1)
+    assert "courtyard overlap J1/R0" in pl.violations()
+    assert pl._side_boxes(j1)["front"] == j1.npth_boxes()
+    pl.legalize()
     assert not [v for v in pl.violations() if "J1/R0" in v]
 
 
