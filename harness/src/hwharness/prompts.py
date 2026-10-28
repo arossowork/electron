@@ -159,7 +159,7 @@ TOOL_MAP = """\
 | `uv run hwflow optimize <proj> [--apply]` | `optimize` |
 | `uv run hwflow fw <proj> [--scaffold]` | `fw` |
 | `make -C projects/<p>/fw test`, `uv run hwflow fw test <proj>` (firmware host tests, gcc) | `fw_test` (no make: it compiles the framework and every `.c` under `fw/` except `fw/port/`, runs the tests and returns the output) |
-| `uv run hwflow floorplan <proj>` | `floorplan` |
+| `uv run hwflow floorplan <proj> [--stage arch]` | `floorplan` (`stage: arch`) |
 | downloading a datasheet (WebFetch, curl) | `fetch_url` (saves it under `datasheets/`, with a `.txt` for a PDF) |
 | a question to the product person (AskUserQuestion, `inbox/questions.json`) | `ask_product_person`, then end your turn |
 | a decision you take yourself | `log_decision` |"""

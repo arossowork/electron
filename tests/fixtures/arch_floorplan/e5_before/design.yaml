@@ -1,0 +1,57 @@
+# thermo-e2e-5 at the end of stage 2/3, as the stage-arch check sees it: the floorplan that stage 4 sent back to
+# architecture (BT1 has no spot clear of the K1/K2 coil pins; J1's OUT1/OUT2 corridor is closed between the cover-wall
+# band and the bottom edge). Positions from projects/thermo-e2e-5/architecture.md "Floorplan rework (stage 4)" (was
+# column) and notes/circuit.md "Blockers"; regions from architecture.md sections 8 and 11.
+project: thermo_e2e5_before
+libraries: [../e5_lib]
+board:
+  width_mm: 94
+  height_mm: 52
+  layers: 2
+  isolation:
+    - {name: mains_selv, nets: [L_IN, L, OUT1, OUT2], class: mains, role: mains, inputs: [L_IN],
+       creepage_mm: 6.0, clearance_mm: 3.0, between_mm: 2.5, req: R21}
+nets:
+  L_IN: {role: mains_input, class: mains, current_a: 3.0, min_width_mm: 2.0}
+  L: {class: mains, current_a: 3.0, min_width_mm: 2.0}
+  OUT1: {class: mains, current_a: 1.5, min_width_mm: 2.0}
+  OUT2: {class: mains, current_a: 1.5, min_width_mm: 2.0}
+floorplan:
+  construction: double
+  wall_mm: {left: 1, right: 1, top: 1, bottom: 1}
+  depth:
+    limit_mm: 38
+    extra: [{name: cover wall and air, mm: 2.0, source: architecture.md}]
+  regions:
+    - {name: boss_l, cut: true, circle: [5.25, 26, 4.5], conductive: true, mechanical: screw, accessible: true}
+    - {name: boss_r, cut: true, circle: [88.75, 26, 4.5], conductive: true, mechanical: screw, accessible: true}
+    - {name: battery, kind: battery, side: front, rect: [10.25, 0.0, 65.75, 27.0], items: [cells]}
+    - {name: mains, kind: mains, side: both, rect: [40, 40, 94, 52], nets: [L_IN, L, OUT1, OUT2], isolation_mm: 6.0,
+       from: [battery, antenna, selv, cover_wall], items: [mains_term, fuse]}
+    - {name: relay_barrier, kind: barrier, side: back, rect: [41.0, 21.5, 94, 52], items: [relay1, relay2]}
+    - {name: mains_cover, kind: other, mechanical: cover, side: front, rect: [32.5, 32.5, 94, 52], accessible: false}
+    - {name: cover_wall, kind: keepout, mechanical: wall, side: front, accessible: true,
+       poly: [[32.5, 52], [32.5, 32.5], [94, 32.5], [94, 34], [34, 34], [34, 52]]}
+    - {name: antenna, kind: antenna, side: both, rect: [10, 46, 27.5, 52], allow: [module], isolation_mm: 10,
+       from: [mains, relay_barrier]}
+  items:
+    - {name: cells, refs: [BT1], footprint: "Battery:BatteryHolder_Keystone_2468_2xAAA", side: front, height_mm: 13.0,
+       protrusion_mm: 2.0, source: Keystone M65 p.28}
+    - {name: relay1, refs: [K1], footprint: "hw:Relay_Panasonic_ADW1_1coil_back", side: back, at: [46.5, 34.25],
+       rot: 270, height_mm: 15.8, protrusion_mm: 2.0, pins: {"13": L, "14": OUT1}, source: ADW1 ASCTB8E}
+    - {name: relay2, refs: [K2], footprint: "hw:Relay_Panasonic_ADW1_1coil_back", side: back, at: [61.5, 34.25],
+       rot: 270, height_mm: 15.8, protrusion_mm: 2.0, pins: {"13": L, "14": OUT2}, source: ADW1 ASCTB8E}
+    - {name: mains_term, refs: [J1], footprint: "e5:TerminalBlock_KF143-5.0-3P_back", side: back, at: [88.0, 43.15],
+       height_mm: 16.1, protrusion_mm: 3.5, envelope_mm: 1, edge: right, pins: {"1": OUT2, "2": OUT1, "3": L_IN},
+       source: KF143 drawing}
+    - {name: fuse, refs: [F1], footprint: "e5:Fuse_Walter_TSC-P_5.2x20_P25.4_Horizontal_back", side: back,
+       at: [73.7, 49.85], height_mm: 6.0, protrusion_mm: 2.0, pins: {"1": L_IN, "2": L}, source: Schurter SPT}
+    - {name: probe1, refs: [J2], footprint: "TerminalBlock_4Ucon:TerminalBlock_4Ucon_1x02_P3.50mm_Vertical",
+       side: back, at: [6.5, 36.045], height_mm: 16.2, edge: left, envelope_mm: 1}
+    - {name: probe2, refs: [J3], footprint: "TerminalBlock_4Ucon:TerminalBlock_4Ucon_1x02_P3.50mm_Vertical",
+       side: back, at: [6.5, 46.145], height_mm: 16.2, edge: left, envelope_mm: 1}
+    - {name: module, refs: [U1], footprint: "hw:ESP32-C3-MINI-1", side: front, height_mm: 2.4}
+    - {name: rest_front, side: front, area_mm2: 1040, source: "8 x CP 6.3 (430) + power 168 + ADC 150 + drivers 200 + xtal 30 + pads 60"}
+  nets:
+    - {between: [module, relay1], count: 2}
+    - {between: [module, relay2], count: 2}

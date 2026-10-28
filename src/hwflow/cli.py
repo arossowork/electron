@@ -160,8 +160,9 @@ def cmd_floorplan(d: Design, a) -> int:
         return 0
     from .layout import feasibility
     text, data = floorplan.run(d, Libs(design=d), _out(d), a.iters, a.seeds,
-                               extra=None if a.no_proofs else feasibility.floorplan_checks)
-    _save_status(d, "floorplan", {**data, "design_hash": _design_hash(d), "at": time.time()})
+                               extra=None if a.no_proofs else feasibility.floorplan_checks, stage=a.stage)
+    _save_status(d, "floorplan" if a.stage == "full" else "floorplan_arch",
+                 {**data, "design_hash": _design_hash(d), "at": time.time()})
     print(text)
     return 0 if data["ok"] else 1
 
@@ -268,6 +269,11 @@ def main(argv=None):
     p.add_argument("project"); p.add_argument("--iters", type=int, default=20000); p.add_argument("--seeds", type=int, default=2)
     p.add_argument("--no-proofs", action="store_true", help="skip the layout proofs (escape, barrier, cut, corridor, "
                                                             "padiso) of the captured parts")
+    p.add_argument("--stage", choices=("full", "arch"), default="full",
+                   help="arch: the stage-2 mechanical check in seconds: only the big and mechanical parts (items "
+                        "with footprint or pin_rows, fixed or through-hole parts), their pins, overlaps, regions, "
+                        "isolation corridors and the area left for the rest; no quick placement "
+                        "(build/FLOORPLAN-arch.md)")
     p.add_argument("--local-nets", action="store_true",
                    help="only list, per region, the nets whose pads are all on its members (candidates for `nets:`)")
     p = sub.add_parser("netlist"); p.add_argument("project"); p.add_argument("analysis", nargs="?")

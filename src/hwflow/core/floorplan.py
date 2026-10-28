@@ -80,6 +80,43 @@ def _list(v) -> list:
     return [str(x) for x in v] if isinstance(v, (list, tuple)) else [str(v)]
 
 
+def _pin_rows(v, where: str, errs: list) -> list[dict]:
+    """`pin_rows` of a box placeholder: [{n, pitch, at: [dx, dy] of the first pin from the box centre, dir: x | y,
+    drill_mm, pad_mm, nets: [net per pin]}], pads numbered on from 1 across the rows."""
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        errs.append(f"{where}: pin_rows must be a list of rows")
+        return []
+    out = []
+    for i, r in enumerate(v):
+        w = f"{where}.pin_rows[{i}]"
+        if not isinstance(r, dict) or not isinstance(r.get("n"), int) or r["n"] < 1:
+            errs.append(f"{w}: needs n (pins in the row, >= 1)")
+            continue
+        at = r.get("at", [0, 0])
+        if not _num_list(at, 2):
+            errs.append(f"{w}: at must be [dx, dy] from the box centre")
+            at = [0, 0]
+        pitch = r.get("pitch", 2.54)
+        if not isinstance(pitch, (int, float)) or (r["n"] > 1 and pitch <= 0):
+            errs.append(f"{w}: pitch must be a number > 0")
+            pitch = 2.54
+        d = r.get("dir", "x")
+        if d not in ("x", "y"):
+            errs.append(f"{w}: dir must be x or y")
+            d = "x"
+        drill = float(r.get("drill_mm", 1.0))
+        pad = float(r.get("pad_mm", max(drill + 0.6, 1.6)))
+        nets = r.get("nets") or []
+        if not isinstance(nets, list) or len(nets) > r["n"]:
+            errs.append(f"{w}: nets must be a list of at most n net names")
+            nets = []
+        out.append({"n": r["n"], "pitch": float(pitch), "at": (float(at[0]), float(at[1])), "dir": d, "drill": drill,
+                    "pad": pad, "nets": [str(x) if x else "" for x in nets], "smd": bool(r.get("smd", False))})
+    return out
+
+
 def parse(design) -> dict | None:
     """The normalized floorplan, or None when design.yaml has none. Raises FloorplanError with every problem found."""
     raw = design.raw.get("floorplan")
@@ -201,12 +238,30 @@ def parse(design) -> dict | None:
         if fpid is not None and (not isinstance(fpid, str) or ":" not in fpid):
             errs.append(f"{where}: footprint must be a library id Lib:Name")
             fpid = None
-        if size is None and not refs and not groups and not fpid:
-            errs.append(f"{where}: needs size_mm or footprint (a placeholder) or refs / groups (real parts)")
+        if size is None and not refs and not groups and not fpid and it.get("area_mm2") is None:
+            errs.append(f"{where}: needs size_mm or footprint (a placeholder), refs / groups (real parts) or "
+                        f"area_mm2 (an area budget of parts not drawn yet)")
+        pins = it.get("pins")
+        if pins is not None and (not isinstance(pins, dict) or not all(isinstance(v, str) for v in pins.values())):
+            errs.append(f"{where}: pins must map pad numbers to net names ({{\"1\": L_IN, \"2\": OUT1}})")
+            pins = None
+        rows = _pin_rows(it.get("pin_rows"), where, errs)
+        if rows and (fpid or size is None):
+            errs.append(f"{where}: pin_rows needs size_mm (the body box) and no footprint")
+            rows = []
+        rot = it.get("rot", 0)
+        if not isinstance(rot, (int, float)) or rot % 90:
+            errs.append(f"{where}: rot must be 0, 90, 180 or 270")
+            rot = 0
+        ko = it.get("keepout_mm")
+        if ko is not None and (not isinstance(ko, (int, float)) or ko < 0):
+            errs.append(f"{where}: keepout_mm must be a number >= 0")
+            ko = None
         env = it.get("envelope_mm")
         if env is not None and (not isinstance(env, (int, float)) or env < 0):
             errs.append(f"{where}: envelope_mm must be a number >= 0")
             env = None
+        side_given = "side" in it
         side = it.get("side", "front")
         if side not in ("front", "back"):
             errs.append(f"{where}: side {side!r} is not front or back")
@@ -232,7 +287,9 @@ def parse(design) -> dict | None:
                       "side": side, "region": str(reg) if reg is not None else None,
                       "board": board_of(it.get("board"), where) if cons == "stacked" or it.get("board") else boards[0]["name"],
                       "count": int(it.get("count", 1)), "at": at, "edge": it.get("edge"), "source": it.get("source"),
-                      "footprint": fpid, "envelope": float(env) if env is not None else None})
+                      "footprint": fpid, "envelope": float(env) if env is not None else None,
+                      "side_given": side_given, "rot": float(rot) % 360, "pins": {str(k): str(v) for k, v in (pins or {}).items()},
+                      "pin_rows": rows, "keepout": float(ko or 0.0)})
     inames = [it["name"] for it in items]
     if len(set(inames)) != len(inames):
         errs.append("floorplan.items: names must be unique")
