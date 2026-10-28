@@ -7,7 +7,8 @@ from hwflow.layout.route import repair
 
 
 def test_router_call_stops_at_the_repair_budget(monkeypatch, tmp_path):
-    """A re-route that would run past the repair budget is stopped inside the round, not after it."""
+    """A re-route that would run past the repair wall-time limit (a safety abort, not the normal stop) is stopped
+    inside the round, not after it, and reported."""
     seen = {}
 
     def slow_reroute(d, libs, parts, workdir, tracks, vias, nets, attempt, island, deadline=None):
@@ -24,5 +25,6 @@ def test_router_call_stops_at_the_repair_budget(monkeypatch, tmp_path):
     d = SimpleNamespace(name="b", board={})
     r = repair.repair(d, None, {}, [], [], drc, Path(board), lambda *a: drc, rounds=3)
     assert seen["deadline"] is not None
-    assert any("stopped at the repair budget" in x for x in r["report"]["log"])
+    assert any("router stopped at the repair wall-time limit" in x for x in r["report"]["log"])
+    assert r["report"]["aborts"] and "round 1" in r["report"]["aborts"][0]
     assert r["report"]["rounds"] == 1

@@ -426,7 +426,7 @@ def run_project(design, nets: list[str] | None = None, fmax_ghz: float | None = 
         r = simulate_net(pcb, net, ports, h_mm=float(b.get("ref_plane_h_mm", b["thickness_mm"])), er=float(b["er"]),
                          t_mm=0.035 * b["copper_oz"], fmax=float(fmax_ghz or cfg.get("fmax_ghz", 6)) * 1e9,
                          cell_mm=float(cell_mm or cfg.get("cell_mm", 0.1)), via_drill_mm=b["via_drill_mm"],
-                         via_dia_mm=b["via_dia_mm"], gnd_nets=tuple(design.ground_nets()),
+                         via_dia_mm=b["via_dia_mm"], gnd_nets=tuple(sorted(design.ground_nets())),
                          clearance_mm=float(b["clearance_mm"]), sim_path=out_dir / f"sim_{net}",
                          max_steps=int(cfg.get("max_steps", 60000)))
         (out_dir / f"{net}.json").write_text(json.dumps(r))

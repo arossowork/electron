@@ -153,7 +153,8 @@ class LayoutSettings(_Group):
 
 class RepairSettings(_Group):
     max_errors: int = Field(40, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_ERRORS"))
-    budget_s: float = Field(120.0, validation_alias=AliasChoices("HWFLOW_REPAIR_BUDGET_S"))
+    # a safety abort only (repair.py): the repair and the pour-stitch re-routes stop on counts
+    budget_s: float = Field(1800.0, validation_alias=AliasChoices("HWFLOW_REPAIR_BUDGET_S"))
     max_stall: int = Field(2, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_STALL"))
 
 

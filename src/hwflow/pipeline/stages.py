@@ -431,7 +431,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             for line in ps["log"]:
                 print(f"[layout] pour stitch: {line}")
             summary += f"; pour stitch: {ps['added'][1]} vias, {ps['added'][0]} stubs"
-            stitch = {"vias": ps["added"][1], "stubs": ps["added"][0], "log": ps["log"]}
+            stitch = {"vias": ps["added"][1], "stubs": ps["added"][0], "log": ps["log"], "aborts": ps.get("aborts", [])}
         rounds = int(d.board.get("repair_rounds", 3))
         if (not d.route_budget_exhausted and any(x["sev"] == "error" for x in drc) and rounds > 0
                 and d.board.get("router", "krt") == "krt"
