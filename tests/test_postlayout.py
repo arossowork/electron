@@ -107,6 +107,44 @@ def test_fast_nets_keep_their_full_network_in_transients():
     assert not any(ln.startswith(("Rfx", "Cfx")) for ln in nm.extra({"cmd": "tran 1n 1u"}))
 
 
+def test_transient_with_alter_lines_is_lumped():
+    """e2e-4: a tran analysis whose cmd starts with `alter`/`altermod` lines got the full R+L+C network (the kind was
+    read from the first word), and the nH segments rang a boost model's switch node down to 2.2 V."""
+    from hwflow.sim import spice
+    assert spice.analysis_kind("altermod @m1[vth0]=0.5\nalter r1=10\ntran 1u 1m") == "tran"
+    assert spice.analysis_kind("alter c1=1u\n  ac dec 10 1 1meg") == "ac"
+    assert spice.analysis_kind("") == spice.analysis_kind(None) == spice.analysis_kind("alter r1=1") == "op"
+    assert spice.analysis_line("alter r1=1\ntran 1u 2m uic") == "tran 1u 2m uic"
+    a, b, mid = ("pad", "U1", "1"), ("pad", "C1", "1"), ("p", 1.0, 1.0, "F.Cu")
+    elements = [{"net": "N", "a": a, "b": mid, "R": 1.0, "C": 1e-12, "L": 1e-9},
+                {"net": "N", "a": mid, "b": b, "R": 2.0, "C": 2e-12, "L": 1e-9}]
+    st = _stub(elements, [a, b])
+    nm = PostLayoutNodeMap.__new__(PostLayoutNodeMap)
+    nm.ex = SimpleNamespace(**vars(st.ex), adj={st.ex.uf.find(n): [1] for n in (a, b, mid)})
+    nm.grounds, nm.with_l, nm.lump = set(), True, None
+    nm.d = SimpleNamespace(nets=lambda: {"N": [("U1", "1"), ("C1", "1")]},
+                           components={"U1": SimpleNamespace(pins={"1": "N"}), "C1": SimpleNamespace(pins={"1": "N"})},
+                           board={"gnd_pour": True}, net_info=lambda n: {})
+    lumped = nm.extra({"cmd": "altermod @m1[vth0]=0.5\ntran 1n 1u"})
+    assert not any(ln.startswith("L") for ln in lumped) and any(ln.startswith("Rpx") for ln in lumped)
+    assert any(ln.startswith("L") for ln in nm.extra({"cmd": "alter c1=1u\nac dec 10 1 1meg"}))  # AC keeps L
+
+
+def test_split_tjunctions_joins_touching_copper_of_different_widths():
+    """e2e-4 SDA: a 0.25 mm stub ending 0.15 mm beside a 0.2 mm track overlaps it by 0.075 mm (KiCad connects them);
+    a tolerance of max(w) / 2 = 0.125 mm left the net in two islands."""
+    from hwflow.verify.postlayout import _split_tjunctions
+    trunk = {"net": "SDA", "layer": "F.Cu", "w": 0.2, "x1": 50.2, "y1": 20.0, "x2": 50.2, "y2": 30.0}
+    stub = {"net": "SDA", "layer": "F.Cu", "w": 0.25, "x1": 48.0, "y1": 25.8, "x2": 50.35, "y2": 25.8}
+    out = _split_tjunctions([trunk, stub])
+    trunk_parts = [s for s in out if s["w"] == 0.2]
+    assert len(trunk_parts) == 2 and (trunk_parts[0]["x2"], trunk_parts[0]["y2"]) == (50.35, 25.8)  # split at the stub end
+    apart = dict(stub, x2=50.45)  # 0.25 from the centre line, 0.225 needed: no copper overlap, no split
+    assert len(_split_tjunctions([trunk, apart])) == 2
+    other = dict(stub, layer="B.Cu")
+    assert len(_split_tjunctions([trunk, other])) == 2
+
+
 def test_isolation_rules_come_from_design_data(tmp_path):
     """Backlog 38: board.isolation (net group, clearance, creepage, req) becomes KiCad DRC rules in the .kicad_dru,
     the measured distance of the group is reported next to its limit, and the requirement is verified by trace."""

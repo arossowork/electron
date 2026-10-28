@@ -261,6 +261,18 @@ def split_cmd(lines: list[str]) -> tuple[list[str], list[str]]:
     return lines, []
 
 
+def analysis_line(cmd) -> str:
+    """The analysis command line of an analysis `cmd` (the first tran/ac/dc/op/... line; `alter`/`altermod` lines may
+    come before it), or "op" when there is none."""
+    _, rest = split_cmd(str(cmd or "op").splitlines())
+    return rest[0].strip() if rest else "op"
+
+
+def analysis_kind(cmd) -> str:
+    """The analysis kind of `cmd` in lower case ("tran", "ac", "op", ...): the first word of `analysis_line`."""
+    return analysis_line(cmd).split()[0].lower()
+
+
 def netlist_blocks(design: Design, analysis: dict, nm: NodeMap, values=None, ammeters: bool = False):
     """(blocks in netlist order, unmodeled refs, lib files): components, node-map extras, testbench."""
     comp, unmodeled, libs = component_blocks(design, nm, values, ammeters)
@@ -313,14 +325,14 @@ def build_netlist(design: Design, analysis: dict, nm: NodeMap | None = None, val
     if mod is not None and (mod.pre or mod.drop_alters):
         cmd_text = "\n".join(pre + mod.pre + rest)
     lines.append(cmd_text)
-    if analysis.get("cmd", "op").split()[0].lower() == "tran":
+    if analysis_kind(analysis.get("cmd")) == "tran":
         lines.append("let hwf_tend = time[length(time)-1]")
         lines.append("echo HWF __tend $&hwf_tend")
     for m in analysis.get("measures") or []:
         if m.get("plot"):
             lines.append(f"setplot {m['plot']}")
         if "meas" in m:
-            kind = analysis.get("cmd", "op").split()[0].lower()
+            kind = analysis_kind(analysis.get("cmd"))
             kind = {"noise": "ac"}.get(kind, kind)
             lines.append(f"meas {kind} {m['name']} {subst_nets(m['meas'], nm, nets)}")
         else:
@@ -539,7 +551,7 @@ def run_once(design: Design, analysis: dict, workdir: Path, nm: NodeMap | None =
     errors = [ln for ln in out.splitlines() if re.search(r"\berror\b", ln, re.I) and "HWF" not in ln][:8]
     rows = evaluate(analysis.get("measures") or [], vals)
     aborted = [ln.strip() for ln in out.splitlines() if ABORT_RE.search(ln)][:3]
-    parts = analysis.get("cmd", "op").split()
+    parts = analysis_line(analysis.get("cmd")).split()
     if parts[0].lower() == "tran" and len(parts) >= 3:
         tstop = parse_value(parts[2])
         tend = vals.get("__tend")

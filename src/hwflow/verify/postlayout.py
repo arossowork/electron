@@ -214,14 +214,16 @@ def _split_tjunctions(segs):
     for k, o in enumerate(segs):
         for px, py in ((o["x1"], o["y1"]), (o["x2"], o["y2"])):
             pts.setdefault((o["net"], o["layer"], int(px // cell), int(py // cell)), []).append((px, py, o["w"], k))
-    reach = max((s["w"] for s in segs), default=0.0) / 2
+    # copper touches when an endpoint lies within the sum of the two half widths of the centre line (KiCad joins
+    # overlapping copper of a net), so the grid search reaches the widest track width
+    reach = max((s["w"] for s in segs), default=0.0)
     out = []
     for k, s in enumerate(segs):
         cuts = []
         for i in range(int((min(s["x1"], s["x2"]) - reach) // cell), int((max(s["x1"], s["x2"]) + reach) // cell) + 1):
             for j in range(int((min(s["y1"], s["y2"]) - reach) // cell), int((max(s["y1"], s["y2"]) + reach) // cell) + 1):
                 for px, py, w, o in pts.get((s["net"], s["layer"], i, j), ()):
-                    t = _on_segment(px, py, s, max(s["w"], w) / 2) if o != k else None
+                    t = _on_segment(px, py, s, (s["w"] + w) / 2) if o != k else None
                     if t is not None:
                         cuts.append((t, px, py))
         if not cuts:
@@ -444,7 +446,7 @@ class PostLayoutNodeMap(NodeMap):
     def extra(self, analysis: dict | None = None):
         # Trace L matters in frequency-domain runs. In transients, nH segments with fF nodes only add
         # GHz poles that stall switching circuits, so they are left out unless board.post_tran_l is set.
-        kind = str((analysis or {}).get("cmd", "op")).split()[0].lower()
+        kind = spice.analysis_kind((analysis or {}).get("cmd"))  # alter/altermod lines may come first
         use_l = self.with_l and (kind != "tran" or bool(self.d.board.get("post_tran_l")))
         lump = self.d.board.get("post_tran_lump", True) if self.lump is None else self.lump
         if kind == "tran" and not use_l and lump:

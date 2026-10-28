@@ -717,8 +717,7 @@ def analysis_band(analysis: dict) -> tuple[float, float]:
     b = _band(analysis.get("cmd", ""))
     if b:
         return b
-    _, rest = spice.split_cmd(analysis.get("cmd", "op").splitlines())
-    kind = rest[0].split()[0].lower() if rest else "op"
+    kind = spice.analysis_kind(analysis.get("cmd"))
     return (0.01, 1.0) if kind in ("op", "dc") else (10.0, 1e6)
 
 
