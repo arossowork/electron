@@ -277,3 +277,25 @@ def test_block_match_by_function_before_capture(tmp_path):
     hb = next(m for m in res if m["block"] == "drv8837_hbridge")
     assert "DRV8837" in hb["terms"] and hb["active_part"] and hb["files"] == ["architecture.md"]
     assert res[0]["active_part"]
+
+
+def test_block_via_slides_along_its_track_off_a_pad_under_the_block(tmp_path):
+    """A part on the other board side may lie under a block, and a block via goes through the board: a via closer
+    than the clearance to its pad slides along the block's own track of the via's net, as little as it must."""
+    d, libs = _design(tmp_path, entry={"use": "tps61299_boost", "parts": dict(BOOST), "at": {"x": 15, "y": 11, "rot": 0}})
+    parts = placer.build_parts(d, libs)
+    bt, bv = blocks.copper(d, parts)
+    assert {(v["x"], v["y"]) for v in bv} == {(16.75, 8.25), (18.9, 9.1), (15.75, 12.5)}  # where the block puts them
+    # a 1 x 1 mm pad of a back-side part 0.1 mm below the via at (15.75, 12.5); the via's GND track runs up from it
+    parts["X9"] = placer.Part("X9", 1.0, 1.0, 0.0, 0.0, {"1": (0.0, 0.0)}, x=15.75, y=13.4, pad_size={"1": (1.0, 1.0)})
+    _, moved = blocks.copper(d, parts)
+    v = next(v for v in moved if v["x"] == 15.75)
+    assert 12.37 <= v["y"] <= 12.39   # 0.21 mm from the pad (clearance 0.2 + 0.01), on the track x = 15.75
+    assert [(w["x"], w["y"]) for w in moved if w is not v] == [(16.75, 8.25), (18.9, 9.1)]
+    # the board writer passes the net-class clearance: a larger one moves it further
+    _, far = blocks.copper(d, parts, lambda a, b: 0.3)
+    assert next(w for w in far if w["x"] == 15.75)["y"] < v["y"] - 0.09
+    # no point of the track clears the pad: the via stays (KiCad DRC reports it)
+    parts["X9"] = placer.Part("X9", 9.0, 9.0, 0.0, 0.0, {"1": (0.0, 0.0)}, x=15.75, y=12.5, pad_size={"1": (9.0, 9.0)})
+    _, stuck = blocks.copper(d, parts)
+    assert (15.75, 12.5) in {(w["x"], w["y"]) for w in stuck}

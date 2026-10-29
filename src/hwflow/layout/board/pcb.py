@@ -237,7 +237,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     routed = tracks is not None
     if design.raw.get("blocks"):  # layout blocks: their copper, once, on the unrouted and on the routed board
         from ...core import blocks
-        tracks, vias = blocks.merge(design, parts, tracks, vias)
+        tracks, vias = blocks.merge(design, parts, tracks, vias, pair_clearance(design))
         tree += blocks.keepout_zones(design, parts)
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
@@ -423,6 +423,26 @@ def isolation_needs(design: Design) -> list[dict]:
     out += [{"members": [n for n in nets if fnmatch.fnmatchcase(n, p)], "mm": mm, "name": f"drc_rules {p}", "between": None}
             for p, mm in raw.items()]
     return [g for g in out if g["members"]]
+
+
+def pair_clearance(design: Design):
+    """(net a, net b) -> the copper distance two different nets keep: the board clearance, the larger net-class
+    clearance, the isolation distance when one net is in an isolation group and the other is not, and the group's
+    between_mm for two member nets (isolation_needs). A None net (an unconnected pad) keeps the board clearance."""
+    base = float(design.board["clearance_mm"])
+    cls = {n: v["clearance"] for n, v in net_classes(design).items()}
+    groups = isolation_needs(design)
+    sets = [set(g["members"]) for g in groups]
+
+    def need(a, b) -> float:
+        v = max(base, cls.get(a, base) if a else base, cls.get(b, base) if b else base)
+        for g, mem in zip(groups, sets):
+            if (a in mem) != (b in mem):
+                v = max(v, float(g["mm"]))
+            elif a in mem and a != b and g.get("between") is not None:
+                v = max(v, float(g["between"]))
+        return v
+    return need
 
 
 def isolation_router_rules(design: Design) -> list[dict]:
@@ -683,7 +703,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     wiring = ["wiring"]
     if design.raw.get("blocks"):  # layout blocks: their copper as protected wiring
         from ...core import blocks
-        bt, bv = blocks.copper(design, parts)
+        bt, bv = blocks.copper(design, parts, pair_clearance(design))
         wiring += [["wire", ["path", t["layer"], _um(t["w"]), _um(t["x1"]), -_um(t["y1"]), _um(t["x2"]), -_um(t["y2"])],
                     ["net", Q(t["net"])], ["type", "protect"]] for t in bt]
         wiring += [["via", Q(via_name), _um(v["x"]), -_um(v["y"]), ["net", Q(v["net"])], ["type", "protect"]] for v in bv]

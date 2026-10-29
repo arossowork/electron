@@ -337,3 +337,29 @@ def test_pour_taps_skip_a_pad_whose_copper_already_reaches_a_via(design, tmp_pat
     p = taps.plan(design, None, {}, board)
     assert p["stats"]["joined"] == 1 and p["stats"]["stub"] == 1 and not p["untapped"]
     assert all(math.hypot(v["x"] - 16, v["y"] - 4) < 3.5 for v in p["vias"])  # TP2's via, none for TP1
+
+
+def test_space_keeps_the_clearance_to_the_real_pad_copper(tmp_path):
+    """A via keeps its clearance to the copper of another net's pad: a round pad as its disc (a via may sit by its
+    box corner), a pad turned off the axes as the turned outline (its box would let a via onto a corner)."""
+    proj = tmp_path / "q"
+    proj.mkdir()
+    (proj / "design.yaml").write_text(YAML)
+    d = Design.load(proj)
+    r = d.board["via_dia_mm"] / 2
+    gap = max(d.board["clearance_mm"], 0.0) + 0.02
+
+    def space(pad):
+        rb = {"footprints": {"J1": {"pads": [dict(pad, net="SIG", kind="thru_hole", layers=["*.Cu"])]}},
+              "segments": [], "vias": []}
+        return pourstitch._Space(d, rb, [], "GND", ["F.Cu", "B.Cu"])
+
+    disc = space({"x": 10.0, "y": 10.0, "w": 2.0, "h": 2.0, "shape": "circle", "angle": 0.0})
+    at = 1.0 + r + gap + 0.01  # just outside the clearance of the disc, on the diagonal (inside the box's corner)
+    from shapely.geometry import Point
+    q = Point(10 + at / math.sqrt(2), 10 + at / math.sqrt(2))
+    assert disc.via(q, None) == set()
+    assert disc.via(Point(10 + 1.0 + r + gap - 0.01, 10), None) is None
+    turned = space({"x": 10.0, "y": 10.0, "w": 4.0, "h": 0.5, "shape": "rect", "angle": 45.0})
+    tip = 2.0 / math.sqrt(2)  # the pad's end, up and to the right on screen (KiCad turns counter-clockwise, y down)
+    assert turned.via(Point(10 + tip + 0.3, 10 - tip - 0.3), None) is None

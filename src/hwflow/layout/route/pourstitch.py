@@ -99,8 +99,9 @@ class _Space:
                 if p["net"] == net:
                     continue
                 ls = _cu(p["layers"], copper) or (copper if p["kind"] == "np_thru_hole" else [])
+                shape = pcb.pad_polygon(p)  # the real copper (a round pad as a disc, at any angle), not its box
                 for L in ls:  # a pad's own clearance (a mounting hole's keep-off) wins when larger
-                    fixed[L].append((_box(p), max(gap(p["net"]), p.get("clearance", 0.0) + 0.02)))
+                    fixed[L].append((shape, max(gap(p["net"]), p.get("clearance", 0.0) + 0.02)))
         for s in rb["segments"]:
             if s["net"] != net and s["layer"] in routed:
                 routed[s["layer"]].append((LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2),

@@ -337,13 +337,111 @@ def anchor(design, ref: str) -> dict | None:
     return None
 
 
-def copper(design, parts) -> tuple[list[dict], list[dict]]:
+VIA_SLIDE_STEP_MM = 0.01  # sampling step along a block track when a block via slides off another part's pad
+VIA_SLIDE_MARGIN_MM = 0.01  # a slid via keeps this much more than the clearance (KiCad's DRC rounds to 0.1 um)
+
+
+def default_clearance(design):
+    """(net a, net b) -> the clearance two nets keep: the board clearance and each net's `clearance_mm`. The board
+    writer passes pcb.pair_clearance (net classes and isolation groups) instead."""
+    base = float(design.board.get("clearance_mm", 0.2))
+
+    def need(a, b) -> float:
+        return max([base] + [float(design.net_info(n).get("clearance_mm", base)) for n in (a, b) if n])
+    return need
+
+
+def _seg_dist(px, py, x1, y1, x2, y2) -> float:
+    dx, dy = x2 - x1, y2 - y1
+    L2 = dx * dx + dy * dy
+    t = 0.0 if L2 <= 0 else min(1.0, max(0.0, ((px - x1) * dx + (py - y1) * dy) / L2))
+    return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+
+
+def _box_dist(px, py, b) -> float:
+    return math.hypot(max(b[0] - px, 0.0, px - b[2]), max(b[1] - py, 0.0, py - b[3]))
+
+
+def _pad_boxes(design, parts, refs) -> list[tuple]:
+    """(ref, net, board box) of the copper pads of parts `refs` (Part pad boxes: an over-estimate of round pads)."""
+    net_of = {(r, p): n for n, conns in design.nets().items() for r, p in conns}
+    out = []
+    for ref in refs:
+        part = parts.get(ref)
+        if part is None:
+            continue
+        for n in part.pads:
+            if n in part.nocu:
+                continue
+            x, y = part.pad(n)
+            w, h = (part.pad_size or {}).get(n, (0.0, 0.0))
+            if part.r % 180:
+                w, h = h, w
+            out.append((ref, net_of.get((ref, n)), (x - w / 2, y - h / 2, x + w / 2, y + h / 2)))
+    return out
+
+
+def clear_vias(design, parts, bnd_refs, tracks, vias, need, via_dia: float) -> list[dict]:
+    """The vias of one block binding (board coordinates), each kept clear of the pads of parts outside the block. The
+    placer keeps other parts' courtyards off the block on its own side, but a part on the other board side may lie
+    under it, and a via goes through the board: a via closer to another net's pad there than `need(net, pad net)`
+    slides along the block's own tracks of its net (it stays on its copper, so it joins the same items) to the nearest
+    point that keeps every clearance (outside pads, the block's other-net tracks, pads and vias, and off the block's
+    own pads); with no such point it stays (KiCad DRC reports it). The others are returned as they are."""
+    r = via_dia / 2
+    yards = set(bnd_refs)
+    outside = _pad_boxes(design, parts, [ref for ref in parts if ref not in yards])
+    inside = _pad_boxes(design, parts, [ref for ref in bnd_refs if ref in parts])
+
+    def short(x, y, net) -> bool:  # closer than the clearance to an outside pad of another net
+        return any(pn != net and _box_dist(x, y, b) - r < need(net, pn) - 1e-4 for _, pn, b in outside)
+
+    out = []
+    for v in vias:
+        net, vx, vy = v["net"], v["x"], v["y"]
+        if not short(vx, vy, net):
+            out.append(v)
+            continue
+        own_pad = [b for _, pn, b in inside if _box_dist(vx, vy, b) < r]  # a via in its own pad stays there
+
+        def ok(x, y) -> bool:
+            m = VIA_SLIDE_MARGIN_MM
+            if any(pn != net and _box_dist(x, y, b) - r < need(net, pn) + m for _, pn, b in outside):
+                return False
+            for _, pn, b in inside:
+                if pn != net and _box_dist(x, y, b) - r < need(net, pn) + m:
+                    return False
+                if pn == net and b not in own_pad and _box_dist(x, y, b) < r:  # no via in a pasted pad
+                    return False
+            if any(t["net"] != net and _seg_dist(x, y, t["x1"], t["y1"], t["x2"], t["y2"]) - r - t["w"] / 2
+                   < need(net, t["net"]) + m for t in tracks):
+                return False
+            return not any(o is not v and math.hypot(x - o["x"], y - o["y"]) - 2 * r
+                           < (need(net, o["net"]) if o["net"] != net else 0.0) + m for o in vias)
+        cands = []
+        for t in tracks:
+            if t["net"] != net:
+                continue
+            L = math.hypot(t["x2"] - t["x1"], t["y2"] - t["y1"])
+            k = max(1, int(L / VIA_SLIDE_STEP_MM))
+            for i in range(k + 1):
+                x, y = t["x1"] + (t["x2"] - t["x1"]) * i / k, t["y1"] + (t["y2"] - t["y1"]) * i / k
+                cands.append((math.hypot(x - vx, y - vy), round(x, 4), round(y, 4)))
+        best = next(((x, y) for _, x, y in sorted(cands) if ok(x, y)), None)
+        out.append(v if best is None else dict(v, x=best[0], y=best[1]))
+    return out
+
+
+def copper(design, parts, need=None) -> tuple[list[dict], list[dict]]:
     """The blocks' copper in board coordinates and design nets: (tracks, vias) as the board writer takes them. A track
     under the floor of its design net gets that floor (current.piece_floors: min_width_mm everywhere, the IPC-2221
     width of current_a on a stretch longer than a pad-entry neck): block copper never carries a net's current on
-    less copper than the router may use."""
+    less copper than the router may use. A via too close to the pad of a part outside the block slides along its
+    track (clear_vias; `need`: (net, net) -> clearance, default_clearance when None)."""
     from .current import piece_floors
-    tracks, vias = [], []
+    need = need or default_clearance(design)
+    via_dia = float(design.board.get("via_dia_mm", 0.6))
+    tracks, vias, pending = [], [], []
     for bnd in bindings(design):
         o = _origin(bnd, parts)
         if o is None or any(r not in parts for r in bnd["parts"].values()):
@@ -364,13 +462,18 @@ def copper(design, parts) -> tuple[list[dict], list[dict]]:
             for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
                 tracks.append({"net": net, "layer": str(t["layer"]), "w": float(t["w"]),
                                "x1": x1, "y1": y1, "x2": x2, "y2": y2, "block": bnd["name"]})
+        bv = []
         for v in cu.get("vias") or []:
             net = nm.get(str(v["net"]))
             if net is not None:
                 x, y = xy(v["x"], v["y"])
-                vias.append({"net": net, "x": x, "y": y, "block": bnd["name"]})
+                bv.append({"net": net, "x": x, "y": y, "block": bnd["name"]})
+        if bv:
+            pending.append((bnd["name"], list(bnd["parts"].values()), bv))
     for t, f in zip(tracks, piece_floors(design, tracks)):
         t["w"] = max(t["w"], f)
+    for name, refs, bv in pending:  # after the floors: a via keeps its clearance to the tracks as written
+        vias += clear_vias(design, parts, refs, [t for t in tracks if t["block"] == name], bv, need, via_dia)
     return tracks, vias
 
 
@@ -414,10 +517,10 @@ def _tkey(t: dict) -> tuple:
     return (t["net"], t["layer"], round(float(t["w"]), 4)) + tuple(sorted((a, b)))
 
 
-def merge(design, parts, tracks, vias) -> tuple[list, list]:
+def merge(design, parts, tracks, vias, need=None) -> tuple[list, list]:
     """The block copper plus `tracks` and `vias` without the items that repeat it (a routed board read back keeps
     the block copper it was given): the block copper appears once on any board."""
-    bt, bv = copper(design, parts)
+    bt, bv = copper(design, parts, need)
     if not bt and not bv:
         return list(tracks or []), list(vias or [])
     tk = {_tkey(t) for t in bt}
