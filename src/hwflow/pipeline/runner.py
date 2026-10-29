@@ -28,7 +28,7 @@ from .exec import execute_stage, verdict_of
 from .report import _brief, write_report
 from .spec import (JSON_MEDIA_TYPE, STAGE_SPECS, STATE_PATHS, LocalStageCache, StageInput, StageResult, StageSpec,
                    canonical_json, tool_versions)
-from .stages import _auto_summary, _layout_blocked, _record_layout, eco_path, layout_auto, layout_diagnosis, stage_check, stage_fab, stage_layout, stage_post, stage_sch, stage_sim
+from .stages import OTHERS_NICE, _auto_summary, first_alone, _layout_blocked, _record_layout, eco_path, layout_auto, layout_diagnosis, stage_check, stage_fab, stage_layout, stage_post, stage_sch, stage_sim
 from .status import _design_hash, _out, _status
 
 STAGES = list(buildplan.STAGES)  # the user stages (`--until`); layout is the layout_attempt and layout_select specs
@@ -269,7 +269,8 @@ class _Child:
     the platform's parallel attempt activities. kill() stops it and the tools it started."""
 
     def __init__(self, key: str, spec: StageSpec, inp: StageInput, job: Path, cas_dir: Path, tool_cache_dir: Path,
-                 rebuild: bool):
+                 rebuild: bool, nice: int = 0):
+        import os
         import subprocess
         import sys
         from .exec import input_to_json
@@ -279,7 +280,8 @@ class _Child:
             "spec": spec.name, "input": input_to_json(inp), "cas_dir": str(cas_dir), "scratch_root": str(job),
             "tool_cache_dir": str(tool_cache_dir), "rebuild": rebuild, "reuse_verdicts": list(REUSE_VERDICTS)}))
         self.proc = subprocess.Popen([sys.executable, "-m", "hwflow.pipeline.exec", str(job / "in.json"),
-                                      str(job / "out.json")], start_new_session=True)
+                                      str(job / "out.json")], start_new_session=True,
+                                     **({"preexec_fn": lambda: os.nice(nice)} if nice else {}))
 
     def poll(self, store: ArtifactStore) -> StageResult | None:
         """The result once the child has exited (an error result when it crashed), else None."""
@@ -323,17 +325,18 @@ def error_result(store: ArtifactStore, spec: StageSpec, msg: str) -> StageResult
                                                          "retryable": False})
 
 
-def _workers(o: BuildOptions) -> int:
-    """How many layout attempts run at once inline (cpu count - 1 by default, at most attempts - 1 after attempt 1)."""
+def _workers(o: BuildOptions, first_alone: bool) -> int:
+    """How many layout attempts run at once inline (cpu count - 1 by default, at most the attempts; attempts - 1 after
+    attempt 1 when it runs alone first)."""
     import os
     n = max(o.attempts, 1) if o.auto else 1
     w = max(1, min(n, o.workers if o.workers else (os.cpu_count() or 2) - 1))
-    return max(1, min(w, n - 1))
+    return max(1, min(w, n - 1 if first_alone else n))
 
 
 def run_build(d: Design, o: BuildOptions) -> dict:
     """Drive hwflow.buildplan.plan to the end as one run (build/runs/<run_id>/): each stage through execute_stage
-    (layout attempts 2.. in child processes, at most `_workers(o)` at once), each result recorded and projected into
+    (layout attempts in child processes, at most `_workers(o)` at once), each result recorded and projected into
     build/ (outputs, status.json, REPORT.md) while the run is the newest one. Returns {"rc", "report", "prev_report",
     "text", "run_id"}; `text` is what the CLI prints (the report or its --brief diff). HWFLOW_RUN_ID (set by
     `hwflow build --detach`) names the run."""
@@ -353,7 +356,9 @@ def run_build(d: Design, o: BuildOptions) -> dict:
     paths = output_paths(d)
     results: dict[str, StageResult] = {}
     from dataclasses import asdict
-    opts = {**asdict(o), "stages": stages, "layout_blocked": False, "workers": _workers(o)}
+    alone = first_alone(d, o.reuse)
+    opts = {**asdict(o), "stages": stages, "layout_blocked": False, "workers": _workers(o, alone),
+            "first_alone": alone}
     lay = dict(snap.get("layout") or {})
     rebuild = o.rebuild or not o.build
     seq = 0
@@ -435,8 +440,9 @@ def run_build(d: Design, o: BuildOptions) -> dict:
                                                    summary={"reason": buildplan.drop_reason(
                                                        s, buildplan.attempt_index(key) or 0)}))
             todo = [a for a in p if a.key not in children and a.key not in results]
-            inline = next((a for a in todo if not (a.stage == buildplan.ATTEMPT and a.key != buildplan.attempt_key(1))),
-                          None)
+            # attempt 1 runs here only when it runs alone first (`first_alone`); else every attempt is a child
+            inline = next((a for a in todo if a.stage != buildplan.ATTEMPT
+                           or (opts["first_alone"] and a.key == buildplan.attempt_key(1))), None)
             if inline is not None:
                 t0 = time.time()
                 if inline.stage == buildplan.ATTEMPT and layout_t0 is None:
@@ -458,12 +464,19 @@ def run_build(d: Design, o: BuildOptions) -> dict:
                                         rebuild=rebuild, reuse_verdicts=REUSE_VERDICTS)
                 finish(inline.key, res, t0)
                 continue
-            for a in todo:  # attempts 2.. in parallel
+            if todo and layout_t0 is None:  # the layout search starts: the attempts' deadline counts from now
+                layout_t0 = time.time()
+                p = buildplan.plan(opts, view, lay, layout_t0, layout_t0)
+                todo = [a for a in p if a.key not in children and a.key not in results]
+            for a in todo:  # the attempts in parallel (2.. after attempt 1 with `first_alone`)
                 if len(children) >= opts["workers"]:
                     break
                 inp = start(a)
+                # attempts 2.. at a lower priority: on a busy machine attempt 1, the most likely final one (an
+                # incremental layout, or a design that routes), keeps its speed; on idle cores they run as fast
                 children[a.key] = _Child(a.key, STAGE_SPECS[a.stage], inp, runs.root / rid / f"{a.key}.job",
-                                         store.root, out, rebuild)
+                                         store.root, out, rebuild,
+                                         nice=OTHERS_NICE if a.key != buildplan.attempt_key(1) else 0)
             if not children:
                 break  # nothing runs and nothing may start (the planner would have said Done)
             deadline = (layout_t0 or now) + float(lay.get("budget_s", 3000)) if opts["auto"] else None

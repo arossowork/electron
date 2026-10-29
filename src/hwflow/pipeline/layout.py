@@ -1,7 +1,7 @@
 """The layout stage as two steps (ADR 0001, 4.1): `attempt` places and routes one candidate board, `select` ranks the
 attempts the search used, keeps the best board and diagnoses a failed one. hwflow.buildplan decides which attempts run
-(attempt 1 alone, the cutoff, the hopeless limit, the budget); the CLI runs attempts 2.. in child processes and the
-platform as parallel Temporal activities.
+(all at once, the cutoff, the hopeless limit, the budget); the CLI runs them in child processes and the platform as
+parallel Temporal activities.
 
 A plain layout (no `--auto`) is one attempt in build/ itself and a select that only diagnoses and records it. An
 `--auto` attempt k works in build/auto/a<k>/ as layout_auto always did; the select step sees every finished attempt's
