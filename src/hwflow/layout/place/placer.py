@@ -519,7 +519,7 @@ class Placer:
         from ...core import floorplan
         from ..board import pcb
         d = self.d
-        self.cor, self.cor_part = [], {}
+        self.cor, self.cor_part, self._cor_pad_cache = [], {}, {}
         groups = pcb.isolation_needs(d)
         lays = pcb.net_layers(d)
         regs = floorplan.net_regions(d)
@@ -605,20 +605,28 @@ class Placer:
         obs = []  # (pad box, round, spacing, label)
         for q in sorted(set().union(*(buckets.get(c, ()) for c in cells))):
             pq = P[q]
-            for pn in pq.pads:
-                if pn in pq.nocu or (q, pn) in own:
-                    continue
-                m = self.cor_net.get((q, pn))
-                if m == n or not self._cor_blocks(pq, pn, L):
+            for pn, box, m in self._cor_pads(q):
+                if (q, pn) in own or m == n or not self._cor_blocks(pq, pn, L):
                     continue
                 need = self._cor_space(n, m)
-                obs.append((self.part_pad_box(pq, pn), pn in pq.round, need, f"{q}.{pn} {m or 'no net'} {need:g} mm"))
+                obs.append((box, pn in pq.round, need, f"{q}.{pn} {m or 'no net'} {need:g} mm"))
         total, links = 0.0, []
         for a, b in tree:
             W, lim = self._cor_link(pts[a], pts[b], self._cor_trim(pads[a]), self._cor_trim(pads[b]), w, obs, static)
             total += max(0.0, w - W)
             links.append((W, pads[a], pads[b], lim))
         return total, links, set(cells)
+
+    def _cor_pads(self, q) -> list:
+        """[(pad, box, net)] of the copper pads of part q at its position, kept while the part stays there (the corridor
+        term reads the pads of every part near a constrained net at every move)."""
+        p = self.parts[q]
+        key = (id(p), p.x, p.y, p.r)
+        c = self._cor_pad_cache.get(q)
+        if c is None or c[0] != key:
+            c = (key, [(pn, self.part_pad_box(p, pn), self.cor_net.get((q, pn))) for pn in p.pads if pn not in p.nocu])
+            self._cor_pad_cache[q] = c
+        return c[1]
 
     def _cor_trim(self, key) -> float:
         """Half the smaller side of a pad: the channel starts at the pad edge (the pad's own escape is not placement)."""

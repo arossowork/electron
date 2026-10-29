@@ -914,31 +914,15 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
         W = max(W, max(b["x"] + b["w"] for b in fp["boards"]))
         H = max(H, max(b["y"] + b["h"] for b in fp["boards"]))
     weights = (design.raw.get("placement") or {}).get("weights")
+    start = {r: (p.x, p.y, p.r) for r, p in parts.items()}
     best, legal = None, []
-    for seed in range(1, seeds + 1):
-        for p in parts.values():
-            if not p.fixed:
-                p.x = p.y = 0.0
-        pl = placer.Placer(d2, parts, W, H, seed=seed, weights=weights)
-        cost = pl.run(iters)
-        v = pl.violations()
-        if _region_viol(v):  # a big part stuck across its region edge: search it away
-            before, vb = pl._state(), v
-            cost = _settle(pl, v)
-            v = pl.violations()
-            if _region_viol(v) >= _region_viol(vb):
-                pl._restore(before)
-                cost, v = pl.cost(), vb
-        if v and get_settings().layout.settle:  # what is left: the placer's settle legalizer
-            v2 = pl.settle()
-            if len(v2) < len(v):
-                cost, v = pl.cost(), v2
-        key = (_region_viol(v), len(v), cost)
+    for seed, key, state, v in _seed_runs(d2, parts, W, H, weights, iters, seeds, start):  # in seed order
         if not v:
-            legal.append((seed, pl._state()))
+            legal.append((seed, state))
         if best is None or key < best[0]:
-            best = (key, pl._state(), v, seed)
+            best = (key, state, v, seed)
     (_, _, cost), state, viol, seed = best
+    pl = placer.Placer(d2, parts, W, H, seed=seed, weights=weights)
     pl._restore(state)
     pl.cost()
     cong = _congestion(d2, pl, fp)
@@ -965,6 +949,63 @@ def _quick_place(design, d2, parts, fp, iters, seeds) -> dict:
             "crossing": dict(sorted(cross.items(), key=lambda kv: -kv[1])), "crossing_nets": sum(cross.values()),
             "positions": {r: [round(p.x, 2), round(p.y, 2), p.r] for r, p in parts.items()}, "W": W, "H": H,
             "cell": pl.cell, "_alts": [(sd, st) for sd, st in legal if sd != seed]}
+
+
+def _seed_run(d2, parts, W, H, weights, iters, seed, start) -> tuple:
+    """One quick-placement seed: the anneal from the start positions (movable parts at the origin, every part in its
+    start rotation, as the layout stage's placer builds its parts afresh for each seed), the region search and the
+    settle legalizer. Returns (seed, (region violations, violations, cost), state, violations). Before, the second
+    seed started from the rotations the first one left."""
+    from . import placer
+    for r, p in parts.items():
+        p.x, p.y, p.r = start[r]
+        if not p.fixed:
+            p.x = p.y = 0.0
+    pl = placer.Placer(d2, parts, W, H, seed=seed, weights=weights)
+    cost = pl.run(iters)
+    v = pl.violations()
+    if _region_viol(v):  # a big part stuck across its region edge: search it away
+        before, vb = pl._state(), v
+        cost = _settle(pl, v)
+        v = pl.violations()
+        if _region_viol(v) >= _region_viol(vb):
+            pl._restore(before)
+            cost, v = pl.cost(), vb
+    if v and get_settings().layout.settle:  # what is left: the placer's settle legalizer
+        v2 = pl.settle()
+        if len(v2) < len(v):
+            cost, v = pl.cost(), v2
+    return seed, (_region_viol(v), len(v), cost), pl._state(), v
+
+
+_SEED_ARGS: tuple = ()  # the inputs of a forked quick placement's seeds (the worker processes inherit them)
+
+
+def _seed_job(seed: int) -> tuple:
+    d2, parts, W, H, weights, iters, start = _SEED_ARGS
+    return _seed_run(d2, parts, W, H, weights, iters, seed, start)
+
+
+def _seed_runs(d2, parts, W, H, weights, iters, seeds, start) -> list[tuple]:
+    """The quick placement's seeds, each from the same start, so they are independent: in forked worker processes
+    when there are two or more (the check then waits on the slowest seed only), else, or when no process can be
+    forked (a daemon worker, no fork), one after the other. The same results either way (HWFLOW_FLOORPLAN_SERIAL=1
+    forces the serial loop)."""
+    global _SEED_ARGS
+    import multiprocessing as mp
+    import os
+    if seeds > 1 and "fork" in mp.get_all_start_methods() and not mp.current_process().daemon \
+            and os.environ.get("HWFLOW_FLOORPLAN_SERIAL") != "1":
+        import concurrent.futures as cf
+        _SEED_ARGS = (d2, parts, W, H, weights, iters, start)
+        try:
+            with cf.ProcessPoolExecutor(seeds, mp_context=mp.get_context("fork")) as ex:
+                return list(ex.map(_seed_job, range(1, seeds + 1)))
+        except (OSError, cf.process.BrokenProcessPool):
+            pass
+        finally:
+            _SEED_ARGS = ()
+    return [_seed_run(d2, parts, W, H, weights, iters, seed, start) for seed in range(1, seeds + 1)]
 
 
 def _routability_checks(design, d2, libs, parts, place_out, alts) -> list[tuple]:

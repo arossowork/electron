@@ -7,10 +7,18 @@ import math
 from dataclasses import dataclass
 
 
+_CS: dict = {}  # deg -> (cos, sin): the placer rotates by a handful of angles some 30 million times per check
+
+
 def rot(x: float, y: float, deg: float) -> tuple[float, float]:
     """KiCad rotation (counter-clockwise on screen, y axis down)."""
-    a = math.radians(deg)
-    c, s = math.cos(a), math.sin(a)
+    cs = _CS.get(deg)
+    if cs is None:
+        a = math.radians(deg)
+        cs = (math.cos(a), math.sin(a))
+        if len(_CS) < 4096:  # bounded: an annealer that tried free angles would not grow it without end
+            _CS[deg] = cs
+    c, s = cs
     return x * c + y * s, -x * s + y * c
 
 

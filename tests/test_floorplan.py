@@ -470,3 +470,16 @@ def test_budget_estimate_on_an_illegal_quick_placement_fails(tmp_path):
     assert "the fixed parts and regions alone need 0.0 mm" in out[0][2]
     parts["R2"].x = 10.0
     assert floorplan._budget_checks(d, parts, fp, {"positions": {"R2": [10, 10, 0]}, "violations": []}) == []
+
+
+def test_quick_placement_seeds_in_worker_processes_give_the_serial_result(tmp_path, monkeypatch):
+    """The quick placement's seeds run in forked workers; each starts from the same positions and rotations (as the
+    layout stage's seeds do), so the result is the serial loop's, seed for seed."""
+    comps = {f"R{i}": {"value": "1k", "footprint": RS, "pins": {"1": f"N{i}", "2": f"N{i + 1}"}} for i in range(1, 7)}
+    comps["R1"]["placement"] = {"x": 5, "y": 5, "rot": 90, "fixed": True}
+    d = make(tmp_path, {"construction": "single", "items": [{"name": "rs", "refs": list(comps), "height_mm": 1}]},
+             board={"width_mm": 30, "height_mm": 20, "layers": 2}, comps=comps)
+    par = floorplan.check(d, Libs(design=d), iters=300, seeds=2)["placement"]
+    monkeypatch.setenv("HWFLOW_FLOORPLAN_SERIAL", "1")
+    ser = floorplan.check(d, Libs(design=d), iters=300, seeds=2)["placement"]
+    assert par["positions"] == ser["positions"] and par["seed"] == ser["seed"] and par["cost"] == ser["cost"]
