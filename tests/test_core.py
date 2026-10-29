@@ -327,7 +327,7 @@ def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
         if tag == "_mc3":
             for row in r["rows"]:
                 row.update(value=2.198e6, **{"pass": False})
-            r.update(status="aborted", reason="aborted: timestep too small")
+            r.update(status="aborted", reason="aborted: simulation interrupted")
         return r
 
     monkeypatch.setattr(spice, "run_analysis", fake)
@@ -338,6 +338,36 @@ def test_monte_carlo_keeps_failing_runs(tmp_path, monkeypatch):
         rec = json.loads((tmp_path / m["failures"][0]["file"]).read_text())
         assert rec["seed"] == 1 and rec["run"] == 3 and rec["values"] and rec["status"] == "aborted"
         assert rec["log"]                                           # the ngspice log of that run
+
+
+def test_monte_carlo_retries_a_stalled_transient_with_gear(tmp_path, monkeypatch):
+    """A run that stopped on "timestep too small" is a solver failure: it is retried once with Gear integration and
+    counts as a pass when that run finishes; the failing-run folder is under the sim folder (projected with it)."""
+    from hwflow.sim import spice
+    d = Design.load(EX)
+    real = spice.run_analysis
+
+    def fake(design, analysis, workdir, nm=None, values=None, temp=None, tag=""):
+        r = real(design, analysis, workdir, nm, values, temp, tag)
+        if tag == "_mc2":
+            for row in r["rows"]:
+                row["pass"] = False
+            r.update(status="aborted", reason="aborted: doAnalyses: TRAN:  Timestep too small; time = 1e-6")
+        return r
+
+    seen = []
+    real_once = spice.run_once
+
+    def once(*a, **k):
+        seen.append(a[6] if len(a) > 6 else k.get("tag"))
+        return real_once(*a, **k)
+
+    monkeypatch.setattr(spice, "run_analysis", fake)
+    monkeypatch.setattr(spice, "run_once", once)
+    res = spice.monte_carlo(d, tmp_path / "sim", runs=4, workers=2, fail_dir=tmp_path / "sim" / "mc_failures")
+    assert res and all(m["yield"] == 1 and m["solver_retries"] == 1 for m in res)
+    assert {t for t in seen if str(t).endswith("_gear")} == {"_mc2_gear"}
+    assert ".options method=gear" in next((tmp_path / "sim" / "mc").glob("*_mc2_gear.cir")).read_text()
 
 
 def test_design_hash_ignores_comments_and_prose(tmp_path):

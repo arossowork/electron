@@ -112,9 +112,10 @@ def write_report(d: Design, history: bool = False) -> str:
             L.append(f"  - {i}")
         for m in c.get("monte_carlo") or []:
             spread = "; ".join(f"{k} {_fmt(v['min'])}..{_fmt(v['max'])}" for k, v in m["stats"].items())
-            L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})")
+            L.append(f"- Monte Carlo {m['analysis']}: yield {m['yield'] * 100:.0f}% over {m['runs']} runs ({spread})"
+                     + (f"; {m['solver_retries']} runs finished only with Gear integration" if m.get("solver_retries") else ""))
             if m.get("failures"):
-                L.append(f"  - failing runs (seed, values and log in build/mc_failures/; "
+                L.append(f"  - failing runs (seed, values and log in build/sim/mc_failures/; "
                          f"{m.get('excluded_from_stats', 0)} unfinished runs left out of the spread):")
                 for x in m["failures"][:5]:
                     L.append(f"    - run {x['run']} {x['status']}: {x['reason'][:120]} -> build/{x['file']}")
@@ -245,8 +246,10 @@ def write_report(d: Design, history: bool = False) -> str:
         for r in t["rows"]:
             if r.get("evidence_missing"):
                 L.append(f"  - {r['id']} evidence file missing or empty: {', '.join(r['evidence_missing'])}")
-        if t["failing"] or t["unverified"]:
+        if t["failing"] or t.get("unverified_must", t["unverified"]):
             verdict.append("requirements not all verified")
+        elif t["unverified"]:
+            L.append(f"  - {t['unverified']} should/could requirements unverified: listed, not a verdict failure")
     if stale:
         verdict.append(f"stale: {', '.join(stale)}")
     cost, missing = d.cost()

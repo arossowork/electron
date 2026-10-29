@@ -647,13 +647,17 @@ def run_all(design: Design, workdir: Path, nm: NodeMap | None = None, tag: str =
 
 # --------------------------------------------------------------- Monte Carlo
 
+MC_RETRY = NetMod(lines=[".options method=gear"])
+
+
 def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, workers: int | None = None,
                 fail_dir: Path | None = None) -> list[dict]:
     """Tolerance Monte Carlo. Runs execute in parallel; the sampled values depend only on `seed`.
 
     Every failing run is saved to `fail_dir` (default: `mc_failures/` next to `workdir`) with the seed, the run
     index, the sampled values and the ngspice log, so the corner can be reproduced. Runs that did not finish
-    (timeout, crash, aborted) are left out of the min/max statistics."""
+    (timeout, crash, aborted) are left out of the min/max statistics. A run whose transient stopped on "timestep too
+    small" is retried once with Gear integration (`solver_retries` counts the runs that this saved)."""
     import json
     import os
     from concurrent.futures import ThreadPoolExecutor
@@ -663,6 +667,10 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
     fail_dir = Path(fail_dir or Path(workdir).parent / "mc_failures")
     if fail_dir.exists():
         shutil.rmtree(fail_dir)
+    try:
+        fail_rel = fail_dir.resolve().relative_to(Path(workdir).resolve().parent).as_posix()
+    except ValueError:
+        fail_rel = fail_dir.name
     # draw every sample up front so results do not depend on scheduling
     samples_values = []
     for _ in range(runs):
@@ -676,9 +684,18 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
     for a in sim.get("analyses") or []:
         if not a.get("monte_carlo", True) or not a.get("measures"):
             continue
+        def one(iv, a=a):
+            r = run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}")
+            if r.get("status") == "aborted" and "too small" in " ".join([r.get("reason") or "", *(r.get("conv") or [])]).lower():
+                # a transient that stopped on "timestep too small" is a solver failure, not a tolerance failure:
+                # retry once with Gear integration (same circuit, same sampled values)
+                r2 = run_once(design, a, workdir / "mc", None, iv[1], None, f"_mc{iv[0]}_gear", None, MC_RETRY)
+                if r2.get("status") == "ok":
+                    r2["solver_retry"] = "method=gear"
+                    return r2
+            return r
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            results = list(ex.map(lambda iv: run_analysis(design, a, workdir / "mc", values=iv[1], tag=f"_mc{iv[0]}"),
-                                  enumerate(samples_values)))
+            results = list(ex.map(one, enumerate(samples_values)))
         samples: dict[str, list[float]] = {m["name"]: [] for m in a["measures"] if not is_debug(m)}
         fails, failures, excluded = 0, [], 0
         for i, r in enumerate(results):
@@ -689,7 +706,7 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
                 why = r.get("reason") or "fails " + ", ".join(bad[:4])
                 name = f"{a['name']}_run{i}.json"
                 failures.append({"run": i, "status": r.get("status", "ok"), "reason": why[:200],
-                                 "file": f"{fail_dir.name}/{name}"})
+                                 "file": f"{fail_rel}/{name}"})
                 log = Path(workdir) / "mc" / f"{a['name']}_mc{i}.log"
                 fail_dir.mkdir(parents=True, exist_ok=True)
                 (fail_dir / name).write_text(json.dumps({
@@ -710,6 +727,9 @@ def monte_carlo(design: Design, workdir: Path, runs: int = 50, seed: int = 1, wo
                 v.sort()
                 stats[k] = {"min": v[0], "max": v[-1], "p50": v[len(v) // 2]}
         res = {"analysis": a["name"], "runs": runs, "yield": (runs - fails) / runs, "stats": stats}
+        retried = sum(1 for r in results if r.get("solver_retry"))
+        if retried:
+            res["solver_retries"] = retried
         if failures:
             res["failures"] = failures
             res["excluded_from_stats"] = excluded
