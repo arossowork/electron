@@ -572,6 +572,9 @@ def _post_warnings(d: Design, w: Path) -> int:
         return 0
 
 
+OTHERS_NICE = 5  # niceness added to layout attempts 2.. (they run next to attempt 1, the most likely final one)
+
+
 def _auto_attempt(k: int, workdir: Path | None = None, env: dict | None = None, placement: Path | None = None) -> dict:
     """Attempt `k` (0-based) of layout_auto in its own work directory build/auto/a<k+1>/ (or `workdir`: a layout
     portfolio strategy, which runs under its knobs `env`). Runs in a worker process, so the design it mutates (board
@@ -579,6 +582,9 @@ def _auto_attempt(k: int, workdir: Path | None = None, env: dict | None = None, 
     strategy, for the fallback attempts. `placement`: the portfolio's shared placement (place_shared)."""
     from ..core.settings import use, with_layout_env
     c = _AUTO
+    if k > 0 and c.get("nice") and not c.get("niced") and os.getpid() != c.get("parent"):
+        os.nice(int(c["nice"]))  # a pool worker of attempts 2..: below attempt 1 (runner.OTHERS_NICE), once
+        c["niced"] = True
     with use(with_layout_env(get_settings(), (c.get("knobs") or {}) if env is None else {})):
         return run_attempt(c["d"], c["libs"], c["out"], k, size0=c["size0"], seeds=c["seeds"], iters=c["iters"],
                            passes=c["passes"], reuse=c["reuse"], deadline=c.get("deadline"), workdir=workdir,
@@ -617,6 +623,21 @@ def place_shared(d: Design, libs: Libs, out: Path, k: int, path: Path, *, size0,
     path.write_text(json.dumps({"__design_board__": declared, "__board_mm__": declared,
                                 **{r: [p.x, p.y, p.r] for r, p in parts.items()}}))
     return True
+
+
+def first_alone(d: Design, reuse: bool = False) -> bool:
+    """Whether `--auto` runs attempt 1 alone before the others (buildplan option `first_alone`): with the layout
+    portfolio (it runs its strategies in parallel itself), and when attempt 1 is likely final: it starts from the last
+    good layout (incremental) or a saved placement (`reuse`), or attempt 1 of the last layout build was final.
+    Otherwise attempts 1..n start together. Only the timing depends on it, never the board. Measured: thermo-e2e-8,
+    no final attempt 1 in 5 builds: 25.3 -> 17.9 min a build with them together; sensor_preamp, final attempt 1:
+    142 -> 228 s (the other attempts slow it down even at a lower priority), hence alone when it is likely final."""
+    from . import portfolio
+    if portfolio.on() or reuse or eco_path(_out(d)) is not None:
+        return True
+    from ..layout import diagnose
+    h = diagnose.history(_out(d))
+    return bool(h and h[-1].get("first_final"))
 
 
 def eco_path(out: Path) -> Path | None:
@@ -769,7 +790,7 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     size0 = (d.raw.get("board") or {}).get("width_mm"), (d.raw.get("board") or {}).get("height_mm")
     _AUTO.clear()
     _AUTO.update(d=d, libs=libs, out=out, size0=size0, seeds=seeds, iters=iters, passes=passes, reuse=reuse,
-                 deadline=deadline)
+                 deadline=deadline, nice=OTHERS_NICE, parent=os.getpid(), niced=False)
     opts = {"auto": True, "attempts": n}
     lay = {"budget_s": budget, "auto_max_errors": _hopeless_limit()}
     results: dict[int, dict] = {}
@@ -788,11 +809,11 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
             _AUTO["knobs"] = results[0]["env"]  # the fallback attempts carry on with the best strategy's knobs
         summaries[1] = attempt_summary(results[0], fixed_all)
         progress(results[0])
-    opts["first_alone"] = portfolio.on()  # else attempts 1..n start together (hwflow.buildplan.layout_search)
+    opts["first_alone"] = first_alone(d, reuse)  # else attempts 1..n start together (buildplan.layout_search)
     if fixed_all and 0 not in results:
         opts["attempts"] = 1  # no movable part: every seed gives the same placement
     s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
-    if s.n == 1 and s.wanted == (1,):  # one attempt: in this process, no pool
+    if s.wanted == (1,) and 0 not in results:  # one attempt, or attempt 1 alone first: in this process, no pool
         results[0] = _auto_attempt(0)
         summaries[1] = attempt_summary(results[0], fixed_all)
         progress(results[0])
@@ -895,7 +916,7 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
         stopped = ((stopped + "; ") if stopped else "") + (
             f"stopped: wall-time budget {budget:g} s (HWFLOW_LAYOUT_BUDGET_S) used up after {len(used)} of {n} "
             f"attempts; {skipped} attempt{'s' if skipped != 1 else ''} skipped or stopped")
-    r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers},
+    r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers, "first_final": cutoff == 0},
              seconds=round(time.time() - t0, 1))
     if r0.get("portfolio") and k != 1:  # a fallback attempt won; it ran with the knobs of the best strategy
         r["portfolio"] = dict(r0["portfolio"], fallback={"attempt": k, "knobs_of": r0["portfolio"].get("strategy")},
@@ -967,6 +988,7 @@ def _record_layout(d: Design, r: dict, override: bool):
     diagnose.record(_out(d), {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "structure": diagnose.structure_key(d),
                               "constraints": diagnose.constraints_key(d),
                               "ok": bool(r.get("ok")), "unrouted": r.get("unrouted"), "drc_errors": r.get("drc_errors"),
+                              "first_final": bool((r.get("auto") or {}).get("first_final")),
                               "persistent": g.get("persistent") or [], "blocked": bool(g.get("blocked")),
                               "override": override, "diagnosis": g})
 

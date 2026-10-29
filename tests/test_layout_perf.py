@@ -237,3 +237,59 @@ def test_run_timing_counts_every_layout_attempt():
     t = run_timing(run, {"layout": {"timing": {"place_s": 200.0}}})
     assert t["stages"]["layout"]["s"] == 810.0
     assert t["steps"] == {"layout.place_s": 200.0, "layout.attempts_s": 1600.0, "layout.attempt_max_s": 800.0}
+
+
+def test_attempts_after_the_first_run_at_a_lower_priority(monkeypatch):
+    """A pool worker of attempts 2.. lowers its priority once; attempt 1 and the parent process never do."""
+    calls = []
+    monkeypatch.setattr(pl_stages.os, "nice", lambda n: calls.append(n))
+    monkeypatch.setattr(pl_stages, "run_attempt", lambda *a, **k: {"k": a[3] + 1})
+    saved = dict(pl_stages._AUTO)
+    try:
+        pl_stages._AUTO.update(d=None, libs=None, out=None, size0=(1, 1), seeds=1, iters=1, passes=1, reuse=False,
+                               deadline=None, nice=pl_stages.OTHERS_NICE, parent=-1, niced=False)
+        pl_stages._auto_attempt(0)
+        assert calls == []
+        pl_stages._auto_attempt(1)
+        pl_stages._auto_attempt(2)
+        assert calls == [pl_stages.OTHERS_NICE]
+        pl_stages._AUTO.update(parent=pl_stages.os.getpid(), niced=False)
+        pl_stages._auto_attempt(3)
+        assert calls == [pl_stages.OTHERS_NICE]
+    finally:
+        pl_stages._AUTO.clear()
+        pl_stages._AUTO.update(saved)
+
+
+def test_attempt_one_runs_alone_when_it_is_likely_final(tmp_path, monkeypatch):
+    """Alone first after a build whose attempt 1 was final, from a good placement (incremental) or with --reuse;
+    else every attempt starts at once. Only the timing changes, never the kept board."""
+    from hwflow.layout import diagnose
+    from hwflow.layout.place import eco
+    d, libs = _design(tmp_path)
+    out = tmp_path / "build"
+    out.mkdir(exist_ok=True)
+    assert not pl_stages.first_alone(d) and pl_stages.first_alone(d, reuse=True)
+    diagnose.record(out, {"ok": False, "first_final": False})
+    assert not pl_stages.first_alone(d)
+    diagnose.record(out, {"ok": True, "first_final": True})
+    assert pl_stages.first_alone(d)
+    diagnose.record(out, {"ok": False, "first_final": False})
+    (out / eco.GOOD).write_text(json.dumps({"R1": [1, 1, 0]}))
+    assert pl_stages.first_alone(d)
+    monkeypatch.setenv("HWFLOW_ECO", "0")
+    assert not pl_stages.first_alone(d)
+    # layout_auto then runs attempt 1 first, alone, and records whether it was final
+    monkeypatch.delenv("HWFLOW_ECO")
+    started = []
+    plan = {0: (0.0, _result(0)), 1: (0.0, _result(0)), 2: (0.0, _result(0)), 3: (0.0, _result(0))}
+
+    def attempt(k):
+        started.append(k)
+        return {"k": k + 1, "r": plan[k][1], "line": f"attempt {k + 1}"}
+    monkeypatch.setattr(pl_stages, "_auto_attempt", attempt)
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
+    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
+    assert started == [0] and r["auto"]["first_final"]
+    pl_stages._record_layout(d, r, False)
+    assert diagnose.history(out)[-1]["first_final"] is True

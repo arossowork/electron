@@ -76,19 +76,31 @@ depending on the load.
 
 ## Attempts of `--auto` (`hwflow.buildplan.layout_search`)
 
-Attempt k places with placer seeds `seed0 + 4(k-1)` .. and routes on its own. The attempts 1..n start together, each
-in a process of its own (`hwflow build`: at most cpu count - 1; `layout_auto`: a process pool), and the search ends at
-the first final attempt (0 unrouted, 0 DRC errors, legal; or errors on fixed parts only): the attempts after it are
-stopped, those before it are waited for. When attempt 1 ends far from routable (`auto_max_errors`) or with every part
-fixed, the others are stopped. Only the attempts up to the cutoff (or attempt 1 alone in those two cases) are ranked,
-so the kept board does not depend on which attempt ended first. The layout portfolio (below) runs attempt 1 alone
-first, since it runs its strategies in parallel itself.
+Attempt k places with placer seeds `seed0 + 4(k-1)` .. and routes on its own, each in a process of its own
+(`hwflow build`: at most cpu count - 1; `layout_auto`: a process pool). The search ends at the first final attempt
+(0 unrouted, 0 DRC errors, legal; or errors on fixed parts only): the attempts after it are stopped, those before it
+are waited for. When attempt 1 ends far from routable (`auto_max_errors`) or with every part fixed, the others are
+stopped. Only the attempts up to the cutoff (or attempt 1 alone in those two cases) are ranked, so the kept board does
+not depend on which attempt ended first, nor on the order below.
 
-Attempt 1 used to run alone first, so that a final attempt 1 started no other. On thermo-e2e-8 (75 x 55 mm, 2 layers,
-56 parts) no layout build had a final attempt 1 (5 of 5), and attempt 1 alone took 68 of the layout stage's 187 min
-(4 builds; 4-29 min each) before attempts 2-4 started; one `--attempts 8` build spent 29 min on attempt 1 and then
-stopped attempts 2-8 at the 3000 s budget without a result. A build now lasts as long as its slowest attempt up to
-the cutoff. The cost is CPU: with a final attempt 1, attempts 2..n ran (and are stopped) for as long as it did.
+Attempt 1 runs alone first only when it is likely final (`stages.first_alone`): it starts from the last good layout
+(incremental) or a saved placement (`--reuse`), attempt 1 of the project's last layout build was final
+(`layout_history.json` `first_final`), or the layout portfolio runs (it runs its strategies in parallel itself).
+Otherwise attempts 1..n start together, attempts 2..n at niceness +5 (`stages.OTHERS_NICE`).
+
+Measured (`hwflow build --until layout --auto`, HWFLOW_FAST=1, 4 attempts, shared 16-thread laptop):
+
+| design | attempt 1 final | alone first | together | result |
+|---|---|---|---|---|
+| thermo-e2e-8 (75 x 55 mm, 2 layers) | no | 25.3 min | 17.9 min | same boards (kept attempt 3, 0 unrouted, 1 DRC) |
+| sensor_preamp | yes | 142 s | 228 s | same board |
+| home-thermostat-4 | yes | 607 s | 637 s (load 20-28) | same board |
+
+Together is the faster when attempt 1 is not final; when it is, the other attempts slow it down (shared cores, turbo),
+even at a lower priority: hence alone first when the history says it is likely final. On thermo-e2e-8's e2e run no
+layout build had a final attempt 1 (5 of 5): attempt 1 alone took 82 of the 192 min of layout builds before attempts
+2-4 started, and one `--attempts 8` build spent 29 min on attempt 1, then stopped attempts 2-8 at the 3000 s budget
+with no result; together, 8 attempts took 31 min (load 15-27).
 
 ## Incremental layout after a clean layout (ECO, `layout/place/eco.py`)
 
