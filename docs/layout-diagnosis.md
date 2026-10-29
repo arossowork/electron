@@ -35,6 +35,8 @@ In home-thermostat-3 these findings came from layout rounds, the review or sign-
 | footprints never checked against a drawing (sign-off) | parts table: cited drawing, no placeholders | 3 |
 | bottom-side and THT assembly, component placement list (fab) | parts table: assembly side and method | 3 |
 | decap distance, copper IR drop (post-layout) | circuit checklist: `decouples:` on every bypass cap, `budgets:` copper share | 4 |
+| a copper_r path too long for its budget at the widest track (layout, thermo-e2e-7) | `floorplan` `budget-path`: the layout's width arithmetic (`budgets.widths`) on a lower bound (straight line between fixed pads and the regions of movable parts, no via), and on the quick placement, legal or not | 2, 4 |
+| a `min_width_mm` net between fixed pads that only via sites pass (layout, thermo-e2e-7) | `corridor` proof: the net's floor is its `min_width_mm`, and a via counts only where floor tracks reach it | 2, 4 |
 | wake input on a pin that cannot wake the MCU (firmware) | partition: wake need in `interface.yaml`; circuit checklist | 1b, 4 |
 
 ## Routing corridors of constrained nets (placer)
@@ -162,6 +164,8 @@ The bound is too weak to explain the home-thermostat-3 failures. U2, U4 and U5 f
 **Why a module of its own.** `barrier` models the rules that apply to every net. Some nets carry rules of their own that shrink their room further. `corridor.Model` subclasses `barrier.Model` and adds those rules, so the room model and its upper-bound argument are reused, not copied. It reports only nets that `barrier` does not already cut apart, so the same net is never reported twice. `barrier` itself is unchanged, apart from two hooks: `net_copper` (the layers a net may use) and `neck_len` (the neck length bound).
 
 **Which nets.** Members of a `board.isolation` group with `between_mm`, nets of a floorplan region that declares `nets`, and nets with `layers`.
+
+**Neck floor and vias.** A net necks down to `Model.net_floor`: the board minimum, or its `min_width_mm` when larger (no neck goes under it). A via ends a narrow stretch, so a via site counts as wide copper; for a net whose floor is wider than the via, only where a floor track reaches the site on two layers (centre line within via_r + floor/2). Before, every via site counted, and thermo-e2e-7's L_IN (1 mm min, 1.4 mm track) passed between K1.13 and K1.14 on 0.6 mm via sites: the proof now gives 0.79 mm there, back to `architecture`, in 0.3 s before placement.
 
 **The added rules.** Each is a hard rule of the flow: the router enforces it and the post-layout check fails on it.
 - `between_mm`: a member keeps this distance from the pads of the group's other members. It is lowered, like every barrier clearance, by any clearance rule that could override it (a `memberOfFootprint` rule, or a rule this module cannot read).

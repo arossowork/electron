@@ -423,3 +423,50 @@ def test_congested_quick_placement_fails_the_floorplan(tmp_path, monkeypatch):
     rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
     assert res["verdict"] == "FAIL" and rp["ok"] is False and rp.get("back_to") == "architecture"
     assert "hot spot x" in rp["msg"] and "Moves:" in rp["msg"]
+
+
+def _budget_design(tmp_path, max_mohm, r2_fixed=True, region=None):
+    comps = {"R1": {"value": "1k", "footprint": RS, "pins": {"1": "A", "2": "P"},
+                    "placement": {"x": 5, "y": 10, "fixed": True}},
+             "R2": {"value": "1k", "footprint": RS, "pins": {"1": "P", "2": "B"},
+                    **({"placement": {"x": 75, "y": 10, "fixed": True}} if r2_fixed else {})}}
+    fp = {"construction": "single", "items": [{"name": "r1", "refs": ["R1"], "height_mm": 1},
+                                              {"name": "r2", "refs": ["R2"], "height_mm": 1}]}
+    if region:
+        fp["regions"] = [{"name": "far", "kind": "selv", "rect": region, "items": ["r2"]}]
+    d = make(tmp_path, fp, board={"width_mm": 80, "height_mm": 20, "layers": 2}, comps=comps)
+    d.raw["budgets"] = [{"name": "path", "req": "R9", "kind": "copper_r", "path": ["R1.2 -> R2.1"], "current_a": 1,
+                         "max_mohm": max_mohm, "source": "test"}]
+    return d
+
+
+def test_budget_bound_from_fixed_pads_and_regions_fails_the_floorplan(tmp_path):
+    """thermo-e2e-7: the battery path was 124 mm against a budget that 3 mm of track meets only up to 73 mm, and only
+    layout found it. The floorplan now runs the layout's width arithmetic (sim.budgets.widths) on a lower bound of the
+    path: the straight line between fixed pads and the regions of movable parts, with no via."""
+    def fails(d):
+        res = floorplan.check(d, Libs(design=d), place=False)
+        return [c for c in res["checks"] if c["name"] == "budget-path" and c["ok"] is False]
+    f = fails(_budget_design(tmp_path, 5))                  # ~69 mm at 3 mm: 11 mOhm > 5
+    assert len(f) == 1 and f[0]["back_to"] == "architecture"
+    assert "path (R9)" in f[0]["msg"] and "the path is too long for the budget" in f[0]["msg"]
+    assert "a lower bound" in f[0]["msg"] and "+ 0 vias" in f[0]["msg"]
+    assert not fails(_budget_design(tmp_path, 50))
+    # a movable end counts from its region: the far region keeps R2 at least 55 mm from R1
+    assert len(fails(_budget_design(tmp_path, 5, r2_fixed=False, region=[60, 0, 80, 20]))) == 1
+    assert not fails(_budget_design(tmp_path, 5, r2_fixed=False))  # anywhere: no bound
+
+
+def test_budget_estimate_on_an_illegal_quick_placement_fails(tmp_path):
+    """The layout's own estimate (Manhattan x detour, a via per leg) runs on the quick placement even when it is
+    illegal: its positions still say how far apart the path's parts land."""
+    d = _budget_design(tmp_path, 5, r2_fixed=False)
+    fp = floorplan.parse(d)
+    parts, _ = floorplan._parts(d, Libs(design=d), fp)
+    parts["R2"].x, parts["R2"].y = 75.0, 10.0
+    out = floorplan._budget_checks(d, parts, fp, {"positions": {"R2": [75, 10, 0]}, "violations": ["overlap"]})
+    assert [(n, ok, back) for n, ok, _, back in out] == [("budget-path", False, "architecture")]
+    assert "on the quick placement (illegal: positions approximate)" in out[0][2]
+    assert "the fixed parts and regions alone need 0.0 mm" in out[0][2]
+    parts["R2"].x = 10.0
+    assert floorplan._budget_checks(d, parts, fp, {"positions": {"R2": [10, 10, 0]}, "violations": []}) == []

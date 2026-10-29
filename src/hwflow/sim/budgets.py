@@ -123,27 +123,38 @@ def via_r(board: dict) -> float:
     return RHO_CU * board["thickness_mm"] * 1e-3 / (math.pi * board["via_drill_mm"] * 1e-3 * 25e-6)
 
 
-def _est_mm(leg: dict, parts: dict, design) -> float | None:
-    """Manhattan distance between the closest pads of the two ends (whole net: the farthest pad pair)."""
-    def xy(ref, pin):
-        p = parts.get(ref)
-        return p.pad(pin) if p is not None and pin in p.pads else None
+def _est_mm(leg: dict, parts: dict, design, dist=None) -> float | None:
+    """Manhattan distance between the closest pads of the two ends (whole net: the farthest pad pair). `dist((ref,
+    pin), (ref, pin)) -> mm or None` replaces the pad distance on `parts` (path_bound: a lower bound before placement)."""
+    if dist is None:
+        def xy(ref, pin):
+            p = parts.get(ref)
+            return p.pad(pin) if p is not None and pin in p.pads else None
+
+        def dist(a, b):
+            p, q = xy(*a), xy(*b)
+            return None if p is None or q is None else abs(p[0] - q[0]) + abs(p[1] - q[1])
     if leg["a"] is None:
-        pts = [q for q in (xy(r, p) for r, p in design.nets().get(leg["net"], [])) if q]
-        return max((abs(p[0] - q[0]) + abs(p[1] - q[1]) for p in pts for q in pts), default=None)
-    pa = [q for q in (xy(*e) for e in leg["a"]) if q]
-    pb = [q for q in (xy(*e) for e in leg["b"]) if q]
-    return min((abs(p[0] - q[0]) + abs(p[1] - q[1]) for p in pa for q in pb), default=None)
+        pads = [tuple(x) for x in design.nets().get(leg["net"], [])]
+        ds = [dist(p, q) for i, p in enumerate(pads) for q in pads[i + 1:]]
+        return max((d for d in ds if d is not None), default=None)
+    ds = [dist(p, q) for p in leg["a"] for q in leg["b"]]
+    return min((d for d in ds if d is not None), default=None)
 
 
-def widths(design, parts: dict) -> tuple[dict[str, float], list[dict]]:
+def widths(design, parts: dict, dist=None, vias_per_leg: int = VIAS_PER_LEG,
+           basis: str = "") -> tuple[dict[str, float], list[dict]]:
     """Track widths the copper_r budgets ask for on this placement: {net: mm} and one row per budget.
 
     One width for the whole path (it gives the least copper area for a resistance): the estimated length is the
     Manhattan pad distance of each leg times `detour` (DETOUR), and VIAS_PER_LEG vias per leg come off the budget
     first. R = rho * L / (w * t) at 20 C with t = 35 um x copper_oz, as the post-layout extraction. The width rounds
-    up to WIDTH_STEP and stops at board.budget_max_track_mm; a budget the cap cannot meet says so with the numbers.
-    net_classes takes the larger of this width and the net's own, so a budget never narrows a net."""
+    up to WIDTH_STEP and stops at board.budget_max_track_mm; a budget the cap cannot meet says so with the numbers
+    (`ok` False: the path is too long for the budget at the widest track).
+    net_classes takes the larger of this width and the net's own, so a budget never narrows a net.
+
+    `dist` and `vias_per_leg` replace the leg length and the via count, `basis` names the length in the messages
+    (path_bound: the same arithmetic on a lower bound of the length)."""
     b = design.board
     t_m = 0.035 * float(b["copper_oz"]) * 1e-3
     cap = float(b.get("budget_max_track_mm", MAX_WIDTH_MM))
@@ -154,33 +165,34 @@ def widths(design, parts: dict) -> tuple[dict[str, float], list[dict]]:
         lg, bad = legs(design, bd)
         if bad or not lg:
             continue
-        detour = float(bd.get("detour", DETOUR))
+        detour = float(bd.get("detour", DETOUR)) if dist is None else 1.0
         if kind == "copper_r":
             lg = [x for x in lg if not _pour(design, x["net"])]
             if not lg:
                 continue
-        ests = [_est_mm(x, parts, design) for x in lg]
+        ests = [_est_mm(x, parts, design, dist) for x in lg]
         if any(e is None for e in ests):
             continue
         L = sum(ests) * detour
         row = {"name": bd["name"], "req": bd.get("req"), "kind": kind, "est_mm": round(L, 1), "detour": detour}
+        how = basis or f"{detour:g} x Manhattan"
         if kind == "copper_len":
             lim = float(bd["max_mm"])
-            row.update(limit=lim, ok=L <= lim, msg=f"{L:.1f} mm estimated ({detour:g} x Manhattan) against "
+            row.update(limit=lim, ok=L <= lim, msg=f"{L:.1f} mm estimated ({how}) against "
                                                    f"{lim:g} mm" + ("" if L <= lim else ": the placement is too spread"))
             rows.append(row)
             continue
         lim = float(bd["max_mohm"]) * 1e-3
-        vias = VIAS_PER_LEG * len(lg)
+        vias = vias_per_leg * len(lg)
         left = lim - vias * rv
         need = RHO_CU * L * 1e-3 / (t_m * left) * 1e3 if left > 0 else math.inf
-        w = min(math.ceil(need / WIDTH_STEP - 1e-9) * WIDTH_STEP, cap) if need < cap else cap
+        w = min(max(math.ceil(need / WIDTH_STEP - 1e-9), 1) * WIDTH_STEP, cap) if need < cap else cap  # 0 mm: no track
         r_at = (RHO_CU * L * 1e-3 / (t_m * w * 1e-3) + vias * rv) * 1e3
         ok = need <= cap
         row.update(limit=float(bd["max_mohm"]), width_mm=round(w, 2),
                    need_mm=round(need, 2) if math.isfinite(need) else None, nets=sorted({x["net"] for x in lg}), est_mohm=round(r_at, 1), ok=ok,
                    msg=(f"{w:.2f} mm on {', '.join(sorted({x['net'] for x in lg}))}: {L:.1f} mm estimated "
-                        f"({detour:g} x Manhattan) + {vias} vias = {r_at:.1f} mOhm against {bd['max_mohm']} mOhm"
+                        f"({how}) + {vias} vias = {r_at:.1f} mOhm against {bd['max_mohm']} mOhm"
                         + ("" if ok else f"; width alone cannot meet it (needs {need:.2f} mm, cap {cap:g} mm): "
                                          f"the path is too long for the budget, bring its parts closer")))
         all_pads = design.nets()

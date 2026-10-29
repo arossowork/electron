@@ -432,6 +432,9 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             f"{c['capacity_mm']:.0f} mm of track capacity where each net may run = {c['util']:.0%} (risk > "
             f"{UTIL_RISK:.0%}, fail > {UTIL_FAIL:.0%}); peak cell {c['peak']:.1f} x capacity (risk > {PEAK_RISK:g}); "
             f"{c['overflow']:.1%} of the wire over capacity, {c['detour']:.1%} over forbidden cells")
+    if fp["construction"] != "stacked":  # requirement budgets: before placement a bound, then the quick placement
+        for name, ok, msg, back in _budget_checks(design_full, parts, fp, place_out):
+            add(name, ok, msg, back)
     placed = bool(place and place_out is not None and not place_out["violations"])  # an illegal placement is no position
     if fp["construction"] != "stacked" and (placed or any(p.fixed for p in parts.values())):
         for name, ok, msg, back in _envelope_checks(parts, fp, res, m, placed):  # fixed or quick-placed (legal only)
@@ -1022,6 +1025,80 @@ def _routability_checks(design, d2, libs, parts, place_out, alts) -> list[tuple]
                         + "; ".join(c["msg"] for c in zero[:6]), None))
     except Exception as e:  # noqa: BLE001
         out.append(("corridors", None, f"corridor report not run: {type(e).__name__}: {e}", None))
+    return out
+
+
+BOUND_BASIS = "straight line between the fixed pads and the regions of the movable parts, a lower bound"
+
+
+def budget_bound_dist(design, parts, fp: dict):
+    """dist((ref, pin), (ref, pin)) -> a lower bound of the copper length between two pads before placement, for
+    sim.budgets.widths: the straight distance between the pad of a fixed part (its position) and the region a movable
+    part must lie in (its courtyard stays inside every region it is a member of, so its pads do); 0 for a part that
+    may go anywhere. A routed track is never shorter than the straight line between its pads."""
+    mem = members(fp, design, list(design.components))
+    where: dict = {}
+    for r in fp["regions"]:
+        if r["kind"] == "keepout" or r["cut"] or r["poly"].is_empty:
+            continue
+        for x in mem[r["name"]]:
+            where[x] = r["poly"] if x not in where else where[x].intersection(r["poly"])
+
+    def geom(ref, pin):
+        p = parts.get(ref)
+        if p is not None and p.fixed and pin in p.pads:
+            return Point(p.pad(pin))
+        g = where.get(ref)
+        return g if g is not None and not g.is_empty else None
+
+    def dist(a, b):
+        ga, gb = geom(*a), geom(*b)
+        return 0.0 if ga is None or gb is None else float(ga.distance(gb))
+    return dist
+
+
+def _budget_checks(design, parts, fp: dict, place_out) -> list[tuple]:
+    """The requirement budgets (design.yaml `budgets:`) with the arithmetic the layout stage sets their track widths
+    with (sim.budgets.widths): a budget over its limit at the widest track the board allows
+    (board.budget_max_track_mm) is a FAIL.
+
+    - bound: the length each leg needs at least before any placement (budget_bound_dist), with no via. Over the limit,
+      no placement or router can meet the budget: back to architecture (fixed positions, regions or the budget).
+    - quick placement: the layout stage's own estimate (Manhattan pad distance times detour, a via per leg) on the
+      quick placement, legal or not (an illegal placement still gives every part a position near where it fits).
+      The layout routes the path at that width and post-layout measures it over the limit: back to architecture
+      (regions or fixed positions that keep the path's parts together)."""
+    if not design.raw.get("budgets") or not design.components:
+        return []
+    from ...sim import budgets
+    out, failed = [], set()
+    try:
+        _, rows = budgets.widths(design, parts, dist=budget_bound_dist(design, parts, fp), vias_per_leg=0,
+                                 basis=BOUND_BASIS)
+    except Exception as e:  # noqa: BLE001 - an estimate that crashes is a risk to look at, not a lost floorplan check
+        return [("budget-path", None, f"budget bound not run: {type(e).__name__}: {e}", None)]
+    for r in rows:
+        if not r["ok"]:
+            failed.add(r["name"])
+            out.append(("budget-path", False, f"budget {r['name']}" + (f" ({r['req']})" if r.get("req") else "")
+                        + f": {r['msg']}; no placement or router meets it (fixed positions and regions alone)",
+                        "architecture"))
+    bound = {r["name"]: r for r in rows}
+    if place_out is None or not place_out.get("positions"):
+        return out
+    try:
+        _, rows = budgets.widths(design, parts)
+    except Exception as e:  # noqa: BLE001
+        return out + [("budget-path", None, f"budget estimate not run: {type(e).__name__}: {e}", None)]
+    illegal = " (illegal: positions approximate)" if place_out.get("violations") else ""
+    for r in rows:
+        if r["kind"] != "copper_r" or r["ok"] or r["name"] in failed:
+            continue
+        b = bound.get(r["name"])
+        lo = f"; the fixed parts and regions alone need {b['est_mm']:.1f} mm" if b else ""
+        out.append(("budget-path", False, f"budget {r['name']}" + (f" ({r['req']})" if r.get("req") else "")
+                    + f" on the quick placement{illegal}: {r['msg']}{lo} (the layout stage estimates the same way; "
+                    f"put the path's parts in one region or fix them closer)", "architecture"))
     return out
 
 
