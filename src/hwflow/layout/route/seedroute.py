@@ -250,7 +250,7 @@ def route_net(model, design, net, board, placed, floor) -> dict:
     nodes = corridor.corridor_nodes(model, design, net, {})
     if nodes is None or len(nodes) < 2:
         return {"ok": False, "msg": f"seed route {net}: not possible (fewer than two pads on its layers)"}
-    if not corridor.corridor_connects(model, net, nodes, w, w > model.floor + EPS):
+    if not corridor.corridor_connects(model, net, nodes, w, w > model.net_floor(net) + EPS):
         return {"ok": False, "msg": f"seed route {net}: not possible (the corridor proof does not connect it at {w:g} mm)"}
     lays = model.net_copper(net)
     obst = {L: _obstacles(model, net, L, board, placed) for L in lays}

@@ -95,3 +95,19 @@ def test_after_placement_a_movable_blocker_sends_it_back_to_layout(tmp_path):
     parts = {r: SimpleNamespace(x=0.0, y=0.0, r=0.0, fixed=r != "W1") for r in comps}
     f = corridor.findings(d, Libs(fps), parts)
     assert [(x["back_to"], x["refs"], x["fixed"]) for x in f] == [("layout", ["W1"], False)]
+
+
+def test_min_width_net_does_not_pass_a_slit_on_via_sites(tmp_path):
+    """A slit with 0.7 mm of free copper width on both layers, 6 mm long. A 1 mm net passes it with a neck chain
+    through via sites (a 0.6 mm via ends a narrow stretch), but not when its min_width_mm is 1 mm: no neck goes under
+    it, and a via its tracks cannot reach joins nothing (thermo-e2e-7: L_IN past K1.13)."""
+    fps = _two_pads()
+    fps["W"] = (_wall(3.7, 6.0), "")
+    d = _design(tmp_path, _comps(), {"AC_ROOM": {"width_mm": 1.0}}, BETWEEN)
+    assert corridor.findings(d, Libs(fps)) == []
+    d = _design(tmp_path, _comps(), {"AC_ROOM": {"width_mm": 1.0, "min_width_mm": 1.0}}, BETWEEN)
+    f = corridor.findings(d, Libs(fps))
+    assert [(x["nets"], x["back_to"], x["fixed"]) for x in f] == [(["AC_ROOM"], "architecture", True)]
+    assert f[0]["have_mm"] < 1.0 and "to 1 mm)" not in f[0]["msg"]  # no neck under min_width: no neck text either
+    m = barrier.Model(d, Libs(fps))
+    assert m.net_floor("AC_ROOM") == 1.0 and m.net_floor("AC_L") == m.floor

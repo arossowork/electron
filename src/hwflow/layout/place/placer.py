@@ -727,7 +727,7 @@ class Placer:
             if nodes is None or len(nodes) < 2:
                 continue
             w = model.width(n)
-            if corridor.corridor_connects(model, n, nodes, w, w > model.floor + corridor.EPS):
+            if corridor.corridor_connects(model, n, nodes, w, w > model.net_floor(n) + corridor.EPS):
                 continue
             f = corridor.corridor_finding(model, self.d, n, nodes, w, fixed_only=True)
             out.append(f"corridor {n} blocked between fixed parts: {f['msg']}")

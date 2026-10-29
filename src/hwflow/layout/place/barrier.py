@@ -328,6 +328,11 @@ class Model:
     def width(self, net) -> float:
         return float(self.classes.get(net, {}).get("width", self.design.board["track_mm"]))
 
+    def net_floor(self, net) -> float:
+        """The narrowest track `net` may have anywhere, necks included: the board minimum, or the net's
+        `min_width_mm` when larger (no neck goes under it: pcb.net_min_widths, the post-layout track-width error)."""
+        return max(self.floor, float(self.classes.get(net, {}).get("min_width") or 0.0))
+
     @staticmethod
     def neck_len(a, b, k) -> float:
         """A lower bound of the length of a narrow stretch from wide area `a` to wide area `b` through the narrow
@@ -392,21 +397,41 @@ class Model:
         return g
 
     def vias(self, net, drop=frozenset()):
-        """V: centres where a through via of `net` fits on every layer."""
+        """V: centres where a through via of `net` fits on every layer and, for a net whose narrowest track
+        (net_floor) is wider than the via, where such a track reaches the via on two of its layers. A via ends a
+        narrow stretch (current.narrow_stretches), so V counts as wide copper; that holds for a via only where its
+        tracks can reach it: below the via diameter every via site is reachable (V lies inside each layer's room of the
+        floor track), above it a via site with no floor track on two layers joins nothing. Before, every via site
+        counted, so a 1 mm min_width net passed between pads 0.6 mm vias fit between (thermo-e2e-7 L_IN)."""
+        key = ("~vias", net, drop)
+        if key in self._free:
+            return self._free[key]
         g = None
-        for L in self.net_copper(net):
+        lays = self.net_copper(net)
+        for L in lays:
             f = self.free(net, L, "tracks", drop)
             ko = [] if "keepout" in drop else self.keepouts(net, L, "vias", {d[1] for d in drop if isinstance(d, tuple)})
             if ko:
                 f = f.difference(unary_union(ko))
             g = f if g is None else g.intersection(f)
-        return g.buffer(-self.via_r, quad_segs=QS) if g is not None else Polygon()
+        V = g.buffer(-self.via_r, quad_segs=QS) if g is not None else Polygon()
+        fl = self.net_floor(net)
+        if fl > 2 * self.via_r + EPS and not V.is_empty:
+            # a track of width fl reaches a via at p when its centre line ends within via_r + fl / 2 of p
+            reach = [self.free(net, L, "tracks", drop).buffer(-fl / 2, quad_segs=QS).buffer(self.via_r + fl / 2,
+                                                                                             quad_segs=QS)
+                     for L in lays]
+            two = unary_union([reach[i].intersection(reach[j]) for i in range(len(reach))
+                               for j in range(i + 1, len(reach))]) if len(reach) > 1 else Polygon()
+            V = V.intersection(two)
+        self._free[key] = V
+        return V
 
     # -------------------------------------------------- connectivity
 
     def groups(self, net, nodes, w, necks=False, drop=frozenset()) -> list[list[int]]:
         """Partition of `nodes` (own pads: {layers, own}) into the sets the net's copper of width `w` can connect.
-        `necks`: a track may narrow to self.floor for at most routing.NECK_MAX_MM per stretch."""
+        `necks`: a track may narrow to net_floor for at most routing.NECK_MAX_MM per stretch."""
         V = self.vias(net, drop)
         par = {}
 
@@ -430,9 +455,9 @@ class Model:
             Wg = unary_union([Cw, V] + own)
             cs = [g for g in getattr(Wg, "geoms", [Wg]) if not g.is_empty]
             comps[L] = cs
-            if necks and w > self.floor + EPS and len(cs) > 1:
+            if necks and w > self.net_floor(net) + EPS and len(cs) > 1:
                 tree = STRtree(cs)
-                Cf = F.buffer(-self.floor / 2, quad_segs=QS)
+                Cf = F.buffer(-self.net_floor(net) / 2, quad_segs=QS)
                 N = Cf.difference(Wg)
                 for K in getattr(N, "geoms", [N]):
                     if K.is_empty:
@@ -594,12 +619,12 @@ def _findings(design, libs, parts, board) -> list[dict]:
         nodes = barrier_nodes(model, design, net, forced)
         if len(nodes) < 2:
             continue
-        g = model.groups(net, nodes, model.floor)
+        g = model.groups(net, nodes, model.net_floor(net))
         if len(g) > 1:
             out.append(_barrier(model, net, nodes, g))
             continue
         w = model.width(net)
-        if w <= model.floor + EPS:
+        if w <= model.net_floor(net) + EPS:
             continue
         g = model.groups(net, nodes, w, necks=True)
         if len(g) > 1:
@@ -611,19 +636,20 @@ def _findings(design, libs, parts, board) -> list[dict]:
             net = f["nets"][0]
             nodes = barrier_nodes(model, design, net, {})
             fm.pads, fm._free = [p for p in base if p["net"] != net] + nodes, {}
-            w = model.floor if f["check"] == "barrier" else f["width_mm"]
+            w = f["width_mm"]
             f["fixed"] = len(fm.groups(net, nodes, w, necks=f["check"] == "channel")) > 1 and not f.get("movable")
     return out
 
 
 def _barrier(model, net, nodes, g) -> dict:
-    cause, back, who = _cause(model, net, nodes, model.floor, False)
-    gap = model.gap(net, nodes, g, model.floor)
+    fl = model.net_floor(net)
+    cause, back, who = _cause(model, net, nodes, fl, False)
+    gap = model.gap(net, nodes, g, fl)
     at = [round(gap[1][0], 2), round(gap[1][1], 2)] if gap else None
     refs = sorted({nodes[k]["ref"] for grp in g for k in grp} | set(who))
     a, b = barrier_label(nodes, g[0]), barrier_label(nodes, g[1])
     where = f" near ({at[0]}, {at[1]})" if at else ""
-    msg = (f"{net}: pads {a} and {b} are cut apart by {cause}{where}: no track of the {model.floor} mm minimum "
+    msg = (f"{net}: pads {a} and {b} are cut apart by {cause}{where}: no track of the {fl:g} mm minimum "
            f"connects them on any layer or through any via site. Options: move "
            f"{'the part or change its footprint' if back == 'parts' else 'the keep-out, region, connector or fixed part'}"
            f" so one copper path stays open, or another footprint for "
@@ -632,12 +658,12 @@ def _barrier(model, net, nodes, g) -> dict:
     # can move those parts to the rest of the net, so the cut is the placement's, not the design's
     movable = not model.pre and any(all(not nodes[k].get("fixed") and not nodes[k].get("region") for k in grp)
                                     for grp in g)
-    return {"check": "barrier", "back_to": back, "refs": refs, "nets": [net], "need_mm": model.floor,
-            "have_mm": 0.0, "msg": msg, "at": at, "fixed": model.pre, "width_mm": model.floor, "movable": movable}
+    return {"check": "barrier", "back_to": back, "refs": refs, "nets": [net], "need_mm": fl,
+            "have_mm": 0.0, "msg": msg, "at": at, "fixed": model.pre, "width_mm": fl, "movable": movable}
 
 
 def _channel(model, net, nodes, g, w) -> dict:
-    lo, hi = model.floor, w  # connected at lo (the barrier test passed), not at hi
+    lo, hi = model.net_floor(net), w  # connected at lo (the barrier test passed), not at hi
     while hi - lo > BISECT_MM:
         mid = (lo + hi) / 2
         if len(model.groups(net, nodes, mid, necks=True)) == 1:

@@ -160,7 +160,7 @@ def _widest(model, net, nodes, lo, hi, necks) -> float:
 def _have(model, net, nodes, w, necks=True) -> float:
     """The widest track below w that connects the pads (with necks above the minimum track when `necks`), 0 when
     none does. The pads must not connect at w."""
-    f = model.floor
+    f = model.net_floor(net)
     if necks and corridor_connects(model, net, nodes, f, False):
         return _widest(model, net, nodes, f, w, w > f + EPS)
     if not corridor_connects(model, net, nodes, barrier.BISECT_MM, False):
@@ -189,12 +189,12 @@ def _findings(design, libs, parts, board) -> list[dict]:
         if nodes is None or len(nodes) < 2:
             continue
         w = model.width(net)
-        if corridor_connects(model, net, nodes, w, w > model.floor + EPS):
+        if corridor_connects(model, net, nodes, w, w > model.net_floor(net) + EPS):
             continue
         base = base or barrier.Model(design, libs, parts, board)
         bn = barrier.barrier_nodes(base, design, net, forced)
-        if not corridor_connects(base, net, bn, base.floor, False) or \
-                (w > base.floor + EPS and not corridor_connects(base, net, bn, w, True)):
+        if not corridor_connects(base, net, bn, base.net_floor(net), False) or \
+                (w > base.net_floor(net) + EPS and not corridor_connects(base, net, bn, w, True)):
             continue  # barrier reports it (barrier or channel) without these rules
         out.append(corridor_finding(model, design, net, nodes, w))
     if not model.pre and out:  # does the finding hold with fixed copper only (the placement of movable parts aside)?
@@ -204,7 +204,7 @@ def _findings(design, libs, parts, board) -> list[dict]:
             net = f["nets"][0]
             nodes = corridor_nodes(model, design, net, {})
             fm.pads, fm._free = [p for p in pads if p["net"] != net] + nodes, {}
-            f["fixed"] = not corridor_connects(fm, net, nodes, f["need_mm"], f["need_mm"] > fm.floor + EPS)
+            f["fixed"] = not corridor_connects(fm, net, nodes, f["need_mm"], f["need_mm"] > fm.net_floor(net) + EPS)
     return out
 
 
@@ -240,7 +240,7 @@ def _blockers(model, net, at, layer, reach) -> list[dict]:
 def corridor_finding(model, design, net, nodes, w, fixed_only=False) -> dict:
     """`fixed_only`: the model holds the fixed parts only (placer.corridor_blocks), as before placement."""
     alone = model.pre or fixed_only
-    necks = w > model.floor + EPS
+    necks = w > model.net_floor(net) + EPS
     have = _have(model, net, nodes, w, necks)
     plain = _have(model, net, nodes, w, False) if necks else have
     g = model.groups(net, nodes, w, necks=necks)
@@ -259,7 +259,7 @@ def corridor_finding(model, design, net, nodes, w, fixed_only=False) -> dict:
             seen.add(x["what"])
             why.append(f"{x['what']} {x['mm']:g} mm {x['rule']}" if x["rule"] != "keep-out" else x["what"])
     where = f", narrowest at ({at[0]}, {at[1]}) on {layer}," if at else ""
-    neck = (f" ({have:.2f} mm with necks of up to {routing.NECK_MAX_MM:g} mm to {model.floor:g} mm)"
+    neck = (f" ({have:.2f} mm with necks of up to {routing.NECK_MAX_MM:g} mm to {model.net_floor(net):g} mm)"
             if necks else "")
     opts = ("move the fixed part, connector or keep-out that makes the corridor, give the net another layer, or "
             "change a spacing (a product decision)" if back == "architecture" else
@@ -291,7 +291,7 @@ def neck_needed(design, libs, parts=None, board=None) -> dict[str, dict]:
             if nodes is None or len(nodes) < 2:
                 continue
             w = model.width(net)
-            if w <= model.floor + EPS or corridor_connects(model, net, nodes, w, False) \
+            if w <= model.net_floor(net) + EPS or corridor_connects(model, net, nodes, w, False) \
                     or not corridor_connects(model, net, nodes, w, True):
                 continue
             out[net] = {"need_mm": round(w, 3), "plain_mm": round(_have(model, net, nodes, w, False), 3)}
