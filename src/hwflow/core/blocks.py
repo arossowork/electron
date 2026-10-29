@@ -381,13 +381,35 @@ def _pad_boxes(design, parts, refs) -> list[tuple]:
     return out
 
 
+def _chain(tracks, net, x, y, tol: float = 1e-3) -> list[dict]:
+    """The tracks of `net` joined to point (x, y) through each other (a track whose centre line passes the point, then
+    every track with an end on one already taken): the copper a via at the point is part of. A piece of the same net
+    that only the pour joins is not in it, so a via that slides along these keeps every item it joined."""
+    own = [t for t in tracks if t["net"] == net]
+
+    def on(t, px, py):
+        return _seg_dist(px, py, t["x1"], t["y1"], t["x2"], t["y2"]) <= tol
+
+    out = [t for t in own if on(t, x, y)]
+    todo = list(out)
+    while todo:
+        a = todo.pop()
+        for t in own:
+            if not any(t is o for o in out) and (on(a, t["x1"], t["y1"]) or on(a, t["x2"], t["y2"])
+                                                  or on(t, a["x1"], a["y1"]) or on(t, a["x2"], a["y2"])):
+                out.append(t)
+                todo.append(t)
+    return out
+
+
 def clear_vias(design, parts, bnd_refs, tracks, vias, need, via_dia: float) -> list[dict]:
     """The vias of one block binding (board coordinates), each kept clear of the pads of parts outside the block. The
     placer keeps other parts' courtyards off the block on its own side, but a part on the other board side may lie
     under it, and a via goes through the board: a via closer to another net's pad there than `need(net, pad net)`
     slides along the block's own tracks of its net (it stays on its copper, so it joins the same items) to the nearest
     point that keeps every clearance (outside pads, the block's other-net tracks, pads and vias, and off the block's
-    own pads); with no such point it stays (KiCad DRC reports it). The others are returned as they are."""
+    own pads), only along the tracks joined to it (_chain), so it keeps joining what it joined; with no such point it
+    stays (KiCad DRC reports it). The others are returned as they are."""
     r = via_dia / 2
     yards = set(bnd_refs)
     outside = _pad_boxes(design, parts, [ref for ref in parts if ref not in yards])
@@ -419,9 +441,7 @@ def clear_vias(design, parts, bnd_refs, tracks, vias, need, via_dia: float) -> l
             return not any(o is not v and math.hypot(x - o["x"], y - o["y"]) - 2 * r
                            < (need(net, o["net"]) if o["net"] != net else 0.0) + m for o in vias)
         cands = []
-        for t in tracks:
-            if t["net"] != net:
-                continue
+        for t in _chain(tracks, net, vx, vy):
             L = math.hypot(t["x2"] - t["x1"], t["y2"] - t["y1"])
             k = max(1, int(L / VIA_SLIDE_STEP_MM))
             for i in range(k + 1):

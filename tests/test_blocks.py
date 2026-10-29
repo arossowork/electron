@@ -295,6 +295,11 @@ def test_block_via_slides_along_its_track_off_a_pad_under_the_block(tmp_path):
     # the board writer passes the net-class clearance: a larger one moves it further
     _, far = blocks.copper(d, parts, lambda a, b: 0.3)
     assert next(w for w in far if w["x"] == 15.75)["y"] < v["y"] - 0.09
+    # the pad covers the via's own track (U2 pin 4 to the via): it does not jump to the block's other GND track (pin 6
+    # to the caps, x = 15.75 from y 10.45 up), which would leave pin 4 without its via
+    parts["X9"] = placer.Part("X9", 1.0, 1.0, 0.0, 0.0, {"1": (0.0, 0.0)}, x=15.75, y=12.0, pad_size={"1": (0.4, 2.6)})
+    _, own = blocks.copper(d, parts)
+    assert (15.75, 12.5) in {(w["x"], w["y"]) for w in own}
     # no point of the track clears the pad: the via stays (KiCad DRC reports it)
     parts["X9"] = placer.Part("X9", 9.0, 9.0, 0.0, 0.0, {"1": (0.0, 0.0)}, x=15.75, y=12.5, pad_size={"1": (9.0, 9.0)})
     _, stuck = blocks.copper(d, parts)
