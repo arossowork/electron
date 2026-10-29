@@ -99,6 +99,7 @@ def cmd_trace(d: Design, as_json: bool = False) -> int:
     print(f"evidence design hash: {t['evidence_hash']}")
     for r in t["rows"]:
         print(f"{r['id']:<5} {r['status']:<10} {r['priority']:<6} {r['text'][:70]}"
+              + (f"  auto {'+'.join(r['auto'])}" if r.get("auto") else "")
               + (f"  [{', '.join(r['measures'])}]" if r["measures"] else ""))
         if r.get("evidence_reason"):
             print(f"      {r['evidence_reason']}")
@@ -108,7 +109,8 @@ def cmd_trace(d: Design, as_json: bool = False) -> int:
     if t["evidence_only"]:
         print(f"layout requirements without a current board check remain unverified: "
               f"{', '.join(t['evidence_only'])}; tie them to a check with `req:` (nets, board.isolation, budgets)")
-    print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified"
+    print(f"coverage {t['covered']}/{t['total']} verified, {t['failing']} failing, {t['unverified']} unverified "
+          f"({t['unverified_must']} must)"
           + (f"; evidence files missing for {len(t['evidence_missing'])} ({', '.join(t['evidence_missing'])})"
              if t["evidence_missing"] else ""))
     _save_status(d, "trace", {k: v for k, v in t.items() if k != "rows"})
@@ -128,10 +130,9 @@ def cmd_optimize(d: Design, a) -> int:
 
 
 def cmd_fw_test(d: Design, a) -> int:
-    from .fw.hosttest import host_test
-    rc, text, summary = host_test(d, Libs(design=d), _out(d))
+    from .pipeline.evidence import run_fw_test
+    rc, text, _ = run_fw_test(d)
     print(text)
-    _save_status(d, "fw_test", {**summary, "design_hash": _design_hash(d), "at": time.time()})
     return rc
 
 
@@ -251,6 +252,22 @@ def main(argv=None):
     p = sub.add_parser("trace"); p.add_argument("project")
     p.add_argument("--json", action="store_true", help="compact JSON (schema hwflow.trace/1): counts, verified ids, "
                                                        "one row per requirement that is not verified")
+    p = sub.add_parser("evidence", help="sign-off evidence plan: which requirements hwflow results prove (--accept "
+                                        "names them as evidence), which need a check, which need a manual record "
+                                        "(--stubs, --set); --refresh runs the firmware host tests and Monte Carlo first")
+    p.add_argument("project")
+    p.add_argument("--refresh", action="store_true",
+                   help="run `fw test` when its result is not current and `build --until sim --mc N` when Monte Carlo "
+                        "did not run on the current design (never a layout)")
+    p.add_argument("--mc", type=int, default=100, help="Monte Carlo runs for --refresh (default 100)")
+    p.add_argument("--accept", metavar="IDS", help="computed requirements to verify by their hwflow results "
+                                                   "(comma separated, or `all`): writes `evidence: {auto: [...]}`")
+    p.add_argument("--set", action="append", metavar="IDS=pass|fail[:ARTIFACT]",
+                   help="write a manual record with the current evidence hash (artifact default "
+                        "notes/evidence/<id>.md; it must exist, be filled in and name each id); repeatable")
+    p.add_argument("--stubs", action="store_true", help="write notes/evidence/<id>.md templates for the requirements "
+                                                        "that need a record (existing files are kept)")
+    p.add_argument("--json", action="store_true", help="compact JSON (schema hwflow.evidence/1)")
     p = sub.add_parser("summary", help="the last build from build/status.json without running anything: verdict, "
                                        "stale stages, score card, check, ERC, SPICE fails, layout DRC and diagnosis, "
                                        "post-layout, requirements")
@@ -363,6 +380,9 @@ def main(argv=None):
         return cmd_nets(d, a)
     if a.cmd == "trace":
         return cmd_trace(d, a.json)
+    if a.cmd == "evidence":
+        from .pipeline import evidence
+        return evidence.cmd(d, a)
     if a.cmd == "summary":
         from .pipeline import summary
         v = summary.build_view(d)

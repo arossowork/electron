@@ -103,7 +103,7 @@ def stage_sim(d: Design, mc: int = 0) -> dict:
         print(f"[sim] Monte Carlo {mc} runs reused: inputs unchanged since the last run")
     elif mc:
         t = time.time()
-        out["monte_carlo"], out["mc_runs"] = spice.monte_carlo(d, w, runs=mc), mc
+        out["monte_carlo"], out["mc_runs"] = spice.monte_carlo(d, w, runs=mc, fail_dir=w / "mc_failures"), mc
         tm["mc_s"] = round(time.time() - t, 1)
     else:  # keep Monte Carlo results of this exact design (a --reuse or plain rebuild must not erase them)
         if prev.get("monte_carlo") and prev.get("design_hash") == _design_hash(d):

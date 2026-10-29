@@ -209,7 +209,7 @@ A run whose DC operating point (OP) did not converge cleanly (ngspice reports `g
 2. gmin and source stepping: `option gmin=1e-12 gminsteps=100 srcsteps=100`, inserted after the analysis' own options.
 3. Both.
 
-Each step first solves the OP alone (cheap). A step counts only when its OP converges cleanly and is plausible: every net is compared with the reference OP, the report gives the largest move, and a move beyond `max(0.05 V, 5 %)` (`sim.fallback_tol: {v: 0.05, rel: 0.05}`) on a supply net (`class: power`), a scope boundary or a net the analysis measures rejects the step. Moves on other nets are listed, not rejected. The report names the step that produced the result (`convergence fallback <analysis> @ <T>: gmin+source stepping ...`). When no step gives a clean, plausible OP, a run that ngspice called finished is not evidence either: its measures fail with `n/a: DC operating point not trustworthy (...)`. A transient with `uic` computes no OP and gets no fallback, nor does a transient that fails after its OP (`timestep too small` alone). Monte Carlo runs get no fallback. `sim.fallback: false` turns it off.
+Each step first solves the OP alone (cheap). A step counts only when its OP converges cleanly and is plausible: every net is compared with the reference OP, the report gives the largest move, and a move beyond `max(0.05 V, 5 %)` (`sim.fallback_tol: {v: 0.05, rel: 0.05}`) on a supply net (`class: power`), a scope boundary or a net the analysis measures rejects the step. Moves on other nets are listed, not rejected. The report names the step that produced the result (`convergence fallback <analysis> @ <T>: gmin+source stepping ...`). When no step gives a clean, plausible OP, a run that ngspice called finished is not evidence either: its measures fail with `n/a: DC operating point not trustworthy (...)`. A transient with `uic` computes no OP and gets no fallback, nor does a transient that fails after its OP (`timestep too small` alone). Monte Carlo runs get no OP fallback; a Monte Carlo run whose transient stopped on `timestep too small` is retried once with Gear integration (same circuit and sampled values), and the report counts the runs that finished only that way. Failing Monte Carlo runs (seed, values, log) are in `build/sim/mc_failures/`. `sim.fallback: false` turns the OP fallback off.
 
 ### Floating nodes
 
@@ -463,7 +463,7 @@ A selector (`from`, `to`, `area`) is a mapping with one or more of `parts` (refs
 
 ## Requirement verification evidence
 
-`requirements.yaml` selects what proves each requirement with `verification`. A `simulation` requirement needs current tagged simulation measures; `layout` needs current tagged board checks. Failing linked checks still fail a requirement, but passing simulation alone cannot complete a `test` (bench), `inspection`, `datasheet`, or `analysis` requirement.
+`requirements.yaml` selects what proves each requirement with `verification`. A `simulation` requirement needs current tagged simulation measures; `layout` needs current tagged board checks. Failing linked checks still fail a requirement, but passing simulation alone cannot complete a `test` (bench), `inspection`, `datasheet`, or `analysis` requirement unless the requirement names it with `auto:` (below).
 
 For those four manual methods, record a completed result explicitly:
 
@@ -480,4 +480,21 @@ requirements:
 
 The artifact must be a nonempty file inside the project, and `design_hash` must match the current parsed design and all requirement fields except evidence itself, including written targets in `text`. Edits to component values, connectivity, requirement wording or provenance invalidate it; YAML comments, whitespace, key order and evidence edits do not. This is deliberately stricter than the build-cache hash, which ignores requirement prose. This hash is a design-version check, not an artifact-content signature or a complete hash of external models and tools. Revalidate manually when those dependencies change.
 
-A record is an explicit attestation by its author: hwflow checks the state, design version and file existence, not whether a written measurement is truthful or sufficient. `fail` contributes to the failing count; `not_checked`, missing/invalid records, absent/empty files and stale hashes stay unverified with a reason. Legacy prose evidence remains visible in the source and its missing-file diagnostics, but no longer counts as verification. Migrate it only after reviewing the actual result; do not automatically label every old note `pass`. The verified count excludes failures, so verified + failing + unverified equals total.
+A record is an explicit attestation by its author: hwflow checks the state, design version and file existence, not whether a written measurement is truthful or sufficient. `fail` contributes to the failing count; `not_checked`, missing/invalid records, absent/empty files and stale hashes stay unverified with a reason. Legacy prose evidence remains visible in the source and its missing-file diagnostics, but no longer counts as verification. Migrate it only after reviewing the actual result; do not automatically label every old note `pass`. The verified count excludes failures, so verified + failing + unverified equals total. The build verdict fails on a failing requirement of any priority and on an unverified `must`; unverified `should` and `could` requirements are listed in the report but do not fail it.
+
+### Evidence from hwflow results (`auto:`) and `hwflow evidence`
+
+A manual-method requirement whose proof is an hwflow result names that result instead of a record:
+
+```yaml
+  - {id: R4, verification: test, text: "...", evidence: {auto: [sim]}}            # tagged measures + Monte Carlo
+  - {id: R9, verification: test, text: "...", evidence: {auto: [fw_test]}}        # firmware host-test checks
+  - {id: R31, verification: analysis, text: "...", evidence: {auto: cost, max_usd: 25, extra_usd: 3.1}}
+  - {id: R10, verification: datasheet, text: "...",
+     evidence: {auto: [fw_test], status: pass, artifact: notes/evidence/R10.md, design_hash: 0123456789abcdef}}
+```
+
+Sources: `sim` (simulation measures with `req:`, their post-layout values and, once Monte Carlo ran on the current design, one `mc <analysis> yield n/N` measure per analysis that carries the requirement, which passes at `sim.mc_min_yield`, default 0.99), `layout` (layout checks, isolation, budgets and nets with `req:`), `fw_test` (the checks of `hwflow fw test` whose `CHECK(...)` text names the id as a word, `"... (R9)"`; current only while `fw/` and `interface.yaml` are unchanged), `cost` (BOM cost from design.yaml prices plus `extra_usd`, the per-unit costs outside the BOM with their source in notes, against `max_usd`). `trace` evaluates them on every run, so they never go stale: every named source must have a current result and all of them must pass. `auto:` next to a record needs both. Name a source only when it proves the acceptance criterion; a bench `test` verified this way before the board exists keeps its bench test on the first-article list. The Monte Carlo measure applies to every requirement with tagged simulation measures, `simulation` ones included.
+
+`hwflow evidence <proj>` prints the sign-off plan: the Monte Carlo and host-test state, then the requirements that are verified, failing, `computed` (hwflow results name them and all pass, no `auto:` yet), needing a check, and needing a record. `--refresh` first runs the host tests when they are not current and `build --until sim --mc 100` when Monte Carlo did not run on the current design (never a layout). `--accept R4,R9` (or `all`) writes `auto:` for computed requirements. `--stubs` writes `notes/evidence/<id>.md` templates with the requirement, its acceptance and the hwflow results that name it; a template still carries a stub marker line and does not count until you fill it in and delete that line. `--set R8,R13=pass[:artifact]` writes the record with the current evidence hash (artifact default `notes/evidence/<id>.md`; it must name each id). The exit code is 0 when nothing fails and no `must` is unverified.
+
