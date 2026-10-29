@@ -27,7 +27,7 @@ from shapely.ops import unary_union
 
 from ...core import blocks as core_blocks
 from ...core import floorplan as fplan
-from ...core.design import Design
+from ...core.design import Component, Design
 from ...core.geometry import COURTYARD_MARGIN, Part, rot
 from ...core.libs import Libs
 from ..board import pcb
@@ -421,6 +421,59 @@ def _cutout(project, out, *, parts, region, nets, placement, frame, extra, name,
     placed = []
     warnings = []
     inner = outline.buffer(-margin)
+
+    def _penalty(t, cx, cy, others) -> tuple[float, list]:
+        """(penalty, reasons) of test point t at (cx, cy) next to the kept parts and the test points `others`; 0 when
+        it meets every rule."""
+        net, half, rp = t["net"], t["half"], t["dia"] / 2
+        bad, why = 0.0, []
+        yb = (cx - half, cy - half, cx + half, cy + half)
+        if not inner.contains(box(*yb)):
+            bad += 10
+            why.append("outline")
+        for b in yards:
+            if b[0] < yb[2] and yb[0] < b[2] and b[1] < yb[3] and yb[1] < b[3]:
+                bad += 5
+                why.append("courtyard")
+                break
+        for (b, pn, _r) in pad_obs:
+            if pn == net:
+                continue
+            need = rp + _iso_req(iso, clearance, net, pn)
+            ddx = max(b[0] - cx, 0, cx - b[2])
+            ddy = max(b[1] - cy, 0, cy - b[3])
+            if math.hypot(ddx, ddy) < need:
+                bad += 1 + need - math.hypot(ddx, ddy)
+                why.append(f"pad {_r} ({pn})")
+        for o in others:
+            if o is t:
+                continue
+            need = rp + o["dia"] / 2 + _iso_req(iso, clearance, net, o["net"])
+            cheb = max(abs(o["x"] - cx), abs(o["y"] - cy))
+            if cheb < half + o["half"] + 0.05:  # courtyards apart
+                bad += 1 + half + o["half"] + 0.05 - cheb
+                why.append(o["ref"])
+            elif math.hypot(o["x"] - cx, o["y"] - cy) < need:
+                bad += 1 + need - math.hypot(o["x"] - cx, o["y"] - cy)
+                why.append(o["ref"])
+        pt = box(*yb)
+        for poly, nm in ko_areas:
+            if poly.intersects(pt):
+                bad += 3
+                why.append(f"keep-out {nm}")
+                break
+        in_mains = any(g["kind"] == "mains" and t["ref"] in g["members"] for g in excl)
+        for g in excl:
+            # placer rule (floorplan.placer_regions): a barrier region lets the mains members in
+            mem = t["ref"] in g["members"]
+            allowed = mem or (g["kind"] == "barrier" and in_mains)
+            if mem and not g["poly"].contains(pt):
+                bad += 3
+                why.append(f"outside region {g['name']}")
+            elif g["excl"] and not allowed and g["poly"].intersects(pt):
+                bad += 3
+                why.append(f"inside region {g['name']}")
+        return bad, why
     for t in sorted(tp_parts.values(), key=lambda t: t["ref"]):
         f = fpdata[t["fp"]]
         x0, y0, x1, y1 = f["bbox"]
@@ -467,54 +520,10 @@ def _cutout(project, out, *, parts, region, nets, placement, frame, extra, name,
         else:
             tx, ty = qx, qy
         cand_pts.sort(key=lambda c: math.hypot(c[1] - tx, c[2] - ty) + 4.0 * c[0])  # 4 mm along the border per row
-        net = t["net"]
+        t["half"], t["cands"] = half, cand_pts
         best, best_bad = None, None
         for _ring, cx, cy in cand_pts:
-            bad, why = 0.0, []
-            yb = (cx - half, cy - half, cx + half, cy + half)
-            if not inner.contains(box(*yb)):
-                bad += 10
-                why.append("outline")
-            for b in yards:
-                if b[0] < yb[2] and yb[0] < b[2] and b[1] < yb[3] and yb[1] < b[3]:
-                    bad += 5
-                    why.append("courtyard")
-                    break
-            for (b, pn, _r) in pad_obs:
-                if pn == net:
-                    continue
-                need = rp + _iso_req(iso, clearance, net, pn)
-                ddx = max(b[0] - cx, 0, cx - b[2])
-                ddy = max(b[1] - cy, 0, cy - b[3])
-                if math.hypot(ddx, ddy) < need:
-                    bad += 1 + need - math.hypot(ddx, ddy)
-                    why.append(f"pad {_r} ({pn})")
-            for o in placed:
-                need = rp + o["dia"] / 2 + _iso_req(iso, clearance, net, o["net"])
-                cheb = max(abs(o["x"] - cx), abs(o["y"] - cy))
-                if cheb < half + o["half"] + 0.05:  # courtyards apart
-                    bad += 1 + half + o["half"] + 0.05 - cheb
-                    why.append(o["ref"])
-                elif math.hypot(o["x"] - cx, o["y"] - cy) < need:
-                    bad += 1 + need - math.hypot(o["x"] - cx, o["y"] - cy)
-                    why.append(o["ref"])
-            pt = box(*yb)
-            for poly, nm in ko_areas:
-                if poly.intersects(pt):
-                    bad += 3
-                    why.append(f"keep-out {nm}")
-                    break
-            in_mains = any(g["kind"] == "mains" and t["ref"] in g["members"] for g in excl)
-            for g in excl:
-                # placer rule (floorplan.placer_regions): a barrier region lets the mains members in
-                mem = t["ref"] in g["members"]
-                allowed = mem or (g["kind"] == "barrier" and in_mains)
-                if mem and not g["poly"].contains(pt):
-                    bad += 3
-                    why.append(f"outside region {g['name']}")
-                elif g["excl"] and not allowed and g["poly"].intersects(pt):
-                    bad += 3
-                    why.append(f"inside region {g['name']}")
+            bad, why = _penalty(t, cx, cy, placed)
             if bad == 0:
                 best = (cx, cy)
                 break
@@ -522,9 +531,9 @@ def _cutout(project, out, *, parts, region, nets, placement, frame, extra, name,
                 best_bad = (bad, (cx, cy), why)
         if best is None:
             best = best_bad[1]
-            warnings.append(f"{t['ref']} ({net}): no border position meets every rule (penalty {best_bad[0]:.2f}: {', '.join(best_bad[2][:4])})")
+            warnings.append(f"{t['ref']} ({t['net']}): no border position meets every rule (penalty {best_bad[0]:.2f}: "
+                            f"{', '.join(best_bad[2][:4])})")
         t["x"], t["y"] = round(best[0], 4), round(best[1], 4)
-        t["half"] = half
         placed.append(t)
     for t in placed:
         comps[t["ref"]] = {"value": "TP", "symbol": TP_SYMBOL, "footprint": t["fp"], "pins": {"1": t["net"]},
@@ -559,6 +568,8 @@ def _cutout(project, out, *, parts, region, nets, placement, frame, extra, name,
             bud.append(b)
     if bud:
         raw["budgets"] = bud
+
+    _open_corridors(d, libs, raw, comps, placed, _penalty, warnings)
 
     # ---- files
     out = Path(out)
@@ -606,6 +617,62 @@ def _cutout(project, out, *, parts, region, nets, placement, frame, extra, name,
            "warnings": warnings}
     (out / "cutout.yaml").write_text(yaml.safe_dump(rec, sort_keys=False, width=120))
     return rec
+
+
+CORRIDOR_TRIES = 8  # _open_corridors: test points moved at most this many times
+
+
+def _open_corridors(d, libs, raw, comps, placed, penalty, warnings):
+    """A test point can close the corridor of a constrained net between the fixed copper (the corridor proof that
+    stops the layout stage: placer.corridor_blocks), as TPB2 did for AC_ROOM1 in ht4_s11_mains once a net's
+    min_width_mm became its neck floor. While the proof finds such a net, the test point that bounds it (else the
+    net's own) moves to its next border position that meets every rule; a net still closed is a warning."""
+    from . import corridor
+    by_ref = {t["ref"]: t for t in placed}
+    tried = {t["ref"]: {(t["x"], t["y"])} for t in placed}
+
+    def blocked():
+        for t in placed:
+            comps[t["ref"]]["placement"] = {"x": t["x"], "y": t["y"], "rot": 0, "fixed": True}
+        dc = Design(path=d.path, raw={**raw, "components": comps})
+        dc.components = {r: Component(r, c) for r, c in comps.items()}
+        nets = [n for n in corridor.constrained(dc) if any(n == t["net"] for t in placed)]
+        if not nets:
+            return []
+        model = corridor.Model(dc, libs)  # before placement: every part of a cutout is fixed
+        out = []
+        for n in nets:
+            nodes = corridor.corridor_nodes(model, dc, n, {})
+            if nodes is None or len(nodes) < 2:
+                continue
+            w = model.width(n)
+            if not corridor.corridor_connects(model, n, nodes, w, w > model.net_floor(n) + corridor.EPS):
+                out.append(corridor.corridor_finding(model, dc, n, nodes, w, fixed_only=True))
+        return out
+
+    for _ in range(CORRIDOR_TRIES):
+        fs = blocked()
+        if not fs:
+            return
+        f = fs[0]
+        movers = [r for r in f["refs"] if r in by_ref] + [t["ref"] for t in placed if t["net"] == f["nets"][0]]
+        moved = False
+        for r in dict.fromkeys(movers):
+            t = by_ref[r]
+            for _ring, cx, cy in t["cands"]:
+                xy = (round(cx, 4), round(cy, 4))
+                if xy in tried[r] or penalty(t, cx, cy, placed)[0] > 0:
+                    continue
+                tried[r].add(xy)
+                t["x"], t["y"] = xy
+                moved = True
+                break
+            if moved:
+                break
+        if not moved:
+            break
+    for f in blocked():
+        warnings.append(f"corridor {f['nets'][0]} closed between the fixed parts and test points: {f['msg']}")
 
 
 def unfix(design_path, record: dict | None = None) -> list[str]:
