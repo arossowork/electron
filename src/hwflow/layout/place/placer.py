@@ -2146,13 +2146,23 @@ class Placer:
             o[:, j1:] = True
 
         boxes = self._side_boxes  # the rule `violations` checks: courtyards, and through-board items on both sides
-        integ: dict = {}  # side -> integral image of occ[side], (nx + 1, ny + 1); dropped when occ changes
+        integ: dict = {}  # side -> integral image of occ[side], (nx + 1, ny + 1); kept up to date by mark
 
         def mark(p):
-            integ.clear()
             for s, bs in boxes(p).items():
                 for b in bs:
                     a0, b0, a1, b1 = cells(b)
+                    if a1 <= a0 or b1 <= b0:
+                        continue
+                    S = integ.get(s)
+                    if S is not None:  # add the newly marked cells to the integral image (exact integers): two
+                        # cumsums of the box instead of two of the whole board for every unit put back
+                        c = (~occ[s][a0:a1, b0:b1]).astype(np.int32).cumsum(0).cumsum(1)
+                        if c[-1, -1]:
+                            S[a0 + 1:a1 + 1, b0 + 1:b1 + 1] += c
+                            S[a0 + 1:a1 + 1, b1 + 1:] += c[:, -1:]
+                            S[a1 + 1:, b0 + 1:b1 + 1] += c[-1:, :]
+                            S[a1 + 1:, b1 + 1:] += c[-1, -1]
                     occ[s][a0:a1, b0:b1] = True
 
         def integral(s):
@@ -2178,8 +2188,13 @@ class Placer:
         # polygon regions: integral images of the cells a region touches (exclusion) and of the cells outside it
         # (members), on the occupancy raster
         rS = {}
+        cache = self.__dict__.setdefault("_settle_rs", {})  # the region rasters depend on the region and the grid only
         for gi, g in enumerate(self.regions):
             if g["rect"] or g.get("poly") is None or g["poly"].is_empty:
+                continue
+            key = (gi, id(g["poly"]), nx, ny, res)
+            if key in cache:
+                rS[gi] = cache[key]
                 continue
             import shapely
             from scipy import ndimage
@@ -2192,7 +2207,7 @@ class Placer:
                 S = np.zeros((nx + 1, ny + 1), np.int32)
                 S[1:, 1:] = a.cumsum(0).cumsum(1)
                 ints.append(S)
-            rS[gi] = ints
+            rS[gi] = cache[key] = ints
 
         def shape(u, rot_):
             """The unit at rotation rot_: its boxes per side, bounding box, pad extent (origin at 0, 0)."""
@@ -2231,12 +2246,104 @@ class Placer:
             bw, bh = int(math.ceil((ux1 - ux0) / res - 1e-9)), int(math.ceil((uy1 - uy0) / res - 1e-9))
             a0, b0 = max(0, win[0]), max(0, win[1])
             a1, b1 = min(nx - bw, win[2]), min(ny - bh, win[3])
+            # a member of a region has its origin where its member box can lie inside the region's bounds: the window
+            # shrinks to that range (one cell wider each way) before any raster sum. The masks below still decide
+            # every cell, so the result is the same; on thermo-e2e-7 the full-board searches of the region members
+            # took most of a 713 s floorplan check
+            for gi, g in enumerate(self.regions):
+                if not refs & set(g["members"]) or not (g["rect"] or gi in rS):  # rS: the polygons searched below
+                    continue
+                mb = member_box(sh, g)
+                if mb is None:
+                    continue
+                gx0, gy0, gx1, gy1 = g["rect"] or g["poly"].bounds
+                a0 = max(a0, int(math.floor((gx0 - cm - (mb[0] - ux0)) / res)) - 1)
+                a1 = min(a1, int(math.ceil((gx1 + cm - (mb[2] - ux0)) / res)) + 1)
+                b0 = max(b0, int(math.floor((gy0 - cm - (mb[1] - uy0)) / res)) - 1)
+                b1 = min(b1, int(math.ceil((gy1 + cm - (mb[3] - uy0)) / res)) + 1)
             if a1 < a0 or b1 < b0:
                 return None
-            ai = np.arange(a0, a1 + 1)[:, None]
-            aj = np.arange(b0, b1 + 1)[None, :]
-            free = np.ones((a1 - a0 + 1, b1 - b0 + 1), bool)
+            # the rules that hold per axis first (pads off the board edge, members inside a rectangular region): they
+            # shrink the window to the rows and columns left before any raster sum
+            lo_x, lo_y = np.arange(a0, a1 + 1) * res, np.arange(b0, b1 + 1) * res
+            xok, yok = np.ones(len(lo_x), bool), np.ones(len(lo_y), bool)
+            if pads:  # copper keeps copper_edge_mm from the board edge (a body may overhang it, a pad may not)
+                px0, py0 = min(b[0] for b in pads) - ux0, min(b[1] for b in pads) - uy0
+                px1, py1 = max(b[2] for b in pads) - ux0, max(b[3] for b in pads) - uy0
+                xok &= (lo_x + px0 >= ce) & (lo_x + px1 <= W - ce)
+                yok &= (lo_y + py0 >= ce) & (lo_y + py1 <= H - ce)
+            for g in self.regions:
+                if g["rect"] and refs & set(g["members"]):
+                    mb = member_box(sh, g)
+                    if mb is None:
+                        continue
+                    gx0, gy0, gx1, gy1 = g["rect"]
+                    xok &= (lo_x + (mb[0] - ux0) + cm >= gx0 - 1e-6) & (lo_x + (mb[2] - ux0) - cm <= gx1 + 1e-6)
+                    yok &= (lo_y + (mb[1] - uy0) + cm >= gy0 - 1e-6) & (lo_y + (mb[3] - uy0) - cm <= gy1 + 1e-6)
+            ix, iy = np.nonzero(xok)[0], np.nonzero(yok)[0]
+            if not len(ix) or not len(iy):
+                return None
+            xs, ys = slice(int(ix[0]), int(ix[-1]) + 1), slice(int(iy[0]), int(iy[-1]) + 1)
+            a0, a1, b0, b1 = a0 + xs.start, a0 + xs.stop - 1, b0 + ys.start, b0 + ys.stop - 1
+            lo_x, lo_y, xok, yok = lo_x[xs], lo_y[ys], xok[xs], yok[ys]
             na, nb = a1 - a0 + 1, b1 - b0 + 1
+            free = xok[:, None] & yok[None, :]
+            hx, hy = lo_x + (ux1 - ux0), lo_y + (uy1 - uy0)
+            for gi, g in enumerate(self.regions):  # the others out of an exclusive region
+                if refs & set(g["members"]) or not g["excl"] or refs & set(g["allow"]) \
+                        or not any(need[s] for s in g["sides"] if s in need):
+                    continue
+                if g["rect"]:  # overlap = an x interval and a y interval of origins: one slice
+                    gx0, gy0, gx1, gy1 = g["rect"]
+                    bx = np.nonzero(~((hx - cm <= gx0 + 1e-6) | (lo_x + cm >= gx1 - 1e-6)))[0]
+                    by = np.nonzero(~((hy - cm <= gy0 + 1e-6) | (lo_y + cm >= gy1 - 1e-6)))[0]
+                    if len(bx) and len(by):
+                        free[bx[0]:bx[-1] + 1, by[0]:by[-1] + 1] = False
+                    continue
+                if gi not in rS:
+                    continue
+                # a polygon: window sums of its touched cells, only at the origins whose box can reach them
+                S = rS[gi][0]
+                e = int(math.ceil(cm / res - 1e-9))  # the courtyard without the placer margin
+                wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
+                ia = np.minimum(np.arange(a0, a1 + 1) + e, nx - wi)
+                jc = np.minimum(np.arange(b0, b1 + 1) + e, ny - wj)
+                gx0, gy0, gx1, gy1 = g["poly"].bounds
+                tx0, ty0 = int(math.floor(gx0 / res)) - 2, int(math.floor(gy0 / res)) - 2
+                tx1, ty1 = int(math.ceil(gx1 / res)) + 2, int(math.ceil(gy1 / res)) + 2
+                ra, rb = np.nonzero((ia < tx1) & (ia + wi > tx0))[0], np.nonzero((jc < ty1) & (jc + wj > ty0))[0]
+                if not len(ra) or not len(rb):
+                    continue
+                sa, sb = slice(int(ra[0]), int(ra[-1]) + 1), slice(int(rb[0]), int(rb[-1]) + 1)
+                ia, jc = ia[sa], jc[sb]
+                p0, p1, q0, q1 = int(ia[0]), int(ia[-1]) + 1, int(jc[0]), int(jc[-1]) + 1
+                D = (S[p0 + wi:p1 + wi, q0 + wj:q1 + wj] - S[p0:p1, q0 + wj:q1 + wj]
+                     - S[p0 + wi:p1 + wi, q0:q1] + S[p0:p1, q0:q1])
+                free[sa, sb] &= D.take(ia - p0, 0).take(jc - q0, 1) == 0
+            for gi, g in enumerate(self.regions):  # members inside a polygon region: cells outside it count
+                if g["rect"] or gi not in rS or not refs & set(g["members"]):
+                    continue
+                mb = member_box(sh, g)
+                S = rS[gi][1]
+                e = int(math.ceil(cm / res - 1e-9))
+                if mb is None:  # no courtyard of its own among the members: the unit's box
+                    di = dj = 0
+                    wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
+                else:  # only the box of its member parts must be inside
+                    di = int(math.floor((mb[0] - ux0) / res + 1e-9))
+                    dj = int(math.floor((mb[1] - uy0) / res + 1e-9))
+                    wi = max(1, int(math.ceil((mb[2] - ux0) / res - 1e-9)) - di - 2 * e)
+                    wj = max(1, int(math.ceil((mb[3] - uy0) / res - 1e-9)) - dj - 2 * e)
+                # window sums at the clipped corners min(a + e, nx - wi): slices over the corner range, then a 1-D
+                # take per axis (the clip repeats the last row or column)
+                ia = np.minimum(np.arange(a0, a1 + 1) + di + e, nx - wi)
+                jc = np.minimum(np.arange(b0, b1 + 1) + dj + e, ny - wj)
+                p0, p1, q0, q1 = int(ia[0]), int(ia[-1]) + 1, int(jc[0]), int(jc[-1]) + 1
+                D = (S[p0 + wi:p1 + wi, q0 + wj:q1 + wj] - S[p0:p1, q0 + wj:q1 + wj]
+                     - S[p0 + wi:p1 + wi, q0:q1] + S[p0:p1, q0:q1])
+                free &= D.take(ia - p0, 0).take(jc - q0, 1) == 0
+            if not free.any():
+                return None
             for s, bs in need.items():
                 if not bs:
                     continue
@@ -2249,56 +2356,34 @@ class Placer:
                     a, c = a0 + di, b0 + dj  # window sums as slices of S (views, not fancy indexing)
                     free &= (S[a + wi:a + wi + na, c + wj:c + wj + nb] - S[a:a + na, c + wj:c + wj + nb]
                              - S[a + wi:a + wi + na, c:c + nb] + S[a:a + na, c:c + nb]) == 0
-            lo_x, lo_y = ai * res, aj * res
-            hi_x, hi_y = lo_x + (ux1 - ux0), lo_y + (uy1 - uy0)
-            if pads:  # copper keeps copper_edge_mm from the board edge (a body may overhang it, a pad may not)
-                px0, py0 = min(b[0] for b in pads) - ux0, min(b[1] for b in pads) - uy0
-                px1, py1 = max(b[2] for b in pads) - ux0, max(b[3] for b in pads) - uy0
-                free &= (lo_x + px0 >= ce) & (lo_x + px1 <= W - ce) & (lo_y + py0 >= ce) & (lo_y + py1 <= H - ce)
-            for gi, g in enumerate(self.regions):  # members inside their region; the others out of an exclusive one
-                if not g["rect"]:
-                    if gi not in rS:
-                        continue
-                    member = bool(refs & set(g["members"]))
-                    if not member and not (g["excl"] and not refs & set(g["allow"])
-                                           and any(need[s] for s in g["sides"] if s in need)):
-                        continue
-                    S = rS[gi][1 if member else 0]
-                    e = int(math.ceil(cm / res - 1e-9))  # the courtyard without the placer margin
-                    mb = member_box(sh, g) if member else None
-                    if mb is None:
-                        di = dj = 0
-                        wi, wj = max(1, bw - 2 * e), max(1, bh - 2 * e)
-                    else:  # a member: only the box of its member parts must be inside
-                        di = int(math.floor((mb[0] - ux0) / res + 1e-9))
-                        dj = int(math.floor((mb[1] - uy0) / res + 1e-9))
-                        wi = max(1, int(math.ceil((mb[2] - ux0) / res - 1e-9)) - di - 2 * e)
-                        wj = max(1, int(math.ceil((mb[3] - uy0) / res - 1e-9)) - dj - 2 * e)
-                    # window sums at the clipped corners min(a + e, nx - wi): slices over the corner range, then
-                    # a 1-D take per axis (the clip repeats the last row or column)
-                    ia = np.minimum(np.arange(a0, a1 + 1) + di + e, nx - wi)
-                    jc = np.minimum(np.arange(b0, b1 + 1) + dj + e, ny - wj)
-                    p0, p1, q0, q1 = int(ia[0]), int(ia[-1]) + 1, int(jc[0]), int(jc[-1]) + 1
-                    D = (S[p0 + wi:p1 + wi, q0 + wj:q1 + wj] - S[p0:p1, q0 + wj:q1 + wj]
-                         - S[p0 + wi:p1 + wi, q0:q1] + S[p0:p1, q0:q1])
-                    free &= D.take(ia - p0, 0).take(jc - q0, 1) == 0
-                    continue
-                gx0, gy0, gx1, gy1 = g["rect"]
-                if refs & set(g["members"]):
-                    mb = member_box(sh, g)
-                    if mb is None:
-                        continue
-                    mx0, my0 = lo_x + (mb[0] - ux0), lo_y + (mb[1] - uy0)
-                    mx1, my1 = lo_x + (mb[2] - ux0), lo_y + (mb[3] - uy0)
-                    free &= (mx0 + cm >= gx0 - 1e-6) & (mx1 - cm <= gx1 + 1e-6) & \
-                            (my0 + cm >= gy0 - 1e-6) & (my1 - cm <= gy1 + 1e-6)
-                elif g["excl"] and not refs & set(g["allow"]) and any(need[s] for s in g["sides"] if s in need):
-                    free &= (hi_x - cm <= gx0 + 1e-6) | (lo_x + cm >= gx1 - 1e-6) | \
-                            (hi_y - cm <= gy0 + 1e-6) | (lo_y + cm >= gy1 - 1e-6)
             if not free.any():
                 return None
             fi, fj = np.nonzero(free)
             return (fi + a0) * res - ux0, (fj + b0) * res - uy0
+
+        def corner_search(u, refs, sh, k):
+            """mode `corner`: (origins x, origins y, distances) of the free windows, or None. The distance weighs the
+            row offset from the corner by W + 1 per mm, so a window more than D mm of rows away is farther than any
+            within D mm whose distance is under D (W + 1): the rows are searched in bands of D mm around the corner,
+            growing, until the best window found is nearer than everything outside the band. The same windows win
+            as with a whole-board search (every window at the least distance is inside the band, in the same
+            order), at a fraction of the raster sums (thermo-e2e-7: whole-board corner searches were most of the
+            packing search)."""
+            ax, ay = corner
+            ux0, uy0 = sh[1][0], sh[1][1]
+            D = 2.0 * max(sh[1][2] - sh[1][0], sh[1][3] - sh[1][1], 1.0)
+            while True:
+                j0, j1 = int(math.floor((ay - D) / res)), int(math.ceil((ay + D) / res))
+                whole = j0 <= 0 and j1 >= ny
+                got = search(u, refs, sh, (0, 0, nx, ny) if whole else (0, j0, nx, j1))
+                if got is not None:
+                    ox, oy = got
+                    dist = np.abs(oy + uy0 - ay) * (W + 1) + np.abs(ox + ux0 - ax) + SETTLE_TURN_MM * (k > 0)
+                    if whole or float(dist.min()) < D * (W + 1) + SETTLE_TURN_MM * (k > 0) - 1e-6:
+                        return ox, oy, dist
+                elif whole:
+                    return None
+                D *= 4
 
         def area(u):
             y = getattr(u, "yard", u)
@@ -2329,18 +2414,20 @@ class Placer:
             for R in wins:
                 for k, rot_, sh in shapes:
                     ux0, uy0 = sh[1][0], sh[1][1]
-                    cx, cy = here[0] + ux0, here[1] + uy0  # where the bounding-box corner was in this rotation
-                    win = (0, 0, nx, ny) if R == math.inf else (int((cx - R) / res), int((cy - R) / res),
-                                                                 int((cx + R) / res) + 1, int((cy + R) / res) + 1)
-                    got = search(u, refs, sh, win)
-                    if got is None:
-                        continue
-                    ox, oy = got
                     if mode == "near":
+                        cx, cy = here[0] + ux0, here[1] + uy0  # where the bounding-box corner was in this rotation
+                        win = (0, 0, nx, ny) if R == math.inf else (int((cx - R) / res), int((cy - R) / res),
+                                                                     int((cx + R) / res) + 1, int((cy + R) / res) + 1)
+                        got = search(u, refs, sh, win)
+                        if got is None:
+                            continue
+                        ox, oy = got
                         dist = np.abs(ox - here[0]) + np.abs(oy - here[1]) + SETTLE_TURN_MM * (k > 0)
                     else:
-                        ax, ay = corner
-                        dist = np.abs(oy + uy0 - ay) * (W + 1) + np.abs(ox + ux0 - ax) + SETTLE_TURN_MM * (k > 0)
+                        got = corner_search(u, refs, sh, k)
+                        if got is None:
+                            continue
+                        ox, oy, dist = got
                     t = int(np.argmin(dist))
                     if best is None or dist[t] < best[0]:
                         best = (float(dist[t]), float(ox[t]), float(oy[t]), rot_)
