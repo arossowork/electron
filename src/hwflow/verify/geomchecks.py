@@ -17,7 +17,7 @@ from shapely.ops import unary_union
 from ..core import sexpr
 from ..core.design import Design
 from ..core.geometry import rot
-from ..layout.board.pcb import read_board
+from ..layout.board.pcb import PAD_QUAD_SEGS as QS, pad_polygon, read_board
 
 KINDS = ("outline_max", "min_distance", "keepout_free", "side_only")
 SELECTORS = ("parts", "role", "nets", "net_class", "rect", "circle", "region")
@@ -149,20 +149,26 @@ class _Board:
                     ep.append((float(xy[1]), float(xy[2])))
         self.outline = (min(p[0] for p in ep), min(p[1] for p in ep), max(p[0] for p in ep), max(p[1] for p in ep)) if ep else None
         # copper: items (net, layers, geometry)
+        # copper as real outlines (round ends of tracks and vias, pad shapes at any angle), not bounding boxes:
+        # a min_distance between round through-hole pads is the copper gap KiCad measures
         self.copper = []
         for s in self.b["segments"]:
-            self.copper.append((s["net"], {s["layer"]}, LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2), None))
+            self.copper.append((s["net"], {s["layer"]}, LineString([(s["x1"], s["y1"]), (s["x2"], s["y2"])]).buffer(s["w"] / 2, quad_segs=QS), None))
+        for a in sexpr.find_all(t, "arc"):  # routed arcs: the arc's centre line, 64 chords, grown by half the width
+            pts = self._arc(a, 64)
+            if len(pts) >= 2 and sexpr.value(a, "width") is not None:
+                self.copper.append((self._net(a, t), {str(sexpr.value(a, "layer"))},
+                                    LineString(pts).buffer(float(sexpr.value(a, "width")) / 2, quad_segs=QS), None))
         for v in sexpr.find_all(t, "via"):
             at, size = sexpr.find(v, "at"), float(sexpr.value(v, "size") or 0.6)
-            lays = {str(x) for x in (sexpr.find(v, "layers") or [])[1:]} or {"F.Cu", "B.Cu"}
             n = self._net(v, t)
-            self.copper.append((n, {"*"}, Point(float(at[1]), float(at[2])).buffer(size / 2), None))
+            self.copper.append((n, {"*"}, Point(float(at[1]), float(at[2])).buffer(size / 2, quad_segs=QS), None))
         for ref, fp in self.b["footprints"].items():
             for p in fp["pads"]:
                 lays = {"*"} if any(x in ("*.Cu",) for x in p["layers"]) else {x for x in p["layers"] if x.endswith(".Cu")}
                 if not lays or p.get("kind") == "np_thru_hole":
                     continue
-                self.copper.append((p["net"], lays, box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2), ref))
+                self.copper.append((p["net"], lays, pad_polygon(p), ref))
         from .postlayout import zone_fills
         for z in zone_fills(self.path):
             g = Polygon(list(zip(*z["pts"]))).buffer(0)
@@ -181,7 +187,7 @@ class _Board:
         return str(v)
 
     @staticmethod
-    def _arc(it):
+    def _arc(it, n: int = 32):
         s, m, e = (sexpr.find(it, k) for k in ("start", "mid", "end"))
         pts = [(float(n[1]), float(n[2])) for n in (s, m, e) if n]
         if len(pts) < 3:
@@ -197,7 +203,7 @@ class _Board:
         sweep = (a3 - a1) % (2 * math.pi)
         if (am - a1) % (2 * math.pi) > sweep:
             sweep -= 2 * math.pi
-        return [(ux + r * math.cos(a1 + sweep * k / 32), uy + r * math.sin(a1 + sweep * k / 32)) for k in range(33)]
+        return [(ux + r * math.cos(a1 + sweep * k / n), uy + r * math.sin(a1 + sweep * k / n)) for k in range(n + 1)]
 
     # -------------------------------------------------------------- selectors
     def refs(self, design: Design, pats) -> list[str]:
@@ -217,7 +223,7 @@ class _Board:
 
     def part_geom(self, ref: str):
         fp = self.b["footprints"][ref]
-        pads = [box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2) for p in fp["pads"]]
+        pads = [pad_polygon(p) for p in fp["pads"]]
         gs = ([self.court[ref]] if ref in self.court else []) + pads
         return unary_union(gs) if gs else Point(fp["x"], fp["y"])
 

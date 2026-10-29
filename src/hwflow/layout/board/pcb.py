@@ -707,6 +707,41 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     path.write_text(text + "\n")
 
 
+PAD_QUAD_SEGS = 32  # quarter-circle segments of a round pad edge: the chord sits at most 0.0003 x radius inside
+
+
+def pad_polygon(p: dict, grow: float = 0.0):
+    """The copper of a `read_board` pad as a polygon: a circle as a disc, an oval as a stadium, a roundrect with its
+    corner radius (rratio x the short side), a rect as its rectangle, each turned by the pad's board angle (any
+    angle, not only 0/90/180/270). A custom or trapezoid pad stays its bounding box, as read_board gives it. `grow`
+    buffers the outline (a clearance): round where the grown copper is round."""
+    from shapely import affinity
+    from shapely.geometry import LineString, Point
+    w, h, x, y = p["w"], p["h"], p["x"], p["y"]
+    shape = p.get("shape", "rect")
+    if shape not in ("circle", "oval", "roundrect", "rect"):
+        g = box(x - w / 2, y - h / 2, x + w / 2, y + h / 2)
+        return g.buffer(grow, quad_segs=PAD_QUAD_SEGS) if grow > 0 else g
+    # read_board swaps w and h at 90 and 270 degrees, so on a multiple of 90 they are the board extent already;
+    # at any other angle they are the pad's own size and the outline turns by the angle
+    ang = float(p.get("angle", 0.0)) % 360
+    ang = 0.0 if abs(ang / 90 - round(ang / 90)) < 1e-9 else ang
+    if shape == "circle":
+        return Point(x, y).buffer(min(w, h) / 2 + grow, quad_segs=PAD_QUAD_SEGS)
+    rr = {"oval": min(w, h) / 2,
+          "roundrect": min(max(float(p.get("rratio", 0.25)), 0.0), 0.5) * min(w, h)}.get(shape, 0.0)
+    ax, ay = max(w / 2 - rr, 0.0), max(h / 2 - rr, 0.0)  # the rectangle whose buffer by rr is the pad
+    if rr + grow <= 1e-12:
+        g = box(-ax, -ay, ax, ay)
+    else:
+        core = (box(-ax, -ay, ax, ay) if ax > 1e-12 and ay > 1e-12 else
+                LineString([(-ax, -ay), (ax, ay)]) if ax > 1e-12 or ay > 1e-12 else Point(0, 0))
+        g = core.buffer(rr + grow, quad_segs=PAD_QUAD_SEGS)  # round joins: the exact grown outline
+    if ang:  # KiCad turns counter-clockwise on screen (y down): shapely's rotation by -angle
+        g = affinity.rotate(g, -ang, origin=(0, 0))
+    return affinity.translate(g, x, y)
+
+
 def read_board(path: Path) -> dict:
     """Parse our own .kicad_pcb: footprints with absolute pads, segments, vias."""
     t = sexpr.loads(path.read_text())
@@ -749,6 +784,7 @@ def read_board(path: Path) -> dict:
                          "net": netname(n),
                          "kind": str(p[2]), "shape": "custom" if hull else str(p[3]) if len(p) > 3 else "rect",
                          "rratio": float(sexpr.value(p, "roundrect_rratio") or 0.25),  # KiCad's default 0.25
+                         "angle": ang,  # the pad's board angle (w, h above are already swapped at 90 and 270)
                          "clearance": float(sexpr.value(p, "clearance") or 0.0),  # the pad's own override (0: none)
                          "layers": [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]})
         fps[ref] = {"x": fx, "y": fy, "r": fr, "pads": pads, "footprint": str(fp[1])}

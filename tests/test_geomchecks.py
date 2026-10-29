@@ -102,3 +102,54 @@ def test_trace_verifies_and_fails_layout_requirements(tmp_path):
     assert rows["R1"]["status"] == "pass" and rows["R1"]["measures"][0].startswith("outline_max outline 60x40/60x40")
     assert rows["R2"]["status"] == "FAIL"
     assert rows["R3"]["status"] == "UNVERIFIED"
+
+
+def test_pad_polygon_is_the_real_copper():
+    import math
+
+    from hwflow.layout.board.pcb import pad_polygon
+    pad = {"x": 10.0, "y": 5.0, "w": 2.0, "h": 2.0, "shape": "circle", "angle": 0.0}
+    assert abs(pad_polygon(pad).area - math.pi) < 0.01
+    oval = dict(pad, w=4.0, shape="oval")
+    assert pad_polygon(oval).bounds == (8.0, 4.0, 12.0, 6.0) and abs(pad_polygon(oval).area - (4 + math.pi)) < 0.01
+    rect = dict(pad, w=4.0, shape="rect")
+    assert pad_polygon(rect).equals(geomchecks.box(8, 4, 12, 6))
+    assert pad_polygon(dict(rect, angle=90.0)).equals(geomchecks.box(8, 4, 12, 6))  # read_board swapped w and h
+    turned = pad_polygon(dict(rect, angle=45.0))
+    half = (4 + 2) / 2 / math.sqrt(2)
+    assert all(abs(a - b) < 1e-6 for a, b in zip(turned.bounds, (10 - half, 5 - half, 10 + half, 5 + half)))
+    rr = pad_polygon(dict(rect, shape="roundrect", rratio=0.25))  # corner radius 0.25 x 2 mm
+    assert abs(rr.area - (8 - (4 - math.pi) * 0.25)) < 0.01
+    assert abs(pad_polygon(rect, grow=0.5).area - (8 + 2 * 0.5 * 6 + math.pi * 0.25)) < 0.01
+
+
+ROUND = """(kicad_pcb (version 20241229)
+ (net 0 "") (net 1 "L") (net 2 "N")
+ (gr_rect (start 0 0) (end 20 20) (layer "Edge.Cuts") (width 0.1))
+ (footprint "x:J" (layer "F.Cu") (at 5 5)
+  (property "Reference" "J1")
+  (pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 1) (layers "*.Cu") (net 1 "L"))
+  (pad "2" thru_hole oval (at 3 3 45) (size 3 1.5) (drill 1) (layers "*.Cu") (net 2 "N")))
+)
+"""
+
+
+def test_min_distance_measures_round_and_turned_pads_as_copper(tmp_path):
+    """Two round through-hole pads on a diagonal: the copper gap, not the gap of their bounding boxes."""
+    import math
+    raw = {"project": "gc", "board": {"width_mm": 20, "height_mm": 20, "layers": 2}, "nets": {"L": {}, "N": {}},
+           "components": {"J1": {"pins": {"1": "L", "2": "N"}}},
+           "layout_checks": [{"kind": "min_distance", "from": {"nets": ["L"]}, "to": {"nets": ["N"]}, "min_mm": 1.5}]}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    (tmp_path / "gc.kicad_pcb").write_text(ROUND)
+    r = geomchecks.evaluate(Design.load(tmp_path), tmp_path / "gc.kicad_pcb")[0]
+    # KiCad turns 45 degrees counter-clockwise on screen (y down): the stadium lies across the diagonal to the disc,
+    # its 0.75 mm side faces it
+    assert abs(r["value"] - (3 * math.sqrt(2) - 1.0 - 0.75)) < 0.002 and r["ok"]
+    (tmp_path / "gc.kicad_pcb").write_text(ROUND.replace("(at 3 3 45)", "(at 3 3 315)"))
+    r = geomchecks.evaluate(Design.load(tmp_path), tmp_path / "gc.kicad_pcb")[0]
+    assert abs(r["value"] - (3 * math.sqrt(2) - 1.0 - 1.5)) < 0.002 and r["ok"]  # its round end points at the disc
+    (tmp_path / "gc.kicad_pcb").write_text(ROUND.replace("(at 3 3 45)", "(at 3 3)").replace("oval", "circle")
+                                           .replace("(size 3 1.5)", "(size 2 2)"))
+    r = geomchecks.evaluate(Design.load(tmp_path), tmp_path / "gc.kicad_pcb")[0]
+    assert abs(r["value"] - (3 * math.sqrt(2) - 2.0)) < 0.002   # two discs: 2.24 mm (their boxes: 1.41 mm)
