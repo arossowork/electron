@@ -993,9 +993,8 @@ def _seed_runs(d2, parts, W, H, weights, iters, seeds, start) -> list[tuple]:
     forces the serial loop)."""
     global _SEED_ARGS
     import multiprocessing as mp
-    import os
     if seeds > 1 and "fork" in mp.get_all_start_methods() and not mp.current_process().daemon \
-            and os.environ.get("HWFLOW_FLOORPLAN_SERIAL") != "1":
+            and not get_settings().layout.floorplan_serial:
         import concurrent.futures as cf
         _SEED_ARGS = (d2, parts, W, H, weights, iters, start)
         try:

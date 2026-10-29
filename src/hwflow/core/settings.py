@@ -67,6 +67,8 @@ class LayoutSettings(_Group):
     # incremental (ECO) placement from build/placement.good.json after a clean layout (layout/place/eco.py)
     eco: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ECO"))
     route_illegal: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROUTE_ILLEGAL"))  # debugging only
+    # floorplan quick placement: the seeds one after the other instead of in worker processes (same result)
+    floorplan_serial: bool = Field(False, validation_alias=AliasChoices("HWFLOW_FLOORPLAN_SERIAL"))
     routab_predict: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ROUTAB_PREDICT"))
     # raw values; None: the design's placement.routability_<name>, then off (routability.py)
     routab_rank: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_RANK"))

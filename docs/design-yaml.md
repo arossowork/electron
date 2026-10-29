@@ -400,7 +400,7 @@ The check, written to `build/FLOORPLAN.md`, `build/floorplan.svg` and `status.js
 | fixed-placement | a fixed part breaks a region, keep-out or isolation rule. A shortfall within the placer's own margin, and a courtyard in a cut's board margin but off the cut, are risks |
 | area (placer fill) | the courtyards with the placer margin fill more than 95 % of a face inside the board margin: the stage-7 legality gate would stop (layout.place.legality). The quick placement is then skipped, as after any area, fit, edge, isolation or depth failure |
 | proof-escape, -barrier, -cut, -corridor, -padiso | the layout proofs of `hwflow check` fail on the captured parts; each names its stage |
-| routability | a quick placement (the stage-7 placer with the regions, 20000 moves, 2 seeds) needs more than 20 % of the track capacity where its nets may run (risk above 10 % or a cell at twice its capacity) |
+| routability | a quick placement (the stage-7 placer with the regions, 20000 moves, 2 seeds, each from the same start and in a worker process of its own; `HWFLOW_FLOORPLAN_SERIAL=1` runs them one after the other, with the same result) needs more than 20 % of the track capacity where its nets may run (risk above 10 % or a cell at twice its capacity) |
 
 The thresholds come from the thermostats: the baseline (two stacked 62 x 40 boards, 4 layers, routed clean) fills its faces 20-42 % and uses 5 % of the track capacity; home-thermostat-3 at 88 x 46 on 4 layers (4 unrouted) fills its SELV face 74 % and uses 11-13 %; at 74 x 46 on 2 layers (95 unrouted) 95 % and 24-28 %. Overlaps left by the quick placement are risks, not failures. The verdict is PASS, PASS with risks, or FAIL; a FAIL that needs a size, layer, construction or cost change is a product decision.
 
