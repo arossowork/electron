@@ -122,15 +122,22 @@ def test_pick_ignores_completion_order(tmp_path, monkeypatch):
     assert r["auto"]["kept"] == 2 and r["ok"], "the first clean attempt wins, as when they ran in turn"
 
 
-def test_first_attempt_final_starts_no_pool(tmp_path, monkeypatch):
-    def no_pool(n):
-        raise AssertionError("no pool when attempt 1 is final")
+def test_attempts_start_together_and_a_final_attempt_one_ends_the_search(tmp_path, monkeypatch):
+    # attempt 1 is final; the others started with it and are not waited for nor ranked
+    plan = {0: (0.1, _result(0)), 1: (3, _result(0, 1)), 2: (3, _result(0, 1)), 3: (0.0, _result(0, 1))}
+    t = time.time()
+    r, started, board = _run_auto(tmp_path, monkeypatch, plan)
+    assert time.time() - t < 2.5, "the attempts after the first final one are not waited for"
+    assert sorted(started) == [0, 1, 2, 3], "attempts 1..4 start together"
+    assert r["ok"] and r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1 and board == "board 1"
 
-    monkeypatch.setattr(pl_stages, "_auto_pool", no_pool)
+
+def test_one_attempt_runs_without_a_pool(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
     d, libs = _design(tmp_path)
-    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: {"k": k + 1, "r": _result(0), "line": f"attempt {k + 1}"})
-    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
-    assert r["ok"] and r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1
+    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: {"k": k + 1, "r": _result(2), "line": f"attempt {k + 1}"})
+    r = pl_stages.layout_auto(d, libs, attempts=1, workers=4)
+    assert r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1
 
 
 def test_all_fixed_parts_run_one_attempt(tmp_path, monkeypatch):
@@ -174,19 +181,19 @@ def test_reuse_ignores_a_placement_for_another_board_size(tmp_path, monkeypatch)
     assert pl_stages._saved_board(pj) is None  # a file from before the field: reused as before
 
 
-def test_hopeless_first_attempt_starts_no_pool(tmp_path, monkeypatch):
-    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: (_ for _ in ()).throw(AssertionError("no pool")))
+def test_hopeless_first_attempt_ends_the_search(tmp_path, monkeypatch):
     monkeypatch.delenv("HWFLOW_AUTO_MAX_ERRORS", raising=False)
-    d, libs = _design(tmp_path)
-    started = []
-    monkeypatch.setattr(pl_stages, "_auto_attempt", lambda k: started.append(k) or {"k": k + 1, "r": _result(121), "line": "a"})
-    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
-    assert started == [0] and r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors and open nets (limit 40")
-    monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "200")  # under the limit: the other attempts run
-    monkeypatch.setattr(pl_stages, "_auto_pool", lambda n: cf.ThreadPoolExecutor(n))
-    started.clear()
-    r = pl_stages.layout_auto(d, libs, attempts=4, workers=4)
-    assert sorted(started) == [0, 1, 2, 3] and not r["auto"]["stopped"]
+    # attempt 4 ends first and clean, attempt 1 then far from routable: only attempt 1 is ranked, as when it ran alone
+    plan = {0: (0.2, _result(121)), 1: (3, _result(0)), 2: (3, _result(0)), 3: (0.0, _result(0))}
+    t = time.time()
+    r, started, board = _run_auto(tmp_path, monkeypatch, plan)
+    assert time.time() - t < 2.5
+    assert r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1 and board == "board 1"
+    assert r["auto"]["stopped"].startswith("stopped: attempt 1 has 121 errors and open nets (limit 40")
+    monkeypatch.setenv("HWFLOW_AUTO_MAX_ERRORS", "200")  # under the limit: the other attempts count
+    plan = {0: (0.2, _result(121)), 1: (0.0, _result(5)), 2: (0.0, _result(7)), 3: (0.0, _result(9))}
+    r, started, _ = _run_auto(tmp_path, monkeypatch, plan)
+    assert sorted(started) == [0, 1, 2, 3] and not r["auto"]["stopped"] and r["auto"]["kept"] == 2
 
 
 def test_attempts_have_their_own_directories(tmp_path, monkeypatch):
@@ -211,3 +218,22 @@ def test_attempts_have_their_own_directories(tmp_path, monkeypatch):
     assert (dirs[0] / "placement.json").exists() and not (dirs[1] / "placement.json").exists()  # only attempt 1 reuses
     assert all((x / "fp-lib-table").exists() for x in dirs)
     assert [(x / "perf.kicad_pcb").read_text() for x in dirs] == ["1", "5", "9", "13"]
+
+
+def test_run_timing_counts_every_layout_attempt():
+    """The kept board's steps leave the other attempts out: the run timing adds their summed and longest wall time."""
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace as NS
+
+    from hwflow.runs import run_timing
+    t0 = datetime(2026, 10, 29, tzinfo=timezone.utc)
+
+    def rec(stage, a, b, status="succeeded"):
+        return NS(stage=stage, started_at=t0 + timedelta(seconds=a), ended_at=t0 + timedelta(seconds=b),
+                  status=NS(value=status), cached=False)
+    run = NS(run_id="r", started_at=t0, created_at=t0, ended_at=t0 + timedelta(seconds=900),
+             stages=[rec("layout_attempt", 0, 300), rec("layout_attempt", 0, 800), rec("layout_attempt", 0, 500),
+                     rec("layout_attempt", 0, 100, "skipped"), rec("layout_select", 800, 810)])
+    t = run_timing(run, {"layout": {"timing": {"place_s": 200.0}}})
+    assert t["stages"]["layout"]["s"] == 810.0
+    assert t["steps"] == {"layout.place_s": 200.0, "layout.attempts_s": 1600.0, "layout.attempt_max_s": 800.0}

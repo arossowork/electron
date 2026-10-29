@@ -2,10 +2,10 @@
 
 One planner, two drivers: `hwflow.pipeline.runner.run_build` (inline, the CLI) and the platform's `BuildWorkflow`
 (Temporal) both loop `plan(...)` until it returns `Done`. It encodes the stage order, `until`, the hard-failure stop
-(`check`, `sch`, a stage that raised, a blocked layout, unless `force`) and the `layout --auto` search: attempt 1
-alone, then the others in parallel, cut off at the first final attempt (clean, or errors on fixed parts only), no
-other attempt when attempt 1 is hopeless (`auto_max_errors`) or every part is fixed, a wall-time budget (`budget_s`
-against `now - started`), placer seeds `seed0 + (k-1)*seeds` (applied by the attempt), then `layout_select`.
+(`check`, `sch`, a stage that raised, a blocked layout, unless `force`) and the `layout --auto` search: attempts
+1..n at once (attempt 1 alone first with option `first_alone`), cut off at the first final attempt (clean, or
+errors on fixed parts only), no other attempt when attempt 1 is hopeless (`auto_max_errors`) or every part is fixed
+(the others are then stopped), a wall-time budget (`budget_s` against `now - started`), placer seeds `seed0 + (k-1)*seeds` (applied by the attempt), then `layout_select`.
 
 Stdlib only (import-linter contract "the build planner is stdlib-only"): workflows import it, so it reads no file,
 clock, environment or setting; everything comes in as arguments. Decisions depend only on result keys and values,
@@ -109,8 +109,13 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
     budget = float(settings_layout.get("budget_s", 3000))
     deadline = started + budget if auto else None
     a1 = attempts.get(1)
-    if a1 is None:  # attempt 1 runs alone: when it is final the others are never started
+    if a1 is None and (not auto or options.get("first_alone")):
+        # attempt 1 alone (a plain layout, or `first_alone`: the layout portfolio, which fills the cores itself):
+        # when it is final the others are never started
         return LayoutSearch(auto, n, None, False, False, deadline, budget, (1,), False, False, ())
+    # attempts 1..n start together (thermo-e2e-8: attempt 1 alone first was 68 of the layout stage's 187 min);
+    # attempt 1's verdicts (fixed_all, hopeless) cut the search when it ends
+    a1 = a1 or {}
     fixed_all = bool(a1.get("fixed_all"))
     if fixed_all:
         n = 1  # no movable part: another seed gives the same placement
@@ -121,16 +126,19 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
                 and errs > int(settings_layout.get("auto_max_errors", 40)))
     if hopeless:
         n = 1  # far from routable: other seeds of the same placer and router do not close the gap
-    finals = sorted(k for k, s in attempts.items() if _final(s))
+    finals = sorted(k for k, s in attempts.items() if k <= n and _final(s))
     cutoff = finals[0] if finals else None
-    need = range(1, (cutoff if cutoff is not None else n) + 1)
+    last = cutoff if cutoff is not None else n
+    need = range(1, last + 1)
     complete = all(k in attempts for k in need)
     # A truncated first attempt is retained even for n=1, without treating its errors as hopeless.
     exhausted = bool(a1.get("budget_exhausted"))
     in_time = not exhausted and (deadline is None or now < deadline)
     wanted = tuple(k for k in need if k not in attempts) if (in_time and not complete) else ()
     over = exhausted or (not complete and not wanted)
-    used = tuple(sorted(k for k in attempts if cutoff is None or k <= cutoff))
+    # only the attempts up to the cutoff (or n): one that ended before attempt 1 was found hopeless, or after a final
+    # one, is not ranked, so the kept board never depends on which attempt finished first
+    used = tuple(sorted(k for k in attempts if k <= last))
     return LayoutSearch(auto, n, cutoff, hopeless, fixed_all, deadline, budget, wanted, complete, over, used)
 
 

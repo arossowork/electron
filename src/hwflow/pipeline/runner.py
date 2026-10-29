@@ -323,17 +323,25 @@ def error_result(store: ArtifactStore, spec: StageSpec, msg: str) -> StageResult
                                                          "retryable": False})
 
 
+def _first_alone() -> bool:
+    """Attempt 1 runs alone before the others (buildplan option `first_alone`) only as the layout portfolio, which
+    runs its strategies in parallel itself."""
+    from . import portfolio
+    return portfolio.on()
+
+
 def _workers(o: BuildOptions) -> int:
-    """How many layout attempts run at once inline (cpu count - 1 by default, at most attempts - 1 after attempt 1)."""
+    """How many layout attempts run at once inline (cpu count - 1 by default, at most the attempts; attempts - 1 after
+    attempt 1 when it runs alone first)."""
     import os
     n = max(o.attempts, 1) if o.auto else 1
     w = max(1, min(n, o.workers if o.workers else (os.cpu_count() or 2) - 1))
-    return max(1, min(w, n - 1))
+    return max(1, min(w, n - 1 if _first_alone() else n))
 
 
 def run_build(d: Design, o: BuildOptions) -> dict:
     """Drive hwflow.buildplan.plan to the end as one run (build/runs/<run_id>/): each stage through execute_stage
-    (layout attempts 2.. in child processes, at most `_workers(o)` at once), each result recorded and projected into
+    (layout attempts in child processes, at most `_workers(o)` at once), each result recorded and projected into
     build/ (outputs, status.json, REPORT.md) while the run is the newest one. Returns {"rc", "report", "prev_report",
     "text", "run_id"}; `text` is what the CLI prints (the report or its --brief diff). HWFLOW_RUN_ID (set by
     `hwflow build --detach`) names the run."""
@@ -353,7 +361,8 @@ def run_build(d: Design, o: BuildOptions) -> dict:
     paths = output_paths(d)
     results: dict[str, StageResult] = {}
     from dataclasses import asdict
-    opts = {**asdict(o), "stages": stages, "layout_blocked": False, "workers": _workers(o)}
+    opts = {**asdict(o), "stages": stages, "layout_blocked": False, "workers": _workers(o),
+            "first_alone": _first_alone()}
     lay = dict(snap.get("layout") or {})
     rebuild = o.rebuild or not o.build
     seq = 0
@@ -435,8 +444,9 @@ def run_build(d: Design, o: BuildOptions) -> dict:
                                                    summary={"reason": buildplan.drop_reason(
                                                        s, buildplan.attempt_index(key) or 0)}))
             todo = [a for a in p if a.key not in children and a.key not in results]
-            inline = next((a for a in todo if not (a.stage == buildplan.ATTEMPT and a.key != buildplan.attempt_key(1))),
-                          None)
+            # attempt 1 runs here only when it runs alone first (`first_alone`); else every attempt is a child
+            inline = next((a for a in todo if a.stage != buildplan.ATTEMPT
+                           or (opts["first_alone"] and a.key == buildplan.attempt_key(1))), None)
             if inline is not None:
                 t0 = time.time()
                 if inline.stage == buildplan.ATTEMPT and layout_t0 is None:
@@ -458,7 +468,11 @@ def run_build(d: Design, o: BuildOptions) -> dict:
                                         rebuild=rebuild, reuse_verdicts=REUSE_VERDICTS)
                 finish(inline.key, res, t0)
                 continue
-            for a in todo:  # attempts 2.. in parallel
+            if todo and layout_t0 is None:  # the layout search starts: the attempts' deadline counts from now
+                layout_t0 = time.time()
+                p = buildplan.plan(opts, view, lay, layout_t0, layout_t0)
+                todo = [a for a in p if a.key not in children and a.key not in results]
+            for a in todo:  # the attempts in parallel (2.. after attempt 1 with `first_alone`)
                 if len(children) >= opts["workers"]:
                     break
                 inp = start(a)

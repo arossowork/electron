@@ -107,6 +107,23 @@ def test_a_clean_layout_records_the_good_placement(tmp_path, monkeypatch):
     assert pl_stages.eco_path(out) is None
 
 
+def test_a_routed_layout_with_a_failing_budget_records_the_good_placement(tmp_path):
+    """Converged (0 unrouted, 0 DRC errors, legal) is enough: thermo-e2e-8's routed board failed only an ESD budget,
+    and its sign-off edit (two parts pinned) then placed and routed from scratch."""
+    d, libs = _design(tmp_path, _raw())
+    out = tmp_path / "build"
+    out.mkdir()
+    (out / "placement.json").write_text(json.dumps({"__board_mm__": [30, 30], "R1": [5, 5, 0]}))
+    routed = {"ok": False, "unrouted": 0, "drc_errors": 0, "placement_violations": [], "board_mm": [30, 30],
+              "budgets": [{"name": "esd", "ok": False}]}
+    for bad in ({"drc_errors": 1}, {"unrouted": 1}, {"placement_violations": ["R1 off the board"]},
+                {"budget_exhausted": True}, {"blocked": "not routed: placement illegal"}):
+        pl_stages._record_layout(d, {**routed, **bad}, False)
+        assert not (out / eco.GOOD).exists(), bad
+    pl_stages._record_layout(d, routed, False)
+    assert eco.load_good(out / eco.GOOD)["R1"] == [5, 5, 0]
+
+
 def test_blocked_structure_reopens_when_the_floorplan_or_a_fixed_position_changes(tmp_path):
     raw = _raw()
     d, _ = _design(tmp_path, raw)

@@ -81,13 +81,45 @@ def test_blocked_layout_stands_in_for_the_layout():
 AUTO = {"until": "layout", "auto": True, "attempts": 4}
 
 
-def test_auto_attempt_one_alone_then_the_rest_in_parallel():
+def test_auto_attempts_start_together():
     res = {k: OK for k in ("check", "sch", "sim")}
-    assert keys(bp.plan(AUTO, res, LAY, 0, 0)) == ["layout_attempt.1"]
-    res["layout_attempt.1"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 3, "unrouted": 0}}
-    assert keys(bp.plan(AUTO, res, LAY, 1, 0)) == ["layout_attempt.2", "layout_attempt.3", "layout_attempt.4"]
-    a3 = bp.plan(AUTO, res, LAY, 1, 0)[1]
+    assert keys(bp.plan(AUTO, res, LAY, 0, 0)) == [f"layout_attempt.{k}" for k in (1, 2, 3, 4)]
+    a3 = bp.plan(AUTO, res, LAY, 0, 0)[2]
     assert a3.params["deadline"] == 100.0 and "deadline" not in bp.keyed(a3.params, a3.stage)
+    # attempt 3 done first: 1, 2 and 4 still wanted
+    res["layout_attempt.3"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 3, "unrouted": 0}}
+    assert keys(bp.plan(AUTO, res, LAY, 1, 0)) == ["layout_attempt.1", "layout_attempt.2", "layout_attempt.4"]
+
+
+def test_auto_attempt_one_alone_first_with_first_alone():
+    o = {**AUTO, "first_alone": True}
+    res = {k: OK for k in ("check", "sch", "sim")}
+    assert keys(bp.plan(o, res, LAY, 0, 0)) == ["layout_attempt.1"]
+    res["layout_attempt.1"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 3, "unrouted": 0}}
+    assert keys(bp.plan(o, res, LAY, 1, 0)) == ["layout_attempt.2", "layout_attempt.3", "layout_attempt.4"]
+
+
+def test_auto_attempt_one_final_stops_the_others():
+    res = {k: OK for k in ("check", "sch", "sim")}
+    res["layout_attempt.2"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 1}}
+    res["layout_attempt.1"] = {"verdict": "pass", "summary": {"ok": True}}
+    (s,) = bp.plan(AUTO, res, LAY, 1, 0)
+    # attempt 2 ended first but is past the cutoff: it is not ranked, as if attempt 1 had ended first
+    assert s.key == "layout_select" and s.params["cutoff"] == 1 and s.params["used"] == [1]
+
+
+@pytest.mark.parametrize("a1", [{"ok": False, "drc_errors": 41, "unrouted": 0}, {"ok": False, "drc_errors": 1,
+                                                                                  "fixed_all": True}])
+def test_auto_hopeless_or_fixed_attempt_one_ends_the_running_ones(a1):
+    """Attempts that ended before attempt 1 showed the search needs one attempt are not ranked (the result does not
+    depend on the completion order) and the running ones are no longer wanted (the driver stops them)."""
+    res = {k: OK for k in ("check", "sch", "sim")}
+    res["layout_attempt.3"] = {"verdict": "pass", "summary": {"ok": True}}
+    res["layout_attempt.1"] = {"verdict": "fail", "summary": a1}
+    search = bp.layout_search(AUTO, bp.attempts_of(res), LAY, 1, 0)
+    assert search.n == 1 and search.cutoff is None and search.used == (1,) and search.wanted == ()
+    (s,) = bp.plan(AUTO, res, LAY, 1, 0)
+    assert s.key == "layout_select" and s.params["used"] == [1]
 
 
 def test_auto_cutoff_at_the_first_final_attempt():
@@ -103,9 +135,10 @@ def test_auto_cutoff_at_the_first_final_attempt():
 
 
 def test_auto_hopeless_and_fixed_all_run_one_attempt():
-    order, _ = drive(AUTO, {1: {"ok": False, "drc_errors": 41, "unrouted": 0}})
+    o = {**AUTO, "first_alone": True}  # the attempts that start with attempt 1 by default: the test below
+    order, _ = drive(o, {1: {"ok": False, "drc_errors": 41, "unrouted": 0}})
     assert [k for k in order if k.startswith("layout_attempt")] == ["layout_attempt.1"]
-    order, _ = drive(AUTO, {1: {"ok": False, "drc_errors": 1, "fixed_all": True}})
+    order, _ = drive(o, {1: {"ok": False, "drc_errors": 1, "fixed_all": True}})
     assert [k for k in order if k.startswith("layout_attempt")] == ["layout_attempt.1"]
 
 

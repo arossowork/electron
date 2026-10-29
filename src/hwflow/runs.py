@@ -474,7 +474,8 @@ def run_timing(run: Run, entries: Mapping[str, dict] | None = None) -> dict:
     """Where the run's wall time went: {run_id, wall_s, stages: {stage: {s, cached, n}}, steps: {step: s}}. A stage's
     `s` is its wall span (layout: first attempt start to the select end, attempts run in parallel), `n` its records
     (layout attempts + select), `cached` true when every record was a cache hit. `steps` are the stage results' own
-    `timing` (sim_s, derating_s, mc_s; place_s, route_s, repair_s, drc_s of the kept board; extract_s, post_sim_s)."""
+    `timing` (sim_s, derating_s, mc_s; place_s, route_s, repair_s, drc_s of the kept board; extract_s, post_sim_s),
+    and layout.attempts_s / layout.attempt_max_s: the summed and the longest wall time of the finished attempts."""
     spans: dict[str, list] = {}
     for rec in run.stages:
         if rec.started_at is None or rec.ended_at is None or rec.status.value not in ("succeeded", "failed"):
@@ -490,6 +491,12 @@ def run_timing(run: Run, entries: Mapping[str, dict] | None = None) -> dict:
         for name, sec in ((v or {}).get("timing") or {}).items() if isinstance(v, dict) else ():
             if isinstance(sec, (int, float)):
                 steps[f"{k}.{name}"] = sec
+    # the kept board's steps leave out the other attempts (thermo-e2e-8: 84 of 192 min of layout builds): their
+    # summed wall time, and the longest one, which sets the layout span when they run together
+    att = [(r.ended_at - r.started_at).total_seconds() for r in spans.get("layout", ()) if r.stage == "layout_attempt"]
+    if att:
+        steps["layout.attempts_s"] = round(sum(att), 1)
+        steps["layout.attempt_max_s"] = round(max(att), 1)
     start = run.started_at or run.created_at
     end = run.ended_at or max((r.ended_at for r in run.stages if r.ended_at), default=None) or now()
     return {"run_id": run.run_id, "wall_s": round((end - start).total_seconds(), 1), "stages": stages, "steps": steps}

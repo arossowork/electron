@@ -738,10 +738,10 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
     `layout_select` stages; hwflow.buildplan.layout_search makes the decisions for both.
 
     Attempt 1 keeps the saved placement when `reuse` is set; every later attempt places again with new placer
-    seeds. The attempts run in a process pool (`workers`, default cpu count - 1, at most `attempts`), each in its own
-    directory build/auto/a<k>/. The result does not depend on completion order: an attempt is final when it has 0 DRC
-    errors, 0 unrouted and no placement violations, or when its remaining errors are on fixed parts that no
-    placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias, index) of the
+    seeds. The attempts run together in a process pool (`workers`, default cpu count - 1, at most `attempts`; with
+    the layout portfolio attempt 1 runs first, alone), each in its own directory build/auto/a<k>/. The result does
+    not depend on completion order: an attempt is final when it has 0 DRC errors, 0 unrouted and no placement
+    violations, or when its remaining errors are on fixed parts that no placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias, index) of the
     attempts up to the first final one, or of all of them. Later attempts are not waited for. Each attempt's board
     is kept in build/auto/. A wall-time budget (_layout_budget, HWFLOW_LAYOUT_BUDGET_S) bounds the search: past it no
     attempt starts, running ones are stopped, the repair stops its rounds, and the best attempt done is kept and
@@ -786,12 +786,18 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
                                              place=_auto_place, log=lambda m: print(m, flush=True))
         if results[0].get("env"):
             _AUTO["knobs"] = results[0]["env"]  # the fallback attempts carry on with the best strategy's knobs
-    else:
-        results[0] = _auto_attempt(0)  # attempt 1 alone: when it is final the other attempts are never started
-    summaries[1] = attempt_summary(results[0], fixed_all)
-    progress(results[0])
+        summaries[1] = attempt_summary(results[0], fixed_all)
+        progress(results[0])
+    opts["first_alone"] = portfolio.on()  # else attempts 1..n start together (hwflow.buildplan.layout_search)
+    if fixed_all and 0 not in results:
+        opts["attempts"] = 1  # no movable part: every seed gives the same placement
     s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
-    workers = max(1, min(workers, s.n - 1))
+    if s.n == 1 and s.wanted == (1,):  # one attempt: in this process, no pool
+        results[0] = _auto_attempt(0)
+        summaries[1] = attempt_summary(results[0], fixed_all)
+        progress(results[0])
+        s = buildplan.layout_search(opts, summaries, lay, time.time(), t0)
+    workers = max(1, min(workers, s.n - len(results)))
     pool = _auto_pool(workers) if s.wanted else None
     try:
         while pool is not None:
@@ -813,7 +819,7 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
                     results[k] = f.result()
                 except Exception as e:  # noqa: BLE001 - a crashed worker ends this attempt
                     results[k] = {"k": k + 1, "error": f"attempt {k + 1}: {type(e).__name__}: {str(e)[:120]}"}
-                summaries[k + 1] = attempt_summary(results[k])
+                summaries[k + 1] = attempt_summary(results[k], fixed_all if k == 0 else False)
                 progress(results[k])
     finally:
         left = [f for f in pending if not f.done()]  # attempts after the first final one, or past the budget
@@ -943,10 +949,19 @@ def _layout_blocked(d: Design, retry: bool = False) -> dict | None:
             "ok": False, "blocked": msg, "diagnosis": e["diagnosis"]}
 
 
+def converged(r: dict) -> bool:
+    """A layout that routed: 0 unrouted, 0 DRC errors, a legal placement, the router not cut short. `ok` asks more
+    (budgets, isolation, widths): thermo-e2e-8's attempt 1 routed clean with one ESD budget 3.9 mm over, so no
+    placement.good.json was written and the sign-off edit (two parts pinned) placed and routed from scratch, 26 min."""
+    return (bool(r.get("ok")) or (r.get("drc_errors") == 0 and r.get("unrouted") == 0
+                                  and not r.get("placement_violations") and not r.get("blocked")
+                                  and not r.get("budget_exhausted") and r.get("board_mm") is not None))
+
+
 def _record_layout(d: Design, r: dict, override: bool):
     from ..layout import diagnose
     g = r.get("diagnosis") or {}
-    if r.get("ok"):  # the placement of a clean layout: later small edits start from it (layout/place/eco.py)
+    if converged(r):  # the placement of a routed layout: later small edits start from it (layout/place/eco.py)
         from ..layout.place import eco
         eco.save_good(_out(d), d, None)
     diagnose.record(_out(d), {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "structure": diagnose.structure_key(d),
