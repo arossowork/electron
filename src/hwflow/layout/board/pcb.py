@@ -258,7 +258,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
                 tree.append(["zone", ["net", netidx[g]], ["net_name", Q(g)], ["layer", Q(layer)], ["uuid", uid()],
                              ["hatch", "edge", 0.5],
                              ["connect_pads", "yes", ["clearance", b["clearance_mm"]]],
-                             ["min_thickness", 0.25], ["filled_areas_thickness", "no"],
+                             ["min_thickness", ZONE_MIN_THICKNESS_MM], ["filled_areas_thickness", "no"],
                              ["fill", "yes", ["thermal_gap", 0.3], ["thermal_bridge_width", 0.4], ["island_removal_mode", island_removal]],
                              ["polygon", ["pts", ["xy", 0.3, 0.3], ["xy", W - 0.3, 0.3], ["xy", W - 0.3, H - 0.3],
                                           ["xy", 0.3, H - 0.3]]]])
@@ -354,6 +354,54 @@ def pour_keepoff_mm(g: dict) -> float | None:
     return max(vals) if vals else None
 
 
+ZONE_MIN_THICKNESS_MM = 0.25  # the pours' min_thickness
+
+
+def _pads_within(design: Design, members: set[str], mm: float) -> list[tuple[str, str]]:
+    """(ref, net) for each footprint pad of a non-member net that a fill kept `mm` off the member pads of the same
+    footprint cannot touch (from the footprint's own geometry: no placement changes it), sorted."""
+    comps = []
+    for c in design.components.values():
+        nets = {str(k): v for k, v in c.pins.items() if v and v.upper() not in ("NC", "~")}
+        if not c.get("virtual") and c.get("footprint") and set(nets.values()) & members and set(nets.values()) - members:
+            comps.append((c.ref, str(c.get("footprint")), tuple(sorted(nets.items()))))
+    if not comps:
+        return []
+    key = (str(getattr(design, "dir", "")), tuple(comps), frozenset(members), float(mm))
+    if key not in _PADS_WITHIN:
+        _PADS_WITHIN[key] = _unreachable(design, comps, members, float(mm))
+    return list(_PADS_WITHIN[key])
+
+
+_PADS_WITHIN: dict[tuple, tuple] = {}  # _pads_within by (project dir, the footprints and pin nets, members, mm)
+
+
+def _unreachable(design: Design, comps: list, members: set[str], mm: float) -> tuple:
+    from shapely.ops import unary_union
+    from ...core.libs import Libs
+    libs = Libs(design=design)
+    out = set()
+    for ref, fp_id, nets in comps:
+        try:
+            pads = libs.footprint(fp_id)["pads"]
+        except Exception:  # noqa: BLE001 - a missing footprint is reported by the design check
+            continue
+        of = dict(nets)
+        shapes = []
+        for q in pads:
+            n = of.get(q["number"])
+            if n is None or not q["layers"]:
+                continue
+            quarter = abs(q["rot"] / 90 - round(q["rot"] / 90)) < 1e-9
+            w, h = (q["h"], q["w"]) if quarter and round(q["rot"] / 90) % 2 else (q["w"], q["h"])
+            shapes.append((n, pad_polygon(dict(q, w=w, h=h, angle=0.0 if quarter else q["rot"]))))
+        kept = unary_union([t.buffer(mm) for m, t in shapes if m in members])
+        for n, g in shapes:  # no strip of the pad as wide as the fill's minimum thickness outside the keep-off
+            if n not in members and g.difference(kept).buffer(-ZONE_MIN_THICKNESS_MM / 2).is_empty:
+                out.add((ref, n))
+    return tuple(sorted(out))
+
+
 def isolation_groups(design: Design) -> list[dict]:
     """board.isolation (backlog 38): each entry names a net group (`nets:` glob or list of globs, and/or `class:`)
     that keeps `clearance_mm` and `creepage_mm` to every other net. Returns the member nets and the KiCad custom
@@ -385,10 +433,15 @@ def isolation_groups(design: Design) -> list[dict]:
         # a copper pour (zone) of another net keeps max(clearance, creepage): the zone filler honours clearance
         # constraints only, so a fill at the clearance fails the creepage rule on a flat board (no slot), where
         # creepage is the in-plane surface distance. Written after the group clearance rule: the later rule wins.
+        # A footprint whose pad of another net lies wholly within that distance of its member pads (an IC pin next
+        # to the member pin) is exempt for that net's zone: a fill kept off the member pads could never touch the
+        # other pad, which would lose its pour connection; the pad pair breaks the distance anyway (DRC reports it).
         keep = pour_keepoff_mm(g)
         if keep is not None and keep > float(g.get("clearance_mm") or 0.0):
+            near = "".join(f" && !(A.memberOfFootprint('{ref}') && B.NetName == '{n}')"
+                           for ref, n in _pads_within(design, set(members), keep))
             row["kicad"].append(f'(rule "{name} pour keep-off" (constraint clearance (min {keep:g}mm)) '
-                                f'(condition "{cond} && B.Type == \'Zone\'"))')
+                                f'(condition "{cond} && B.Type == \'Zone\'{near}"))')
         # between_mm: functional insulation between two different member nets (one rule per member, against the
         # other members: KiCad applies a rule to both orders of a pair, so each pair is covered twice, harmlessly)
         if between is not None and len(members) > 1:

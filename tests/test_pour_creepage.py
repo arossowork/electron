@@ -41,6 +41,22 @@ def test_pour_keepoff_rule_is_written_at_the_creepage(tmp_path):
     assert pcb.pour_keepoff_mm({"clearance_mm": None, "creepage_mm": None}) is None
 
 
+def test_pour_keepoff_spares_a_pad_the_fill_could_never_reach(tmp_path):
+    """sensor_preamp, AMP_OUT with creepage 1.0 mm: U2 (SOT-23-5) has its GND pad 0.35 mm from the AMP_OUT pad, so a
+    fill kept 1.0 mm off that pad could not touch the GND pad (an open GND pin); J1's GND pad (2.54 mm pitch through
+    hole, 0.84 mm from AMP_OUT) stays reachable from its far side and keeps the rule."""
+    import shutil
+    from pathlib import Path
+    proj = tmp_path / "p"
+    shutil.copytree(Path(__file__).parents[1] / "examples" / "sensor_preamp", proj, ignore=shutil.ignore_patterns("build"))
+    f = proj / "design.yaml"
+    f.write_text(f.read_text().replace("board: {", "board: {isolation: [{name: amp, nets: AMP_OUT, creepage_mm: 1.0}], "))
+    (g,) = pcb.isolation_groups(Design.load(proj))
+    (r,) = _keepoff(g)
+    assert r.endswith("&& B.Type == 'Zone' && !(A.memberOfFootprint('U2') && B.NetName == 'GND')\"))")
+    assert pcb._pads_within(Design.load(proj), {"AMP_OUT"}, 0.3) == []  # 0.35 mm: the fill reaches it
+
+
 def _board(path, rratio=0.125):
     """20 x 20 mm, GND pour on F.Cu, one HV roundrect pad 2 x 3.75 mm at (10, 10)."""
     from hwflow.core.sexpr import Q, dumps
