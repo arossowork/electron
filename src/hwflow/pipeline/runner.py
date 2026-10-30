@@ -325,6 +325,14 @@ def error_result(store: ArtifactStore, spec: StageSpec, msg: str) -> StageResult
                                                          "retryable": False})
 
 
+def _alone(d: Design, o: BuildOptions) -> bool:
+    """Whether attempt 1 runs alone first, in this process. One attempt (a plain layout, or --attempts 1) is alone by
+    definition; only a search of several asks stages.first_alone, whose answer depends on the build state
+    (placement.good.json, the layout history): a plain layout ran as a child in a cold build and inline in the cached
+    build after it, so the two builds differed (ADR 0001, 2.5)."""
+    return first_alone(d, o.reuse) if o.auto and o.attempts > 1 else True
+
+
 def _workers(o: BuildOptions, first_alone: bool) -> int:
     """How many layout attempts run at once inline (cpu count - 1 by default, at most the attempts; attempts - 1 after
     attempt 1 when it runs alone first)."""
@@ -356,7 +364,7 @@ def run_build(d: Design, o: BuildOptions) -> dict:
     paths = output_paths(d)
     results: dict[str, StageResult] = {}
     from dataclasses import asdict
-    alone = first_alone(d, o.reuse)
+    alone = _alone(d, o)
     opts = {**asdict(o), "stages": stages, "layout_blocked": False, "workers": _workers(o, alone),
             "first_alone": alone}
     lay = dict(snap.get("layout") or {})

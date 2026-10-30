@@ -86,7 +86,7 @@ not depend on which attempt ended first, nor on the order below.
 Attempt 1 runs alone first only when it is likely final (`stages.first_alone`): it starts from the last good layout
 (incremental) or a saved placement (`--reuse`), attempt 1 of the project's last layout build was final
 (`layout_history.json` `first_final`), or the layout portfolio runs (it runs its strategies in parallel itself).
-Otherwise attempts 1..n start together, attempts 2..n at niceness +5 (`stages.OTHERS_NICE`).
+Otherwise attempts 1..n start together, attempts 2..n at niceness +5 (`stages.OTHERS_NICE`). A single attempt (a plain layout, or `--attempts 1`) always runs alone in the build process (`runner._alone`), whatever the build state, so a cached build replays the same stages as the cold one.
 
 Measured (`hwflow build --until layout --auto`, HWFLOW_FAST=1, 4 attempts, shared 16-thread laptop):
 

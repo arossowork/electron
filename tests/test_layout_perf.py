@@ -270,6 +270,10 @@ def test_attempt_one_runs_alone_when_it_is_likely_final(tmp_path, monkeypatch):
     out = tmp_path / "build"
     out.mkdir(exist_ok=True)
     assert not pl_stages.first_alone(d) and pl_stages.first_alone(d, reuse=True)
+    from hwflow.pipeline.runner import BuildOptions, _alone
+    # one attempt is alone whatever the build state: the same process in a cold and in a cached build
+    assert _alone(d, BuildOptions()) and _alone(d, BuildOptions(auto=True, attempts=1))
+    assert not _alone(d, BuildOptions(auto=True, attempts=4))
     diagnose.record(out, {"ok": False, "first_final": False})
     assert not pl_stages.first_alone(d)
     diagnose.record(out, {"ok": True, "first_final": True})
