@@ -279,13 +279,15 @@ def thermal_keys(d, libs, parts) -> set:
 
 
 def reroute(d, libs, parts, workdir: Path, tracks: list, vias: list, nets: list, attempt: int, island: int,
-            deadline: float | None = None) -> tuple[list, list]:
+            deadline: float | None = None, orders: int | None = None) -> tuple[list, list]:
     """Re-route `nets` on a board that keeps `tracks` and `vias` (the copper of every other net). `deadline`
-    (time.time()) stops the router calls (subprocess.TimeoutExpired)."""
+    (time.time()) stops the router calls (subprocess.TimeoutExpired). `orders`: the net orders each router pass tries
+    (default 1 + board.router_retries)."""
     src = workdir / f"{d.name}_rep.kicad_pcb"
     pcb.write_board(src, pcb.build_board(d, libs, parts, tracks, vias, island_removal=island))
     n = len(krt.KRT_VARIANTS)
-    variants = [krt.KRT_VARIANTS[(attempt + j) % n] for j in range(1 + int(d.board.get("router_retries", 3)))]
+    k = 1 + int(d.board.get("router_retries", 3)) if orders is None else max(1, int(orders))
+    variants = [krt.KRT_VARIANTS[(attempt + j) % n] for j in range(k)]
     cur, _, _, _ = krt.krt_route(d, src, workdir, f"{d.name}_rep{attempt}_", nets=set(nets), keep_first=True, variants=variants,
                                   deadline=deadline)
     rb = pcb.read_board(cur)

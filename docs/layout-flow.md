@@ -67,12 +67,16 @@ float sums, so every later stage; 1 of 5 hash seeds of thermo-e2e-4 then ended w
 router subprocess gets `PYTHONHASHSEED=0` (krt.router_env) unless the caller sets one.
 
 Routing is reproducible the same way. KiCadRoutingTools stops on its own counts (A* iterations, rip-up limits):
-`scripts/route_repro.py` routed the thermo-e2e-4-live placement twice to the same copper hash. The repair loop
-stops on counts (`repair_rounds`, `HWFLOW_REPAIR_MAX_STALL`, `MAX_RIPUP` nets a round) and the pour stitch on its
-`ROUNDS` and `DISPLACE_ROUNDS`; `HWFLOW_REPAIR_BUDGET_S` (1800 s) is only a safety abort of the repair and of each
-pour-stitch router call, reported in `repair.aborts` / `pour_stitch.aborts` and REPORT.md. It was a 120 s budget that
-was the normal stop: thermo-e2e-4-live's second repair round and its plane repair were killed by it, earlier or later
-depending on the load.
+`scripts/route_repro.py` routed the thermo-e2e-4-live placement twice to the same copper hash. The repair loop stops
+on counts (`repair_rounds`, `HWFLOW_REPAIR_MAX_STALL`, `MAX_RIPUP` nets a round) and the pour stitch on its `ROUNDS`,
+`DISPLACE_ROUNDS`, one net order per re-route pass (`REROUTE_ORDERS`), at most `REROUTE_NETS` (20) re-routed nets in
+all, and no re-route after a plane repair that leaves more than `PLANE_REOPEN` (3) nets open (`pour_stitch.work` in
+status.json counts them). With the 1800 s abort alone, oshw_pico_ice spent 4156 s in the stitch: 72 router calls, 4
+net orders each, a 10-net re-route after the plane repair (1190 s, rejected) and two displacing re-routes of 15 and 12
+nets; with the counts it takes 876 s to the same copper. `HWFLOW_REPAIR_BUDGET_S` (1800 s) is only a safety abort of
+the repair and of each pour-stitch router call, reported in `repair.aborts` / `pour_stitch.aborts` and REPORT.md. It
+was a 120 s budget that was the normal stop: thermo-e2e-4-live's second repair round and its plane repair were killed
+by it, earlier or later depending on the load.
 
 ## Attempts of `--auto` (`hwflow.buildplan.layout_search`)
 
@@ -256,17 +260,17 @@ retrying with more than 3 nets open).
    against 0 signal nets open but 2 GND groups left (the module's whole ground area cut off on both layers, and a tap
    via walled in on B.Cu, which a tap cannot prevent); a congested thermo-e2e-4-live placement 3 against 6 signal
    nets open (the tap vias take routing room). It stays opt-in until it wins on more placements.
-8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net,
-   so a GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads
-   and vias. Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the
-   repair, every pour group other than the main one (most pads), and every pad no fill touches, is joined by the
-   first of: a via in the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most
-   2.5 mm to a via that lands in the main fill, and once more the same stub where it displaces at most 3 routed
-   nets (never isolation members or layer-rule nets), which are routed again within the repair budget. The
-   re-routed nets move, so the free vias are tried again on that board (the stub's via can land in another pocket,
-   and a new via can fit). A displacement that leaves a displaced net open, or does not end with fewer errors, is
-   undone, and the next of up to 3 rounds displaces other nets. Every via and stub keeps the clearances, the
-   isolation distances and the rule areas; a round is kept only with fewer DRC errors and no more errors of any
+8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net, so a
+   GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads and vias.
+   Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the repair, every
+   pour group other than the main one (most pads), and every pad no fill touches, is joined by the first of: a via in
+   the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most 2.5 mm to a via that
+   lands in the main fill, and once more the same stub where it displaces at most 3 routed nets (never isolation
+   members or layer-rule nets), which are routed again (one net order per pass, at most 20 re-routed nets in a
+   stitch). The re-routed nets move, so the free vias are tried again on that board (the stub's via can land in
+   another pocket, and a new via can fit). A displacement that leaves a displaced net open, or does not end with fewer
+   errors, is undone, and the next of up to 3 rounds displaces other nets. Every via and stub keeps the clearances,
+   the isolation distances and the rule areas; a round is kept only with fewer DRC errors and no more errors of any
    type other than unconnected.
 
 ## Roads first and the layout portfolio (both off by default)

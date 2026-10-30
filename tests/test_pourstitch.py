@@ -195,7 +195,7 @@ def test_displace_then_free_round_and_retry_other_nets(tmp_path, monkeypatch):
     monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
     calls = []
 
-    def plan(d, b, net, rip=False, avoid=()):
+    def plan(d, b, net, rip=False, avoid=(), max_rip=None):
         calls.append((rip, set(avoid)))
         vias = {v["tag"] for v in state["vias"]}
         out = {"tracks": [], "vias": [], "rip": [], "stats": {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0,
@@ -211,7 +211,7 @@ def test_displace_then_free_round_and_retry_other_nets(tmp_path, monkeypatch):
         return out
 
     monkeypatch.setattr(pourstitch, "plan", plan)
-    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a, **k: (t, v))
     state = {"vias": []}
 
     def check(tracks, vias):
@@ -233,14 +233,14 @@ def test_displace_never_kept_when_it_does_not_pay_off(tmp_path, monkeypatch):
     board.write_text("(kicad_pcb before)")
     monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
 
-    def plan(d, b, net, rip=False, avoid=()):
+    def plan(d, b, net, rip=False, avoid=(), max_rip=None):
         st = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 0}
         if rip and "A" not in avoid:
             return {"tracks": [], "vias": [{"net": "GND", "x": 2, "y": 2}], "rip": ["A"], "stats": st}
         return {"tracks": [], "vias": [], "rip": [], "stats": dict(st, left=1)}
 
     monkeypatch.setattr(pourstitch, "plan", plan)
-    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a, **k: (t, v))
 
     def check(tracks, vias):
         board.write_text("(kicad_pcb after)")
@@ -258,7 +258,7 @@ def test_displace_that_opens_the_displaced_net_is_rejected(tmp_path, monkeypatch
     board.write_text("(kicad_pcb)")
     monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
 
-    def plan(d, b, net, rip=False, avoid=()):
+    def plan(d, b, net, rip=False, avoid=(), max_rip=None):
         st = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 0}
         for n in ("A", "B"):
             if rip and n not in avoid:
@@ -266,7 +266,7 @@ def test_displace_that_opens_the_displaced_net_is_rejected(tmp_path, monkeypatch
         return {"tracks": [], "vias": [], "rip": [], "stats": dict(st, left=1)}
 
     monkeypatch.setattr(pourstitch, "plan", plan)
-    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a, **k: (t, v))
     sig = {"sev": "error", "type": "unconnected", "items": ["Track [A] on F.Cu", "Track [A] on F.Cu"], "at": []}
 
     def check(tracks, vias):
@@ -290,7 +290,7 @@ def _plane_case(tmp_path, monkeypatch, result_drc):
     tr = [{"net": "GND", "x1": 0, "y1": 0, "x2": 1, "y2": 0, "w": 0.25, "layer": "F.Cu"}]
     vi = [{"net": "GND", "x": 1, "y": 0}]
     monkeypatch.setattr(pourstitch, "planes", lambda d, libs, parts, b, nets, stop: (tr, vi))
-    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a: (t, v))
+    monkeypatch.setattr(repair, "reroute", lambda d, libs, parts, wd, t, v, nets, *a, **k: (t, v))
 
     def check(tracks, vias):
         return result_drc if vias else [_unc("GND")]
@@ -308,6 +308,64 @@ def test_plane_repair_that_leaves_a_ripped_net_open_is_rejected(tmp_path, monkey
     r = _plane_case(tmp_path, monkeypatch, [sig])
     assert r["vias"] == [] and r["drc"] == [_unc("GND")]
     assert any("plane repair rejected: moved or left open SIG" in x for x in r["log"])
+
+
+def test_plane_repair_that_opens_many_nets_is_rejected_without_a_reroute(tmp_path, monkeypatch):
+    """More nets left open than PLANE_REOPEN: no re-route of them (on pico_ice it cost a full route and was never
+    kept); the board stays as it was."""
+    from hwflow.layout.route import repair
+    opened = [{"sev": "error", "type": "unconnected", "items": [f"Pad 1 [S{i}] of U1", f"Pad 2 [S{i}] of U2"], "at": []}
+              for i in range(pourstitch.PLANE_REOPEN + 1)]
+    calls = []
+    monkeypatch.setattr(repair, "reroute", lambda *a, **k: calls.append(a) or (a[4], a[5]))
+    r = _plane_case(tmp_path, monkeypatch, opened)
+    assert not calls and r["vias"] == [] and r["drc"] == [_unc("GND")]
+    assert r["work"]["plane_repairs"] == 1 and r["work"]["reroutes"] == 0
+    assert any(f"left {pourstitch.PLANE_REOPEN + 1} nets open" in x for x in r["log"])
+
+
+def test_displacing_rounds_stop_on_the_rerouted_net_budget(tmp_path, monkeypatch):
+    """The displacing rounds stop on counts: each plan gets the nets left of REROUTE_NETS (max_rip), a re-route tries
+    REROUTE_ORDERS net orders, and no round starts once the budget is spent. The same input gives the same rounds."""
+    from hwflow.layout.route import repair
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)")
+    monkeypatch.setattr(repair, "zone_fill", lambda b: {("GND", "F.Cu"): []})
+    monkeypatch.setattr(pourstitch, "REROUTE_NETS", 5)
+    seen, seen_orders = [], []
+
+    def plan(d, b, net, rip=False, avoid=(), max_rip=None):
+        st = {"groups": 1, "pads": 0, "inside": 0, "in_pad": 0, "stub": 0, "rip": 0, "left": 0}
+        if not rip:
+            return {"tracks": [], "vias": [], "rip": [], "stats": dict(st, left=1)}
+        seen.append(max_rip)
+        free = sorted({"A", "B", "C", "D", "E", "F", "G"} - set(avoid))[:min(3, max_rip)]
+        return {"tracks": [], "vias": [{"net": "GND", "x": 1, "y": 1}] if free else [], "rip": free, "stats": st}
+
+    def reroute(d, libs, parts, wd, t, v, nets, *a, orders=None):
+        seen_orders.append(orders)
+        return t, v
+
+    monkeypatch.setattr(pourstitch, "plan", plan)
+    monkeypatch.setattr(repair, "reroute", reroute)
+
+    def check(tracks, vias):  # every displacement is no better: undone, the next round displaces other nets
+        return [_unc("GND")]
+
+    r = pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)
+    assert seen == [5, 2] and r["work"]["rerouted_nets"] == 5 and r["work"]["reroutes"] == 2
+    assert seen_orders == [pourstitch.REROUTE_ORDERS] * 2
+    assert any("displacing rounds stopped: 5 nets re-routed (budget 5)" in x for x in r["log"])
+    assert pourstitch.stitch(_D(), object(), {}, board, [], [], [_unc("GND")], check)["log"] == r["log"]
+
+
+def test_plan_displaces_no_net_past_max_rip(design, tmp_path):
+    board = tmp_path / "b.kicad_pcb"
+    _board(board, _ring(10, 10, 1.3), JOIN)
+    kicad.drc(board)
+    assert pourstitch.plan(design, board, "GND", rip=True, max_rip=1)["rip"] == ["SIG"]
+    p = pourstitch.plan(design, board, "GND", rip=True, max_rip=0)
+    assert not p["rip"] and not p["vias"] and p["stats"]["left"] == 1
 
 
 def test_pour_taps_give_each_pour_pad_a_stub_via_outside_modules(design, tmp_path, monkeypatch):
