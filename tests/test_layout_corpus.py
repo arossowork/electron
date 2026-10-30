@@ -157,7 +157,7 @@ def routed():
     timeout = float(os.environ.get("LAYOUT_CORPUS_TIMEOUT") or 5400)
     # each case routes in its own hwflow subprocess, so threads are enough
     with ThreadPoolExecutor(max_workers=jobs) as ex:
-        return dict(ex.map(lc._route_one, [(c, timeout) for c in CASES]))
+        return dict(ex.map(lc._route_one, [(c, timeout, None, False, {}) for c in CASES]))
 
 
 @pytest.mark.slow
