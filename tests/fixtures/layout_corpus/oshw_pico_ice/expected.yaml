@@ -136,51 +136,52 @@ fast:
 tiers:
   check: slow
   replace: none
-measured: '2026-10-27'
+measured: '2026-10-30'
 route:
   ok: false
-  unrouted: 45
+  unrouted: 42
   open_nets:
-  - +1.2V_CORE
-  - ADC3
+  - +1V1
+  - +3V3
   - GND
-  - ICE_10_PB
-  - ICE_18
-  - ICE_20_G3
-  - ICE_25
-  - ICE_26
+  - ICE_11
+  - ICE_27
   - ICE_3
-  - ICE_32
+  - ICE_31
+  - ICE_35_G0
   - ICE_4
-  - ICE_46
-  - ICE_6
+  - ICE_44_G6
+  - ICE_DONE
+  - ICE_FLASH_IO3
+  - ICE_SCK
   - ICE_SI
-  - ICE_SO
-  - LED_G
-  - PICO_PMOD_B4
-  - QSPI_SD2
-  - SRAM_SS
-  - XIN
-  drc_errors: 102
+  - LED_B
+  - LED_R
+  - Net-_D1-K
+  - PICO_PMOD_B1
+  - PICO_PMOD_B2
+  - PWR_EN
+  - RESET
+  - USB_P
+  drc_errors: 98
   drc_types:
     courtyards_overlap: 55
     npth_inside_courtyard: 1
-    clearance: 1
   placement_violations: 54
   isolation: []
-  router: '25 unrouted, krt 1 completed pass(es); retried in another net order (0.1524 mm: default order 35 unrouted, --ordering
-    inside_out 37 unrouted, --mps-reverse-rounds 25 unrouted, --direction backward 32 unrouted; 0.1524 mm: neck-down to 0.15
-    mm: +1.2V_CORE, ADC3, ICE_10_PB, ICE_18, ICE_20_G3, ICE_25, I'
-  vias: 188
-  track_mm: 2121.6
+  router: '23 unrouted, krt 1 completed pass(es); retried in another net order (0.1524 mm: default order 36 unrouted, --ordering
+    inside_out 30 unrouted, --mps-reverse-rounds 44 unrouted, --direction backward 41 unrouted; 0.1524 mm: neck-down to 0.15
+    mm: +1V1 0.0 of 26.8 mm narrow, longest neck 0.0 mm, +3V3 3.9'
+  vias: 187
+  track_mm: 2103.5
   route_groups: []
-  seconds: 2119.4
-  cpu_s: 2273.1
+  seconds: 2606.6
+  cpu_s: 2836.8
   timing:
-    drc_s: 12.3
+    drc_s: 17.8
     place_s: 0.3
-    predict_s: 1.5
+    predict_s: 2.0
     repair_s: 0.0
-    route_s: 1942.7
-    stitch_s: 128.5
+    route_s: 2161.6
+    stitch_s: 399.0
   firstpass: null
