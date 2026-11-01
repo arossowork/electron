@@ -964,6 +964,16 @@ def _seed_run(d2, parts, W, H, weights, iters, seed, start) -> tuple:
     pl = placer.Placer(d2, parts, W, H, seed=seed, weights=weights)
     cost = pl.run(iters)
     v = pl.violations()
+    if getattr(pl, "bud", None) and any(x.startswith("budget ") for x in v):
+        # copper_len legs, as the layout flow seeds them (asicflow): the small end next to its anchor pad, then legalize
+        before, vb = pl._state(), v
+        pl.budget_seed()
+        pl.legalize()
+        v = pl.violations()
+        if len(v) >= len(vb):
+            pl._restore(before)
+            v = vb
+        cost = pl.cost()
     if _region_viol(v):  # a big part stuck across its region edge: search it away
         before, vb = pl._state(), v
         cost = _settle(pl, v)

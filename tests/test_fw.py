@@ -157,6 +157,16 @@ def test_rp2040_family_table():
     assert g == 26 and fam["adc"][g] == "ADC_CH0" and not re.search(fam["gpio_from_pin_name"], "QSPI_SS")
 
 
+def test_nrf91_family_table():
+    """nRF9151/nRF9160 symbols name GPIOs P0.<n>; AIN0-7 sit on P0.13-P0.20; dedicated modem pins are not GPIOs."""
+    assert fw.detect_family({"value": "nRF9151", "mpn": "nRF9151-LACA-R7"}) == "nrf91"
+    assert fw.detect_family({"value": "nRF9160-SICA"}) == "nrf91"
+    fam = fw.FAMILIES["nrf91"]
+    g = int(re.search(fam["gpio_from_pin_name"], "P0.13").group(1))
+    assert g == 13 and fam["adc"][g] == "AIN0" and fam["adc"][20] == "AIN7" and 21 not in fam["adc"]
+    assert not re.search(fam["gpio_from_pin_name"], "SIM_IO") and not re.search(fam["gpio_from_pin_name"], "ANT")
+
+
 def test_scaffold_never_overwrites(tmp_path):
     d = tiny(tmp_path)
     fw_dir = d.dir / "fw"

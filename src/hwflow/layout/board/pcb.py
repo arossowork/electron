@@ -205,6 +205,23 @@ def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
     return out
 
 
+def region_keepout_zones(design: Design) -> list:
+    """Rule areas of the floorplan regions with `copper_keepout` (core.floorplan.copper_keepouts), as KiCad zones:
+    the routers and the pour fill keep the forbidden copper out of them."""
+    from ...core import floorplan
+    out = []
+    for k in floorplan.copper_keepouts(design):
+        for g in getattr(k["poly"], "geoms", [k["poly"]]):
+            rules = [[n, "not_allowed" if n in k["forbids"] else "allowed"]
+                     for n in ("tracks", "vias", "pads", "copperpour", "footprints")]
+            out.append(["zone", ["net", 0], ["net_name", Q("")], ["layers"] + [Q(L) for L in k["layers"]], ["uuid", uid()],
+                        ["name", Q(f"region {k['name']} copper keepout")], ["hatch", "edge", 0.5],
+                        ["connect_pads", ["clearance", 0]], ["min_thickness", 0.25], ["filled_areas_thickness", "no"],
+                        ["keepout"] + rules, ["fill", ["thermal_gap", 0.5], ["thermal_bridge_width", 0.5]],
+                        ["polygon", ["pts"] + [["xy", round(x, 4), round(y, 4)] for x, y in list(g.exterior.coords)[:-1]]]])
+    return out
+
+
 def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | None = None,
                 vias: list | None = None, island_removal: int = 0) -> list:
     b = design.board
@@ -239,6 +256,7 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
         from ...core import blocks
         tracks, vias = blocks.merge(design, parts, tracks, vias, pair_clearance(design))
         tree += blocks.keepout_zones(design, parts)
+    tree += region_keepout_zones(design)
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
                      ["width", t["w"]], ["layer", Q(t["layer"])], ["net", netidx[t["net"]]], ["uuid", uid()]])

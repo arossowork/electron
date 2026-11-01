@@ -483,3 +483,29 @@ def test_quick_placement_seeds_in_worker_processes_give_the_serial_result(tmp_pa
     monkeypatch.setenv("HWFLOW_FLOORPLAN_SERIAL", "1")
     ser = floorplan.check(d, Libs(design=d), iters=300, seeds=2)["placement"]
     assert par["positions"] == ser["positions"] and par["seed"] == ser["seed"] and par["cost"] == ser["cost"]
+
+
+def test_copper_keepout_regions_become_rule_areas(tmp_path):
+    """A region with copper_keepout is written as a KiCad keep-out zone with its layers and forbids; bad keys are
+    floorplan errors."""
+    from types import SimpleNamespace
+    from hwflow.core import floorplan as cfp
+    from hwflow.layout.board import pcb
+    raw = {"floorplan": {"regions": [
+        {"name": "ant", "kind": "antenna", "rect": [50, 0, 60, 30], "copper_keepout": {"forbids": ["vias", "copperpour"]}},
+        {"name": "inner", "rect": [50, 0, 60, 30], "copper_keepout": {"layers": ["In1.Cu", "B.Cu"], "forbids": ["tracks"]}},
+        {"name": "plain", "rect": [0, 0, 5, 5]}]}}
+    d = SimpleNamespace(raw=raw, board={"layers": 4})
+    ko = cfp.copper_keepouts(d)
+    assert [k["name"] for k in ko] == ["ant", "inner"]
+    assert ko[0]["layers"] == ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] and ko[1]["forbids"] == ["tracks"]
+    zones = pcb.region_keepout_zones(d)
+    assert len(zones) == 2
+    rules = dict((r[0], r[1]) for r in next(x for x in zones[0] if isinstance(x, list) and x[0] == "keepout")[1:])
+    assert rules == {"tracks": "allowed", "vias": "not_allowed", "pads": "allowed", "copperpour": "not_allowed",
+                     "footprints": "allowed"}
+    errs = []
+    cfp.copper_keepouts(SimpleNamespace(raw={"floorplan": {"regions": [
+        {"name": "x", "rect": [0, 0, 1, 1], "copper_keepout": {"layers": ["In1.Cu"], "forbids": ["pads"]}}]}},
+        board={"layers": 2}), errs)
+    assert any("not copper layers" in e for e in errs) and any("forbids" in e for e in errs)

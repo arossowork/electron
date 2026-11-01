@@ -51,6 +51,15 @@ FAMILIES = {
         "source": "RP2040 datasheet: ADC inputs on GPIO26-29 (ADC0-3), DORMANT wake on any GPIO edge or level, "
                   "no GPIO strapping pins (boot select is QSPI_SS)",
     },
+    "nrf91": {
+        "match": r"nRF91[56]\d",
+        "gpio_from_pin_name": r"^P0\.(\d+)",
+        "adc": {13 + i: f"AIN{i}" for i in range(8)},
+        "deep_sleep_wake": list(range(32)),
+        "strapping": {},
+        "source": "nRF9160/nRF9151 product specification: SAADC AIN0-7 on P0.13-P0.20, System OFF wake on any "
+                  "GPIO via the DETECT signal (PIN_CNF.SENSE), no GPIO strapping pins (boot via SWD/nRESET)",
+    },
 }
 
 SYSTEM_EVENTS = {"INIT", "TIMER"}      # fwk built-ins, never in the contract's event list

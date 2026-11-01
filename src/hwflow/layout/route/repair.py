@@ -190,6 +190,9 @@ def _obstacles(d, board: Path, net: str):
         same = v["net"] == net
         cl = max(classes.get(v["net"], {}).get("clearance", b["clearance_mm"]), b["clearance_mm"])
         geo.append(Point(v["x"], v["y"]).buffer(2 * r + 0.1 if same else 2 * r + cl + 0.05))
+    from ..board import keepout  # rule areas that forbid vias (antenna clearances, region copper_keepout)
+    tree = sexpr.loads(Path(board).read_text())
+    geo += [a["poly"].buffer(r + 0.05) for a in keepout.rule_areas(tree, ("vias",)) if "vias" in a["forbids"]]
     return unary_union(geo) if geo else Polygon()
 
 

@@ -39,8 +39,20 @@ COURTYARD_MODULE_MM2 = 25.0  # a surface-mount footprint this large is a module:
 
 
 def on(design) -> bool:
+    """Taps run with HWFLOW_POUR_TAPS (every pour pad) or with `board.pour_taps` (the pads of the parts it lists)."""
     from ...core.settings import get_settings
-    return bool(get_settings().layout.pour_taps and design.board.get("gnd_pour"))
+    return bool((get_settings().layout.pour_taps or design.board.get("pour_taps")) and design.board.get("gnd_pour"))
+
+
+def _tapped_parts(design):
+    """`board.pour_taps`: refs or globs whose pour pads get a tap (None: every part). On a dense board a via at every
+    pour pad takes the room the signal nets need; the list keeps the taps to the pads that need a short ground
+    (RF shunts, filters, decoupling)."""
+    sel = design.board.get("pour_taps")
+    if not sel or sel is True:
+        return None
+    import fnmatch
+    return lambda ref: any(fnmatch.fnmatchcase(ref, g) for g in sel)
 
 
 def _box(p, grow=0.0):
@@ -90,6 +102,7 @@ def plan(design, libs, parts, board: Path) -> dict:
     thermal = {(ref, str((design.components[ref].get("thermal_vias") or {}).get("pad", "")))
                for ref in design.components if design.components[ref].get("thermal_vias")}
     classes = pcb.net_classes(design)
+    only = _tapped_parts(design)
     for net in sorted(design.ground_nets()):
         pads = [(ref, p) for ref, fp in sorted(rb["footprints"].items()) for p in fp["pads"] if p["net"] == net]
         if not pads:
@@ -119,7 +132,7 @@ def plan(design, libs, parts, board: Path) -> dict:
         todo = []
         for ref, p in pads:
             ls = routing.pad_layers(p["layers"], copper)
-            if p["kind"] != "smd" or len(ls) != 1 or (ref, p["number"]) in thermal:
+            if p["kind"] != "smd" or len(ls) != 1 or (ref, p["number"]) in thermal or (only is not None and not only(ref)):
                 continue
             todo.append((ref, p, ls[0]))
         # outer pads of a footprint first: the inner ones (a module's ground grid) link to them

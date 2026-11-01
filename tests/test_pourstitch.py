@@ -421,3 +421,15 @@ def test_space_keeps_the_clearance_to_the_real_pad_copper(tmp_path):
     turned = space({"x": 10.0, "y": 10.0, "w": 4.0, "h": 0.5, "shape": "rect", "angle": 45.0})
     tip = 2.0 / math.sqrt(2)  # the pad's end, up and to the right on screen (KiCad turns counter-clockwise, y down)
     assert turned.via(Point(10 + tip + 0.3, 10 - tip - 0.3), None) is None
+
+
+def test_pour_taps_listed_parts_only(design, tmp_path):
+    """`board.pour_taps: [refs]` turns the taps on without HWFLOW_POUR_TAPS and taps only the listed parts' pads."""
+    from hwflow.layout.route import taps
+    board = tmp_path / "b.kicad_pcb"
+    _board(board, [], [])
+    design.raw["board"]["pour_taps"] = ["TP2"]
+    assert taps.on(design)
+    p = taps.plan(design, None, {}, board)
+    assert p["stats"]["pads"] == 1 and p["stats"]["stub"] == 1
+    assert all(math.hypot(v["x"] - 16, v["y"] - 4) < 3.5 for v in p["vias"])  # TP2's via, none for TP1
