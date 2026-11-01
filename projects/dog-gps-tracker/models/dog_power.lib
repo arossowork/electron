@@ -1,0 +1,35 @@
+* dog-gps-tracker power models (fit to datasheets; see notes/circuit.md)
+*
+* TPS612994 averaged boost with average input-current limit (TI SLVSGS9G):
+*  ILIM 80/100/120 mA (EC table), start-up: Vout < 0.5 V input limit 20 mA, 0.5-1.8 V ~80 mA (7.3.7),
+*  Iq 0.3 uA max into VOUT, falling UVLO 0.5 V, efficiency EFF (0.85 assumed at 100 mA).
+*  Averaged: no switching ripple. Ports in symbol order: A1 VIN, B1 SW, C1 EN, C2 VSEL, B2 VOUT, A2 GND.
+*  The input current is drawn at SW (the inductor sits between VIN and SW on the board).
+.global ilim_ctl esr_ctl
+* ilim_ctl: testbench node, volts = input limit in A (corners 0.08 / 0.12); esr_ctl: volts = ESR multiplier of the supercap
+.subckt TPS612994_FIT vin sw en vsel vout gnd params: VSET=4.0 ILIM=0.1 EFF=0.85 IQ=0.3u BAND=0.02
+Riq vout gnd {VSET/IQ}
+Rvin vin gnd 1g
+Ren en gnd 1g
+Rvsel vsel gnd 1g
+Blim lim gnd V = (0.02 + 0.06*0.5*(1+tanh((v(vout,gnd)-0.5)/0.05)) + (v(ilim_ctl)-0.08)*0.5*(1+tanh((v(vout,gnd)-1.8)/0.05))) * 0.5*(1+tanh((v(en,gnd)-0.4)/0.05)) * 0.5*(1+tanh((v(sw,gnd)-0.55)/0.02))
+Bdem d0 gnd V = v(lim,gnd) * 0.5*(1+tanh(({VSET} - {BAND} - v(vout,gnd))/{BAND}))
+Rd d0 d 1k
+Cd d gnd 10n
+Bin sw gnd I = v(d,gnd)
+Bout gnd vout I = v(d,gnd) * {EFF} * max(v(sw,gnd),0) / max(v(vout,gnd), {EFF}*max(v(sw,gnd),0.01))
+.ends TPS612994_FIT
+
+* CAP-XX GZ215F dual-cell supercapacitor (datasheet rev 4.5 Table 2): per module C 72/90/108 mF, ESR 110/132 mOhm
+* DC at 23 C, x1.7 at -20 C (Fig 7 interpolated), leakage 2 uA max at 2.3 V/cell.
+* Ports in symbol order: 1 (-), 2 (+), 3 BAL. Each cell is 2*C; the module ESR is split over the two cells.
+* ESR = ESR23 * v(esr_ctl) (testbench node, 1 = 23 C, 1.7 = -20 C).
+.subckt GZ215F_FIT neg pos bal params: C=72m ESR23=0.132 RLEAK=2.3meg V0=0
+* V0: initial module voltage for transients with uic (testbench)
+Bh pos nh I = v(pos,nh)/({ESR23/2}*max(v(esr_ctl),0.1))
+C1 nh bal {2*C} ic={V0/2}
+Rl1 nh bal {RLEAK/2}
+Bl bal nl I = v(bal,nl)/({ESR23/2}*max(v(esr_ctl),0.1))
+C2 nl neg {2*C} ic={V0/2}
+Rl2 nl neg {RLEAK/2}
+.ends GZ215F_FIT

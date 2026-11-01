@@ -1,0 +1,12 @@
+# Firmware progress (stage 9, follow-up pass)
+- Contract: 23 events, 8 modules (new: fota), 33 firmware params in interface.yaml. `hwflow fw` 0 errors, 1 warning (FOTA_STATE has no consumer: it is a log/diagnostic event).
+- Tests: `make -C projects/dog-gps-tracker/fw test` 178 checks (was 121), 0 failed. New: test_buzzer_plan, test_epo, test_lowbatt, test_brownout, test_fota.
+- 1 sleep_floor_ua_max 10 -> 22 (PWR-5, notes/sleep-floor-reallocation.md). Test line 11.2 uA <= 22.
+- 2 C15 resolved: TPL5010 SNAS651A 8.3 and Eq. 1/3: R7 22 k = 59.8 s, reset up to 2 x 63.6 = 127.2 s -> buzzer_hw_cap_s 128; 10 s stays a firmware rule: one finite PWM sequence (REFRESH 99 x LOOP 400, LOOPSDONE->STOP), `buz_pwm_plan`, board_hal.h, port stub.
+- 3 C14 resolved: Quectel AGNSS AN V1.1: 3-day EPO file 27648 B, refresh 12 h before expiry (assist_period_h 60); lost session start downloads when the file does not cover 2 h (0.59 C vs 120 x 0.32 C saved). Session 51.1 C with download, 90.6 C without; worst month poll 222.0 uA (313.4 without), eDRX 169.8 uA, <= 268.
+- 4 C13 resolved (request-aborts-download tests exist for assistance and FOTA); RRC set-up = bring-up 29.
+- 5 Low battery: low_batt_idle_mv 2600 + 3 sags at T >= 0 C (lead default, C16, awaiting PM). Implemented in power/ui/fota with tests.
+- 6 FOTA: fota_image_kb 300, fota_slot_kb 440 (MCUboot 48 + 2 x 440 + 80 + 16 = 1024 kB), module `fota` (chunk 16 kB, resume, yield to request/assist/lost, battery + supercap gate per chunk, confirm/revert), 1 update/yr = 0.054 uA (lead default, C4).
+- 7 Brown-out count in retained RAM (board_brownout_load/save); tests show 60/120/240 s backoff over resets; bring-up 28 verifies retention on the nRF9151.
+- Open: Quectel EPO server credentials; Li-FeS2/alkaline discharge curves for C16; nRF9151 PWM field widths and RAM retention not read from Nordic PS (docs blocked): bring-up 24, 28, 32; PM confirmation of 14 days and 1 FOTA/yr; modem delta size; server protocol; wake CPU cost.
+- Bring-up items 28-33 added to partition.md (items 3 and 23 updated).

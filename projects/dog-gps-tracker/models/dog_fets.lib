@@ -1,0 +1,7 @@
+* dog-gps-tracker MOSFET fits (level 1, threshold at the datasheet worst-case |VGS(th)| max)
+* SI2301CDS (Vishay 66709 as summarised in notes/parts-power.md G4): VGS(th) -0.4..-1.0 V, rDS(on) 0.19 ohm max at -1.8 V
+.model SI2301CDS_FIT PMOS(LEVEL=1 VTO=-1.0 KP=8 LAMBDA=0.01 RD=0.02 RS=0.02 CGSO=1e-9 CGDO=1e-10)
+* CJ2305 (JSCJ, block pfet_vbat_divider): VGS(th) up to -0.9 V (notes/parts-power.md), rDS(on) ~0.1 ohm class at -2.5 V
+.model CJ2305_FIT PMOS(LEVEL=1 VTO=-0.9 KP=8 LAMBDA=0.01 RD=0.02 RS=0.02 CGSO=1e-9 CGDO=1e-10)
+* BSS138LT1G (onsemi BSS138 datasheet): VGS(th) 0.8/1.3/1.5 V, at the 1.5 V max
+.model BSS138_FIT NMOS(LEVEL=1 VTO=1.5 KP=0.5 LAMBDA=0.01 RD=0.5 RS=0.5 CGSO=5e-11 CGDO=1e-11)

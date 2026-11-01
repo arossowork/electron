@@ -1,0 +1,195 @@
+product: "Dog-collar GPS tracker: LTE-M/NB-IoT, position on owner request, replaceable 2x AA Li-FeS2 cells, IP67, up to 60 g"
+optimize_for:   # lead default weights (not asked of the PM)
+  - {criterion: battery_life, weight: 3}
+  - {criterion: weight_size, weight: 2}
+  - {criterion: request_latency, weight: 2}
+  - {criterion: cost, weight: 1}
+requirements:
+  # ---- power ----
+  - id: PWR-1
+    priority: must
+    text: "Runs from 2x AA Li-FeS2 primary cells in series (3000 mAh, 3.0 V nominal), user-replaceable"
+    acceptance: "input range 1.8 V (2x Li-FeS2 under 0.75 A pulse at -20 C) to 3.6 V (fresh open circuit); all rails in regulation over that range in transient simulation"
+    verification: simulation
+    evidence: {status: not_checked}
+    source: "PM round 1, q3; PM round 2, q2"
+  - id: PWR-2
+    priority: must
+    text: "Battery life of 2 months or more in the reference use profile (eDRX 81.92 s or 60-min poll fallback, 2 position requests/day, one 2 h lost-mode session/month at 1 fix/min, -20..+50 C)"
+    acceptance: "average battery current <= 1.63 mA (2350 mAh usable / 1440 h) in both the eDRX and the poll-fallback modes, energy budget in conflicts.md C1"
+    verification: analysis
+    evidence: {auto: [fw_test]}
+    source: "PM round 1, brief (a couple of months acceptable); PM round 2, q1-q3"
+  - id: PWR-3
+    priority: should
+    text: "Battery life of 1 year in the reference use profile"
+    acceptance: "average battery current <= 0.268 mA (2350 mAh usable / 8760 h) in eDRX mode, energy budget in conflicts.md C1"
+    verification: analysis
+    evidence: {auto: [fw_test]}
+    source: "PM round 1, brief (ideally 1 year)"
+  - id: PWR-4
+    priority: must
+    text: "Survives the modem TX peak at cold battery without brown-out"
+    acceptance: "modem supply >= modem datasheet minimum during a 0.5 A (modem side), 2 ms LTE TX burst with battery source resistance 1.5 ohm (2x Li-FeS2 at -20 C, PM round 2 q2), transient simulation"
+    verification: simulation
+    evidence: {status: not_checked}
+    source: "lead default"
+  - id: PWR-5
+    priority: must
+    text: "Sleep floor (modem in PSM/eDRX sleep, MCU in sleep, regulators on)"
+    acceptance: "board sleep current <= 22 uA at 3.0 V battery and 50 C, sum of datasheet quiescent currents (max supercap leakage)"
+    verification: datasheet
+    evidence: {auto: [fw_test]}
+    source: "derived limit (from PWR-3), re-allocated in notes/sleep-floor-reallocation.md"
+  - id: PWR-7
+    priority: must
+    text: "Works on 2x alkaline AA fitted by the user, across ENV-1, without brown-out reset during TX"
+    acceptance: "modem supply >= 3.2 V (nRF9151 practical floor) and no supervisor reset during a 0.5 A (modem side), 100 ms LTE TX burst with source 2.8 V / 4.0 ohm (2x alkaline AA at -20 C, E91 250 mA curve), transient simulation"
+    verification: simulation
+    evidence: {status: not_checked}
+    source: "PM round 3, q5"
+    note: "source resistance from the Energizer E91 datasheet (notes/datasheets/e91.md); 100 ms burst lead default (LTE-M CE repetitions)"
+  - id: PWR-6
+    priority: should
+    text: "Reports battery level to the owner"
+    acceptance: "battery voltage measured under load with error <= 50 mV, analysis of divider and ADC datasheet"
+    verification: analysis
+    evidence: {auto: [sim, fw_test]}
+    source: "lead default"
+  # ---- interfaces ----
+  - id: IF-1
+    priority: must
+    text: "LTE-M with NB-IoT fallback cellular link, supports PSM and eDRX, IoT SIM (nano-SIM or MFF2 eSIM)"
+    acceptance: "module datasheet lists Cat-M1 and Cat-NB1/NB2, PSM, eDRX, and bands B3, B8, B20 (EU) at least"
+    verification: datasheet
+    evidence: {status: pass, artifact: notes/evidence/IF-1.md, design_hash: d65ee58c56f9ca6f}
+    source: "PM round 1, q1"
+  - id: IF-2
+    priority: must
+    text: "Answers a position request in about 2 min: eDRX 81.92 s; when the network refuses eDRX, falls back to polling the server every 60 min"
+    acceptance: "eDRX cycle 81.92 s + paging window 2.56 s + A-GNSS fix 30 s + upload 10 s = 124.5 s <= 125 s in the latency analysis; firmware requests eDRX 81.92 s and switches to a 60-min poll when the network grants no eDRX (fw host test)"
+    verification: analysis
+    evidence: {auto: [fw_test]}
+    source: "PM round 1, q2; PM round 2, q1; PM round 3, q3"
+  - id: IF-3
+    priority: must
+    text: "GNSS (GPS + Galileo at least) with A-GNSS support"
+    acceptance: "receiver datasheet: GPS L1 + Galileo E1, A-GNSS, TTFF with assistance <= 30 s"
+    verification: datasheet
+    evidence: {status: pass, artifact: notes/evidence/IF-3.md, design_hash: d65ee58c56f9ca6f}
+    source: "PM round 1, q2 (position)"
+  - id: IF-4
+    priority: should
+    text: "Position accuracy for finding the dog"
+    acceptance: "horizontal CEP50 <= 5 m open sky (receiver datasheet)"
+    verification: datasheet
+    evidence: {status: pass, artifact: notes/evidence/IF-4.md, design_hash: d65ee58c56f9ca6f}
+    source: "lead default"
+  - id: IF-5
+    priority: must
+    text: "Antennas fit the enclosure: LTE antenna with ground plane, GNSS antenna facing up when worn"
+    acceptance: "layout keep-outs under both antennas copper-free per antenna datasheet; LTE ground plane length >= antenna datasheet minimum"
+    verification: layout
+    evidence: {status: not_checked}
+    source: "lead default"
+  - id: IF-6
+    priority: must
+    text: "One status LED and one button (wake/pairing, show status)"
+    acceptance: "LED + button in netlist; LED average contribution <= 2 uA in the energy analysis"
+    verification: analysis
+    evidence: {auto: [fw_test]}
+    source: "PM round 2, q4"
+  - id: IF-7
+    priority: must
+    text: "Remote-triggered find-the-dog buzzer"
+    acceptance: "buzzer typical >= 80 dB at 10 cm through the housing membrane, two GPIOs in antiphase, measured on the first prototype; average contribution <= 2 uA in the energy analysis"
+    verification: test
+    evidence: {auto: [fw_test]}
+    source: "PM round 2, q4; typical + prototype test: PM round 6, q2"
+  - id: IF-8
+    priority: must
+    text: "Debug and firmware-update access (SWD + UART) without breaking the seal; firmware update over the air"
+    acceptance: "SWD and UART on test pads reachable in the battery compartment; FOTA supported by the module (datasheet)"
+    verification: inspection
+    evidence: {status: pass, artifact: notes/evidence/IF-8.md, design_hash: d65ee58c56f9ca6f}
+    source: "lead default"
+  - id: IF-9
+    priority: could
+    text: "Accelerometer for motion-gated tracking and activity"
+    acceptance: "accelerometer with wake-on-motion, Iq <= 2 uA (datasheet)"
+    verification: datasheet
+    evidence: {auto: [fw_test]}
+    source: "lead default"
+  # ---- environment ----
+  - id: ENV-1
+    priority: must
+    text: "Operates outdoors -20 to +50 C"
+    acceptance: "all parts rated -20..+50 C or wider (datasheet); battery derating at -20 C in the energy analysis"
+    verification: datasheet
+    evidence: {status: pass, artifact: notes/evidence/ENV-1.md, design_hash: d65ee58c56f9ca6f}
+    source: "lead default"
+  - id: ENV-2
+    priority: must
+    text: "Water and mud proof (dog swims)"
+    acceptance: "enclosure IP67 (1 m, 30 min); battery door with gasket; no exposed connector; buzzer port sealed by a membrane"
+    verification: inspection
+    evidence: {status: not_checked}
+    source: "PM round 2, q4"
+  - id: ENV-3
+    priority: must
+    text: "ESD on exposed parts (button, battery contacts)"
+    acceptance: "IEC 61000-4-2 +-8 kV contact; TVS rated >= that on button and battery lines (datasheet)"
+    verification: datasheet
+    evidence: {status: pass, artifact: notes/evidence/ENV-3.md, design_hash: d65ee58c56f9ca6f}
+    source: "lead default"
+  - id: ENV-4
+    priority: should
+    text: "Survives shocks and chewing-level knocks"
+    acceptance: "no part heavier than 5 g without mechanical retention (inspection); battery held by sprung contacts"
+    verification: inspection
+    evidence: {status: pass, artifact: notes/evidence/ENV-4.md, design_hash: d65ee58c56f9ca6f}
+    source: "lead default"
+  # ---- mechanical ----
+  - id: MECH-1
+    priority: must
+    text: "Device mass with cells 65 g or less"
+    acceptance: "sum of BOM masses + enclosure estimate <= 65 g (2x AA Li-FeS2 = 29 g, buzzer about 2 g)"
+    verification: analysis
+    evidence: {status: pass, artifact: notes/evidence/MECH-1.md, design_hash: d65ee58c56f9ca6f}
+    source: "PM round 1, q4; PM round 3, q2"
+  - id: MECH-2
+    priority: must
+    text: "Board fits a collar housing (75 x 35 mm board, 4 mm keep-in from the wall, battery beside the board)"
+    acceptance: "board outline <= 75 x 35 mm; all parts >= 1 mm from the edge (layout check)"
+    verification: layout
+    evidence: {status: not_checked}
+    source: "lead default; 75 x 35 mm: PM round 8, q1"
+  - id: MECH-3
+    priority: should
+    text: "Parts on the front face, reflow only, except the hold-up supercap on the back face; antennas and battery contacts may be hand-soldered"
+    acceptance: "all SMD parts on top layer except the supercap (layout check)"
+    verification: layout
+    evidence: {status: not_checked}
+    source: "lead default; supercap on back face: PM round 5, q1"
+  # ---- cost, volume, certification ----
+  - id: COST-1
+    priority: should
+    text: "BOM cost at 1000 units 55 USD or less (excluding enclosure, cells and SIM)"
+    acceptance: "hwflow cost <= 55 USD at qty 1000"
+    verification: analysis
+    evidence: {status: pass, artifact: notes/evidence/COST-1.md, design_hash: d65ee58c56f9ca6f}
+    source: "PM round 2, q4; PM round 4, q1; PM round 7, q1"
+  - id: CERT-1
+    priority: could
+    text: "CE / RED compliant for the EU (deferred: prototypes only in this phase, no RED test round); uses a certified cellular SiP and its reference RF design so a later RED round is not blocked"
+    acceptance: "module datasheet lists CE/RED, GCF and the target operator approvals; antenna per the module's reference design"
+    verification: datasheet
+    evidence: {status: not_checked}
+    source: "lead default; deferred to could: PM round 6, q3"
+  - id: CERT-2
+    priority: should
+    text: "Cells removable by the user without tools (Battery Regulation EU 2023/1542)"
+    acceptance: "battery door opens without tools (drawing inspection)"
+    verification: inspection
+    evidence: {status: not_checked}
+    source: "PM round 1, q3 (replaceable)"

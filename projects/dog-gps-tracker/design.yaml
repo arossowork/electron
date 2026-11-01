@@ -1,0 +1,1079 @@
+project: dog_gps_tracker
+revision: A
+description: "Dog-collar GPS tracker: nRF9151 SiP (LTE-M/NB-IoT + app MCU), LC76G GNSS (GPS+Galileo), 2x AA Li-FeS2 via boost"
+board:
+  pour_taps: [L2, L3, L4, L5, C17, C18, C19, C20, C21, C15, FL1, U8, C24, C25, C26, AE1, AE2]   # sign-off review: a GND via at each RF shunt and the GNSS chain (taps on every pad choked the routing round U1)
+  width_mm: 75          # MECH-2: 75 x 35 (PM round 8, q1; was 70, layout density)
+  height_mm: 35
+  layers: 4             # nRF9151 LGA escape + 50 ohm CPWG on L1 over solid GND L2 (Nordic reference is 4-layer); architecture.md
+  thickness_mm: 0.8     # MECH-1 (65 g, PM round 3 q2): 0.8 mm FR-4 = 3.6 g (1.0 mm 4.5 g); mass budget architecture.md 10
+  margin_mm: 1.0        # MECH-2: parts >= 1 mm from the edge
+  clearance_mm: 0.127   # JLCPCB 4-layer standard capability 0.09 mm trace/space; 0.127 (5 mil) clears the TPS612994 WCSP 0.4 mm and LIS2DW12 0.5 mm pad gaps (0.17 / 0.15 mm), stage 7 lead
+  track_mm: 0.15        # 6 mil signal tracks for the nRF9151 LGA 0.5 mm escape
+  via_drill_mm: 0.3     # JLCPCB standard via without the small-hole surcharge
+  via_dia_mm: 0.5
+  ref_plane_h_mm: 0.1   # JLCPCB 0.8 mm 4-layer stack JLC04081H-3313: L1-L2 prepreg 3313 0.1 mm, core 0.45 mm (JLCPCB impedance stack-up page); 50 ohm microstrip L1 over L2 GND, er 4.1, 35 um: w ~0.18 mm (Hammerstad)
+# budgets: written in architecture.md (Layout budgets); stage 2 has no component pads, hwflow check rejects paths on item names. Stage 4 adds them with real refs.
+floorplan:
+  construction: double      # MECH-3: SMD parts on the front; back face: test pads, battery wire pads, 2 hand-soldered supercaps (PM round 5 q1, round 7 q1)
+  fill_max: 0.85
+  wall_mm: {left: 4, right: 4, top: 4, bottom: 4}   # MECH-2: 4 mm keep-in from the housing wall
+  depth:
+    limit_mm: 27   # lead estimate, no requirement number (device thickness is a PM item)
+    extra:
+      - {name: "battery compartment below the board: ceiling 1.0 + gap 0.5 + 2x AA dia 14.5 + door 1.5", mm: 17.5, source: "AA IEC LR6/FR6 dia 14.5 mm; lead housing estimate"}
+      - {name: "front housing wall 1.5 + air 0.5", mm: 2.0, source: "lead housing estimate (IP67 PC shell)"}
+  regions:
+    - {name: lte_clearance, kind: antenna, rect: [60.5, 0, 75, 35], side: both, items: [lte_ant], copper_keepout: {forbids: [vias, copperpour]},
+       source: "Ignion AN NN02-220 clearance/GND length: clearance 14.5 mm deep (NN02-220 courtyard 13.3 mm + 1 mm edge margin), copper-free on all layers; GND length left 55.5 mm (avg LFR efficiency ~19 % at 60 mm)"}
+    - {name: accel_zone, kind: other, rect: [8, 26.5, 20, 34], side: front, items: [U9, C29, C30, R18, R19],
+       source: "LIS2DW12 cluster away from the dense U1 top-left escape (stage 7: its GND pads were left on F.Cu pour islands); I2C/INT length is not critical (lead)"}
+    - {name: gnd_plane_in1, rect: [0, 0, 75, 35], copper_keepout: {layers: [In1.Cu], forbids: [tracks]},
+       source: "In1.Cu is the solid GND reference of the 50 ohm L1 microstrip (board.ref_plane_h_mm 0.1, JLC04081H-3313) and of the nRF9151/LC76G RF grounds; stage 7: signal tracks on In1 split the GND pour into islands (lead)"}
+    - {name: c4_pad0_novia, circle: [35.55, 4.25, 2.10], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: 0.85 mm here, the fixed GND via of the boost block at (36.1, 6.55)"}
+    - {name: c4_pad1_novia, circle: [50.55, 4.25, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C4 pad"}
+    - {name: c4_pad2_novia, circle: [35.55, 22.25, 1.85], copper_keepout: {forbids: [vias]},
+       note: "sign-off: 0.6 mm here (tented vias): the U1 decoupling and SWD routes need the room"}
+    - {name: c4_pad3_novia, circle: [50.55, 22.25, 1.85], copper_keepout: {forbids: [vias]},
+       note: "sign-off: 0.6 mm here (tented vias): the U1 decoupling and SWD routes need the room"}
+    - {name: c4_pad4_novia, circle: [43.05, 23.45, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C4 pad"}
+    - {name: c5_pad0_novia, circle: [14.53, 13.78, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C5 pad"}
+    - {name: c5_pad1_novia, circle: [32.53, 13.78, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C5 pad"}
+    - {name: c5_pad2_novia, circle: [14.53, 28.78, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C5 pad"}
+    - {name: c5_pad3_novia, circle: [32.53, 28.78, 1.85], copper_keepout: {forbids: [vias]},
+       note: "sign-off: 0.6 mm here (tented vias): the U1 decoupling and SWD routes need the room"}
+    - {name: c5_pad4_novia, circle: [13.33, 21.28, 2.25], copper_keepout: {forbids: [vias]},
+       note: "sign-off review: no via within 1 mm of a hand-soldered C5 pad"}
+    - {name: gnss_patch_body_tracks, rect: [4, 11.5, 16, 23.5], copper_keepout: {layers: [F.Cu], forbids: [tracks, vias]},
+       source: "IF-5: no F.Cu signal tracks under the 12 x 12 patch body (its ground is the F.Cu GND pour); stage 7: the whole-zone ban pushed GNSS_ANT and the pour around (lead)"}
+    - {name: lte_clear_tracks_inner, rect: [60.5, 0, 75, 35], copper_keepout: {layers: [In1.Cu, In2.Cu, B.Cu], forbids: [tracks]},
+       source: "IF-5, Ignion AN NN02-220: clearance copper-free on all layers (stage 7: the router put SIM/UART tracks and GND pour in it)"}
+    - {name: lte_clear_tracks_front_a, rect: [60.5, 0, 75, 2], copper_keepout: {layers: [F.Cu], forbids: [tracks]}, source: "IF-5; F.Cu tracks only in the feed channel y 2.0-8.6 (L5 to the NN02-220 feed tab)"}
+    - {name: lte_clear_tracks_front_b, rect: [60.5, 8.6, 75, 35], copper_keepout: {layers: [F.Cu], forbids: [tracks]}, source: "IF-5; as lte_clear_tracks_front_a"}
+    - {name: gnss_patch_zone, kind: antenna, rect: [2.5, 10.5, 17.5, 24.5], side: front, items: [gnss_patch],
+       source: "15x15 patch on GND, facing up when worn; parts kept 1 mm off its edges"}
+    - {name: screw_tl, kind: keepout, mechanical: screw, circle: [4, 4, 2.5], conductive: true, accessible: false, source: "M2 x 4 self-tap into housing boss, head dia 4.5 mm (+0.25); inside the sealed shell"}
+    - {name: screw_bl, kind: keepout, mechanical: screw, circle: [4, 31, 2.5], conductive: true, accessible: false, source: "as screw_tl"}
+    - {name: screw_tr, kind: keepout, mechanical: screw, circle: [54, 3.5, 2.5], conductive: true, accessible: false, source: "as screw_tl; moved from (53, 4) (stage-5 floorplan rework) to free x 51.5..55.5 for the LTE match column from U1 pad 35 up to the feed; head edge x 51.5 = 4 mm from the LTE clearance, y 6.0 < U1 courtyard 6.45; housing boss position is a lead estimate"}
+    - {name: screw_br, kind: keepout, mechanical: screw, circle: [58, 31, 2.5], conductive: true, accessible: false, source: "as screw_tl; head edge at x 55.5 = 0 mm to the LTE clearance"}
+    - {name: hole_tl, cut: true, circle: [4, 4, 1.1], source: "M2 clearance hole 2.2 mm"}
+    - {name: hole_bl, cut: true, circle: [4, 31, 1.1], source: "M2 clearance hole 2.2 mm"}
+    - {name: hole_tr, cut: true, circle: [54, 3.5, 1.1], source: "M2 clearance hole 2.2 mm"}
+    - {name: hole_br, cut: true, circle: [58, 31, 1.1], source: "M2 clearance hole 2.2 mm"}
+  items:
+    - {name: lte_ant, refs: [AE1], footprint: "dog_misc:NN02-220", side: front, rot: 270, at: [67.3, 17.5], height_mm: 2.0, region: lte_clearance,
+       source: "Ignion ALL mXTEND NN02-220, 24 x 12 x 2 mm, 698-960/1710-2690 MHz (DS_NN02-220)"}
+    - {name: gnss_patch, refs: [AE2], footprint: "dog_misc:GP.1575.12.4.A.02", side: front, at: [10, 17.5], height_mm: 4.0, region: gnss_patch_zone,
+       source: "Taoglas GP.1575.12.4.A.02 12 x 12 x 4 mm patch, pin feed (datasheet p.16; notes/datasheets/gnss-patch-saw.md)"}
+    - {name: sip, refs: [U1], footprint: "dog:nRF9151_LGA", side: front, rot: 90, at: [50.5, 13.5], height_mm: 1.2,
+       source: "nRF9151 LGA 12.1 x 11.1 x 1.2 mm (nRF9151 PS v1.0 features page)"}
+    - {name: gnss_rx, refs: [U8], footprint: "dog_misc:LC76G", side: front, rot: 180, at: [25.5, 21.0], height_mm: 2.4,
+       source: "Quectel LC76G-PA 10.1 x 9.7 x 2.4 mm, 28 pads (LC76G HW design V1.3 Fig 18 p.40, p.46)"}
+    - {name: buzzer, refs: [BZ1], footprint: "Buzzer_Beeper:Buzzer_Murata_PKLCS1212E", side: front, at: [30, 7.5], height_mm: 3.0,
+       source: "Murata PKLCS1212E 12 x 12 x 3 mm SMD piezo; sound port to the top-edge membrane (ENV-2)"}
+    - {name: button, refs: [SW1], footprint: "Button_Switch_SMD:SW_Push_1P1T_XKB_TS-1187A", side: front, at: [30, 31], height_mm: 1.5,
+       source: "TS-1187A 5.1 x 5.1 mm, pressed through the housing membrane at the bottom edge"}
+    - {name: led, refs: [D2], footprint: "LED_SMD:LED_0603_1608Metric", side: front, at: [42, 32.5], height_mm: 0.8,
+       source: "0603 LED under a light pipe next to the button"}
+    - {name: esim, refs: [U7], footprint: "dog_misc:MFF2_DFN8_5x6_P1.27", side: front, height_mm: 1.27,
+       source: "MFF2 eUICC (SON-8 6 x 5 mm, ETSI TS 102 671) soldered; lead decision instead of a nano-SIM holder"}
+    - {name: test_pads, refs: [TP1, TP2, TP3, TP4, TP5, TP6, TP7], side: back, height_mm: 0.1,
+       source: "IF-8: SWD + UART pads on the back face, reached through the battery-compartment ceiling window"}
+    - {name: bat_pads, refs: [J1], side: back, height_mm: 1.5,
+       source: "wires from the housing cell contacts (hand-soldered, MECH-3 allows); cells sit below the compartment ceiling, not on the board"}
+    - {name: supercap_a, refs: [C4], footprint: "dog_misc:CAPXX_GZ215F", side: back, rot: 90, at: [22.6, 17.5], height_mm: 2.5,
+       source: "PWR-7, PM round 7 q1: CAP-XX GZ215F 72 mF min, 20 x 15 x 2.5 mm, hand solder (CAP-XX GZ115/GZ215 datasheet; notes/datasheets/gz215f.md)"}
+    - {name: supercap_b, refs: [C5], footprint: "dog_misc:CAPXX_GZ215F", side: back, rot: 90, at: [45, 17.5], height_mm: 2.5,
+       source: "as supercap_a, in parallel; kept 2.5 mm off screw_tr"}
+    - {name: rest_front, groups: [power, modem, lte_rf, gnss, sim, ui, sensor], side: front, area_mm2: 357,
+       source: "power (boost IC 9 + inductor 10 + 2x 47 uF MLCC 8 (polymer replaced by the back-face supercap) + rev FET 6 + LDO 4 + supervisor 6 + TPL5010 6 + caps 30 = 102) x1.5 = 153; SiP decoupling + LTE match 100; GNSS match 30; accel 12; TVS x3 15; divider + switch 15; buzzer drive 15; LED R + misc 40"}
+  nets:
+    - {between: [sip, lte_ant], count: 1}
+    - {between: [sip, gnss_rx], count: 4}
+    - {between: [gnss_rx, gnss_patch], count: 1}
+    - {between: [sip, buzzer], count: 2}
+    - {between: [sip, esim], count: 4}
+    - {between: [sip, button], count: 1}
+    - {between: [sip, led], count: 1}
+    - {between: [sip, test_pads], count: 6}
+    - {between: [sip, rest_front], count: 12}
+    - {between: [bat_pads, rest_front], count: 2}
+    - {between: [supercap_a, rest_front], count: 2}
+    - {between: [supercap_b, rest_front], count: 2}
+    - {between: [gnss_rx, rest_front], count: 3}
+nets:
+  GND: {class: ground}
+  BAT_RAW: {class: power, current_a: 0.15, v_max: 3.7, v_min: -3.7, external_supply: true}   # 2x Li-FeS2 fresh OC 3.6 V (PWR-1) + 0.1; reversed pair -3.7 V (user fault)
+  BAT_P: {class: power, current_a: 0.15, v_max: 3.7, external_supply: true}   # fed from the cells through M1       # boost input; TPS612994 average input limit 0.12 A max (SLVSGS9G EC table)
+  SW_BST: {class: switching, current_a: 0.4}               # inductor peak ~350 mA in start-up (7.3.7)
+  VDD_4V0: {class: power, current_a: 0.6, v_max: 4.15}      # 4.0 V (VSEL 22.6k) + 3 % accuracy assumed + ripple (parts-power.md F6)
+  VSTORE: {class: power, current_a: 0.6, v_max: 4.15}
+  VSTORE_BAL: {v_max: 2.1}
+  VDD_AON: {class: signal, width_mm: 0.15, v_max: 3.06}      # < 5 mA loads; 0.15 mm escapes SiP pads 10/65 (escape proof)     # TPS7A0230 3.0 V + 2 % (parts-power.md G2)
+  VDD_GNSS: {class: power, current_a: 0.05, v_max: 3.06}
+  SIM_1V8: {v_max: 1.9, external_supply: true}             # nRF9151 SIM supply output 1.8 V (the symbol types pin 19 power_in)
+  DEC0: {v_max: 2.3}                                       # internal regulator ~2.2 V (DevZone 128776)
+  GNSS_RST_L: {pullup: internal, v_max: 1.9}               # LC76G RESET_N internal pull-up to 1.8 V (LC76G HW design p.25); nRF drives it open-drain low only
+  RESET_N: {v_max: 3.06}
+  LTE_RF: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  LTE_M0: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  LTE_M1: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  LTE_M2: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  LTE_M3: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  LTE_FEED: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  GNSS_ANT: {impedance_ohm: 50, width_mm: 0.18, layers: [B.Cu, F.Cu]}   # patch pin -> B.Cu (no F.Cu copper in the 3.0 mm top clearance, Taoglas p.16) -> via next to FL1.1; F.Cu only for the via-to-FL1.1 stub (FL1 is SMD on F.Cu)
+  GNSS_RF_IN: {impedance_ohm: 50, width_mm: 0.18, layers: [F.Cu]}
+  VBAT_SENSE: {class: signal, sensitive: true}
+  BUZ_A: {v_max: 6.2, v_min: -3.1}   # AC-coupled antiphase drive: 2 x 3.06 V peak
+  BUZ_B: {v_max: 6.2, v_min: -3.1}
+  SIM_RST: {v_max: 1.9}   # SIM_1V8 domain
+  SIM_IO: {v_max: 1.9}   # SIM_1V8 domain
+  SIM_CLK: {v_max: 1.9}   # SIM_1V8 domain
+  GNSS_RX: {v_max: 3.06}
+  GNSS_RXD_L: {v_max: 3.06}
+  GNSS_RST_N: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  GNSS_TX: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  GNSS_EN: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  ACCEL_SDA: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  ACCEL_SCL: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  ACCEL_INT: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  WDT_WAKE: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  WDT_DONE: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  UART_TX: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  UART_RX: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  SWDIO: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  SWCLK: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  BTN: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  LED: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  BUZ_P: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  BUZ_N: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  VBAT_SENSE_EN: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  LED_A: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  BUZ_P1: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+  BUZ_N1: {v_max: 3.06}   # VDD_GPIO = VDD_AON domain
+components:
+  # ---------------- power: battery input, reverse FET, boost, storage
+  J1:
+    value: BAT_WIRES
+    side: back
+    symbol: Connector:Conn_01x02_Pin
+    footprint: dog_misc:PinHeader_1x02_P2.54mm_Vertical_back
+    pins: {"1": BAT_RAW, "2": GND}
+    group: power
+    bom: false
+    spice: false
+    placement: {x: 48.73, y: 32.3, rot: 90, fixed: true}
+    limits: {abs_max_v: 50, source: "wire pads, no rating limit (copper)"}
+  D1:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYR
+    lcsc: C48260
+    price_usd: 0.025
+    symbol: Device:D_TVS
+    footprint: Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm
+    pins: {"1": BAT_RAW, "2": GND}
+    group: power
+    spice: false
+    limits: {abs_max_v: 5.5, source: "TPD1E10B06 p.4 VRWM +-5.5 V bidirectional, ILEAK 100 nA at 5 V"}
+  C1:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": BAT_RAW, "2": GND}
+    decouples: D1
+    group: power
+  M1:
+    value: SI2301CDS
+    mpn: SI2301CDS-T1-GE3
+    price_usd: 0.10
+    sourcing: "DigiKey/Mouser (Vishay); LCSC SI2301-ZE C5261052 is a different maker"
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    pins: {"1": GND, "2": BAT_P, "3": BAT_RAW}
+    group: power
+    limits: {abs_max_v: 20, pins: {"1": 8}, source: "SI2301CDS: VDS -20 V, VGS +-8 V (parts-power.md G4, Vishay 66709 not re-read)"}
+    spice: {model: SI2301CDS_FIT, ports: ["3", "1", "2"], source: fit, mpn: SI2301CDS}
+  C2:
+    value: 22u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    voltage_rating_v: 25
+    lcsc: C45783
+    price_usd: 0.05
+    pins: {"1": BAT_P, "2": GND}
+    decouples: U2
+    group: power
+  L1:
+    value: 1u
+    mpn: DFE201610E-1R0M=P2
+    lcsc: C161082
+    price_usd: 0.20
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Murata_DFE201610P
+    pins: {"1": BAT_P, "2": SW_BST}
+    group: power
+  U2:
+    value: TPS612994
+    mpn: TPS612994YBHR
+    price_usd: 1.09
+    sourcing: "TI/DigiKey/Mouser, no LCSC part: consigned to JLCPCB"
+    datasheet: https://www.ti.com/lit/ds/symlink/tps61299.pdf
+    symbol: dog_misc:TPS612994_YBH
+    footprint: Package_BGA:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB
+    package_pads: 6
+    package_pitch_mm: 0.4
+    pins: {A1: BAT_P, B1: SW_BST, C1: BAT_P, C2: VSEL_BST, B2: VDD_4V0, A2: GND}
+    group: power
+    limits: {abs_max_v: 6.5, rec_max_v: 5.5, source: "SLVSGS9G p.5 abs max VIN/VOUT/SW/EN/VSEL -0.3..6.5 V; Vout 1.8-5.5 V"}
+    spice: {lib: models/dog_power.lib, subckt: TPS612994_FIT, ports: [A1, B1, C1, C2, B2, A2], source: fit, mpn: TPS612994,
+            params: {VSET: 4.0, EFF: 0.85, IQ: 0.3u, BAND: 0.02}}
+  R1:
+    value: 22.6k
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": VSEL_BST, "2": GND}
+    group: power
+  C3:
+    value: 22u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0805_2012Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U2
+    group: power
+    spice: {esr: 0.005}
+  R2:
+    value: "0"
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0805_2012Metric
+    pins: {"1": VDD_4V0, "2": VSTORE}
+    group: power
+  C4:
+    value: 90m
+    side: back
+    mpn: GZ215F
+    price_usd: 10.33
+    sourcing: "CAP-XX / DigiKey, hand solder on the back face"
+    datasheet: https://www.cap-xx.com/wp-content/uploads/datasheets/CAP-XX-GZ115-GZ215-Datasheet.pdf
+    symbol: dog_misc:CAPXX_GZ215F
+    footprint: dog_misc:CAPXX_GZ215F
+    placement: {x: 43.05, y: 13.25, rot: 90, fixed: true}   # sign-off: held at the routed position (patch and U1 clear)
+    voltage_rating_v: 5.0
+    pins: {"1": GND, "2": VSTORE, "3": VSTORE_BAL}
+    group: power
+    limits: {abs_max_v: 5.5, rec_max_v: 5.0, source: "GZ215F datasheet rev 4.5 Table 1/2 p.1"}
+    spice: {lib: models/dog_power.lib, subckt: GZ215F_FIT, ports: ["1", "2", "3"], source: fit, mpn: GZ215F, params: {C: 72m, ESR23: 0.132, V0: 3.98}}
+  C5:
+    value: 90m
+    side: back
+    mpn: GZ215F
+    price_usd: 10.33
+    sourcing: "CAP-XX / DigiKey, hand solder on the back face"
+    datasheet: https://www.cap-xx.com/wp-content/uploads/datasheets/CAP-XX-GZ115-GZ215-Datasheet.pdf
+    symbol: dog_misc:CAPXX_GZ215F
+    footprint: dog_misc:CAPXX_GZ215F
+    placement: {x: 23.53, y: 21.28, rot: 0, fixed: true}   # sign-off: held at the routed position
+    voltage_rating_v: 5.0
+    pins: {"1": GND, "2": VSTORE, "3": VSTORE_BAL}
+    group: power
+    limits: {abs_max_v: 5.5, rec_max_v: 5.0, source: "GZ215F datasheet rev 4.5 Table 1/2 p.1"}
+    spice: {lib: models/dog_power.lib, subckt: GZ215F_FIT, ports: ["1", "2", "3"], source: fit, mpn: GZ215F, params: {C: 72m, ESR23: 0.132, V0: 3.98}}
+  R3:
+    value: 4.7M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": VSTORE, "2": VSTORE_BAL}
+    group: power
+  R4:
+    value: 4.7M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": VSTORE_BAL, "2": GND}
+    group: power
+  # ---------------- power: LDOs, supervisor, watchdog
+  U3:
+    value: TPS7A0230
+    mpn: TPS7A0230PDBVR
+    lcsc: C3747031
+    price_usd: 0.30
+    symbol: Regulator_Linear:TPS7A0530PDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins: {"1": VDD_4V0, "2": GND, "3": VDD_4V0, "5": VDD_AON}
+    nc: ["4"]
+    placement: {x: 41.4, y: 29.0, rot: 0, fixed: true}   # stage 7: clear of the C4/C5 back pads so pad 2 gets a pour piece or a via; +5 mm with the 75 mm board
+    group: power
+    limits: {abs_max_v: 6.5, rec_max_v: 6.0, source: "TPS7A02 Vin 1.5-6.0 V recommended, 6.5 V abs (parts-power.md G2); DBV pinout IN 1 GND 2 EN 3 NC 4 OUT 5 as TPS7A05 DBV"}
+    spice: {subckt: LDO_GENERIC, ports: ["1", "5", "2"], params: {VOUT: 3.0, VDROP: 0.1, IQ: 25n, ROUT: 0.2, ILIM: 0.3}}
+  C6:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U3
+    group: power
+  C7:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_AON, "2": GND}
+    decouples: U3
+    group: power
+  U4:
+    value: TPS7A0230
+    mpn: TPS7A0230PDBVR
+    lcsc: C3747031
+    price_usd: 0.30
+    symbol: Regulator_Linear:TPS7A0530PDBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins: {"1": VDD_4V0, "2": GND, "3": GNSS_EN, "5": VDD_GNSS}
+    nc: ["4"]
+    group: gnss
+    limits: {abs_max_v: 6.5, rec_max_v: 6.0, source: "as U3"}
+    spice: {subckt: LDO_GENERIC, ports: ["1", "5", "2"], params: {VOUT: 3.0, VDROP: 0.1, IQ: 25n, ROUT: 0.2, ILIM: 0.3}}
+  C8:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U4
+    group: gnss
+  C9:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_GNSS, "2": GND}
+    decouples: U4
+    group: gnss
+  R5:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": GNSS_EN, "2": GND}
+    group: gnss
+  U5:
+    value: TPS3838K33
+    mpn: TPS3838K33DBVR
+    lcsc: C135468
+    price_usd: 0.30
+    datasheet: https://www.ti.com/lit/ds/symlink/tps3838.pdf
+    symbol: dog_misc:TPS3838K33_DBV
+    footprint: Package_TO_SOT_SMD:SOT-23-5
+    pins: {"1": VDD_4V0, "2": GND, "3": VDD_4V0, "4": RESET_N, "5": VDD_4V0}
+    group: power
+    limits: {abs_max_v: 7.0, rec_max_v: 6.0, source: "SLVS292F 7.1 abs max VDD and all pins 7 V; 7.3 VDD 1.6-6 V; VIT K33 2.84/2.93/2.99 V"}
+    spice: false
+  C10:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U5
+    group: power
+  R6:
+    value: 100k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": RESET_N, "2": VDD_AON}
+    group: power
+  U6:
+    value: TPL5010
+    mpn: TPL5010DDCR
+    lcsc: C473912
+    price_usd: 0.21
+    symbol: Timer:TPL5010
+    footprint: Package_TO_SOT_SMD:TSOT-23-6
+    pins: {"1": VDD_AON, "2": GND, "3": WDT_DELAY, "4": WDT_DONE, "5": WDT_WAKE, "6": RESET_N}
+    group: power
+    limits: {abs_max_v: 6.0, rec_max_v: 5.5, source: "TPL5010 VDD 1.8-5.5 V (parts-power.md table; abs max to verify)"}
+    spice: false
+  R7:
+    value: 22k
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": WDT_DELAY, "2": GND}
+    group: power
+  C11:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_AON, "2": GND}
+    decouples: U6
+    group: power
+  R20:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": WDT_DONE, "2": GND}
+    group: power
+  # ---------------- power: switched VBAT divider (block pfet_vbat_divider) + gate shifter
+  M2:
+    value: CJ2305
+    mpn: CJ2305
+    lcsc: C8549
+    price_usd: 0.03
+    symbol: Transistor_FET:AO3401A
+    footprint: Package_TO_SOT_SMD:SOT-23
+    pins: {"1": VBAT_EN_N, "2": BAT_P, "3": VDIV_TOP}
+    group: power
+    limits: {abs_max_v: 20, pins: {"1": 12}, source: "CJ2305 VDS -20 V, VGS +-12 V"}
+    spice: {model: CJ2305_FIT, ports: ["3", "1", "2"], source: fit, mpn: CJ2305}
+  R8:
+    value: 200k
+    tolerance: 0.001
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins: {"1": VDIV_TOP, "2": VBAT_SENSE}
+    group: power
+  R9:
+    value: 200k
+    tolerance: 0.001
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0603_1608Metric
+    pins: {"1": VBAT_SENSE, "2": GND}
+    group: power
+  C12:
+    value: 10n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VBAT_SENSE, "2": GND}
+    group: power
+  M3:
+    value: BSS138
+    mpn: BSS138LT1G
+    lcsc: C82045
+    price_usd: 0.042
+    symbol: Transistor_FET:BSS138
+    footprint: Package_TO_SOT_SMD:SOT-23
+    pins: {"1": VBAT_SENSE_EN, "2": GND, "3": VBAT_EN_N}
+    group: power
+    limits: {abs_max_v: 50, pins: {"1": 20}, source: "BSS138 VDS 50 V, VGS +-20 V (onsemi)"}
+    spice: {model: BSS138_FIT, ports: ["3", "1", "2"], source: fit, mpn: BSS138}
+  R10:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": VBAT_EN_N, "2": BAT_P}
+    group: power
+  R11:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": VBAT_SENSE_EN, "2": GND}
+    group: power
+  # ---------------- modem: nRF9151 SiP
+  U1:
+    value: nRF9151
+    mpn: NRF9151-LACA-R7
+    lcsc: C22397843
+    price_usd: 13.75
+    sourcing: "Symmetry / Mouser / DigiKey reel, consigned"
+    symbol: dog:nRF9151
+    footprint: dog:nRF9151_LGA
+    placement: {x: 50.5, y: 13.5, rot: 90, fixed: true}   # = floorplan item sip at; ANT pad 35 at (50.6, 11.25) next to R12
+    pins: {"1": GND, "3": SWCLK, "4": SWDIO, "7": GND, "9": RESET_N, "10": VDD_AON, "13": GND, "14": VDD_4V0, "15": GND, "16": SIM_RST, "17": SIM_IO, "18": SIM_CLK, "19": SIM_1V8, "20": GND, "24": DEC0, "25": GND, "30": GND, "34": GND, "35": LTE_RF, "36": GND, "38": GND, "39": GND, "40": GND, "41": GND, "43": GND, "44": VBAT_SENSE_EN, "45": LED, "46": GND, "47": BUZ_P, "48": BUZ_N, "51": GND, "55": GND, "57": UART_TX, "58": UART_RX, "59": GNSS_RX, "60": GND, "61": GNSS_TX, "62": GNSS_EN, "63": GNSS_RST_N, "64": ACCEL_SDA, "65": VDD_AON, "66": GND, "67": ACCEL_SCL, "68": ACCEL_INT, "69": BTN, "70": WDT_WAKE, "71": GND, "72": WDT_DONE, "73": VBAT_SENSE, "76": GND, "105": GND, "106": GND, "107": GND, "108": GND, "109": GND, "110": GND, "111": GND, "112": GND, "113": GND}
+    nc: ["2", "5", "6", "8", "11", "12", "21", "22", "23", "26", "27", "28", "29", "31", "32", "33", "37", "42", "49", "50", "52", "53", "54", "56", "74", "75", "77", "78", "79", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "100", "101", "102", "103", "104"]
+    group: modem
+    limits: {abs_max_v: 5.8, rec_max_v: 5.5, pins: {"VDD_GPIO": 3.6, "P0.*": 3.6, "SIM_*": 3.6, "ENABLE": 3.6, "~{RESET}": 3.6, "SWD*": 3.6, "DEC0": 3.6}, source: "nRF9151 PS: VDD 3.0-5.5 V; VDD_GPIO 1.7-3.6 V (DevZone 126378); abs max values not read (verify)"}
+    spice: false
+  C13:
+    value: 4.7u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U1
+    group: modem
+    placement: {x: 53.8, y: 22.1, rot: 270, fixed: true}   # VDD bulk at U1.14 (47.25, 19.1); stage 7 decap fix (lead)
+  C14:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_4V0, "2": GND}
+    decouples: U1
+    group: modem
+    placement: {x: 52.25, y: 21.5, rot: 270, fixed: true}   # VDD 100 nF at U1.14, pad 1 1.9 mm from the pin
+  C15:
+    value: 4.7u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 10
+    pins: {"1": DEC0, "2": GND}
+    decouples: U1
+    group: modem
+    placement: {x: 58.6, y: 16.75, rot: 0, fixed: true}   # DEC0 at U1.24 (50.6, 16.75), pad 1 2.2 mm from the pin
+  C16:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_AON, "2": GND}
+    decouples: U1
+    group: modem
+    placement: {x: 43.45, y: 11.0, rot: 270, fixed: true}   # VDD_GPIO 100 nF beside U1.65 (40.4, 10.75) / GND U1.66 (40.4, 11.25): pad 1 at y 10.5, GND pad 2 at y 11.5 facing the U1 GND pin (stage 7: the old spot left its GND pad on a pour island)
+  # ---------------- LTE RF: pi pad set at the SiP pin, then the Ignion 7-element match (AN Fig 6, 60 mm column)
+  C17:
+    value: 1p
+    dnp: true
+    voltage_rating_v: 50
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    pins: {"1": LTE_RF, "2": GND}
+    placement: {x: 57.7, y: 13.0, rot: 270, fixed: true}   # RF node shunt beside R12.1 / U1.35 (stage 7)
+    group: lte_rf
+  R12:
+    value: "0"
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    placement: {x: 58.2, y: 11.25, rot: 0, fixed: true}   # pad 1 2.1 mm from U1 pad 35 at (50.6, 11.25) (lte_pin_to_pi)
+    pins: {"1": LTE_RF, "2": LTE_M0}
+    group: lte_rf
+  C18:
+    value: 1p
+    dnp: true
+    voltage_rating_v: 50
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    pins: {"1": LTE_M0, "2": GND}
+    placement: {x: 58.85, y: 12.7, rot: 270, fixed: true}   # M0 node shunt beside R12.2 (stage 7)
+    group: lte_rf
+  L2:
+    value: 2.2n
+    mpn: LQW15AN2N2B80
+    sourcing: \"Murata via DigiKey/Mouser (LQW15 not at LCSC basic)\"
+    symbol: Device:L
+    footprint: Inductor_SMD:L_0402_1005Metric
+    placement: {x: 59.75, y: 9.8, rot: 90, fixed: true}   # Z7 series, column x 54.75 up to the feed, courtyard <= 55.22 < 55.5 clearance
+    pins: {"1": LTE_M0, "2": LTE_M1}
+    group: lte_rf
+  C19:
+    value: 2.5p
+    mpn: GJM1555C1H2R5WB01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    placement: {x: 59.75, y: 7.7, rot: 90, fixed: true}   # Z6 series
+    voltage_rating_v: 50
+    pins: {"1": LTE_M1, "2": LTE_M2}
+    group: lte_rf
+  L3:
+    value: 9.1n
+    mpn: LQW15AN9N1G00
+    sourcing: \"Murata via DigiKey/Mouser (LQW15 not at LCSC basic)\"
+    symbol: Device:L
+    footprint: Inductor_SMD:L_0402_1005Metric
+    pins: {"1": LTE_M2, "2": GND}
+    placement: {x: 58.2, y: 6.65, rot: 180, fixed: true}   # M2 node shunt, GND end toward the ground plane (stage 7)
+    group: lte_rf
+  C20:
+    value: 1.1p
+    mpn: GJM1555C1H1R1WB01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 50
+    pins: {"1": LTE_M2, "2": GND}
+    placement: {x: 58.2, y: 7.75, rot: 180, fixed: true}   # M2 node shunt (stage 7)
+    group: lte_rf
+  C21:
+    value: 1.2p
+    mpn: GJM1555C1H1R2WB01
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    placement: {x: 59.75, y: 5.6, rot: 90, fixed: true}   # Z3 series
+    voltage_rating_v: 50
+    pins: {"1": LTE_M2, "2": LTE_M3}
+    group: lte_rf
+  L4:
+    value: 13n
+    mpn: LQW15AN13NG00
+    sourcing: \"Murata via DigiKey/Mouser (LQW15 not at LCSC basic)\"
+    symbol: Device:L
+    footprint: Inductor_SMD:L_0402_1005Metric
+    pins: {"1": LTE_M3, "2": GND}
+    placement: {x: 58.2, y: 4.55, rot: 180, fixed: true}   # M3 node shunt (stage 7)
+    group: lte_rf
+  L5:
+    value: 4.7n
+    mpn: LQW15AN4N7B80
+    sourcing: \"Murata via DigiKey/Mouser (LQW15 not at LCSC basic)\"
+    symbol: Device:L
+    footprint: Inductor_SMD:L_0402_1005Metric
+    placement: {x: 59.75, y: 3.5, rot: 90, fixed: true}   # Z1 series; pad 2 4.3 mm from the AE1 feed tab (57.2, 6.4)
+    pins: {"1": LTE_M3, "2": LTE_FEED}
+    group: lte_rf
+  AE1:
+    value: NN02-220
+    mpn: NN02-220
+    price_usd: 1.5
+    sourcing: "Ignion via Mouser/DigiKey"
+    symbol: dog_misc:NN02-220
+    footprint: dog_misc:NN02-220
+    placement: {x: 67.3, y: 17.5, rot: 270, fixed: true}   # = floorplan item lte_ant at
+    pins: {"1": LTE_FEED}
+    nc: ["2", "3", "4"]
+    role: antenna
+    group: lte_rf
+    spice: false
+  # ---------------- SIM: MFF2 eUICC
+  U7:
+    value: MFF2_eUICC
+    mpn: 1NCE-IoT-SIM-Chip-Industrial-MFF2
+    price_usd: 0
+    sourcing: "1NCE shop (EUR 14.50 incl. 10-year plan, outside COST-1); pinout per ETSI TS 102 671 MFF2, 1NCE pin table not readable: first-article check"
+    symbol: dog_misc:SIM-S-IO3-MFF2-2
+    footprint: dog_misc:MFF2_DFN8_5x6_P1.27
+    pins: {"8": SIM_1V8, "7": SIM_RST, "6": SIM_CLK, "3": SIM_IO, "1": GND}
+    nc: ["2", "4", "5"]
+    group: sim
+    limits: {abs_max_v: 5.5, rec_max_v: 5.0, source: "eUICC class A/B/C 5/3/1.8 V (Truphone datasheet v2); abs max not read"}
+    spice: false
+    placement: {x: 52.45, y: 27.4, rot: 0, fixed: true}   # eSIM where the last routed board put it (stage 7, lead)
+  C22:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": SIM_1V8, "2": GND}
+    decouples: U7
+    group: sim
+    placement: {x: 57, y: 25.5, rot: 0, fixed: true}   # SIM_1V8 100 nF at U7.8 (49.8, 25.5), 1.7 mm routed
+  # ---------------- GNSS: LC76G, patch, SAW
+  U8:
+    value: LC76G-PA
+    mpn: LC76GPA
+    price_usd: 5.0
+    sourcing: "Quectel distributor, consigned"
+    symbol: dog_misc:LC76G
+    footprint: dog_misc:LC76G
+    placement: {x: 25.5, y: 21.0, rot: 180, fixed: true}   # = floorplan item gnss_rx at; moved down 3.5 mm (stage-5 rework) so BZ1 (13.4 x 13 with placer margin) fits above it; RF_IN pad 11 at (20.65, 17.7) next to FL1
+    pins: {"8": VDD_GNSS, "6": VDD_GNSS, "9": GNSS_RST_L, "2": GNSS_TX, "3": GNSS_RXD_L, "11": GNSS_RF_IN, "1": GND, "10": GND, "12": GND, "28": GND}
+    nc: ["14", "24", "4", "13", "16", "17", "20", "25", "27", "26", "21", "22", "23", "5", "7", "15", "18", "19"]
+    group: gnss
+    limits: {abs_max_v: 3.63, rec_max_v: 3.6, source: "LC76G HW design V1.3 Table 10 p.41 / Table 6 p.20-22"}
+    spice: false
+  C23:
+    value: 10u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_GNSS, "2": GND}
+    decouples: U8
+    group: gnss
+  C24:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_GNSS, "2": GND}
+    decouples: U8
+    group: gnss
+    placement: {x: 32.6, y: 18.8, rot: 0, fixed: true}   # at U8 VCC pins 8/6 (30.35, 17.7 / 19.9) of the fixed LC76G; stage 7 decap fix (lead)
+  C25:
+    value: 33p
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 50
+    pins: {"1": VDD_GNSS, "2": GND}
+    decouples: U8
+    group: gnss
+  C26:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_GNSS, "2": GND}
+    decouples: U8
+    group: gnss
+  FL1:
+    value: SAFFB1G56AC0F7F
+    mpn: SAFFB1G56AC0F7F
+    price_usd: 0.30
+    sourcing: "Murata via DigiKey"
+    symbol: dog_misc:SAFFB1G56
+    footprint: dog_misc:SAW_SAFFB1G56_1109-5
+    placement: {x: 18.6, y: 17.7, rot: 0, fixed: true}   # SAW pad 4 1.7 mm from U8 pad 11 (gnss_saw_to_rx), courtyard clear of the patch zone (x 17.8 > 17.5)
+    pins: {"1": GNSS_ANT, "2": GND, "3": GND, "4": GNSS_RF_IN, "5": GND}
+    group: gnss
+    spice: false
+  AE2:
+    value: GP.1575.12.4.A.02
+    mpn: GP.1575.12.4.A.02
+    price_usd: 1.5
+    sourcing: "Taoglas via DigiKey, hand solder pin feed"
+    symbol: dog_misc:GP.1575.12.4.A.02
+    footprint: dog_misc:GP.1575.12.4.A.02
+    placement: {x: 10, y: 17.5, rot: 0, fixed: true}   # = floorplan item gnss_patch at
+    pins: {"1": GNSS_ANT}
+    role: antenna
+    group: gnss
+    spice: false
+  # ---------------- UI: buzzer (two GPIOs in antiphase, AC coupled), LED, button
+  BZ1:
+    value: PKLCS1212E4001
+    mpn: PKLCS1212E4001-R1
+    lcsc: C113159
+    price_usd: 0.6
+    symbol: Device:Buzzer
+    footprint: Buzzer_Beeper:Buzzer_Murata_PKLCS1212E
+    pins: {"1": BUZ_A, "2": BUZ_B}
+    group: ui
+    limits: {abs_max_v: 12.5, rec_max_v: 7.2, source: "Murata spec JGB40-1584B p.1: +-12.5 Vo-p max; drive 7.2 Vpp"}
+    spice: false
+  R13:
+    value: "150"
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": BUZ_P, "2": BUZ_P1}
+    group: ui
+  C27:
+    value: 470n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 16
+    pins: {"1": BUZ_P1, "2": BUZ_A}
+    group: ui
+  R14:
+    value: "150"
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": BUZ_N, "2": BUZ_N1}
+    group: ui
+  C28:
+    value: 470n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 16
+    pins: {"1": BUZ_N1, "2": BUZ_B}
+    group: ui
+  R15:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": BUZ_A, "2": BUZ_B}
+    group: ui
+  D2:
+    value: LED_RED
+    mpn: 150060RS75000
+    lcsc: C3030991
+    price_usd: 0.27
+    symbol: Device:LED
+    footprint: LED_SMD:LED_0603_1608Metric
+    pins: {"1": GND, "2": LED_A}
+    group: ui
+    spice: false
+  R16:
+    value: "330"
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": LED, "2": LED_A}
+    group: ui
+  SW1:
+    value: TS-1187A
+    mpn: TS-1187A-B-A-B
+    lcsc: C318884
+    price_usd: 0.05
+    symbol: Switch:SW_Push
+    footprint: Button_Switch_SMD:SW_Push_1P1T_XKB_TS-1187A
+    pins: {"1": BTN, "2": GND}
+    group: ui
+    placement: {x: 30, y: 31, rot: 0, fixed: true}   # = floorplan item button (pressed through the bottom-edge membrane); item at is not held in the full floorplan run
+    limits: {abs_max_v: 12, source: "XKB TS-1187A 12 VDC 50 mA rating"}
+    spice: false
+  R17:
+    value: 1M
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": BTN, "2": VDD_AON}
+    group: ui
+  D3:
+    value: ESD9B5.0ST5G
+    mpn: ESD9B5.0ST5G
+    price_usd: 0.02
+    sourcing: "onsemi via DigiKey/LCSC"
+    symbol: Diode:ESD9B5.0ST5G
+    footprint: Diode_SMD:D_SOD-923
+    placement: {x: 27.4, y: 27.5, rot: 0, fixed: true}   # pad 1 1.6 mm from SW1 pad 1 (27, 29.1) (d3_tvs_lead)
+    pins: {"1": BTN, "2": GND}
+    group: ui
+    limits: {abs_max_v: 5.0, source: "ESD9B5.0S VRWM 5 V"}
+    spice: false
+  # ---------------- sensor: LIS2DW12 on I2C (CS high = I2C, SA0 low = 0x18)
+  U9:
+    value: LIS2DW12
+    mpn: LIS2DW12TR
+    lcsc: C189624
+    price_usd: 0.74
+    symbol: dog_misc:LIS2DW12
+    footprint: Package_LGA:LGA-12_2x2mm_P0.5mm
+    pins: {"9": VDD_AON, "10": VDD_AON, "1": ACCEL_SCL, "2": VDD_AON, "3": GND, "4": ACCEL_SDA, "12": ACCEL_INT, "6": GND, "8": GND, "7": GND}
+    nc: ["11", "5"]
+    group: sensor
+    limits: {abs_max_v: 4.8, rec_max_v: 3.6, source: "ST DS11811 Vdd 1.62-3.6 V; abs max 4.8 V (unverified)"}
+    spice: false
+  C29:
+    value: 100n
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_AON, "2": GND}
+    decouples: U9
+    group: sensor
+  C30:
+    value: 1u
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    voltage_rating_v: 10
+    pins: {"1": VDD_AON, "2": GND}
+    decouples: U9
+    group: sensor
+  R18:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": ACCEL_SDA, "2": VDD_AON}
+    group: sensor
+  R19:
+    value: 10k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": ACCEL_SCL, "2": VDD_AON}
+    group: sensor
+  R21:
+    value: 1k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": GNSS_RX, "2": GNSS_RXD_L}
+    group: gnss
+  R22:
+    value: 1k
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0402_1005Metric
+    pins: {"1": GNSS_RST_N, "2": GNSS_RST_L}
+    group: gnss
+  U10:
+    value: TPD4E05U06
+    mpn: TPD4E05U06DQAR
+    price_usd: 0.15
+    sourcing: "TI / DigiKey / LCSC (TPD4E05U06DQAR), LCSC number to confirm"
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    pins: {"1": VDD_4V0, "2": SWDIO, "4": SWCLK, "5": RESET_N, "3": GND, "8": GND}
+    nc: ["6", "7", "9", "10"]
+    group: debug
+    limits: {abs_max_v: 5.5, source: "TPD4E05U06 VRWM 5.5 V, IEC 61000-4-2 +-12 kV contact, leakage 10 nA typ per channel at 5 V (TI SLVSBK9; max to verify)"}
+    spice: false
+  U11:
+    value: TPD4E05U06
+    mpn: TPD4E05U06DQAR
+    price_usd: 0.15
+    sourcing: "TI / DigiKey / LCSC (TPD4E05U06DQAR), LCSC number to confirm"
+    symbol: Power_Protection:TPD4E05U06DQA
+    footprint: Package_SON:USON-10_2.5x1.0mm_P0.5mm
+    pins: {"1": UART_TX, "2": UART_RX, "3": GND, "8": GND}
+    nc: ["4", "5", "6", "7", "9", "10"]
+    group: debug
+    limits: {abs_max_v: 5.5, source: "as U10"}
+    spice: false
+  TP1:
+    value: TP_VDD_4V0
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": VDD_4V0}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 22.38, y: 32.3, fixed: true}
+  TP2:
+    value: TP_SWDIO
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": SWDIO}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 24.92, y: 32.3, fixed: true}
+  TP3:
+    value: TP_SWCLK
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": SWCLK}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 27.46, y: 32.3, fixed: true}
+  TP4:
+    value: TP_RESET_N
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": RESET_N}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 30, y: 32.3, fixed: true}
+  TP5:
+    value: TP_GND
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": GND}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 32.54, y: 32.3, fixed: true}
+  TP6:
+    value: TP_UART_TX
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": UART_TX}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 35.08, y: 32.3, fixed: true}
+  TP7:
+    value: TP_UART_RX
+    side: back
+    symbol: Connector:TestPoint
+    footprint: dog_misc:TestPoint_Pad_1.5x1.5mm_back
+    pins: {"1": UART_RX}
+    group: debug
+    bom: false
+    spice: false
+    placement: {x: 37.62, y: 32.3, fixed: true}
+budgets:
+  - {name: c22_sim_decap, kind: copper_len, path: ["C22.1 -> U7.8"], max_mm: 5, source: "5 mm: the MFF2 courtyard and die-pad keep-out leave 3.3 mm straight at best (floorplan); eSIM VCC (SIM_1V8) 100 nF at the MFF2 VCC pin (board.decap_max_mm); stage 7 layout had 47.9 mm (lead)"}
+  - {name: c24_gnss_decap, kind: copper_len, path: ["C24.1 -> U8.8, U8.6"], max_mm: 4, source: "LC76G VCC decoupling at the pins (LC76G HW design); stage 7 layout had 11.6 mm (lead)"}
+  - {name: u1_vdd_bulk, kind: copper_len, path: ["C13.1 -> U1.14"], max_mm: 7, source: "stage 7: 4 mm met only on boards that leave nets open, best routed 6.2 mm; bulk cap, 7 mm accepted (lead). nRF9151 VDD 4.7 uF at the pin (Nordic reference; board.decap_max_mm 4); stage 7 layout had 18.7 mm (lead)"}
+  - {name: u1_vdd_hf, kind: copper_len, path: ["C14.1 -> U1.14"], max_mm: 5, source: "stage 7: 3 mm met only on boards that leave nets open, best routed 4.9 mm; 5 mm accepted (lead). nRF9151 VDD 100 nF closest to the pin; stage 7 layout had 6.1 mm (lead)"}
+  - {name: u1_dec0, kind: copper_len, path: ["C15.1 -> U1.24"], max_mm: 3, source: "nRF9151 DEC0 4.7 uF only, at the pin (DevZone 128776) (lead)"}
+  - {name: u1_vddgpio, kind: copper_len, path: ["C16.1 -> U1.65"], max_mm: 3, source: "nRF9151 VDD_GPIO 100 nF at the pin; stage 7 layout had 14.5 mm (lead)"}
+  - {name: gnss_ant_feed, kind: copper_len, path: ["AE2.1 -> FL1.1"], max_mm: 20, source: "20 mm (lead, stage 7, 75 mm board: best clean board routes 19.3 mm; 20 mm of 50 ohm microstrip ~0.09 dB at 1.575 GHz). Earlier: patch feed (x 9) to the SAW at the LC76G RF_IN (U8 fixed at x 25.5, pad 11 at x 20.7): ~10.5 mm straight + via + stub; 16 mm of 50 ohm microstrip is < 0.07 dB at 1.575 GHz (lead, stage 5: was 12 mm, unplaceable with U8 next to the patch zone)"}
+  - {name: gnss_saw_to_rx, kind: copper_len, path: ["FL1.4 -> U8.11"], max_mm: 4, source: "stage-5 review: SAW output next to LC76G RF_IN; 4 mm = LC76G pad 11 to its courtyard edge (0.9 mm) + 0402-class SAW courtyard + 1.25 routing allowance; 4 mm of 50 ohm line at 1.575 GHz is 0.02 lambda (lead, stage 5)"}
+  - {name: lte_pin_to_pi, kind: copper_len, path: ["U1.35 -> R12.1"], max_mm: 4, source: "stage-5 review: pi pad set at the SiP ANT pin; nRF9151 pad 35 sits 1.4 mm inside its 1 mm courtyard, R12 0402 courtyard 0.5 mm: 2 mm was unplaceable; 4 mm of 50 ohm line at 1.9 GHz is 0.04 lambda (lead, stage 5)"}
+  - {name: lte_match_chain, kind: copper_len, path: ["R12.2 -> L2.1", "L2.2 -> C19.1", "C19.2 -> C21.1", "C21.2 -> L5.1"], max_mm: 16, source: "Ignion AN 3.3 p.8: match next to the feed in the ground area; 0402 parts in line, 4 mm per leg (0402 courtyard 1.9 mm + routing allowance; lead, stage 5: 3 mm per leg was not placeable)"}
+  - {name: lte_match_to_feed, kind: copper_len, path: ["L5.2 -> AE1.1"], max_mm: 14, source: "Z1 at the ground edge (x <= 55.5) to the NN02-220 feed tab inside the 14.5 mm clearance: ~10 mm straight + 4 mm"}
+  - name: vdd_burst_copper
+    req: PWR-7
+    kind: copper_r
+    path: ["C4.2, C5.2 -> R2.2", "R2.1 -> U1.14"]
+    current_a: 0.5
+    max_mohm: 800
+    source: "PWR-7 3.2 V floor; pre-layout worst pwr7_vdd_min_i80 = 3.614 V at 0.5 A; margin 0.414 V, 0.400 V given to this path (0.014 V to bat_path_copper): 0.400 V / 0.5 A = 800 mOhm"
+  - name: bat_path_copper
+    req: PWR-7
+    kind: copper_r
+    path: ["J1.1 -> M1.3", "M1.2 -> L1.1, U2.A1"]
+    current_a: 0.12
+    max_mohm: 6000
+    source: "boost input limit 0.12 A max; a copper drop dV at the input lowers the boost output power by 0.12 x dV x 0.85, i.e. VDD_4V0 droop over 100 ms by 0.12 x 0.85 / 4.0 x dV x 0.1 s / 0.144 F = 0.0177 dV; 0.014 V of the 0.414 V PWR-7 margin -> dV 0.79 V -> 0.79 / 0.12 = 6.6 Ohm, rounded down to 6000 mOhm"
+  - {name: d1_tvs_lead, kind: copper_len, path: ["D1.1 -> J1.1"], max_mm: 5, source: "TPD1E10B06 app note: TVS next to the entry pad, lead length adds ~1 nH/mm to the clamp; 5 mm lead default"}
+  - {name: d3_tvs_lead, kind: copper_len, path: ["D3.1 -> SW1.1"], max_mm: 5, source: "ESD9B5.0S next to the button pad; 5 mm lead default"}
+blocks:
+  vbat_div: {use: pfet_vbat_divider, parts: {M: M2, RTOP: R8, RBOT: R9, CF: C12}}
+  boost: {use: tps612994_ybh_boost, parts: {U: U2, L: L1, CIN: C2, COUT: C3, RVSEL: R1}}
+sim:
+  ambient_c: 50
+  includes: [models/dog_fets.lib]
+  sources:
+    # battery: Thevenin source on the wire pads; Vbat / Rbat set per analysis with alter
+    - {line: "Vbat bat_src 0 DC 3.0"}
+    - {line: "Rbat bat_src $(BAT_RAW) 1.5"}
+    # boost input-limit corner (V = A) and supercap ESR multiplier (1 = 23 C, 1.7 = -20 C), global nodes of models/dog_power.lib
+    - {line: "Vilim ilim_ctl 0 DC 0.08"}
+    - {line: "Vesr esr_ctl 0 DC 1.7"}
+    # modem load on nRF9151 VDD: 5 mA idle, 0.5 A TX burst (PWR-4 2 ms, PWR-7 100 ms set per analysis)
+    - {line: "Imod $(VDD_4V0) 0 PULSE(0.005 0.5 20m 10u 10u 2m 1)"}
+    - {line: "Iaon $(VDD_AON) 0 DC 20u"}
+    - {line: "Ven $(VBAT_SENSE_EN) 0 DC 3.0"}
+    - {line: "Bverr verr_div 0 V = 2*v($(VBAT_SENSE)) - v($(BAT_P))"}   # PWR-6 probe: divider reading x2 minus the battery node
+    # charged start for the burst transients (uic): rails at their regulated values (the OP has a second, start-up equilibrium of the input-limited boost)
+    - {line: ".ic v($(VDD_4V0))=3.98 v($(VSTORE))=3.98 v($(VSTORE_BAL))=1.99 v($(VDD_AON))=3.0 v($(VDD_GNSS))=3.0"}
+  analyses:
+    - name: pwr4_lifes2_cold_ilim80
+      cmd: |
+        alter Vbat dc = 3.0
+        alter Rbat = 1.5
+        alter Vilim dc = 0.08
+        tran 20u 40m uic
+      realism: "who: environment, every LTE TX at -20 C on Li-FeS2 cells; how often: each connection; timing: 0.5 A for 2 ms (lead default, PWR-4); limits: nRF9151 VDD min 3.0 V (PS), 2x Li-FeS2 1.5 ohm at -20 C (PM round 2 q2); boost input limit min 80 mA (SLVSGS9G EC table), supercap C min 72 mF/module, ESR 132 mOhm x1.7 cold (gz215f.md)"
+      measures:
+        - {name: pwr4_vdd_min_i80, meas: "min v(VDD_4V0) from=19m to=40m", min: 3.0, unit: V, req: PWR-4}
+    - name: pwr4_lifes2_cold_ilim120
+      cmd: |
+        alter Vbat dc = 3.0
+        alter Rbat = 1.5
+        alter Vilim dc = 0.12
+        tran 20u 40m uic
+      realism: "as pwr4_lifes2_cold_ilim80, boost input limit max 120 mA (deepest battery sag)"
+      measures:
+        - {name: pwr4_vdd_min_i120, meas: "min v(VDD_4V0) from=19m to=40m", min: 3.0, unit: V, req: PWR-4}
+        - {name: dbg_pwr4_vbatp_min_i120, meas: "min v(BAT_P) from=19m to=40m", unit: V}
+    - name: pwr7_alkaline_cold_ilim80
+      cmd: |
+        alter Vbat dc = 2.8
+        alter Rbat = 4.0
+        alter Vilim dc = 0.08
+        alter Imod pulse = [ 0.005 0.5 20m 10u 10u 100m 1 ]
+        tran 100u 300m uic
+      realism: "who: user fits 2x alkaline AA (PM round 3 q5), environment -20 C; how often: each LTE connection with CE repetitions; timing: 0.5 A for 100 ms (lead default); limits: modem floor 3.2 V and supervisor trip max 2.99 V (TPS3838K33, SLVS292F 7.5), E91 2.8 V / 4.0 ohm cold (e91.md), boost limit min 80 mA, supercap C min, cold ESR"
+      measures:
+        - {name: pwr7_vdd_min_i80, meas: "min v(VDD_4V0) from=19m to=300m", min: 3.2, unit: V, req: PWR-7}
+    - name: pwr7_alkaline_cold_ilim120
+      cmd: |
+        alter Vbat dc = 2.8
+        alter Rbat = 4.0
+        alter Vilim dc = 0.12
+        alter Imod pulse = [ 0.005 0.5 20m 10u 10u 100m 1 ]
+        tran 100u 300m uic
+      realism: "as pwr7_alkaline_cold_ilim80, boost input limit max 120 mA"
+      measures:
+        - {name: pwr7_vdd_min_i120, meas: "min v(VDD_4V0) from=19m to=300m", min: 3.2, unit: V, req: PWR-7}
+        - {name: dbg_pwr7_vbatp_min_i120, meas: "min v(BAT_P) from=19m to=300m", unit: V}
+    - name: vbat_divider_lo
+      cmd: |
+        alter Vbat dc = 1.8
+        alter Rbat = 0.1
+        alter Imod pulse = [ 0.005 0.005 1 1u 1u 1 2 ]
+        tran 50u 20m uic
+      realism: "who: firmware, battery reading at end of life (1.8 V, PWR-1 floor) under idle load; limits: R8/R9 0.1 % (ratio error 0.2 %), CJ2305 on through M3 at 3.0 V gate drive"
+      measures:
+        - {name: vbat_div_err_mv_1v8, meas: "find v(verr_div) at=19m", scale: 1000, min: -50, max: 50, unit: mV, req: PWR-6}
+        - {name: pwr1_vdd4v0_at_1v8, meas: "min v(VDD_4V0) from=5m to=20m", min: 3.88, max: 4.12, unit: V, req: PWR-1}
+        - {name: pwr1_vaon_at_1v8, meas: "min v(VDD_AON) from=5m to=20m", min: 2.94, max: 3.06, unit: V, req: PWR-1}
+    - name: vbat_divider_hi
+      cmd: |
+        alter Vbat dc = 3.6
+        alter Rbat = 1.5
+        alter Imod pulse = [ 0.005 0.005 1 1u 1u 1 2 ]
+        tran 50u 20m uic
+      realism: "who: firmware, battery reading on fresh cells (3.6 V OC); limits as vbat_divider_lo"
+      measures:
+        - {name: vbat_div_err_mv_3v6, meas: "find v(verr_div) at=19m", scale: 1000, min: -50, max: 50, unit: mV, req: PWR-6}
+        - {name: pwr1_vdd4v0_at_3v6, meas: "max v(VDD_4V0) from=5m to=20m", min: 3.88, max: 4.12, unit: V, req: PWR-1}
+        - {name: pwr1_vaon_at_3v6, meas: "max v(VDD_AON) from=5m to=20m", min: 2.94, max: 3.06, unit: V, req: PWR-1}
+
+layout_checks:
+  - {name: lte-keepout-free, kind: keepout_free, area: {region: lte_clearance}, layers: [F.Cu, B.Cu, In1.Cu, In2.Cu], except_parts: [AE1], except_nets: [LTE_FEED], req: IF-5}
+  - {name: gnss-patch-keepout-free, kind: keepout_free, area: {rect: [4, 11.5, 16, 23.5]}, layers: [F.Cu], except_parts: [AE2], except_nets: [GND, GNSS_ANT], req: IF-5}
+  - {name: outline, kind: outline_max, width_mm: 75, height_mm: 35, req: MECH-2}
+  - {name: smd-front, kind: side_only, side: front, parts: [D1, C1, M1, C2, L1, U2, R1, C3, R2, R3, R4, U3, C6, C7, U4, C8, C9, R5, U5, C10, R6, U6, R7, C11, R20, M2, R8, R9, C12, M3, R10, R11, U1, C13, C14, C15, C16, C17, R12, C18, L2, C19, L3, C20, C21, L4, L5, AE1, U7, C22, U8, C23, C24, C25, C26, FL1, AE2, BZ1, R13, C27, R14, C28, R15, D2, R16, SW1, R17, D3, U9, C29, C30, R18, R19, R21, R22, U10, U11], req: MECH-3}
+  - {name: back-parts, kind: side_only, side: back, parts: [C4, C5, J1, TP1, TP2, TP3, TP4, TP5, TP6, TP7], req: MECH-3}

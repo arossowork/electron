@@ -1,0 +1,135 @@
+version: 1
+# Draft contract from stage 1b. No design.yaml yet: refs and nets are filled by the circuit stage.
+mcu: {ref: U1, power_nets: [VDD_4V0, VDD_AON, DEC0, SIM_1V8], family: nrf91}   # nRF9151 SiP: VDD = VDD_4V0, VDD_GPIO = VDD_AON, DEC0 internal regulator node, SIM_1V8 UICC supply output
+signals:
+  BTN:        {dir: in, active: low, wake: low, sleep: "pulled to inactive by HW", strap: "not a boot strap pin", req: IF-6, source: "button wakes MCU from sleep: needs a wake-capable pin; ESD TVS per ENV-3"}
+  LED:        {dir: out, active: high, sleep: "off", strap: "reset level must be off", req: IF-6, source: "C1 assumption 1 ms/10 s at 5 mA"}
+  BUZ_P:      {dir: out, active: high, sleep: "low", strap: "AC-coupled (C27 470 nF): a stuck or floating pin is silent, no pull-down needed", drive: "high drive H0H1 on P0.28/P0.29 (6.0 Vpp across BZ1 at VDD_GPIO 3.0 V)", req: IF-7, source: "stage 3: two GPIOs in antiphase (parts-ui.md finding 1)"}
+  BUZ_N:      {dir: out, active: high, sleep: "low", strap: "AC-coupled (C28 470 nF)", req: IF-7, source: "antiphase of BUZ_P"}
+  VBAT_SENSE: {dir: adc, sleep: "divider off or >= 1.03 Mohm", req: PWR-6, source: "PWR-5 headroom 10 - 6.5 = 3.5 uA at 3.6 V"}
+  VBAT_SENSE_EN: {dir: out, active: high, sleep: "off", req: PWR-6, source: "only if divider is not always-on (decided at stage 4)"}
+  RESET_N:    {dir: reset, active: low, sleep: "released", req: PWR-4, source: "driven by the HW supervisor, MCU reads reset cause only"}
+  ACCEL_INT:  {dir: in, active: high, wake: high, sleep: "armed by SW before sleep", req: IF-9, source: "wake-on-motion could; MCU wake need on this net"}
+  ACCEL_SDA:  {dir: i2c, req: IF-9, source: "accel bus; could be SPI, decided at stage 3"}
+  ACCEL_SCL:  {dir: i2c, req: IF-9, source: "same"}
+  SWDIO:      {dir: in, sleep: "test pad", req: IF-8, source: "debug pad in battery compartment"}
+  SWCLK:      {dir: in, sleep: "test pad", req: IF-8, source: "debug pad in battery compartment"}
+  UART_TX:    {dir: uart, sleep: "idle high", req: IF-8, source: "log and bootloader pad"}
+  UART_RX:    {dir: uart, sleep: "idle high", req: IF-8, source: "log and bootloader pad"}
+  LTE_RF:     {dir: rf, sleep: "modem-controlled", req: IF-1, source: "nRF9151 ANT pin 35, dedicated modem RF port to the NN02-220 match; no firmware pin control"}
+  SIM_RST:    {dir: sim, sleep: "modem-controlled", req: IF-1, source: "nRF9151 dedicated UICC interface (pins 16-18) to the MFF2 eSIM; driven by the modem firmware"}
+  SIM_CLK:    {dir: sim, sleep: "modem-controlled", req: IF-1, source: "as SIM_RST"}
+  SIM_IO:     {dir: sim, sleep: "modem-controlled", req: IF-1, source: "as SIM_RST"}
+  GNSS_TX:    {dir: uart, sleep: "input with no pull (LC76G off)", req: IF-3, source: "LC76G TXD -> nRF P0.04"}
+  GNSS_RX:    {dir: uart, sleep: "drive LOW or Hi-Z (disconnect the UART) whenever GNSS_EN is low: a high level back-powers the unpowered LC76G through its I/O (P-version 60 ohm pull-down, parts review)", req: IF-3, source: "nRF P0.03 TX -> LC76G RXD"}
+  GNSS_RST_N: {dir: out, active: low, sleep: "Hi-Z or low while GNSS_EN is low (open-drain use only; LC76G internal pull-up to 1.8 V, never drive high)", req: IF-3, source: "LC76G HW design p.25"}
+  GNSS_EN:    {dir: out, active: high, sleep: "off", strap: "reset level off by pull-down", req: PWR-5, source: "LDO enable; GNSS fully off in sleep (backup 13 uA > PWR-5)"}
+  WDT_DONE:   {dir: out, active: high, sleep: "low", req: PWR-3, source: "stage 2 lead decision: TPL5010 external watchdog, period 60 s"}
+  WDT_WAKE:   {dir: in, active: high, wake: high, req: PWR-3, source: "TPL5010 WAKE"}
+dividers:
+  - {name: VBAT, net: VBAT_SENSE, top: R8, bottom: R9, req: PWR-6}   # 200k/200k 0.1 %, switched by M2 via M3 (VBAT_SENSE_EN high)
+buses: []   # I2C pullups and device address are filled at stage 3/4 (source: accelerometer datasheet)
+params:
+  edrx_cycle_s:        {value: 81.92, unit: s, req: IF-2}
+  gnss_fix_timeout_s:  {value: 30, unit: s, req: IF-2}
+  upload_timeout_s:    {value: 10, unit: s, req: IF-2}
+  poll_period_min:     {value: 60, unit: min, req: IF-2}
+  lost_fix_period_s:   {value: 60, unit: s, req: "PM round 2 q3"}
+  lost_max_duration_s: {value: 7200, unit: s, req: "PM round 2 q3"}
+  led_on_ms:           {value: 1, unit: ms, req: IF-6}
+  led_period_s:        {value: 10, unit: s, req: IF-6}
+  buzzer_on_s:         {value: 10, unit: s, req: IF-7}
+  # ---- firmware-side parameters (stage 9); source "fw choice" = chosen by firmware, verify at bring-up
+  tx_cell_sag_mv:      {value: 2400, unit: mV, req: PWR-7, source: "lead brief / architecture.md C2: cells under load below 2.4 V -> power class 5; the low-battery report level is low_batt_idle_mv"}
+  tx_cold_limit_c:     {value: 0, unit: C, req: PWR-7, source: "lead brief: back off below 0 C"}
+  tx_nominal_dbm:      {value: 23, unit: dBm, req: PWR-7, source: "nRF9151 power class 3"}
+  tx_backoff_dbm:      {value: 20, unit: dBm, req: PWR-7, source: "architecture.md C2: power class 5, 1.2 W <= 1.22 W available"}
+  tx_hyst_mv:          {value: 100, unit: mV, req: PWR-7, source: "fw choice: release hysteresis against chatter"}
+  tx_hyst_c:           {value: 2, unit: C, req: PWR-7, source: "fw choice"}
+  tx_sample_delay_ms:  {value: 20, unit: ms, req: PWR-6, source: "fw choice: loaded sample 20 ms into the burst (F7); verify with a scope at bring-up"}
+  gate_retry_s:        {value: 3, unit: s, req: PWR-7, source: "attach_min_vbat_mv note: supercap recharge 2.7 s worst case"}
+  batt_period_min:     {value: 60, unit: min, req: PWR-6, source: "architecture.md 8: divider on 1 ms per hour"}
+  assist_period_h:     {value: 60, unit: h, req: IF-3, source: "epo_valid_h - epo_refresh_lead_h = 72 - 12: refresh the EPO file before it expires (Quectel AGNSS AN V1.1 section 2.1.5: download 12 h in advance)"}
+  epo_valid_h:         {value: 72, unit: h, req: IF-3, source: "Quectel LC26G/LC76G/LC86G AGNSS Application Note V1.1 table 6: GPS-only EPO is 3-day files (EPO_GPS_3_X.DAT); module flash holds up to 14 days (note 1 of table 2); validity from the file start (GPS_Hour + 6 of the last segment)"}
+  epo_refresh_lead_h:  {value: 12, unit: h, req: IF-3, source: "Quectel AGNSS AN V1.1 section 2.1.5: 'necessary to download the EPO file 12 hours in advance'"}
+  epo_file_bytes:      {value: 27648, unit: B, req: IF-3, source: "AN V1.1 section 2.1.2.1: SAT data 72 B x 32 = 2304 B per 6 h set; 3-day GPS-only file = 12 sets = 27648 B"}
+  assist_dl_mc:        {value: 590, unit: mC, req: IF-3, source: "27648 B at the sim rate 20000 B in 8.5 s (2353 B/s) = 11.75 s x 50 mA battery side; the earlier 0.43 C was a 20 kB file"}
+  cold_fix_mc:         {value: 390, unit: mC, req: IF-3, source: "LC76G cold TTFF 28 s (parts-rf.md) x 14.1 mA battery side"}
+  hot_fix_mc:          {value: 70, unit: mC, req: IF-3, source: "EPO TTFF 5 s (parts-rf.md) x 14.1 mA"}
+  low_batt_idle_mv:    {value: 2600, unit: mV, req: PWR-6, source: "lead default awaiting PM confirmation (conflicts.md C16): 1.3 V per cell idle; 14 days at the worst-month average 217.7 uA = 73.2 mAh remaining; chosen for Li-FeS2 (plateau 1.5 V, the last few percent fall through 1.3 V), the higher of the two chemistries; curves to verify at bring-up"}
+  low_batt_sag_count:  {value: 3, unit: count, req: PWR-6, source: "lead default (C16): consecutive loaded samples below tx_cell_sag_mv at T >= tx_cold_limit_c (cold alkaline sags by design: 2.8 V / 4 ohm, not a low battery); catches the rising internal resistance that a flat idle voltage hides"}
+  fota_chunk_kb:       {value: 16, unit: kB, req: IF-8, source: "fw choice: resume granularity; 16 kB = 6.8 s at the sim rate"}
+  fota_confirm_s:      {value: 3600, unit: s, req: IF-8, source: "fw choice: time after the first boot of a new image to attach and upload before it is left unconfirmed (MCUboot reverts it at the next reset)"}
+  fota_per_year:       {value: 1, unit: 1/yr, req: IF-8, source: "lead default awaiting PM confirmation (conflicts.md C4)"}
+  fota_resume_s:       {value: 120, unit: s, req: IF-8, source: "fw choice: bound on the time a download yields to a request or an assistance download"}
+  gnss_boot_ms:        {value: 100, unit: ms, req: IF-3, source: "fw choice: wait after GNSS_EN before releasing RST and the UART; verify against LC76G startup at bring-up"}
+  buz_freq_hz:         {value: 4000, unit: Hz, req: IF-7, source: "PKLCS1212E4001 resonance (notes/parts-ui.md)"}
+  btn_debounce_ms:     {value: 30, unit: ms, req: IF-6, source: "fw choice"}
+  btn_cancel_lost_s:   {value: 5, unit: s, req: IF-6, source: "fw choice: hold to cancel lost mode"}
+  wdt_period_s:        {value: 60, unit: s, req: PWR-3, source: "TPL5010 DELAY resistor (R7 22 k placeholder, open in notes/circuit.md)"}
+  attach_timeout_s:    {value: 180, unit: s, req: IF-1, source: "fw choice per RAT before the next fallback"}
+  assist_timeout_s:    {value: 60, unit: s, req: IF-3, source: "fw choice"}
+  brownout_backoff_s:  {value: 60, unit: s, req: PWR-7, source: "fw choice: first retry delay after a brown-out reset, doubles up to poll_period_min"}
+  lost_still_max_s:    {value: 600, unit: s, req: IF-9, source: "fw choice: in lost mode with no motion, skip fixes but report at least every 10 min"}
+  lost_window_days:    {value: 30, unit: day, req: PWR-3, source: "max_lost_sessions_per_month window"}
+  vbat_settle_ms:      {value: 5, unit: ms, req: PWR-6, source: "10 nF at AIN x 100 kohm source = 1 ms time constant (architecture.md 8), 5 tau"}
+  assist_retry_min:    {value: 60, unit: min, req: IF-3, source: "fw choice: minimum gap between assistance download attempts"}
+  led_gap_ms:          {value: 150, unit: ms, req: IF-6, source: "fw choice: gap between status pulses"}
+  btn_status_ms:       {value: 300, unit: ms, req: IF-6, source: "fw choice: LED pulse length on a button press"}
+  led_pulse_ma:        {value: 5, unit: mA, req: IF-6, source: "C1 assumption 5 mA"}
+limits:
+  latency_max_s:    {value: 122, req: IF-2, source: "2 min 2 s"}
+  latency_sum_s:    {value: "edrx_cycle_s + gnss_fix_timeout_s + upload_timeout_s", max: 122, req: IF-2}
+  lost_session_fixes: {value: "lost_max_duration_s / lost_fix_period_s", req: PWR-3}
+  avg_batt_ua_max_edrx: {value: 268, req: PWR-3, source: "2350 mAh / 8760 h"}
+  avg_batt_ua_max_pwr2: {value: 1630, req: PWR-2, source: "2350 mAh / 1440 h"}
+  sleep_floor_ua_max:   {value: 22, req: PWR-5, source: "requirements.yaml PWR-5 <= 22 uA at 50 C, max values: notes/sleep-floor-reallocation.md re-derivation 2026-11-01 (21.8 uA at eta 0.85, eDRX average 96.5 uA <= 268)"}
+  vbat_error_mv_max:    {value: 50, req: PWR-6}
+  bor_threshold_mv:     {value: 2990, req: PWR-4, source: "TPS3838K33 VIT- max 2.99 V (min 2.84, typ 2.93), SLVS292F 7.5; reset asserts at or below this on VDD_4V0"}
+  boost_uvlo_mv:        {value: 500, req: PWR-1, source: "TPS612994 operates down to VIN 0.5 V falling, starts at 0.7 V rising (SLVSGS9G); input limit 80-120 mA"}
+  attach_min_vbat_mv:   {value: 3900, req: PWR-7, source: "stage-5 review: no LTE attach/TX until %XVBAT (VDD_4V0) >= 3.9 V at boot and between bursts (supercap recharged: 0.144 F x 0.8 V at 42 mA = 2.7 s worst case)"}
+  fota_image_kb:        {value: 300, req: IF-8, source: "lead default (conflicts.md C4): app image estimate 300 kB, architecture.md section 4 (NCS LTE app with modem lib, TLS, LTE LC); must fit fota_slot_kb; size check in fw/lib; measure at bring-up"}
+  fota_slot_kb:         {value: 440, req: IF-8, source: "nRF9151 1 MB internal flash, no external flash: MCUboot 48 kB + 2 x 440 kB slots (primary + secondary) + 80 kB settings/NVS/EPO staging + 16 kB spare = 1024 kB (lead partition; Nordic NCS MCUboot swap layout, flash map to confirm in the pm_static)"}
+  buzzer_hw_cap_s:      {value: 128, req: IF-7, source: "conflicts.md C15: TPL5010 resets at the end of the interval after the missed WAKE (SNAS651A 8.3, Figure 8), i.e. up to 2 x tIP_max after the hang; tIP at R7 22.0 kohm = 59.8 s (Eq. 1/3, set 3), 22.22 kohm (1 %) 61.3 s, +0.6 % +0.5 % +0.24 % +temperature 400 ppm/C x 60 C = 63.6 s; 2 x 63.6 = 127.2 s. The 10 s limit is the finite PWM sequence, not this cap"}
+  max_lost_sessions_per_month: {value: 6, req: PWR-3, source: "78 + 30 n <= 268 uA (partition.md)"}
+events:             # firmware-side (stage 9): a/b payload names; isr = posted by an interrupt handler or modem callback
+  MODEM_EVT:    {a: kind, b: value, isr: true, req: IF-2}       # kind: 1 attach ok (b=edrx granted), 2 attach fail, 3 upload ok, 4 upload fail, 5 assist ok (b=bytes), 6 assist fail, 7 request position, 8 request buzzer (b=s), 9 lost start, 10 lost stop, 11 poll reply (b=pending request), 12 fota offer (b=image kB), 13 fota chunk ok (b=bytes), 14 fota chunk fail
+  GNSS_EVT:     {a: kind, b: value, isr: true, req: IF-3}       # kind: 1 fix ok (b=ttff_ms), 2 no fix
+  BTN_EDGE:     {a: level, isr: true, req: IF-6}
+  WDT_WAKE_IRQ: {a: unused, isr: true, req: PWR-3}
+  ACCEL_IRQ:    {a: unused, isr: true, req: IF-9}
+  POS_REQUEST:  {a: source, b: seq, req: IF-2}                  # source 0 network request, 1 lost mode
+  FIX_RESULT:   {a: valid, b: age_s, req: IF-2}                 # valid 0 = last known position (F5)
+  UPLOAD_DONE:  {a: ok, b: elapsed_ms, req: IF-2}
+  BATT_CHECK:   {a: reason, req: PWR-7}                         # 0 boot, 1 before burst, 2 between bursts
+  TX_ALLOWED:   {a: allowed, b: vbat_mv, req: PWR-7}
+  TX_POWER:     {a: dbm, req: PWR-7}
+  TX_BURST:     {a: start, req: PWR-6}                          # 1 start, 0 end: power samples the loaded voltage (F7)
+  BATT_REPORT:  {a: idle_mv, b: loaded_mv, req: PWR-6}
+  LOW_BATT:     {a: vbat_mv, req: PWR-6}
+  LINK_STATE:   {a: mode, b: rat, req: IF-2}                    # mode 0 off, 1 edrx, 2 poll; rat 0 LTE-M, 1 NB-IoT
+  BUZZ_CMD:     {a: seconds, req: IF-7}
+  LOST_CMD:     {a: start, req: PWR-3}
+  LOST_STATE:   {a: state, b: sessions, req: PWR-3}             # 0 idle, 1 active, 2 refused (monthly limit), 3 ended
+  ASSIST_REQ:   {a: age_h, req: IF-3}
+  ASSIST_DONE:  {a: ok, b: bytes, req: IF-3}
+  RESET_CAUSE:  {a: cause, req: PWR-4}                          # 1 brown-out, 2 watchdog, 3 power-on
+  MOTION:       {a: unused, req: IF-9}
+  FOTA_STATE:   {a: state, b: percent, req: IF-8}               # 0 idle, 1 downloading, 2 yielded, 3 applied (reboot to test), 4 confirmed, 5 rolled back, 6 refused
+modules:
+  power: {doc: "boot gate, battery sampling, TX power back-off, low-battery report", emits: [TX_ALLOWED, TX_POWER, BATT_REPORT, LOW_BATT], consumes: [BATT_CHECK, TX_BURST, RESET_CAUSE], owns: [VBAT_SENSE_EN, VBAT_SENSE]}
+  conn:  {doc: "LTE-M/NB-IoT, PSM+eDRX, poll fallback, request handling, upload, assistance download", emits: [LINK_STATE, UPLOAD_DONE, BATT_CHECK, TX_BURST, POS_REQUEST, BUZZ_CMD, LOST_CMD, ASSIST_DONE], consumes: [MODEM_EVT, TX_ALLOWED, TX_POWER, FIX_RESULT, BATT_REPORT, LOW_BATT, ASSIST_REQ, RESET_CAUSE]}
+  gnss:  {doc: "LC76G power gating, fix with timeout, assistance age", emits: [FIX_RESULT, ASSIST_REQ], consumes: [GNSS_EVT, POS_REQUEST, ASSIST_DONE, LOST_STATE], owns: [GNSS_EN, GNSS_RX, GNSS_TX, GNSS_RST_N]}
+  lost:  {doc: "lost mode: 1 fix/min up to 2 h, monthly session limit", emits: [POS_REQUEST, LOST_STATE], consumes: [LOST_CMD, FIX_RESULT, UPLOAD_DONE, MOTION]}
+  ui:    {doc: "status LED, button, antiphase buzzer", emits: [LOST_CMD], consumes: [BTN_EDGE, BUZZ_CMD, LOST_STATE, LOW_BATT, LINK_STATE, BATT_REPORT], owns: [LED, BUZ_P, BUZ_N, BTN]}
+  wdt:   {doc: "TPL5010 DONE on each WAKE, reset cause log", emits: [RESET_CAUSE], consumes: [WDT_WAKE_IRQ], owns: [WDT_DONE, WDT_WAKE]}
+  fota:  {doc: "chunked FOTA download with resume, yields to requests, battery and supercap gate, image confirm or rollback", emits: [FOTA_STATE, BATT_CHECK, TX_BURST], consumes: [MODEM_EVT, TX_ALLOWED, LOW_BATT, BATT_REPORT, POS_REQUEST, UPLOAD_DONE, ASSIST_REQ, ASSIST_DONE, LINK_STATE, LOST_STATE]}
+  motion: {doc: "LIS2DW12 wake-on-motion", emits: [MOTION], consumes: [ACCEL_IRQ], owns: [ACCEL_INT, ACCEL_SDA, ACCEL_SCL]}
+failure_modes:
+  - {id: F1, what: "MCU hung or in reset", hw: "Supervisor holds a clean reset on brown-out; boost UVLO acts without the MCU; buzzer and LED default off", sw: "Watchdog reset; log reset cause; resume eDRX or poll after boot", req: [PWR-4, PWR-1, IF-7]}
+  - {id: F2, what: "Network refuses eDRX", hw: "none", sw: "Detect no eDRX grant, switch to 60-min poll, retry eDRX at next attach", req: [IF-2, PWR-3]}
+  - {id: F3, what: "Buzzer GPIO stuck high", hw: "AC-coupled or time-capped drive (value open, buzzer_hw_cap_s)", sw: "Drive 10 s pattern then off; never hold DC", req: [IF-7, PWR-3]}
+  - {id: F4, what: "Cell sags below modem minimum at cold TX", hw: "2x GZ215F reservoir behind the 80-120 mA input-limited boost (simulated min 3.61 V on cold alkaline, 100 ms); TPS3838K33 trips at 2.84-2.99 V, i.e. below the nRF9151 3.0 V minimum: between 3.0 V and the trip the SiP runs out of spec without a reset (the hold-up keeps VDD_4V0 >= 3.2 V in every simulated case)", sw: "No attach/TX until %XVBAT >= 3.9 V at boot and between bursts (attach_min_vbat_mv); on a brown-out reset, back off TX retries; report low battery", req: [PWR-4, PWR-6, PWR-7]}
+  - {id: F5, what: "GNSS fix not found in 30 s", hw: "none", sw: "Upload last known position with age flag; do not extend the 30 s", req: [IF-2, IF-3]}
+  - {id: F6, what: "Lost mode left running", hw: "none", sw: "Stop after 7200 s or on owner cancel; count sessions per month", req: [PWR-3]}
+  - {id: F7, what: "Battery voltage reading during TX load", hw: "Divider tolerance and ADC accuracy set the 50 mV", sw: "Sample at a defined point of the load cycle; report both loaded and idle", req: [PWR-6]}
