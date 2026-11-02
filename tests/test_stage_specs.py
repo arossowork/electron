@@ -346,7 +346,8 @@ def _guard_stages(guard_env, monkeypatch, stages: list[str], params: dict | None
             elif not any(t == x or t.startswith(x + "/") for x in g.shared):
                 continue
             backup = {"existed": tp.exists(), "bytes": tp.read_bytes() if tp.is_file() else None}
-            _mutate(tp, os.path.relpath(t, sproj) + ("/" if tp.is_dir() else ""))
+            rel = os.path.relpath(t, sproj)  # an absent path declared as a folder ("lib/") is probed as a folder
+            _mutate(tp, rel + ("/" if tp.is_dir() or rel + "/" in g.declared else ""))
             try:
                 d = Design.load(sproj / "design.yaml")
                 if cache_key(spec, inp, tool_versions=tools, design=d) == k0:
