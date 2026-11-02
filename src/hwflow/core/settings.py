@@ -60,6 +60,7 @@ class LayoutSettings(_Group):
     keepout_strict: OffWords = Field(True, validation_alias=AliasChoices("HWFLOW_KEEPOUT_STRICT"))
     neckdown: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_NECKDOWN"))
     seedroute: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SEEDROUTE"))
+    ripup: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_RIPUP"))  # krt.krt_route rip-up rounds
     seed0: int = Field(1, validation_alias=AliasChoices("HWFLOW_SEED0"))
     budget_s: float = Field(3000.0, validation_alias=AliasChoices("HWFLOW_LAYOUT_BUDGET_S"))
     auto_max_errors: int | None = Field(None, validation_alias=AliasChoices("HWFLOW_AUTO_MAX_ERRORS"))
@@ -157,7 +158,9 @@ class RepairSettings(_Group):
     max_errors: int = Field(40, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_ERRORS"))
     # a safety abort only (repair.py): the repair and the pour-stitch re-routes stop on counts
     budget_s: float = Field(1800.0, validation_alias=AliasChoices("HWFLOW_REPAIR_BUDGET_S"))
-    max_stall: int = Field(2, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_STALL"))
+    # one rejected round stops the repair: a round that did not improve the board rarely leads to one that does,
+    # and each costs a full re-route (timed-bathroom-vent: two rejected rounds, 1018 s + 784 s, 12 -> 12 errors)
+    max_stall: int = Field(1, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_STALL"))
 
 
 class RouterSettings(_Group):

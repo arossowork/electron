@@ -683,7 +683,7 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         if r["poly"].is_empty:
             continue
         allow = {x for e in r["allow"] for x in (res.get(e) or [y for y in refs if fnmatch.fnmatchcase(y, e)])}
-        allow |= _block_yards(design, allow)
+        allow |= _block_yards(design, allow | mem[r["name"]])  # a block of the region's own members may sit in it too
         if r["cut"]:  # a hole in the board: every part keeps the board margin from its edge, as from the outline
             out.append(_rule(r["name"], r["poly"].buffer(float(design.board["margin_mm"]), join_style="mitre"),
                              r["sides"], set(), True, allow, {}))

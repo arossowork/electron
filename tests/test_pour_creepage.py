@@ -130,3 +130,62 @@ def test_roundrect_pad_is_measured_by_its_outline():
     hv = [i for i in _copper_items(ex) if i[0] == "HV"]
     d = postlayout._seg_dist(np.array([i[2:6] for i in hv]), np.array([g[2:6]])) - np.array([i[6] for i in hv])[:, None]
     assert float(d.min()) == pytest.approx(3.0 - r * (math.sqrt(2) - 1), abs=1e-6)
+
+
+def _fp_with_local_clearance(pad_clearance=None):
+    """A library footprint with KiCad's footprint-level `(clearance 0.2)` (as Package_SO:SO-4_4.4x3.6mm_P2.54mm has)
+    and one HV pad 1 x 2 mm, optionally with its own pad clearance."""
+    from hwflow.core.sexpr import Q
+    pad = ["pad", Q("1"), "smd", "rect", ["at", 0, 0], ["size", 1, 2], ["layers", Q("F.Cu"), Q("F.Mask")]]
+    if pad_clearance is not None:
+        pad.append(["clearance", pad_clearance])
+    return ["footprint", Q("X"), ["layer", Q("F.Cu")], ["clearance", 0.2], ["attr", "smd"],
+            ["property", Q("Reference"), Q("REF**"), ["at", 0, 0], ["layer", Q("F.Fab")]], pad]
+
+
+def _clearances(node):
+    return [x[1] for x in node if isinstance(x, list) and x and x[0] == "clearance"]
+
+
+def test_local_clearance_override_below_the_isolation_distance_is_dropped(tmp_path):
+    """KiCad ranks a footprint's or pad's local clearance above every custom rule (DRC and zone filler): the U4
+    optocoupler of timed-bathroom-vent let the GND pour reach its mains pads at 0.58 mm under a 1.5 mm group rule."""
+    d = _design(tmp_path, {"clearance_mm": 1.5, "creepage_mm": 1.5})
+    keep = pcb.isolation_keepoff(d)
+    assert keep == {"HV": 1.5}
+    part = SimpleNamespace(x=10.0, y=10.0, r=0)
+    out = pcb._place_footprint(_fp_with_local_clearance(0.3), "U1", "x", part, {"HV": 2}, {"1": "HV"}, None, keep)
+    pad = next(x for x in out if isinstance(x, list) and x[0] == "pad")
+    assert _clearances(out) == [] and _clearances(pad) == []
+    # a larger override is stricter than the rule: kept; a footprint without member nets keeps its own
+    out = pcb._place_footprint(_fp_with_local_clearance(2.0), "U1", "x", part, {"HV": 2}, {"1": "HV"}, None, keep)
+    assert _clearances(next(x for x in out if isinstance(x, list) and x[0] == "pad")) == [2.0]
+    out = pcb._place_footprint(_fp_with_local_clearance(), "U1", "x", part, {"GND": 1}, {"1": "GND"}, None, keep)
+    assert _clearances(out) == [0.2]
+
+
+def test_pour_keeps_the_group_distance_from_a_footprint_with_a_local_clearance(tmp_path):
+    try:
+        kicad.cli()
+    except FileNotFoundError:
+        pytest.skip("kicad-cli not installed")
+    from hwflow.core.sexpr import dumps, loads
+    d = _design(tmp_path, {"clearance_mm": 1.5, "creepage_mm": 1.5})
+    out = tmp_path / "b"
+    out.mkdir()
+    board = out / "pc.kicad_pcb"
+    _board(board)
+    part = SimpleNamespace(x=10.0, y=10.0, r=0)
+
+    def errors(keep):
+        tree = loads(board.read_text())
+        tree = [x for x in tree if not (isinstance(x, list) and x and x[0] == "footprint")]
+        tree.append(pcb._place_footprint(_fp_with_local_clearance(), "U1", "x", part, {"GND": 1, "HV": 2},
+                                         {"1": "HV"}, None, keep))
+        board.write_text(dumps(tree) + "\n")
+        pcb.write_project(out, "pc", d)
+        return [x for x in kicad.drc(board, refill=True) if x["sev"] == "error" and x["type"] in ("creepage", "clearance")]
+
+    assert errors(None)  # the override wins over the group rule: the fill reaches the pad at the local clearance
+    assert errors(pcb.isolation_keepoff(d)) == []
+    assert _measure(d, board) == pytest.approx(1.5, abs=0.01)

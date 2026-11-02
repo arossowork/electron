@@ -27,7 +27,8 @@ def uid() -> Q:
 # ------------------------------------------------------------------ track sizing
 
 def net_classes(design: Design) -> dict[str, dict]:
-    """net -> {width, clearance, class}, and min_width for a net with `min_width_mm` (net_min_widths)"""
+    """net -> {width, clearance, class}, and min_width for a net with `min_width_mm` (net_min_widths). The width is
+    at least min_width_mm."""
     b = design.board
     out = {}
     for net in design.nets():
@@ -38,11 +39,22 @@ def net_classes(design: Design) -> dict[str, dict]:
         if info.get("class") == "power":
             w = max(w, float(b.get("power_track_mm", 0.4)))
         w = max(w, (getattr(design, "budget_widths", None) or {}).get(net, 0.0))  # budgets.widths, set by the layout stage
+        # min_width_mm: the narrowest copper the net may have, so never a class width under it (a net with only
+        # min_width_mm routed at the board track width: L 0.4 mm against 1.0 mm)
+        w = max(w, float(info.get("min_width_mm") or 0.0), float(info.get("min_width_inner_mm") or 0.0))
         out[net] = {"width": w, "clearance": float(info.get("clearance_mm", b["clearance_mm"])),
                     "class": info.get("class", "signal")}
         if info.get("min_width_mm") is not None:
             out[net]["min_width"] = float(info["min_width_mm"])
+        if info.get("min_width_inner_mm") is not None:  # the net's tracks on In*.Cu (its routing width is at least this)
+            out[net]["min_width_inner"] = float(info["min_width_inner_mm"])
     return out
+
+
+def net_inner_min_widths(design: Design) -> dict[str, float]:
+    """`nets.<name>.min_width_inner_mm`: the narrowest copper the net may have on an inner layer (In*.Cu), where the
+    inner copper weight needs more width than `min_width_mm` (outer layers); the nets that set it."""
+    return {n: c["min_width_inner"] for n, c in net_classes(design).items() if "min_width_inner" in c}
 
 
 def net_min_widths(design: Design) -> dict[str, float]:
@@ -101,9 +113,33 @@ def _quote_tokens(node: list) -> None:
             _quote_tokens(x)
 
 
+def isolation_keepoff(design: Design) -> dict[str, float]:
+    """net -> the largest distance a `board.isolation` group asks of it (max of clearance_mm and creepage_mm)."""
+    out: dict[str, float] = {}
+    for g in isolation_groups(design):
+        keep = pour_keepoff_mm(g)
+        for n in g["members"] if keep is not None else []:
+            out[n] = max(out.get(n, 0.0), keep)
+    return out
+
+
+def _drop_local_clearance(node: list, need: float) -> list:
+    """`node` (a footprint or a pad) without a local `(clearance x)` override below `need`. KiCad ranks a pad's or
+    footprint's local clearance above every custom rule, for DRC and the zone filler alike, so a library footprint
+    with `(clearance 0.2)` (KiCad's SO-4 optocouplers, for one) lets a pour reach an isolation member pad at 0.2 mm
+    while the group's clearance rule reports nothing; only the creepage rule, which no local override touches, fails."""
+    return [x for x in node if not (isinstance(x, list) and len(x) == 2 and x[0] == "clearance"
+                                    and float(x[1]) < need - 1e-9)]
+
+
 def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: dict, pin_nets: dict,
-                     fields: dict | None = None) -> list:
+                     fields: dict | None = None, keepoff: dict | None = None) -> list:
+    """`keepoff` (net -> isolation distance, `isolation_keepoff`): a local clearance override below the distance of
+    an isolation member net on the footprint is dropped from it and its pads, so the isolation rules bind."""
+    need = max([float((keepoff or {}).get(n, 0.0)) for n in pin_nets.values() if n] or [0.0])
     t = copy.deepcopy(fp_tree)
+    if need > 0:
+        t = _drop_local_clearance(t, need)
     t[0] = "footprint"
     fp_name = str(t[1])
     out = [t[0], Q(fp_name if ":" in fp_name else fp_name)]
@@ -140,6 +176,8 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
             sexpr.set_at_angle(at, (sexpr.at_angle(at) + part.r) % 360)
             net = pin_nets.get(str(item[1]))
             item = [x for x in item if not (isinstance(x, list) and x and x[0] in ("net", "uuid"))]
+            if need > 0:
+                item = _drop_local_clearance(item, need)
             if net is not None and str(item[1]) and net.upper() not in ("NC", "~"):  # design.nets() skips them too
                 item.append(["net", netidx[net], Q(net)])
             item.append(["uuid", uid()])
@@ -222,12 +260,82 @@ def region_keepout_zones(design: Design) -> list:
     return out
 
 
+KEEPOUT_RULES = ("tracks", "vias", "pads", "copperpour", "footprints")
+
+
+def board_keepout_zones(design: Design) -> list:
+    """Rule areas of `board.keepouts` (board coordinates) as KiCad zone nodes: `{name, rect: [x0, y0, x1, y1] | poly:
+    [[x, y], ...], layers (default every copper layer), forbids (default tracks, vias, copperpour)}`. Inner layers on
+    a 2-layer board are dropped. The router, the pour fill and DRC all read these areas from the board."""
+    b = design.board
+    copper = cu_layers(int(b["layers"]))
+    out = []
+    for i, k in enumerate(b.get("keepouts") or []):
+        lay = [str(L) for L in (k.get("layers") or copper) if str(L) in copper]
+        if not lay:
+            continue
+        if k.get("rect") is not None:
+            x0, y0, x1, y1 = (float(v) for v in k["rect"])
+            pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        else:
+            pts = [(float(x), float(y)) for x, y in k["poly"]]
+        forbid = {str(x) for x in (k.get("forbids") or ["tracks", "vias", "copperpour"])}
+        rules = [[n, "not_allowed" if n in forbid else "allowed"] for n in KEEPOUT_RULES]
+        out.append(["zone", ["net", 0], ["net_name", Q("")], ["layers"] + [Q(L) for L in lay], ["uuid", uid()],
+                    ["name", Q(str(k.get("name") or f"board keepout {i + 1}"))],
+                    ["hatch", "edge", 0.5], ["connect_pads", ["clearance", 0]], ["min_thickness", 0.25],
+                    ["filled_areas_thickness", "no"], ["keepout"] + rules,
+                    ["fill", ["thermal_gap", 0.5], ["thermal_bridge_width", 0.5]],
+                    ["polygon", ["pts"] + [["xy", round(x, 4), round(y, 4)] for x, y in pts]]])
+    return out
+
+
+def board_keepout_findings(design: Design) -> list[str]:
+    """Malformed `board.keepouts` entries (for `hwflow check`)."""
+    bad = []
+    copper = set(cu_layers(4))
+    for i, k in enumerate(design.board.get("keepouts") or []):
+        tag = f"board.keepouts[{i}] ({(k or {}).get('name', '?')})"
+        if not isinstance(k, dict):
+            bad.append(f"{tag}: not a mapping")
+            continue
+        r, p = k.get("rect"), k.get("poly")
+        if (r is None) == (p is None):
+            bad.append(f"{tag}: needs exactly one of rect: [x0, y0, x1, y1] or poly: [[x, y], ...]")
+        elif r is not None and (len(r) != 4 or float(r[2]) <= float(r[0]) or float(r[3]) <= float(r[1])):
+            bad.append(f"{tag}: rect must be [x0, y0, x1, y1] with x1 > x0 and y1 > y0")
+        elif p is not None and len(p) < 3:
+            bad.append(f"{tag}: poly needs at least 3 points")
+        for L in k.get("layers") or []:
+            if str(L) not in copper:
+                bad.append(f"{tag}: layer {L} is not a copper layer ({', '.join(cu_layers(4))})")
+        for f in k.get("forbids") or []:
+            if str(f) not in KEEPOUT_RULES:
+                bad.append(f"{tag}: forbids {f} is not one of {', '.join(KEEPOUT_RULES)}")
+    return bad
+
+
+def unique_vias(vias: list | None) -> list:
+    """`vias` without repeats: one via per net and position (rounded to 1 um, the precision the board is written at).
+    Two passes can each leave a via at the same point (router, repair, pour stitch, block copper); KiCad keeps both as
+    stacked items. The first one is kept, so the order of the others is unchanged."""
+    seen, out = set(), []
+    for v in vias or []:
+        key = (round(float(v["x"]), 3), round(float(v["y"]), 3), v.get("net"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out
+
+
 def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | None = None,
                 vias: list | None = None, island_removal: int = 0) -> list:
     b = design.board
     nets = list(design.nets())
     netidx = {n: i + 1 for i, n in enumerate(nets)}
     classes = net_classes(design)
+    keepoff = isolation_keepoff(design)
     nl = b["layers"]
     tree = ["kicad_pcb", ["version", PCB_VERSION], ["generator", Q("hwflow")], ["generator_version", Q("10.0")],
             ["general", ["thickness", b["thickness_mm"]], ["legacy_teardrops", "no"]],
@@ -250,19 +358,20 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
         fp[1] = Q(c.get("footprint"))
         fields = {k.upper() if k != "manufacturer" else "Manufacturer": c.get(k)
                   for k in ("mpn", "lcsc", "manufacturer") if c.get(k)}
-        tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields))
+        tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields, keepoff))
     routed = tracks is not None
     if design.raw.get("blocks"):  # layout blocks: their copper, once, on the unrouted and on the routed board
         from ...core import blocks
         tracks, vias = blocks.merge(design, parts, tracks, vias, pair_clearance(design))
         tree += blocks.keepout_zones(design, parts)
     tree += region_keepout_zones(design)
+    tree += board_keepout_zones(design)
     for t in tracks or []:
         tree.append(["segment", ["start", round(t["x1"], 4), round(t["y1"], 4)], ["end", round(t["x2"], 4), round(t["y2"], 4)],
                      ["width", t["w"]], ["layer", Q(t["layer"])], ["net", netidx[t["net"]]], ["uuid", uid()]])
     if routed:  # routed board: add declared thermal via grids inside their pads
         vias = list(vias or []) + thermal_vias(design, libs, parts)
-    for v in vias or []:
+    for v in unique_vias(vias):
         tree.append(["via", ["at", round(v["x"], 4), round(v["y"], 4)], ["size", b["via_dia_mm"]],
                      ["drill", b["via_drill_mm"]], ["layers", Q("F.Cu"), Q("B.Cu")], ["net", netidx[v["net"]]],
                      ["uuid", uid()]])

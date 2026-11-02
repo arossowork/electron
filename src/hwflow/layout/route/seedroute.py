@@ -24,8 +24,10 @@ The copper goes into the board as tracks of the net; later passes route around i
 it: a DRC error that touches seed copper removes it again (drop_on_drc). Not a design field: the flow does it for
 every constrained net (corridor.constrained) left open, HWFLOW_SEEDROUTE=0 switches it off.
 
-Interface: seed(design, libs, src, dst, nets) -> {net: {ok, msg, ...}}; record/load the seed copper of a run
-(RECORD next to the routed board); drop_on_drc(seeds, tracks, vias, drc).
+Interface: seed(design, libs, src, dst, nets) -> {net: {ok, msg, ...}}; record/load/forget the seed copper of a run
+(RECORD next to the routed board); drop_on_drc(seeds, tracks, vias, drc); blockers(design, libs, src, nets, movable)
+ripup_options(design, libs, src, net, movable) -> [[nets to rip up so that the open net finds a way]]
+(the rip-up of krt.krt_route).
 """
 
 from __future__ import annotations
@@ -45,7 +47,7 @@ from shapely.prepared import prep
 from shapely.strtree import STRtree
 
 from ..place import barrier, corridor
-from ..board import routing
+from ..board import pcb, routing
 from ...core import sexpr
 from ...core.sexpr import Q
 
@@ -61,6 +63,8 @@ WINDOW_MM = 8.0        # first search window: the pads' bounding box grown by th
 STEP_MM = 0.05         # width steps between the class width and the floor
 PIECE_MM = 0.1         # widths are fitted per piece of at most this length
 RECORD = "seed_routes.json"
+NEAR_MM = 1.0          # ripup_options: a net whose copper comes this close to the free-space path is a candidate
+VIA_PAD_MM = 0.15      # a via keeps this from the SMD pads of its own net (no via in pad: krt's --same-net-pad-clearance)
 EPS = 1e-6
 
 
@@ -88,6 +92,21 @@ def _obstacles(model, net, layer, board, placed, what="tracks") -> list[tuple]:
             out.append((Point(v["x"], v["y"]).buffer(model.via_r, quad_segs=QS), model.clearance(net, v["net"]),
                         f"via {v['net']}"))
     out += [(g, model.clearance(net, n), f"seed {n}") for n, L, g in placed if n != net and L in (layer, None)]
+    return out
+
+
+def _own_smd_pads(model, design, net, layer) -> list[tuple]:
+    """The SMD pads of `net` on `layer` as via obstacles at VIA_PAD_MM: a via in a pasted pad wicks the solder away
+    (filled and capped vias, IPC-4761 VII, or a hand-soldered pad that never wets). A through-hole pad is its own
+    via; a pad listed as the component's `thermal_vias` pad may hold vias."""
+    out = []
+    for p in model.pads:
+        if p["net"] != net or layer not in p["layers"] or len(p["layers"]) != 1:
+            continue
+        tv = (design.components.get(p["ref"]) or {}).get("thermal_vias") or {}
+        if tv and str(tv.get("pad")) == str(p["number"]):
+            continue
+        out.append((p["own"], VIA_PAD_MM, f"{p['ref']}.{p['number']} (own pad, no via in pad)"))
     return out
 
 
@@ -247,6 +266,9 @@ def _pieces(a, b):
 
 def route_net(model, design, net, board, placed, floor) -> dict:
     w = model.width(net)
+    # nets.<name>.min_width_mm: no piece under it (the board floor alone gave N 0.65 mm against 1.0 mm), and a net
+    # whose class width is its min width does not neck at all
+    floor = max(floor, pcb.net_min_widths(design).get(net, 0.0))
     nodes = corridor.corridor_nodes(model, design, net, {})
     if nodes is None or len(nodes) < 2:
         return {"ok": False, "msg": f"seed route {net}: not possible (fewer than two pads on its layers)"}
@@ -255,7 +277,8 @@ def route_net(model, design, net, board, placed, floor) -> dict:
     lays = model.net_copper(net)
     obst = {L: _obstacles(model, net, L, board, placed) for L in lays}
     fit = {L: _Fit(model, obst[L]) for L in lays}
-    vfit = {L: _Fit(model, obst[L] + [(g, 0.0, "via keep-out") for g in model.keepouts(net, L, "vias")]) for L in lays}
+    vfit = {L: _Fit(model, obst[L] + [(g, 0.0, "via keep-out") for g in model.keepouts(net, L, "vias")]
+                    + _own_smd_pads(model, design, net, L)) for L in lays}
     cands = _widths(w, floor)
     segs, vias = [], []
     for ea, eb in _mst(nodes):
@@ -342,17 +365,22 @@ def route_net(model, design, net, board, placed, floor) -> dict:
 
 # ------------------------------------------------------------------ board, record, DRC
 
-def seed(design, libs, src: Path, dst: Path, nets) -> dict[str, dict]:
+def seed(design, libs, src: Path, dst: Path, nets, creepage: bool = False) -> dict[str, dict]:
     """Seed routes for `nets` on the board `src`; the accepted ones are written as tracks (and vias) of their net
-    into `dst` (only when one is accepted). Returns net -> {ok, msg, length, width, min_width, neck, narrow,
-    segments, vias}."""
+    into `dst` (only when one is accepted). `creepage`: an isolation group keeps the larger of its clearance and
+    creepage (roads.Model, the distance KiCad DRC checks on a flat board). Returns net -> {ok, msg, length, width,
+    min_width, neck, narrow, segments, vias}."""
     from ..board.pcb import read_board
     if libs is None:
         from ...core.libs import Libs
         libs = Libs(design=design)
     src, dst = Path(src), Path(dst)
     board = read_board(src)
-    model = corridor.Model(design, libs, board=board)
+    if creepage:
+        from .roads import Model
+        model = Model(design, libs, board=board)
+    else:
+        model = corridor.Model(design, libs, board=board)
     floor = routing.neck_floor(design.board)
     out, placed = {}, []
     for net in sorted(nets):
@@ -378,6 +406,95 @@ def seed(design, libs, src: Path, dst: Path, nets) -> dict[str, dict]:
                           ["layers", Q("F.Cu"), Q("B.Cu")], list(ref), ["uuid", Q(str(uuid.uuid4()))]])
         dst.write_text(sexpr.dumps(t) + "\n")
     return out
+
+
+def ripup_options(design, libs, src: Path, net, movable, max_cand: int = 8) -> list[list[str]]:
+    """Which routed nets to rip up so that the open net `net` finds a way on the board `src` (krt.krt_route's rip-up).
+    The free-space path of the net (route_net) is searched on the board without the copper of `movable` (the nets the
+    caller may rip up and route again; their pads stay); with no path even then, `movable` does not block it: [].
+    The candidates are the nets of `movable` whose tracks or vias come within their spacing (clearance, isolation
+    distance, between_mm) + NEAR_MM of that path, the most copper inside their spacing first (at most `max_cand`).
+    Each candidate whose copper alone closes the way (the path is found without it, not with it) is an option of one
+    net, the shortest path first: the least copper moves. The last option is every candidate on the path. An option
+    is kept only when its ripped nets, in turn, still find a free-space way once the open net has its own (an option
+    that only moves the blockage costs no router run). Returns the options, each a list of nets."""
+    from ..board.pcb import read_board
+    if libs is None:
+        from ...core.libs import Libs
+        libs = Libs(design=design)
+    board = read_board(Path(src))
+    movable = set(movable) - {net}
+
+    def without(drop):
+        return dict(board, segments=[s for s in board["segments"] if s["net"] not in drop and s["net"] != net],
+                    vias=[v for v in board["vias"] if v["net"] not in drop and v["net"] != net])
+    model = corridor.Model(design, libs, board=without(movable))
+    floor = routing.neck_floor(design.board)
+
+    def path_of(drop):
+        try:
+            return route_net(model, design, net, without(drop), [], floor)
+        except Exception:  # noqa: BLE001 - a geometry the search cannot build: no way
+            return {"ok": False}
+    if path_of(set())["ok"]:
+        return []  # not blocked by copper: another cause (a router limit the seed route handles)
+    r = path_of(movable)
+    if not r["ok"]:
+        return []
+    path = [(_line((x1, y1), (x2, y2)).buffer(c / 2, quad_segs=8), L) for x1, y1, x2, y2, c, L in r["segments"]]
+    path += [(Point(x, y).buffer(model.via_r, quad_segs=8), None) for x, y in r["vias"]]  # through: every layer
+    hit: dict[str, float] = {}
+    near: dict[str, float] = {}
+    items = [(s["net"], s["layer"], _line((s["x1"], s["y1"]), (s["x2"], s["y2"])).buffer(s["w"] / 2, quad_segs=8))
+             for s in board["segments"]]
+    items += [(v["net"], None, Point(v["x"], v["y"]).buffer(model.via_r, quad_segs=8)) for v in board["vias"]]
+    for o, lay, g in items:
+        if o not in movable:
+            continue
+        sp = model.clearance(net, o)
+        for p, L in path:
+            if lay is not None and L is not None and lay != L:
+                continue
+            d = g.distance(p) - sp
+            if d < NEAR_MM:
+                near[o] = min(near.get(o, math.inf), d)
+            if d < -EPS:
+                hit[o] = hit.get(o, 0.0) + g.intersection(p.buffer(sp, quad_segs=8)).area
+    cand = sorted(near, key=lambda n: (-hit.get(n, 0.0), near[n], n))[:max_cand]
+    def back(rip, rn) -> bool:
+        """The ripped nets `rip` each still find a free-space way (in turn) once the open net has the way `rn`."""
+        placed = [(net, L, _line((x1, y1), (x2, y2)).buffer(c / 2, quad_segs=QS)) for x1, y1, x2, y2, c, L in rn["segments"]]
+        placed += [(net, None, Point(x, y).buffer(model.via_r, quad_segs=QS)) for x, y in rn["vias"]]
+        for n in rip:
+            try:
+                q = route_net(model, design, n, without(set(rip)), placed, floor)
+            except Exception:  # noqa: BLE001
+                return False
+            if not q.get("ok"):
+                return False
+            placed += [(n, L, _line((x1, y1), (x2, y2)).buffer(c / 2, quad_segs=QS)) for x1, y1, x2, y2, c, L in q["segments"]]
+            placed += [(n, None, Point(x, y).buffer(model.via_r, quad_segs=QS)) for x, y in q["vias"]]
+        return True
+    singles = []
+    for c in cand:
+        rc = path_of({c})
+        if rc["ok"] and back([c], rc):
+            singles.append((rc.get("length", math.inf), c))
+    out = [[c] for _, c in sorted(singles)]
+    full = sorted((n for n in cand if n in hit), key=lambda n: (-hit[n], n))
+    if full and full not in out:
+        rf = path_of(set(full))
+        if rf["ok"] and back(full, rf):
+            out.append(full)
+    return out
+
+
+def forget(workdir: Path, nets):
+    """Drop `nets` from the run's seed record (their seed copper was ripped up and routed again by the router)."""
+    f = Path(workdir) / RECORD
+    cur = load(workdir)
+    if any(n in cur for n in nets):
+        f.write_text(json.dumps({n: v for n, v in cur.items() if n not in set(nets)}))
 
 
 def record(workdir: Path, results: dict):
@@ -406,9 +523,14 @@ def drop_on_drc(seeds: dict, tracks: list, vias: list, drc: list[dict], reach: f
     """Remove the seed copper of every net with a DRC error touching it: an item of the error names the net
     (`[net]`) and the error lies within `reach` mm of its seed copper. `copper_only`: that item must be a track, arc
     or via (an error on the net's pad, e.g. a fixed pad's creepage to a pour, is not the seed copper's).
+    An `unconnected` error (and a schematic `parity:` one) is no fault of the seed copper: a net still open elsewhere
+    names its seed track as one end of the gap, and dropping the seed then opened more (the bathroom vent: FAN, L,
+    L_F left open by the router after their seeds were dropped). Only a violation of the copper itself (clearance,
+    creepage, short, track width, hole and edge clearances) removes it.
     Returns (tracks, vias, dropped nets)."""
     drop = []
     kinds = ("Track", "Via", "Arc")
+    drc = [v for v in drc if not (v.get("type") == "unconnected" or str(v.get("type") or "").startswith("parity:"))]
     for net, s in seeds.items():
         geo = unary_union([_line((x1, y1), (x2, y2)) for x1, y1, x2, y2, _, _ in s["segments"]]
                           + [Point(x, y) for x, y in s["vias"]])

@@ -82,6 +82,8 @@ Files with a `slow` mark are noted.
 | `test_router_rules.py` | per-net router rules (11 tests; 4 slow; needs router) | real |
 | `test_regionroute.py` | hierarchical routing: partition, cache key, one real router run | synthetic, needs router |
 | `test_seedroute.py` | seed route for nets the router leaves open | synthetic, needs router |
+| `test_iso_guard.py` | isolation guards of a pass: holes round a bound pad stay open, copper closer than a group distance, dropped seed nets back in the router count | synthetic |
+| `test_ripup.py` | rip-up rounds of `krt_route`: blockers on a member's free-space path, strip, the walled-in member routed (1 test needs router) | synthetic |
 | `test_repair.py` | repair loop (needs router; one test needs `kicad-cli`) | real |
 | `test_legality.py` | placement legality gate: `Placer.settle`, `legality.placement_verdict`, `stage_layout` stops before the router, `hwflow floorplan` fails on an illegal quick placement | synthetic |
 | `test_routability.py` | routability predictor (report only): raster primitives, window cuts, exact bounds, verdict thresholds | synthetic |

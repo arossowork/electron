@@ -304,3 +304,18 @@ def test_block_via_slides_along_its_track_off_a_pad_under_the_block(tmp_path):
     parts["X9"] = placer.Part("X9", 9.0, 9.0, 0.0, 0.0, {"1": (0.0, 0.0)}, x=15.75, y=12.5, pad_size={"1": (9.0, 9.0)})
     _, stuck = blocks.copper(d, parts)
     assert (15.75, 12.5) in {(w["x"], w["y"]) for w in stuck}
+
+
+def test_a_block_of_region_members_may_sit_in_its_exclusive_region(tmp_path):
+    """The courtyard of a block whose parts are members of an exclusive (mains) region is allowed in that region
+    (timed-bathroom-vent: block:mov_tco read as 'inside floorplan region mains')."""
+    from hwflow.core import floorplan as cfp
+    d, libs = _design(tmp_path, board={"width_mm": 30, "height_mm": 22})
+    d.raw["floorplan"] = {"construction": "single",
+                          "regions": [{"name": "mains", "kind": "mains", "rect": [0, 0, 15, 22]}],
+                          "items": [{"name": "boost", "refs": ["U2", "L1", "C3", "C4"], "region": "mains"}]}
+    parts = placer.build_parts(d, libs)
+    rules, _ = cfp.placer_regions(d, parts)
+    (mains,) = [g for g in rules if g["name"] == "mains"]
+    assert "block:boost" in mains["allow"]
+    assert {"U2", "L1", "C3", "C4"} <= mains["members"]

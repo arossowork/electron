@@ -129,10 +129,18 @@ def write_report(d: Design, history: bool = False) -> str:
             from . import portfolio
             L += portfolio.report_lines(c["portfolio"])
         if c.get("auto"):
-            L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {len(c['auto']['attempts'])}"
+            L.append(f"- layout --auto: kept attempt {c['auto']['kept']} of {c['auto'].get('n') or len(c['auto']['attempts'])}"
                      + (f"; {c['auto']['stopped']}" if c["auto"].get("stopped") else ""))
             for x in c["auto"]["attempts"]:
                 L.append(f"  - {x}")
+            for key, what in (("skipped", "skipped (placement illegal, not routed)"),
+                              ("cancelled", "cancelled or not started")):
+                xs = c["auto"].get(key) or []
+                if xs:
+                    whys = sorted({x["why"] for x in xs})
+                    L.append(f"  - {len(xs)} attempt{'s' if len(xs) != 1 else ''} {what}: "
+                             + "; ".join(", ".join(str(x["k"]) for x in xs if x["why"] == w) + f" ({w})"
+                                         for w in whys))
         L.append(f"- layout{st('layout')}: {'OK' if c['ok'] else 'FAIL'}; board {c.get('board_mm')} mm; router {c['router']}; {c['segments']} segments, "
                  f"{c['vias']} vias; DRC {c['drc_errors']} errors / {c['drc_warnings']} warnings; "
                  f"unrouted {c['unrouted']}")

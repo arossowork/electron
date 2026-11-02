@@ -23,15 +23,10 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
         fp = libs.footprint(c.get("footprint"))
         x0, y0, x1, y1 = fp["bbox"]
         pads, sizes, cu, rnd = {}, {}, {}, set()
-        for p in fp["pads"]:
-            if p["number"] and p["number"] not in pads:
-                pads[p["number"]] = (p["x"], p["y"])
-                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
-                sizes[p["number"]] = (w, h)
-                lays = [l for l in p["layers"] if l.endswith(".Cu")]
-                cu[p["number"]] = frozenset({"*"} if p["kind"] == "thru_hole" or "*.Cu" in lays else lays)
-                if p.get("shape") == "circle":
-                    rnd.add(p["number"])
+        for num, (cx, cy, w, h, lays, circle) in _pad_copper(fp["pads"]).items():
+            pads[num], sizes[num], cu[num] = (cx, cy), (w, h), lays
+            if circle:
+                rnd.add(num)
         pl = c.get("placement") or {}
         sides = {k: (b[2] - b[0] + 2 * margin, b[3] - b[1] + 2 * margin, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
                  for k, b in fp.get("sides", {}).items()}
@@ -55,6 +50,50 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
     parts.blocks = blocks.units(design, libs, parts, margin)
     parts.libs = libs  # the corridor proof of corridor_blocks reads the footprints again
     return parts
+
+
+def _pad_copper(fpads: list) -> dict:
+    """Per pad number: (centre x, y, w, h, copper layers, round) of its copper. A number used by several pads (a DPAK
+    tab pad with a larger heat-sink copper rect on F.Cu and B.Cu and plated holes, timed-bathroom-vent Q1) is the
+    bounding box of the first pad and every same-number pad that overlaps it, directly or through another one, on the
+    union of their layers: the placer's isolation, keep-out and side checks see all of that copper, not the first
+    pad alone. Same-number pads apart from that cluster (two shield tabs at the ends of a connector) leave it as the
+    first pad, as before."""
+    def box(p):
+        w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
+        return [p["x"] - w / 2, p["y"] - h / 2, p["x"] + w / 2, p["y"] + h / 2]
+
+    def layers(p):
+        lays = [l for l in p["layers"] if l.endswith(".Cu")]
+        return {"*"} if p["kind"] == "thru_hole" or "*.Cu" in lays else set(lays)
+
+    groups = {}
+    for p in fpads:
+        if p["number"]:
+            groups.setdefault(p["number"], []).append(p)
+    out = {}
+    for num, ps in groups.items():
+        first = ps[0]
+        b, lays, rest = box(first), layers(first), ps[1:]
+        grew = True
+        while grew:
+            grew = False
+            for q in list(rest):
+                c = box(q)
+                if c[0] <= b[2] and c[2] >= b[0] and c[1] <= b[3] and c[3] >= b[1]:
+                    b = [min(b[0], c[0]), min(b[1], c[1]), max(b[2], c[2]), max(b[3], c[3])]
+                    lays |= layers(q)
+                    rest.remove(q)
+                    grew = True
+        if "*" in lays:
+            lays = {"*"}
+        merged = len(ps) - len(rest) > 1
+        if merged:
+            out[num] = ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, b[2] - b[0], b[3] - b[1], frozenset(lays), False)
+        else:
+            w, h = b[2] - b[0], b[3] - b[1]
+            out[num] = (first["x"], first["y"], w, h, frozenset(lays), first.get("shape") == "circle")
+    return out
 
 
 def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
@@ -968,17 +1007,29 @@ class Placer:
         net class clearance (pads of different nets); 0 on the same part."""
         if a[0] == b[0] or self._same(a[0], b[0]):
             return 0.0
-        ga, gb = self.pad_grp[a], self.pad_grp[b]
-        need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
-        if self.pad_net[a] != self.pad_net[b]:
-            need = max(need, self.pad_cl[a], self.pad_cl[b])
-            if ga == gb >= 0:
-                need = max(need, self.iso_between[ga])
+        need = self._pad_need(self._pad_key(a), self._pad_key(b))
         if need <= 0:
             return 0.0
         ba, bb = self.part_pad_box(self.parts[a[0]], a[1]), self.part_pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
+
+    def _pad_key(self, a) -> tuple:
+        """(isolation group or -1, net, net class need) of pad a = (ref, pad): what `_pad_need` reads."""
+        return self.pad_grp[a], self.pad_net[a], self.pad_cl[a]
+
+    def _pad_need(self, ka, kb) -> float:
+        """The copper gap (mm, with the placer margins) two pads of keys ka, kb (`_pad_key`) of different parts need:
+        the creepage of a board.isolation group (pads of different groups), its between_mm (two different member
+        nets) or the net class clearance (pads of different nets)."""
+        ga, na, ca = ka
+        gb, nb, cb = kb
+        need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
+        if na != nb:
+            need = max(need, ca, cb)
+            if ga == gb >= 0:
+                need = max(need, self.iso_between[ga])
+        return need
 
     def _iso_rule(self, a, b) -> str:
         """The rule behind _iso_short(a, b), for the message: the isolation group (between a member and a pad outside
@@ -1723,6 +1774,11 @@ class Placer:
                 for r, p in P.items():
                     if p.edge and self.part_edge.get(r, 0.0) > EDGE_TOL:
                         bad[r] = bad.get(r, 0.0) + self.part_edge[r]
+            ce = float(self.d.board.get("copper_edge_mm", 0.3)) - 0.01
+            for r, p in P.items():  # a pad too near the board edge (`violations`)
+                if not p.fixed and any(b[0] < ce or b[1] < ce or b[2] > self.W - ce or b[3] > self.H - ce
+                                       for b in (part_pad_box(p, n) for n in p.pads if n not in p.nocu)):
+                    bad[r] = bad.get(r, 0.0) + 1.0
             for k in range(len(self.bud)):  # a distance leg over its limit: its movable end
                 over = self._bud_dist(k) - self.bud[k][4]
                 u = self._bud_mover(k) if over > BUDGET_TOL else None
@@ -1741,7 +1797,7 @@ class Placer:
                     safety_abort(f"unstick stopped at the layout budget in round {k + 1} of {rounds}")
                     break
                 cur = self._total()
-                best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
+                best, here = ((self._unit_dirty(p), cur), p.x, p.y, p.r), (p.x, p.y, p.r)
 
                 def scan(xs, ys, rots):
                     nonlocal best
@@ -1750,8 +1806,9 @@ class Placer:
                             for y in ys:
                                 p.x, p.y, p.r = x, y, a
                                 c = self._update(self._refs(p))
-                                if c < best[0] - 1e-9:
-                                    best = (c, x, y, a)
+                                key = (self._unit_dirty(p), c)
+                                if key[0] < best[0][0] or (key[0] == best[0][0] and c < best[0][1] - 1e-9):
+                                    best = (key, x, y, a)
                                 self._undo()
                 x0, y0, x1, y1 = (self.region_start.get(p.ref) or self.region_start.get(getattr(p, "name", None))
                                   or (0.0, 0.0, self.W, self.H))
@@ -1767,6 +1824,29 @@ class Placer:
             if not moved:
                 break
         return self.cost()
+
+    def _unit_dirty(self, u) -> bool:
+        """The unit `u` (a part or a block) at its current position is in a placement violation of its own, on the
+        incremental state (`_update`) and the thresholds of `violations`: a courtyard overlap, an isolation short, a
+        keep-out or floorplan region term, a stated (hard) separation short, or a pad too near the board edge."""
+        ce = float(self.d.board.get("copper_edge_mm", 0.3)) - 0.01
+        for p in self._unit_parts(u):
+            r = p.ref
+            if r not in self.adj:
+                continue
+            if any(self.pairs[k] > 0.01 for k in self.adj[r]) or any(self.iso_pairs[k] > 0.01 for k in self.iso_adj[r]):
+                return True
+            if self.part_ko.get(r, 0.0) > 0.01:
+                return True
+            if any(k in self.sep_hard and self._sep_val(k) / max(self.wt[self.seps[k][5]], 1e-9) > 0.01
+                   for k in self.part_seps.get(r, ())):
+                return True
+            for n in p.pads:
+                if n not in p.nocu:
+                    b = part_pad_box(p, n)
+                    if b[0] < ce or b[1] < ce or b[2] > self.W - ce or b[3] > self.H - ce:
+                        return True
+        return False
 
     def legalize(self, rounds: int = 200, refs=None):
         """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board. `refs`: only

@@ -125,8 +125,8 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from ..board import pcb as board_pcb
     from ..place import pinaccess
     from ..board import routing
-    from . import roads, taps, trunks
-    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads, taps, trunks):
+    from . import roads, seedroute, taps, trunks
+    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads, seedroute, taps, trunks):
         h.update(Path(m.__file__).read_bytes())
     from ..place import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not

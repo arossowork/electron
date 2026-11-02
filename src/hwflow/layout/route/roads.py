@@ -408,7 +408,8 @@ def preseed(design, libs, src, workdir, stem, nets=None):
 
 def reroute(design, libs, parts, workdir, tracks, vias, nets):
     """Roads the final DRC removed (seedroute.drop_on_drc) go back to the router as ordinary nets: one krt_route call
-    for `nets` on the board with the other copper kept, without the preseed. Returns (tracks, vias, note)."""
+    for `nets` on the board with the other copper kept, without the preseed. Returns (tracks, vias, note, the nets
+    still open)."""
     from . import krt
     workdir = Path(workdir)
     src = workdir / f"{design.name}_roads_back.kicad_pcb"
@@ -419,4 +420,5 @@ def reroute(design, libs, parts, workdir, tracks, vias, nets):
     b = pcb.read_board(cur)
     left = sorted({n for v in last.values() for n in krt.krt_open_nets(v)} & set(nets))
     return ([dict(x) for x in b["segments"] if x["net"]], [dict(v) for v in b["vias"] if v["net"]],
-            f"roads {', '.join(sorted(nets))} routed again by the router" + (f" ({', '.join(left)} still open)" if left else ""))
+            f"roads {', '.join(sorted(nets))} routed again by the router" + (f" ({', '.join(left)} still open)" if left else ""),
+            left)

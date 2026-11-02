@@ -124,12 +124,29 @@ def test_pick_ignores_completion_order(tmp_path, monkeypatch):
 
 def test_attempts_start_together_and_a_final_attempt_one_ends_the_search(tmp_path, monkeypatch):
     # attempt 1 is final; the others started with it and are not waited for nor ranked
-    plan = {0: (0.1, _result(0)), 1: (3, _result(0, 1)), 2: (3, _result(0, 1)), 3: (0.0, _result(0, 1))}
+    plan = {0: (0.1, _result(0)), 1: (3, _result(0, 1)), 2: (3, _result(0, 1)), 3: (0.0, _result(1, 1))}
     t = time.time()
     r, started, board = _run_auto(tmp_path, monkeypatch, plan)
     assert time.time() - t < 2.5, "the attempts after the first final one are not waited for"
     assert sorted(started) == [0, 1, 2, 3], "attempts 1..4 start together"
     assert r["ok"] and r["auto"]["kept"] == 1 and len(r["auto"]["attempts"]) == 1 and board == "board 1"
+
+
+def test_a_clean_attempt_cancels_the_earlier_ones_still_running(tmp_path, monkeypatch):
+    # attempt 3 routes clean while attempts 1 and 2 still run: the search stops at once (no wait for 1 and 2), keeps
+    # attempt 3 and reports 1, 2 and 4 as cancelled because attempt 3 routed clean
+    plan = {0: (3, _result(0, 1)), 1: (3, _result(0, 1)), 2: (0.1, _result(0, 5)), 3: (3, _result(0, 1))}
+    t = time.time()
+    r, started, board = _run_auto(tmp_path, monkeypatch, plan)
+    assert time.time() - t < 2.5, "the attempts before a clean one are not waited for"
+    assert r["ok"] and r["auto"]["kept"] == 3 and board == "board 3"
+    assert [(x["k"], x["why"]) for x in r["auto"]["cancelled"]] == [(k, "attempt 3 routed clean") for k in (1, 2, 4)]
+    assert r["auto"]["skipped"] == []
+    assert r["auto"]["n"] == 4 and "kept attempt 3 of 4" in pl_stages._auto_summary(r)
+    # a board with errors waits for the earlier attempts, as before
+    plan = {0: (0.3, _result(0, 9)), 1: (0.0, _result(2, 1)), 2: (0.0, _result(1, 1)), 3: (0.0, _result(3, 1))}
+    r, _, board = _run_auto(tmp_path, monkeypatch, plan)
+    assert r["auto"]["kept"] == 1 and r["auto"]["cancelled"] == []
 
 
 def test_one_attempt_runs_without_a_pool(tmp_path, monkeypatch):
@@ -183,8 +200,9 @@ def test_reuse_ignores_a_placement_for_another_board_size(tmp_path, monkeypatch)
 
 def test_hopeless_first_attempt_ends_the_search(tmp_path, monkeypatch):
     monkeypatch.delenv("HWFLOW_AUTO_MAX_ERRORS", raising=False)
-    # attempt 4 ends first and clean, attempt 1 then far from routable: only attempt 1 is ranked, as when it ran alone
-    plan = {0: (0.2, _result(121)), 1: (3, _result(0)), 2: (3, _result(0)), 3: (0.0, _result(0))}
+    # attempt 4 ends first (not clean: a clean one would end the search at once), attempt 1 then far from routable:
+    # only attempt 1 is ranked, as when it ran alone
+    plan = {0: (0.2, _result(121)), 1: (3, _result(0)), 2: (3, _result(0)), 3: (0.0, _result(4))}
     t = time.time()
     r, started, board = _run_auto(tmp_path, monkeypatch, plan)
     assert time.time() - t < 2.5

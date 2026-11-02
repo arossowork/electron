@@ -118,3 +118,42 @@ def test_a_part_clean_on_the_kept_board_is_not_persistent(tmp_path):
     assert res["persistent"] == [] and not res["blocked"] and res["back_to"] == "layout"
     res = diagnose.diagnose(d, _parts(), per, _board(), out, kept={"U2": ["x"]})
     assert res["persistent"] == ["U2"] and res["blocked"]  # the kept board fails there too: the repeat rule holds
+
+
+def test_the_structure_key_sees_a_footprint_edited_in_place(tmp_path):
+    """timed-bathroom-vent: the MB10S pads were narrowed in place (same name) and the old blocked history still
+    matched, so the next layout build was refused. Pad size, position and shape are part of the structure."""
+    lib = tmp_path / "lib" / "footprints" / "t.pretty"
+    lib.mkdir(parents=True)
+    f = lib / "TwoPad.kicad_mod"
+
+    def fp(size="1.0 2.0", at="-1.25 0", shape="rect"):
+        f.write_text(f'(footprint "TwoPad" (layer "F.Cu") (attr smd)\n'
+                     f'  (fp_rect (start -3 -1.5) (end 3 1.5) (layer "F.CrtYd") (width 0.05))\n'
+                     f'  (pad "1" smd {shape} (at {at}) (size {size}) (layers "F.Cu" "F.Mask"))\n'
+                     f'  (pad "2" smd rect (at 1.25 0) (size 1.0 2.0) (layers "F.Cu" "F.Mask")))\n')
+
+    def key():
+        raw = {"project": "fp", "libraries": ["lib"], "board": {"layers": 2, "width_mm": 20, "height_mm": 20},
+               "nets": {}, "components": {"D1": {"footprint": "t:TwoPad", "pins": {"1": "A", "2": "K"}}}}
+        (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+        return diagnose.structure_key(Design.load(tmp_path))
+
+    fp()
+    k = key()
+    assert key() == k                                   # same footprint, same key
+    assert dict(diagnose.pad_geometry(Design.load(tmp_path)))["t:TwoPad"] is not None
+    for change in ({"size": "0.7 2.0"}, {"at": "-1.4 0"}, {"shape": "roundrect"}):
+        fp(**change)
+        assert key() != k, change
+    fp()
+    assert key() == k
+    # a blocked history of the old pads does not block the edited footprint
+    out = tmp_path / "build"
+    out.mkdir()
+    diagnose.record(out, {"structure": k, "ok": False, "persistent": ["D1"], "blocked": True,
+                          "diagnosis": {"structure": k, "back_to": "architecture", "persistent": ["D1"]}})
+    assert diagnose.blocked(Design.load(tmp_path), out) is not None
+    fp(size="0.7 2.0")
+    key()
+    assert diagnose.blocked(Design.load(tmp_path), out) is None

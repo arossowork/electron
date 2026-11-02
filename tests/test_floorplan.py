@@ -509,3 +509,16 @@ def test_copper_keepout_regions_become_rule_areas(tmp_path):
         {"name": "x", "rect": [0, 0, 1, 1], "copper_keepout": {"layers": ["In1.Cu"], "forbids": ["pads"]}}]}},
         board={"layers": 2}), errs)
     assert any("not copper layers" in e for e in errs) and any("forbids" in e for e in errs)
+
+
+def test_depth_counts_a_given_side_only(tmp_path):
+    """A lifted axial part with a B.CrtYd under its body (a keep-out for back parts): with `side: front` on its item
+    its height stays on the front face; without a side both courtyard faces count (timed-bathroom-vent R1)."""
+    fpid = "hw:R_Axial_FKN100_L12.5mm_D5.1mm_P15.24mm_Horizontal_RuleArea"
+    comps = {"R1": {"value": "150", "symbol": "Device:R", "footprint": fpid, "pins": {"1": "A", "2": "B"}}}
+    for given, back in ((True, 0.0), (False, 6.9)):
+        item = {"name": "r", "refs": ["R1"], "footprint": fpid, "height_mm": 6.9, **({"side": "front"} if given else {})}
+        d = make(tmp_path, {"construction": "double", "depth": {"limit_mm": 30}, "items": [item]}, comps=comps)
+        res = floorplan.check(d, Libs(design=d), iters=200, seeds=1)
+        total = 6.9 + 1.6 + back
+        assert res["depth"]["total_mm"] == pytest.approx(total), (given, res["depth"])

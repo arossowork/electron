@@ -8,6 +8,7 @@ the net, with the trunk copper kept, joins the other pads to it at the class wid
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from ...core import sexpr
@@ -101,3 +102,35 @@ def tiers(design, nets, classes: dict, skip: set) -> list[tuple[float, dict[str,
             if w > classes[net]["width"] + 1e-9 and len(pads) >= 2:
                 by_w.setdefault(round(float(w), 3), {})[net] = {(str(r), str(p)) for r, p in pads}
     return sorted(by_w.items(), key=lambda x: -x[0])
+
+
+def decap_tiers(design, board: dict, nets, classes: dict, skip: set) -> list[tuple[float, dict[str, set]]]:
+    """[(width, {net: {(cap, pad), (ic, pad)}})]: the decoupling legs, routed first like a trunk. A part with
+    `decouples: <ic>` gets, for each pad on a routed net (not in `skip`, the pours) that the IC has too, a forced edge
+    to the nearest IC pad of that net (the pairs postlayout.decap_paths measures), at the net's class width. `board`
+    is pcb.read_board of the pass input. Each tier holds at most one leg per net (a net's legs go in successive
+    tiers, the shortest first), so every leg is a two-pad route and never goes through another decoupler."""
+    fps = board.get("footprints", {})
+    legs: dict[str, list] = {}
+    for c in design.components.values():
+        ic = c.get("decouples")
+        if not ic or ic not in fps or c.ref not in fps:
+            continue
+        for p in fps[c.ref]["pads"]:
+            net = p.get("net")
+            if not net or net in skip or net not in classes or (nets is not None and net not in nets):
+                continue
+            near = [(math.hypot(q["x"] - p["x"], q["y"] - p["y"]), q["number"]) for q in fps[ic]["pads"]
+                    if q.get("net") == net]
+            if near:
+                d, q = min(near)
+                legs.setdefault(net, []).append((d, (c.ref, str(p["number"])), (ic, str(q))))
+    out: list[tuple[float, dict[str, set]]] = []
+    for k in range(max((len(v) for v in legs.values()), default=0)):
+        by_w: dict[float, dict[str, set]] = {}
+        for net in sorted(legs):
+            lst = sorted(legs[net])
+            if k < len(lst):
+                by_w.setdefault(round(float(classes[net]["width"]), 3), {})[net] = {lst[k][1], lst[k][2]}
+        out += sorted(by_w.items(), key=lambda x: -x[0])
+    return out

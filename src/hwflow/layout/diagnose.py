@@ -102,10 +102,11 @@ def placement_diagnosis(design, verdict: dict, attempts: int = 1) -> dict:
 # ------------------------------------------------------------------ structure key and history
 
 def structure_key(design) -> str:
-    """What a layout cannot change: parts and footprints, the netlist, net widths, currents and layers, board size,
+    """What a layout cannot change: parts and footprints (names and pad geometry), the netlist, net widths, currents and layers, board size,
     cut regions, layers and the between_mm of isolation groups. Placement anchors, weights, router and DRC settings are left out."""
     comps = sorted((r, str(c.get("footprint")), sorted((str(k), str(v)) for k, v in (c.pins or {}).items()))
                    for r, c in design.components.items())
+    pads = pad_geometry(design)  # a footprint edited in place under the same name is another structure
     nets = sorted((n, str(i.get("width_mm")), str(i.get("current_a")))
                   + ((str((i or {}).get("layers")),) if (i or {}).get("layers") else ())
                   for n, i in (design.raw.get("nets") or {}).items())
@@ -120,7 +121,27 @@ def structure_key(design) -> str:
     btw = [(g["name"], g["members"], g["between_mm"]) for g in pcb.isolation_groups(design) if g["between_mm"] is not None]
     if btw:  # board.isolation between_mm: a spacing between member nets (keys without it stay as they were)
         board.append(btw)
-    return hashlib.sha256(json.dumps([comps, nets, board], default=str).encode()).hexdigest()[:12]
+    return hashlib.sha256(json.dumps([comps, pads, nets, board], default=str).encode()).hexdigest()[:12]
+
+
+PAD_KEYS = ("number", "kind", "shape", "x", "y", "rot", "w", "h", "layers", "drill", "rratio", "hull")
+
+
+def pad_geometry(design) -> list:
+    """[(footprint, digest of its pads)] for every footprint the design uses: number, type, shape, position, rotation,
+    size, layers, drill, corner ratio and custom outline of each pad. The footprint name alone does not see a library
+    footprint whose pads were edited in place; a footprint that cannot be read gives None."""
+    from ..core.libs import Libs
+    libs = Libs(design=design)
+    out = []
+    for fp in sorted({str(c.get("footprint")) for c in design.components.values() if c.get("footprint")}):
+        try:
+            rows = sorted([[p.get(k) for k in PAD_KEYS] for p in libs.footprint(fp)["pads"]], key=str)
+            dig = hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:12]
+        except Exception:  # noqa: BLE001 - a missing footprint is reported by check; the key still forms
+            dig = None
+        out.append((fp, dig))
+    return out
 
 
 def constraints_key(design) -> str:

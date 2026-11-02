@@ -104,6 +104,12 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     passes route around it.
     A net walled in by the others of its pass is routed first. HWFLOW_NECKDOWN=0 switches the neck-down off. Nets
     with `nets.<name>.layers` route in passes of their own, kept on those layers (layer_args).
+    Rip-up (HWFLOW_RIPUP=0: off): an isolation member still open whose free-space way the copper of nets routed in
+    this call closes (with its clearance, isolation or between_mm keep-off) gets that copper ripped up, one option
+    of seedroute.ripup_options at a time (a single net whose copper alone closes the way, the shortest way first,
+    then every net on the way); the member routes first, then the ripped nets, in their own passes, with
+    RIPUP_ORDERS net orders. An attempt is kept only when the member and every ripped net are routed and the fast
+    DRC has no more errors other than unconnected; at most RIPUP_TRIES attempts per call.
     Returns (last board, {pass: summary}, [notes: other net orders, neck-downs], fully completed width passes).
     An interrupted width pass can contribute accepted copper without counting as fully completed."""
     from ...core import floorplan
@@ -113,6 +119,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     name = design.name
     src, workdir = Path(src).resolve(), Path(workdir).resolve()  # the router runs with cwd=KRT_DIR (a relative project path would not be found)
     from . import roads
+    pre = []
     if roads.on_route(design):  # roads first: the planned copper of the constrained roads goes on the board first
         src, nets, pre = roads.preseed(design, libs, src, workdir, stem, nets)
         keep_first = keep_first or bool(pre)
@@ -133,6 +140,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     # nets.<name>.min_width_mm: no neck under it. A current_a net may neck under its IPC-2221 width only at a pad
     # entry: `fit` accepts no narrow stretch over NECK_MAX_MM, the rule of post-layout's track-current check
     minw = pcb.net_min_widths(design)
+    iminw = pcb.net_inner_min_widths(design)  # nets.<name>.min_width_inner_mm: the floor on In*.Cu
 
     def neckable(pnets, nw):
         """The nets of `pnets` that may neck to width `nw`."""
@@ -147,12 +155,15 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
     if neckdown and get_settings().layout.seedroute:
         from ..place import corridor
         seedable = set(neckable(corridor.constrained(design), floor))
-    groups: dict[tuple, list[str]] = {}
-    for net, cl in classes.items():
-        if net not in gnds and (nets is None or net in nets):
-            groups.setdefault((net not in members, net not in necked, -cl["width"], net not in only,
-                               only.get(net, ())), []).append(net)
-    passes = [(-k[2], groups[k], k[4]) for k in sorted(groups)]  # isolation members first, then necked, then widest
+    def plan_passes(sel) -> list[tuple]:
+        """The passes of the nets `sel` (None: every routed net): isolation members first, then necked, then widest."""
+        groups: dict[tuple, list[str]] = {}
+        for net, cl in classes.items():
+            if net not in gnds and (sel is None or net in sel):
+                groups.setdefault((net not in members, net not in necked, -cl["width"], net not in only,
+                                   only.get(net, ())), []).append(net)
+        return [(-k[2], groups[k], k[4]) for k in sorted(groups)]
+    passes = plan_passes(nets)
     # subprocess environment: the router inherits the parent environment (KICAD_*/KRT_* knobs) on purpose
     env = router_env()
     # Pre-existing copper from the earlier (wider) passes as rip candidates boxes in the pads of the narrow pass:
@@ -230,14 +241,18 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             raise RuntimeError(f"KiCadRoutingTools failed on pass {tag} ({' '.join(args)}); see krt.log")
         return best, tried
 
-    def fit(path, fnets, w):
-        """Fit the tracks of `fnets` in the pass result `path` to width `w` where clearances allow (routing.widen).
-        Accepted when no narrow stretch is longer than NECK_MAX_MM. Returns (accepted, note text)."""
+    def track_keepouts(path):
+        """layer -> the rule areas of the pass file `path` that forbid tracks, and the outline copper may use."""
         ko = {}
         for a in keepout.rule_areas(sexpr.loads(path.read_text()), ("tracks",)):
             for L in routing.pad_layers(a["layers"], copper):
                 ko.setdefault(L, []).append(a["poly"])
-        outline = floorplan.outline(design).buffer(-pcb.EDGE_CLEARANCE_MM, join_style="mitre")
+        return ko, floorplan.outline(design).buffer(-pcb.EDGE_CLEARANCE_MM, join_style="mitre")
+
+    def fit(path, fnets, w):
+        """Fit the tracks of `fnets` in the pass result `path` to width `w` where clearances allow (routing.widen).
+        Accepted when no narrow stretch is longer than NECK_MAX_MM. Returns (accepted, note text)."""
+        ko, outline = track_keepouts(path)
         stats = routing.widen(path, pcb.read_board(path), {n: w for n in fnets},
                               _pair_clearance(design, classes, iso), copper, b["via_dia_mm"], outline, ko, floor,
                               floors=minw)
@@ -247,7 +262,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                          for n, s in sorted(stats.items()))
         return all(s[2] <= routing.NECK_MAX_MM for s in stats.values()), text
 
-    def route_group(cur, tag, pnets, w, i, lays=(), trunk=False):
+    def route_group(cur, tag, pnets, w, i, lays=(), trunk=False, xargs=()):
         """Route `pnets` at width `w`: as router power nets when wider than the track width, then the nets left open
         (any net, signal or power) at the track width and at the neck floor, widened back where they fit. Nets the
         corridor proof marks as needing a neck skip the full-width pass. `lays`: the only layers the nets may use
@@ -257,7 +272,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         # net necks to it, never under it), widest first
         nfl = {minw[n] for n in pnets if floor + 1e-9 < minw.get(n, 0.0) < w - 1e-9}
         widths = sorted({x for x in (neck, floor, *nfl) if x < w - 1e-9}, reverse=True) if neckdown else []
-        largs = layer_args(copper, lays)
+        largs = layer_args(copper, lays) + list(xargs)
 
         def run_pass(cur, tag, pnets, args, i):
             try:
@@ -336,25 +351,129 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             best = (dst, summ, krt_unrouted(summ))
         return best, [r["msg"] for r in res.values()]
 
+    pairc = _pair_clearance(design, classes, iso)
+
+    def minw_fix(path, tag, pnets, w, lays):
+        """The tracks of `pnets` in the pass result `path` under their net's min_width_mm: the router draws its
+        cleanup connectors (a via-to-pad bridge at the via diameter, a joint-to-pad shortcut) at their own width
+        after the route, past every neck rule (FAN and L_F 0.6 mm against 1.0 mm). Each is widened to the minimum
+        where clearances and isolation distances hold (routing.min_width_fix), else removed; the nets that lost a
+        track route again at the pass width. Returns (board or None when nothing changed, {key: summary} of that
+        pass, notes)."""
+        floors = {n: minw[n] for n in pnets if n in minw}
+        inner = {n: iminw[n] for n in pnets if n in iminw}
+        if not floors and not inner:
+            return None, {}, []
+        out = Path(path).with_name(Path(path).stem + "_mw.kicad_pcb")
+        shutil.copyfile(path, out)
+        ko, outline = track_keepouts(out)
+        wide, lost = routing.min_width_fix(out, floors, pairc, copper, b["via_dia_mm"], outline, ko, inner)
+        if not wide and not lost:
+            out.unlink(missing_ok=True)
+            return None, {}, []
+        notes = [f"{w} mm: router copper under min_width_mm widened ({', '.join(wide)})"] if wide else []
+        more = {}
+        if lost:
+            (board, summ, _), n2 = route_group(out, f"{tag}m", lost, w, 1, lays)
+            out = Path(board)
+            # once more on the new copper, removal only: narrow copper never ships, a net it leaves open is reported
+            ko, outline = track_keepouts(out)
+            wide2, lost2 = routing.min_width_fix(out, floors, pairc, copper, b["via_dia_mm"], outline, ko, inner)
+            if lost2:
+                summ = dict(summ, failed_single=sorted(set(summ.get("failed_single") or []) | set(lost2)))
+                summ["failed"] = len(summ["failed_single"])
+            more = {f"{tag}: {w} mm, {', '.join(lost)} again after narrow copper removed": summ,
+                    "closed": sorted(set(lost) - set(krt_open_nets(summ)))}
+            notes += n2 + [f"{w} mm: router copper under min_width_mm removed and routed again ({', '.join(lost)}"
+                           + (f"; {', '.join(lost2)} open, its new copper under it too" if lost2 else "") + ")"]
+        return out, more, notes
+
+    def iso_fix(path, tag, pnets, w, lays):
+        """The tracks and vias of the pass result `path` closer to other copper than the isolation distances
+        (routing.isolation_conflicts: two nets of one pass keep only track-to-track rules, not via to track): their
+        nets are ripped up and routed again one by one, each pass seeing the others' copper as rule areas, else
+        seed-routed. Returns (board or None when nothing changed, {key: summary} of those passes, or {"seeded": the
+        seed-routed nets}, notes)."""
+        def conflicts(p):  # isolation distances only: plain clearances are DRC's and the repair's
+            return [x for x in routing.isolation_conflicts(pcb.read_board(p), set(pnets), pairc, copper, b["via_dia_mm"])
+                    if pairc(x[0], x[1]) > float(b["clearance_mm"]) + 1e-6]
+        bad = conflicts(path)
+        if not bad:
+            return None, {}, []
+        offenders = sorted({x[0] for x in bad})
+        what = ", ".join(f"{a} {d:g} mm from {o} on {L}" for a, o, L, d in bad[:4]) + (" ..." if len(bad) > 4 else "")
+        nb, got, notes = routing.strip_nets(path, workdir / f"{stem}{tag}i.kicad_pcb", offenders), {}, []
+        try:
+            for k, n in enumerate(offenders):
+                r, nn = route_group(nb, f"{tag}i{k}", [n], w, 1, lays)
+                nb = r[0]
+                got[f"{tag}: {w} mm, {n} again (isolation)"] = r[1]
+                notes += nn
+        except subprocess.TimeoutExpired:
+            return None, {}, [f"isolation check: {what}; stopped at the time budget (DRC reports it)"]
+        left = conflicts(nb)
+        if budget_exhausted:
+            return None, {}, [f"isolation check: {what}; stopped at the time budget (DRC reports it)"]
+        if len(left) < len(bad):
+            return nb, got, notes + [f"isolation check: {what}: {', '.join(offenders)} routed again one by one "
+                                     f"({len(bad)} -> {len(left)} conflicts)"]
+        # the router puts the same copper back (a pad at the group distance: its pad access ignores the rule area):
+        # the offenders' copper from the seed route, with the exact distances (creepage included)
+        from . import seedroute
+        base = routing.strip_nets(path, workdir / f"{stem}{tag}j.kicad_pcb", offenders)
+        dst = workdir / f"{stem}{tag}js.kicad_pcb"
+        try:
+            res = seedroute.seed(design, libs, base, dst, offenders, creepage=True)
+        except Exception as e:  # noqa: BLE001 - no seed geometry: keep the router copper, DRC reports it
+            res = {n: {"ok": False, "msg": f"seed route {n}: not possible ({type(e).__name__})"} for n in offenders}
+        done = [n for n, r in res.items() if r["ok"]]
+        if not done:
+            return None, {}, [f"isolation check: {what}; router and seed route found no other copper (DRC reports it)"]
+        keep = [n for n in offenders if n not in done]  # their router copper goes back on the seeded board
+        seeded_b = dst
+        if keep:
+            src_t = sexpr.loads(Path(path).read_text())
+            idx = {int(n[1]): str(n[2]) for n in sexpr.find_all(src_t, "net") if len(n) > 2}
+            from ..board.routing import _segment_net
+            back = [x for x in src_t if isinstance(x, list) and x and x[0] in ("segment", "arc", "via")
+                    and _segment_net(x, idx) in keep]
+            t2 = sexpr.loads(dst.read_text())
+            seeded_b = workdir / f"{stem}{tag}jk.kicad_pcb"
+            seeded_b.write_text(sexpr.dumps(t2 + back) + "\n")
+        left = conflicts(seeded_b)
+        if len(left) >= len(bad):
+            return None, {}, [f"isolation check: {what}; seed route of {', '.join(done)} no better (DRC reports it)"]
+        seedroute.record(workdir, {n: res[n] for n in done})
+        return seeded_b, {"seeded": done}, [f"isolation check: {what}: {', '.join(done)} seed-routed with the exact distances "
+                              f"({len(bad)} -> {len(left)} conflicts)"]
+
     # budget trunks (trunks.py): a copper_r budget's width on its path only, routed first with the net's other pads
     # on a stand-in net; the net's own pass then joins those pads to the trunk at the class width
     from . import trunks as _trunks
+    # decoupling legs first (trunks.decap_tiers): each `decouples:` part's pad to the nearest pad of its IC on that
+    # net, a two-pad route of its own, so the net's tree holds that direct leg whatever edges the net's pass picks
     tiers = []  # a tier per layer set: a net with nets.<name>.layers keeps to its layers on its trunk too
-    for w, keep in _trunks.tiers(design, nets, classes, gnds):
-        for lays in sorted({only.get(n, ()) for n in keep}):
-            tiers.append((w, {n: v for n, v in keep.items() if only.get(n, ()) == lays}, lays))
-    for k, (w, keep, lays) in enumerate(tiers):
+    dtiers = _trunks.decap_tiers(design, pcb.read_board(cur), nets, classes, gnds)
+    for kind, lst in (("decoupling leg", dtiers), ("budget trunk", _trunks.tiers(design, nets, classes, gnds))):
+        for w, keep in lst:
+            for lays in sorted({only.get(n, ()) for n in keep}):
+                tiers.append((w, {n: v for n, v in keep.items() if only.get(n, ()) == lays}, lays, kind))
+    for k, (w, keep, lays, kind) in enumerate(tiers):
         if budget_exhausted:
             break
         split = _trunks.split(cur, workdir / f"{stem}t{k}_split.kicad_pcb", keep)
-        tb, tnotes = route_group(split, f"t{k}", sorted(keep), w, k, lays, trunk=True)
+        # a decoupling leg's via goes next to its pad: the router's via cost x10 within 2 mm of a pad (its stub
+        # proximity) put it 2.2 mm off the pin (timed-bathroom-vent U1.3: C8 5.8 mm path for a 2.1 mm gap)
+        tb, tnotes = route_group(split, f"t{k}", sorted(keep), w, k, lays, trunk=True,
+                                 xargs=["--via-proximity-cost", "0"] if kind == "decoupling leg" else ())
         cur = _trunks.join(tb[0], workdir / f"{stem}t{k}_joined.kicad_pcb")
         keep_first = True  # the passes below keep the trunk copper
         left = sorted(set(krt_open_nets(tb[1])) & set(keep)) if tb[2] else []
-        retried += [f"budget trunk {w:g} mm: " + ", ".join(f"{n} ({len(keep[n])} pads)" for n in sorted(keep))
+        retried += [f"{kind} {w:g} mm: " + ", ".join(f"{n} ({'-'.join(sorted(r + '.' + p for r, p in keep[n]))})"
+                                                     for n in sorted(keep))
                     + (f"; open: {', '.join(left)} (the net's own pass joins its pads at the class width)"
                        if left else "")] + [f"trunk {t}" for t in tnotes]
-        last[f"t{k}: trunk {w} mm"] = {"failed": 0, "trunk_open": left}  # its open pads: the net's own pass
+        last[f"t{k}: {kind} {w} mm"] = {"failed": 0, "trunk_open": left}  # its open pads: the net's own pass
     for i, (w, gnets, lays) in enumerate(passes):
         best, notes = route_group(cur, i, gnets, w, i, lays)
         got = {f"{i}: {w} mm" + (f" on {' '.join(lays)}" if lays else ""): best[1]}
@@ -367,6 +486,20 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
                 best = (rest[0], rest[1], first[2] + rest[2])
                 got = {f"{i}: {w} mm, open nets first": first[1], f"{i}: {w} mm, the others": rest[1]}
                 notes = n1 + n2 + [f"{w} mm: {', '.join(open_nets)} routed before the other nets of the pass"]
+        if iso and not budget_exhausted:  # copper of this pass closer than a group distance: route it again
+            fixed, more, n3 = iso_fix(best[0], i, gnets, w, lays)
+            notes += n3
+            if fixed is not None:
+                done = more.pop("seeded", [])  # seed-routed nets are connected: no summary keeps them open
+                got = {k: seeded(v, done) for k, v in {**got, **more}.items()}
+                best = (fixed, best[1], sum(krt_unrouted(v) for v in got.values()))
+        if minw and not budget_exhausted:  # router copper under a min_width_mm: widened, else removed and routed again
+            fixed, more, n4 = minw_fix(best[0], i, gnets, w, lays)
+            notes += n4
+            if fixed is not None:
+                ok = more.pop("closed", [])  # connected again: no earlier summary keeps them open
+                got = {**{k: closed(v, ok) for k, v in got.items()}, **more}
+                best = (fixed, best[1], sum(krt_unrouted(v) for v in got.values()))
         cur = best[0]
         last.update(got)
         retried += notes
@@ -376,6 +509,76 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
             retried.append("stopped at layout wall-time budget; retained completed accepted copper")
             break
         completed += 1
+
+    def drc_other(path) -> int | None:
+        """DRC errors of the board `path` other than unconnected items (fast DRC, rules of this run), None when
+        KiCad cannot judge it."""
+        from ..board import kicad
+        try:
+            chk = routing.pass_input(path, workdir / f"{stem}drc.kicad_pcb", [])
+            for f in rule_files:
+                if f.exists():
+                    shutil.copy(f, chk.with_suffix(f.suffix))
+            res = kicad.drc_fast(chk)
+        except Exception:  # noqa: BLE001 - no kicad-cli or an unreadable board: the unrouted count decides alone
+            return None
+        return sum(x["sev"] == "error" and x["type"] != "unconnected" and not x["type"].startswith("parity:")
+                   for x in res)
+
+    # rip-up and reroute: an isolation member left open whose way the copper of nets routed here closes (with the
+    # keep-off of its group): that copper is ripped up, the member routes first, then the ripped nets again
+    if members and not budget_exhausted and get_settings().layout.ripup:
+        from . import seedroute
+        mine = {n for _, g, _ in passes for n in g} | set(pre)
+        base_drc, tries, full = None, 0, variants
+        for net in sorted({n for v in last.values() for n in krt_open_nets(v)} & members & mine):
+            if tries >= RIPUP_TRIES or budget_exhausted or (deadline is not None and time.time() >= deadline):
+                break
+            opened = {n for v in last.values() for n in krt_open_nets(v)}
+            opts = seedroute.ripup_options(design, libs, cur, net, mine - opened)
+            if not opts:
+                retried.append(f"rip-up {net}: no option (no copper routed here closes its way, or every ripped net would lose its own)")
+            for rip in opts:
+                if tries >= RIPUP_TRIES or budget_exhausted or (deadline is not None and time.time() >= deadline):
+                    break
+                tries += 1
+                flag, nb, got, notes = budget_exhausted, cur, {}, []
+                variants = full or krt_variants()[:RIPUP_ORDERS]  # fewer net orders: one attempt of several
+                try:
+                    nb = routing.strip_nets(cur, workdir / f"{stem}x{tries}.kicad_pcb", rip)
+                    for part, sel in (("a", [net]), ("b", rip)):  # the blocked net first, then the ripped ones
+                        for j, (w, gnets, lays) in enumerate(plan_passes(set(sel))):
+                            if budget_exhausted:
+                                break
+                            best, n_ = route_group(nb, f"x{tries}{part}{j}", gnets, w, 1, lays)
+                            nb = best[0]
+                            got[f"rip-up {tries}{part}{j}: {w} mm" + (f" on {' '.join(lays)}" if lays else "")] = best[1]
+                            notes += n_
+                except subprocess.TimeoutExpired:
+                    budget_exhausted = True
+                finally:
+                    variants = full
+                what = f"rip-up {tries}: {net} blocked by {', '.join(rip)}"
+                if budget_exhausted:  # an unfinished attempt is dropped; the board before it was complete
+                    budget_exhausted = flag
+                    retried.append(f"{what}: stopped at the time budget, dropped")
+                    break
+                still = sorted({n for v in got.values() for n in krt_open_nets(v)} & ({net} | set(rip)))
+                if still:
+                    retried.append(f"{what}: ripped up, {', '.join(still)} open after it (rejected)")
+                    continue
+                if base_drc is None:
+                    base_drc = drc_other(cur)
+                new_drc = drc_other(nb) if base_drc is not None else None
+                if new_drc is not None and new_drc > base_drc:
+                    retried.append(f"{what}: ripped up and routed, DRC {base_drc} -> {new_drc} errors (rejected)")
+                    continue
+                cur, base_drc = nb, new_drc
+                last = {key: closed(v, [net, *rip]) for key, v in last.items()}
+                last.update(got)
+                retried += notes + [f"{what}: ripped up, {net} routed first, then {', '.join(rip)} again"]
+                seedroute.forget(workdir, rip)  # ripped seed copper (roads) is now router copper
+                break
     with (workdir / "krt.log").open("a") as f:
         f.write("\n".join(log))
     return cur, last, retried, completed
@@ -393,6 +596,17 @@ def seeded(summary: dict, nets) -> dict:
     s["open_single"] = [n for n in s.get("open_single") or [] if n not in nets]
     if s.get("pad_pairs_open"):
         s["pad_pairs_open"] = dict(s["pad_pairs_open"], nets=[n for n in s["pad_pairs_open"].get("nets") or [] if n not in nets])
+    return s
+
+
+def closed(summary: dict, nets) -> dict:
+    """A router summary with `nets` no longer open (they were routed again elsewhere): when they are all its open
+    nets, nothing is open in it any more (its multipoint deficit too); otherwise as seeded()."""
+    if not set(krt_open_nets(summary)) <= set(nets):
+        return seeded(summary, nets)
+    s = dict(summary, failed=0, multipoint_deficit=0, failed_single=[], failed_multipoint=[], open_single=[])
+    if s.get("pad_pairs_open"):
+        s["pad_pairs_open"] = dict(s["pad_pairs_open"], count=0, nets=[])
     return s
 
 
@@ -477,6 +691,9 @@ def _kicad_cli() -> str:
     from ..board import kicad
     return kicad.cli()
 
+
+RIPUP_TRIES = 4   # rip-up attempts of one krt_route call (each: one rip-up option of seedroute.ripup_options)
+RIPUP_ORDERS = 2  # net orders (KRT_VARIANTS) a rip-up attempt tries per pass
 
 # net orders tried, in turn, when a width class leaves nets unrouted (backlog 40)
 KRT_VARIANTS = [[], ["--ordering", "inside_out"], ["--mps-reverse-rounds"], ["--direction", "backward"],

@@ -350,7 +350,10 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             if it["size"]:
                 add("depth", None, f"item {it['name']}: no height_mm (not in the depth stack)")
             continue
-        sides = {s for x in names if x in parts for s in (parts[x].sides or {})} or {it["side"]}
+        # an item's given side is the face its body is on: a courtyard on the other face is then a keep-out (a lifted
+        # axial part's B.CrtYd that keeps back parts from under its body), not a body in the depth stack
+        sides = ({it["side"]} if it["side_given"] else set()) or \
+            {s for x in names if x in parts for s in (parts[x].sides or {})} or {it["side"]}
         flip = next(b["flipped"] for b in fp["boards"] if b["name"] == it["board"])
         for s in sides:
             s = ("back" if s == "front" else "front") if flip else s  # a flipped board: its back face looks up

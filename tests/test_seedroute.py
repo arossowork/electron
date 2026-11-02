@@ -134,6 +134,21 @@ def test_drop_on_drc_removes_seed_copper_an_error_touches():
     assert dropped == ["N"] and [t["net"] for t in tr] == ["M"]
 
 
+def test_drop_on_drc_keeps_seed_copper_of_a_net_only_open_elsewhere():
+    """An `unconnected` error names the seed track as one end of the gap when the net is still open elsewhere; that
+    is no fault of the seed copper, so it stays (the bathroom vent lost FAN, L and L_F that way). A schematic parity
+    error does not drop it either; a clearance error at the same place still does."""
+    seeds = {"N": {"segments": [[0, 0, 5, 0, 0.6, "F.Cu"]], "vias": []}}
+    tracks = [{"net": "N", "x1": 0, "y1": 0, "x2": 5, "y2": 0, "w": 0.6, "layer": "F.Cu"}]
+    gap = [{"sev": "error", "type": "unconnected", "items": ["Track [N] on F.Cu", "Pad 2 [N] of R1 on F.Cu"],
+            "at": [[5, 0], [9, 0]]},
+           {"sev": "error", "type": "parity:missing_footprint", "items": ["Track [N] on F.Cu"], "at": [[2, 0]]}]
+    assert seedroute.drop_on_drc(seeds, tracks, [], gap)[2] == []
+    clash = gap + [{"sev": "error", "type": "clearance", "items": ["Track [N] on F.Cu", "Pad 1 [M] of R2 on F.Cu"],
+                    "at": [[5, 0.2]]}]
+    assert seedroute.drop_on_drc(seeds, tracks, [], clash)[2] == ["N"]
+
+
 @needs_router
 def test_router_leaves_the_slit_open_and_the_seed_route_closes_it(tmp_path, monkeypatch):
     """The real flow: KiCadRoutingTools (isolation keep-outs with ISO_SLACK) cannot pass the slit at any neck width;
@@ -150,3 +165,29 @@ def test_router_leaves_the_slit_open_and_the_seed_route_closes_it(tmp_path, monk
     assert any("seed route AC_ROOM: " in n and "longest neck" in n for n in notes), notes
     _check_copper(d, cur, walls, [(5, 10), (25, 10)])
     assert "AC_ROOM" in seedroute.load(out)
+
+
+def test_seed_route_keeps_its_vias_out_of_its_own_smd_pads(tmp_path):
+    """A net whose two 2 x 2 mm SMD pads on F.Cu face an F.Cu wall of another net between them changes layer twice;
+    the shortest way puts each via inside a pad (a via in pad: solder wicks into it on a hand-soldered board, IPC-4761
+    VII otherwise). The seed route keeps every via VIA_PAD_MM from the SMD pads of its own net."""
+    libs = _Libs({"A": [("1", 4, 9, 6, 11)], "B": [("1", 24, 9, 26, 11)], "W": [("1", 6.5, 0.5, 23.5, 19.5)]})
+    raw = {"project": "vip", "board": {"layers": 2, "width_mm": 30, "height_mm": 20, "track_mm": 0.3,
+                                       "clearance_mm": 0.2, "via_dia_mm": 0.6, "via_drill_mm": 0.3, "gnd_pour": False},
+           "nets": {}, "components": {}}
+    for ref, fid, pins in (("U1", "A", {"1": "SIG"}), ("U2", "B", {"1": "SIG"}), ("W1", "W", {"1": "OTHER"})):
+        raw["components"][ref] = {"footprint": fid, "pins": pins, "placement": {"x": 0, "y": 0, "rot": 0, "fixed": True}}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    src = out / "vip_unrouted.kicad_pcb"
+    parts = {r: SimpleNamespace(x=0.0, y=0.0, r=0.0, fixed=True) for r in raw["components"]}
+    pcb.write_board(src, pcb.build_board(d, libs, parts))
+    pcb.write_project(out, d.name, d)
+    r = seedroute.seed(d, libs, src, out / "seeded.kicad_pcb", ["SIG"])["SIG"]
+    assert r["ok"], r["msg"]
+    assert len(r["vias"]) >= 2
+    pads = [box(4, 9, 6, 11), box(24, 9, 26, 11)]
+    for x, y in r["vias"]:
+        assert min(p.distance(Point(x, y)) for p in pads) >= 0.3 + seedroute.VIA_PAD_MM - 1e-3

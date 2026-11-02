@@ -89,7 +89,8 @@ def layout_view(c: dict | None) -> dict:
             out[key] = c[key][:TOP]
     if c.get("auto"):
         out["auto"] = {"kept": c["auto"].get("kept"), "attempts": len(c["auto"].get("attempts") or []),
-                       "stopped": c["auto"].get("stopped")}
+                       "stopped": c["auto"].get("stopped"), "skipped": len(c["auto"].get("skipped") or []),
+                       "cancelled": len(c["auto"].get("cancelled") or [])}
     return out
 
 

@@ -224,3 +224,59 @@ def test_fit_search_tries_every_position_before_a_miss(tmp_path):
     w, h = p.pad_size["1"]
     slot = box(10.2 - w / 2, 50.9 - h / 2, 10.2 + w / 2, 50.9 + h / 2)  # the pad itself, nowhere else (a stride misses it)
     assert floorplan.fit_anywhere(p, "front", free, [("1", slot)], placer.COURTYARD_MARGIN)
+
+
+# ------------------------------------------------------------------ duplicate vias at export
+
+def test_build_board_writes_one_via_per_net_and_position(tmp_path):
+    """Two passes (router, repair, pour stitch) can leave a via at the same point: the board gets it once
+    (timed-bathroom-vent, BUCK_SW at (7.45, 23) and N at (27.05, 48.55) were written twice)."""
+    d = preamp(tmp_path)
+    libs = Libs(design=d)
+    parts = placer.build_parts(d, libs)
+    vias = [{"net": "AMP_OUT", "x": 6, "y": 12}, {"net": "AMP_OUT", "x": 6.0, "y": 12.0004},
+            {"net": "VBUS", "x": 6, "y": 12}, {"net": "AMP_OUT", "x": 7, "y": 12}]
+    assert pcb.unique_vias(vias) == [vias[0], vias[2], vias[3]]
+    board = tmp_path / "b.kicad_pcb"
+    pcb.write_board(board, pcb.build_board(d, libs, parts, [], vias))
+    got = sorted((v["net"], round(v["x"], 3), round(v["y"], 3)) for v in pcb.read_board(board)["vias"])
+    assert got == [("AMP_OUT", 6.0, 12.0), ("AMP_OUT", 7.0, 12.0), ("VBUS", 6.0, 12.0)]
+
+
+def test_placer_pad_is_the_copper_of_every_overlapping_same_number_pad():
+    """A pad number on several overlapping pads (DPAK tab pad + heat-sink rects on F.Cu and B.Cu + plated holes) is
+    their bounding box on all their layers; same-number pads apart from it stay out (timed-bathroom-vent Q1)."""
+    from hwflow.layout.place.placer import _pad_copper
+
+    def pad(n, x, y, w, h, layers, kind="smd", shape="rect"):
+        return {"number": n, "x": x, "y": y, "w": w, "h": h, "rot": 0, "layers": layers, "kind": kind, "shape": shape}
+
+    got = _pad_copper([pad("2", 3.0, 0, 6.7, 6.7, ["F.Cu", "F.Paste"]), pad("1", -4.85, -2.3, 3, 1.6, ["F.Cu"]),
+                       pad("2", 3.95, 0, 8.6, 9.0, ["F.Cu"]), pad("2", 3.95, 0, 8.6, 9.0, ["B.Cu"]),
+                       pad("2", 7.4, 3.6, 0.6, 0.6, ["*.Cu"], "thru_hole", "circle"),
+                       pad("SH", -10, 0, 2, 2, ["F.Cu"]), pad("SH", 10, 0, 2, 2, ["F.Cu"])])
+    x, y, w, h, lays, rnd = got["2"]
+    assert (x, y, w, h) == pytest.approx((3.95, 0, 8.6, 9.0)) and lays == frozenset({"*"}) and not rnd
+    assert got["1"][:4] == pytest.approx((-4.85, -2.3, 3, 1.6)) and got["1"][4] == frozenset({"F.Cu"})
+    assert got["SH"][:4] == pytest.approx((-10, 0, 2, 2))  # the far shield tab is not merged
+
+
+def test_repair_stops_after_one_round_without_progress_by_default(tmp_path, monkeypatch):
+    """No fixed parts: the default HWFLOW_REPAIR_MAX_STALL (1) stops the repair after the first rejected round, not
+    after two (timed-bathroom-vent: two rejected rounds cost 1802 s for 12 -> 12 errors)."""
+    from hwflow.layout.route import repair
+    monkeypatch.delenv("HWFLOW_REPAIR_MAX_STALL", raising=False)
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("x")
+    parts = {"K1": _P(False), "F1": _P(False)}
+    open_net = {"sev": "error", "type": "unconnected", "items": ["Pad 1 [AC_L] of K1", "Pad 2 [AC_L] of F1"]}
+    worse = [open_net, {"sev": "error", "type": "clearance", "items": ["Track [AC_L] on F.Cu", "Pad 1 [N] of F1"]}]
+    calls = []
+
+    class D:
+        name = "d"
+        board = {"gnd_pour": False}
+
+    monkeypatch.setattr(repair, "reroute", lambda *a, **k: ([], []))
+    r = repair.repair(D(), None, parts, [], [], [open_net], board, lambda *a: calls.append(a) or worse, 3)["report"]
+    assert r["rounds"] == 1 and len(calls) == 1 and any("1 round without improvement" in x for x in r["log"])

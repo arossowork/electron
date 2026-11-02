@@ -25,6 +25,9 @@ def check(design: Design, libs=None) -> list[dict]:
     f += pinchecks.findings(design, libs)  # datasheet limits against net voltages, pin functions against net roles
     if design.raw.get("blocks"):
         f += blocks.findings(design, libs)
+    if design.board.get("keepouts"):
+        from ..layout.board.pcb import board_keepout_findings
+        f += [{"sev": "error", "code": "board-keepout", "msg": m} for m in board_keepout_findings(design)]
     f += simrobust.check_findings(design)
     f += reviewchecks.findings(design, libs)  # late-review items: mains fuse, cost, files, model source
     return f
