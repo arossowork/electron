@@ -78,6 +78,9 @@ def test_fixed_part_errors():
     parts = {"BT1": P(True), "U2": P(True), "C1": P(True), "R9": P(False)}
     assert repair.fixed_part_errors([ko, pad], parts) == ["BT1", "C1", "U2"]
     assert repair.fixed_part_errors([ko, trk], parts) is None  # routing can cure a track error
+    k10 = {"sev": "error", "type": "clearance", "items": ["Pad 7 [<no net>] of U2 on F.Cu", "Pad 2 [GND] of U2 on F.Cu"]}
+    edge = {"sev": "error", "type": "copper_edge_clearance", "items": ["Rectangle on Edge.Cuts", "Pad 1 [A] of C1 on B.Cu"]}
+    assert repair.fixed_part_errors([k10, edge], parts) == ["C1", "U2"]  # KiCad 10 item text ends with the layer
     assert repair.fixed_part_errors([dict(ko, items=["Footprint R9"])], parts) is None  # R9 can be moved
     assert repair.fixed_part_errors([{"sev": "error", "type": "unconnected", "items": ["Pad 1 [A] of BT1"]}], parts) is None
     assert repair.fixed_part_errors([{"sev": "warning", "type": "silk_overlap", "items": []}], parts) is None

@@ -116,7 +116,7 @@ def plan(d, tracks: list, vias: list, drc: list[dict], radius: float = 0.0) -> d
     return {"rip": rip[:MAX_RIPUP], "islands": islands, "drop_vias": drop, "unfixable": left}
 
 
-_OF = re.compile(r" of (\S+)$")
+_OF = re.compile(r" of (\S+)(?: on \S+)?$")  # KiCad 10 adds the layer: "Pad 7 [GND] of U2 on F.Cu"
 
 
 def fixed_error(x: dict, parts: dict) -> set[str] | None:
