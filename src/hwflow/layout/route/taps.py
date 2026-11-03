@@ -338,8 +338,10 @@ def _track(net, line, layer, w) -> dict:
 
 def preseed(design, libs, parts, src: Path, workdir: Path, stem: str) -> tuple[Path, list, list, dict]:
     """The board `src` with the taps written in (a copy in `workdir`), for the router to keep: the pour taps when `on`,
-    and the escape taps. Returns (board, tracks, vias, plan)."""
+    and the escape taps, and the declared thermal vias (build_board adds those only to a routed board: without them
+    the router would run inner-layer tracks through the pad's via sites). Returns (board, tracks, vias, plan)."""
     p = plan(design, libs, parts, src) if on(design) else {"tracks": [], "vias": [], "untapped": [], "stats": {}}
+    p = dict(p, vias=p["vias"] + [{k: v[k] for k in ("net", "x", "y")} for v in pcb.thermal_vias(design, libs, parts)])
     e = escapes(design, libs, parts, src, p["tracks"], p["vias"])
     if e["stats"]["pads"]:
         print(f"[layout] escape taps: {e['stats']['pads']} pads walled in by their neighbours' net, "
@@ -349,7 +351,7 @@ def preseed(design, libs, parts, src: Path, workdir: Path, stem: str) -> tuple[P
         return Path(src), [], [], p
     import uuid
     from ...core.sexpr import Q
-    tree = sexpr.loads(Path(src).read_text())  # the unrouted board: its taps added as copper (no thermal vias yet)
+    tree = sexpr.loads(Path(src).read_text())  # the unrouted board: its taps and thermal vias added as copper
     idx = {str(n[2]): n[1] for n in sexpr.find_all(tree, "net") if len(n) > 2}
     b = design.board
     for t in p["tracks"]:

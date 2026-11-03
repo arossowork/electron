@@ -90,3 +90,16 @@ def test_two_nets_that_wall_each_other_in_get_no_tap(design, tmp_path, monkeypat
     board = tmp_path / "b.kicad_pcb"
     _board(board)
     assert taps.trapped(design, pcb.read_board(board), pcb.cu_layers(4)) == []
+
+
+def test_preseed_puts_the_declared_thermal_vias_on_the_router_board(design, tmp_path, monkeypatch):
+    """build_board adds thermal vias only to a routed board; the router must see them, or it runs inner-layer tracks
+    through the pad's via sites (pocket-recorder: VDD_3V0 and VSYS on In1/In2 under the nPM1300 pad, 2 shorts)."""
+    monkeypatch.setenv("HWFLOW_POUR_TAPS", "0")
+    monkeypatch.setattr(pcb, "thermal_vias", lambda d, libs, parts: [{"net": "GND", "x": 5.0, "y": 7.0, "thermal": "U1.6"}])
+    board = tmp_path / "b.kicad_pcb"
+    _board(board)
+    dst, _tracks, vias, _ = taps.preseed(design, None, {}, board, tmp_path, "t_")
+    assert {"net": "GND", "x": 5.0, "y": 7.0} in vias  # kept by the router (keep_first) like the taps
+    assert any(v["net"] == "GND" and (v["x"], v["y"]) == (5.0, 7.0) for v in pcb.read_board(dst)["vias"])
+    assert all(abs(v["x"] - 5.0) + abs(v["y"] - 7.0) > 0.4 for v in vias if v["net"] != "GND")  # escapes avoid it
