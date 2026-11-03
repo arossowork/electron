@@ -1033,7 +1033,6 @@ def _confirm_by_route(design, parts, spots) -> dict | None:
     The window cut cannot tell a pad row that fans out across a window border from a congested escape (corpus case
     pr_mcu: 7.7 x under an LGA module, routes clean in 14 s; kb_hub, kb_audio_dig: 9 x, 150-160 unrouted). None when
     off or there is no spot."""
-    import os
     import shutil
     import tempfile
     limit = float(get_settings().layout.floorplan_confirm_s)
@@ -1045,8 +1044,7 @@ def _confirm_by_route(design, parts, spots) -> dict | None:
     try:
         return _route_spots(design, parts, spots, tmp, limit, t_end, rows)
     finally:
-        if not os.environ.get("HWFLOW_KEEP_CONFIRM_DEBUG"):
-            shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _spot_errors(out: Path) -> int:
@@ -1085,6 +1083,7 @@ def _route_spots(design, parts, spots, tmp, limit, t_end, rows) -> dict:
             cutout.cutout(design.dir, out, region=f"{x0 - g},{y0 - g},{x1 + g},{y1 + g}", placement=pj,
                           name=f"spot{k}")
             t = time.time()
+            # the child layout: this environment, the router past the legality gate, no confirmation of its own
             env = dict(os.environ, HWFLOW_ROUTE_ILLEGAL="1", HWFLOW_FLOORPLAN_CONFIRM_S="0")
             subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(out)], capture_output=True,
                            text=True, timeout=left, env=env)
