@@ -52,9 +52,20 @@ def cmd_lib(a) -> int:
 
 
 def cmd_parts(a) -> int:
+    import urllib.error
     from .core import parts
+    if a.category not in (*parts.CATEGORIES, "any"):
+        print(f"parts: unknown category {a.category!r}; the index has {', '.join(parts.CATEGORIES)}. "
+              "For other parts (memory, PMICs, modules, sensors) use the pcbparts MCP tools (jlc_search).",
+              file=sys.stderr)
+        return 2
     filters = dict(f.split("=", 1) for f in a.filters)
-    for r in parts.search(a.category, filters, a.text, a.limit):
+    try:
+        rows = parts.search(a.category, filters, a.text, a.limit)
+    except (urllib.error.URLError, TimeoutError) as e:
+        print(f"parts: the JLCPCB index ({parts.BASE}) did not answer: {e}; use the pcbparts MCP tools", file=sys.stderr)
+        return 1
+    for r in rows:
         price = _fmt(r["price_usd"])
         r = {k: ("" if v is None else v) for k, v in r.items()}  # a catalogue row may lack mpn, package or stock
         print(f"{r['lcsc']:>10} {r['mpn']:<28} {r['package']:<14} stock={r['stock']:<9} ${price}"
