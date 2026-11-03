@@ -44,6 +44,19 @@ def _first_existing(cands, *, dir_with: str | None = None) -> str:
     return ""
 
 
+def _main_checkout_tools(root: Path) -> list[Path]:
+    """[<main checkout>/tools] when `root` is a git worktree (its .git is a file `gitdir: <main>/.git/worktrees/<n>`),
+    else []."""
+    try:
+        line = (root / ".git").read_text().strip()
+    except (OSError, UnicodeDecodeError):  # a directory (the main checkout) or no git
+        return []
+    if not line.startswith("gitdir:"):
+        return []
+    gitdir = Path(line.split(":", 1)[1].strip())
+    return [gitdir.parents[2] / "tools"] if gitdir.parent.name == "worktrees" else []
+
+
 class _Group(BaseSettings):
     # env names are given per field (alias); unknown env vars are ignored; fields are also settable by name
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True, env_prefix="")
@@ -108,7 +121,7 @@ class LayoutSettings(_Group):
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
-    # HWFLOW_POUR_STITCH=1
+    # HWFLOW_POUR_STITCH=1 or with the design's `board.pour_stitch: true`
     pour_stitch: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_STITCH"))
     # pour taps (layout.route.taps): before signal routing, every surface-mount pad of a pour net gets a link or a stub
     # and via to the plane, kept as fixed copper; off by default, on with HWFLOW_POUR_TAPS=1 (measurements in
@@ -227,9 +240,13 @@ class PathSettings(_Group):
         root = Path(self.root)
         self.blocks_dir = self.blocks_dir or str(root / "blocks")
         self.library_dir = self.library_dir or str(root / "library")
-        self.tools_dir = self.tools_dir or str(root / "tools")
-        self.krt_dir = self.krt_dir or str(Path(self.tools_dir) / "KiCadRoutingTools")
-        self.freerouting = self.freerouting or str(Path(self.tools_dir) / "freerouting-2.5.0.jar")
+        # tools/ is gitignored, so a git worktree has none: each tool falls back to the main checkout's tools/
+        tools = [Path(self.tools_dir)] if self.tools_dir else [root / "tools", *_main_checkout_tools(root)]
+        self.tools_dir = str(tools[0])
+        self.krt_dir = self.krt_dir or _first_existing([str(t / "KiCadRoutingTools") for t in tools]) or str(
+            tools[0] / "KiCadRoutingTools")
+        self.freerouting = self.freerouting or _first_existing([str(t / "freerouting-2.5.0.jar") for t in tools]) or str(
+            tools[0] / "freerouting-2.5.0.jar")
         self.cas_dir = self.cas_dir or str(Path(os.path.expanduser("~")) / ".cache" / "hwflow" / "cas")
         self.ref_dirs = self.ref_dirs or os.pathsep.join([str(root / "examples"), str(root / "projects")])
         self.oshw_index = self.oshw_index or str(root / "oshw" / "index.json")

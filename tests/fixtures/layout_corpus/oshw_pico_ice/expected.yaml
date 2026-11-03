@@ -130,6 +130,10 @@ fast:
     necked: []
     no_access:
     - U6.49
+  gate:
+    fail: true
+    peak: 8.0
+    area_mm2: 52.2
   seconds:
     check: 36.4
     pin_access: 1.2

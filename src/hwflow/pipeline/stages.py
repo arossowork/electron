@@ -436,7 +436,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             from ..layout.route import regionroute
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
                                                      groups, route_check, deadline=deadline)
-        if (get_settings().layout.pour_stitch and d.board["gnd_pour"] and not d.route_budget_exhausted
+        if ((get_settings().layout.pour_stitch or d.board.get("pour_stitch")) and d.board["gnd_pour"]
+                and not d.route_budget_exhausted
                 and d.board.get("router", "krt") == "krt"):
             from ..layout.route import pourstitch
             t = time.time()

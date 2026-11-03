@@ -8,7 +8,7 @@
         measures the fast metrics and/or the routed outcome; --write stores them in expected.yaml
 
 The fast metrics (`fast`) need no router: `hwflow check`, placement legality of the fixed placement, corridor
-channels, RUDY congestion and pin access, and a from-scratch re-placement of the parts the source placer was free
+channels, RUDY congestion, pin access, the floorplan congestion gate (`gate`), and a from-scratch re-placement of the parts the source placer was free
 to move (`replace`). tests/test_layout_corpus.py asserts them against expected.yaml (fast tier) and routes each case
 (slow tier). Nothing here depends on the router branches under test; a case is data only."""
 
@@ -99,6 +99,7 @@ def fast(case: Path, check: bool = True) -> dict:
         zero = sorted({a["net"] for a in acc.values() if a["n"] == 0})
         no_access = sorted(f"{r}.{p}" for (r, p), a in acc.items() if a["no_access"])
         t_acc = time.time() - t1
+        gt = gate(d, libs, parts)
     return {
         "check": {"ok": chk["ok"], "errors": chk["errors"], "warnings": chk["warnings"],
                   "codes": sorted({f.get("code", "?") for f in chk["findings"] if f["sev"] == "error"})} if chk else None,
@@ -107,8 +108,18 @@ def fast(case: Path, check: bool = True) -> dict:
         "corridors": {c["net"]: round(c["width"] - c["track"], 3) for c in cors},
         "placement_cost": round(cost, 1), "rudy": {"congestion": round(cong, 1), "max_overflow": round(ovf, 2)},
         "pin_access": {"pads": len(acc), "nets_no_exit_at_width": zero, "necked": necked, "no_access": no_access},
+        "gate": gt,
         "seconds": {"check": round(t_check, 1), "pin_access": round(t_acc, 1)},
     }
+
+
+def gate(d, libs, parts) -> dict:
+    """The floorplan congestion gate (routability.gate, the FAIL of `hwflow floorplan`) on the fixed placement:
+    {fail, peak, area_mm2}; tests/test_layout_corpus.py holds it against the routed outcome."""
+    from hwflow.layout.place import routability
+
+    g = routability.predict(d, libs, parts=parts, corridors=False, access=False)["gate"]
+    return {"fail": bool(g["fail"]), "peak": round(float(g["peak"]), 2), "area_mm2": round(float(g["area_mm2"]), 1)}
 
 
 def replace(case: Path, seeds: int = 1, iters: int = 4000) -> dict:

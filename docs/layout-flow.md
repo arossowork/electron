@@ -309,18 +309,18 @@ retrying with more than 3 nets open).
    against 0 signal nets open but 2 GND groups left (the module's whole ground area cut off on both layers, and a tap
    via walled in on B.Cu, which a tap cannot prevent); a congested thermo-e2e-4-live placement 3 against 6 signal
    nets open (the tap vias take routing room). It stays opt-in until it wins on more placements.
-8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net, so a
-   GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads and vias.
-   Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the repair, every
-   pour group other than the main one (most pads), and every pad no fill touches, is joined by the first of: a via in
-   the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most 2.5 mm to a via that
-   lands in the main fill, and once more the same stub where it displaces at most 3 routed nets (never isolation
-   members or layer-rule nets), which are routed again (one net order per pass, at most 20 re-routed nets in a
-   stitch). The re-routed nets move, so the free vias are tried again on that board (the stub's via can land in
-   another pocket, and a new via can fit). A displacement that leaves a displaced net open, or does not end with fewer
-   errors, is undone, and the next of up to 3 rounds displaces other nets. Every via and stub keeps the clearances,
-   the isolation distances and the rule areas; a round is kept only with fewer DRC errors and no more errors of any
-   type other than unconnected.
+8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1` or `board.pour_stitch: true`, off by default). The router
+   never routes a pour net, so a GND pad reaches GND only through the fill of its own layer, and the layers join only
+   at through-hole pads and vias. Tracks cut the outer fill into islands around single pads, and a plane with no via
+   floats. Before the repair, every pour group other than the main one (most pads), and every pad no fill touches, is
+   joined by the first of: a via in the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of
+   at most 2.5 mm to a via that lands in the main fill, and once more the same stub where it displaces at most 3
+   routed nets (never isolation members or layer-rule nets), which are routed again (one net order per pass, at most
+   20 re-routed nets in a stitch). The re-routed nets move, so the free vias are tried again on that board (the
+   stub's via can land in another pocket, and a new via can fit). A displacement that leaves a displaced net open, or
+   does not end with fewer errors, is undone, and the next of up to 3 rounds displaces other nets. Every via and stub
+   keeps the clearances, the isolation distances and the rule areas; a round is kept only with fewer DRC errors and
+   no more errors of any type other than unconnected.
 
 ## Roads first and the layout portfolio (both off by default)
 
@@ -510,6 +510,24 @@ pad layer its hard share was 5-16 points lower. The layout's own predictions on 
 check, 2 seeds): 38-80 s; the prediction itself 5-8 s per seed. The failures of thermo-e2e-6 were mostly VBAT
 (23 of 27 open items): the vbat_radio_supply budget set 1.45 mm on the whole net, 24 pads (MCU, drivers, decaps),
 through the BT1/M4/U1 hot spot; its zero-width corridor lines (L, OUT1, XTAL) were not among the open nets.
+
+**Known false positive: a pad row along a window border** (November 2026, corpus case `pr_mcu`). pocket-recorder's
+floorplan failed the gate at 7.0 x under its ISP1807 LGA module, and the layout routed that window on every attempt
+(the cutout routes clean in 14 s; its fixed placement peaks at 7.7 x with 24 mm2 at 6 x). The window's top border runs
+0.1 mm off a row of module pads: inside their clearance halo no other net's track fits, so the free-border supply is
+0.5 tracks, but the 7 nets that cross it are those pads' own nets, and the router took 8 nets across that border.
+Three corrections were measured on the corpus's fixed placements and dropped, since each lost true failures:
+- not counting a net against the border where its own pad's halo meets it (the exact cut): every clean case peaks at
+  1.4 x or less, but the gate then passes kb_hub, kb_audio_dig and kb_audio (84-160 unrouted when routed past the
+  legality gate, `route_routed`), s60_escape, oshw_pico_ice and oshw_rocketbeacon; a threshold of 3 x on that ratio
+  catches only oshw_b_parasite and ht1_battery;
+- one track per free run of the border (as line_cuts counts): pocket still 7.0 x (the border has no free cell);
+- a second window grid offset by half a step: pocket 6.3 x with 16 mm2, and riegel and ch32v003 move by 3-11 hard
+  nets with the offset (the plain ratio is grid-sensitive).
+The window cut cannot tell this pad row from a congested QFN escape. `tests/test_layout_corpus.py` records the gate on
+every case (`fast.gate`) and lists pr_mcu as the one clean case it fails; a predictor change that clears it must keep
+the gate on the other failing cases. A floorplan that fails only on such a spot can be checked by routing the spot
+(`hwflow cutout` of the quick placement, about 15 s for pr_mcu) before going back to architecture.
 
 ## Removed after the experiments
 

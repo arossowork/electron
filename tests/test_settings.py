@@ -113,3 +113,22 @@ def test_fast_preset(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     f = with_layout_env(get_settings(), {"HWFLOW_FAST": "1"}).layout
     assert (f.pour_stitch, f.place_escape, f.roads, f.firstpass) == (True, "1", "route", None)
+
+
+def test_worktree_tools_fall_back_to_the_main_checkout(monkeypatch, tmp_path):
+    """tools/ is gitignored, so a git worktree has none (pocket-recorder: layout failed at once without the router)."""
+    main, wt = tmp_path / "main", tmp_path / "wt"
+    (main / "tools" / "KiCadRoutingTools").mkdir(parents=True)
+    (main / ".git" / "worktrees" / "wt").mkdir(parents=True)
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {main / '.git' / 'worktrees' / 'wt'}\n")
+    for k in ("HWFLOW_TOOLS_DIR", "KRT_DIR", "FREEROUTING"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("HWFLOW_ROOT", str(wt))
+    p = get_settings().paths
+    assert p.krt_dir == str(main / "tools" / "KiCadRoutingTools")
+    assert p.freerouting == str(wt / "tools" / "freerouting-2.5.0.jar")  # in neither: the worktree's own path
+    (wt / "tools" / "KiCadRoutingTools").mkdir(parents=True)
+    assert get_settings().paths.krt_dir == str(wt / "tools" / "KiCadRoutingTools")  # its own copy wins
+    monkeypatch.setenv("HWFLOW_TOOLS_DIR", str(tmp_path / "t"))
+    assert get_settings().paths.krt_dir == str(tmp_path / "t" / "KiCadRoutingTools")

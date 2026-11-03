@@ -39,6 +39,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | via_drill_mm, via_dia_mm | 0.3, 0.6 | via size |
 | gnd_pour | true | ground zones on all copper layers |
 | pour_taps | (none) | layout stage: refs or globs whose surface-mount pour-net pads get a tap before routing (a short stub to a via into the pour of another layer, docs/layout-flow.md step 7); turns the taps on for those parts without `HWFLOW_POUR_TAPS` (which taps every pour pad). On a dense board, a tap at every pad takes the room the signal nets need; list the pads that need a short ground (RF shunts, filters, decoupling) |
+| pour_stitch | false | layout stage: join a split pour net (GND islands left by the signal tracks) after routing with vias and stubs (docs/layout-flow.md step 8), as `HWFLOW_POUR_STITCH=1` does for every run; set it on a design whose ground pour splits, so its builds keep it |
 | er | 4.3 | dielectric constant (FR-4) |
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
 | decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin (post-layout warning; with `HWFLOW_PLACE_DECAP_HARD=1` also a hard placement limit on the straight pad distance over the routing allowance) |

@@ -1,4 +1,5 @@
-"""Connect a split pour net (GND) by rule after routing (settings.layout.pour_stitch, HWFLOW_POUR_STITCH).
+"""Connect a split pour net (GND) by rule after routing (settings.layout.pour_stitch, HWFLOW_POUR_STITCH, or the
+design's `board.pour_stitch: true`).
 
 The router never routes a pour net: a pad of it reaches the net only through the zone fill on its own layer, and the
 layers join only at the through-hole pads and vias of the net. On a dense board the signal tracks cut the outer-layer

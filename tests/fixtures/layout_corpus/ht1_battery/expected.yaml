@@ -56,6 +56,10 @@ fast:
     - R3.2
     - R4.1
     - R4.2
+  gate:
+    fail: false
+    peak: 4.75
+    area_mm2: 0.0
   seconds:
     check: 15.7
     pin_access: 1.1

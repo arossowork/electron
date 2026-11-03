@@ -1,0 +1,587 @@
+project: pocket-recorder_cut_mcu
+board:
+  width_mm: 20.25
+  height_mm: 23.0
+  layers: 4
+  thickness_mm: 0.4
+  margin_mm: 0.5
+  power_track_mm: 0.2
+  track_mm: 0.15
+  clearance_mm: 0.15
+  via_drill_mm: 0.15
+  via_dia_mm: 0.3
+  pour_stitch: true
+cost:
+  extra:
+  - name: PCB 22 x 54, 4 layers, 0.4 mm, 5k
+    usd: 0.5
+    source: assumed, stage 3 quote
+  - name: SMT assembly + hand-solder cell
+    usd: 1.5
+    source: assumed, stage 3 quote
+  - name: enclosure 60 x 56, two moulded shells 0.5 mm + light pipe + mic mesh
+    usd: 1.1
+    source: assumed (R20 scope, PM round 3)
+  - name: adhesive pad (phone attachment)
+    usd: 0.12
+    source: assumed (R27)
+  - name: magnetic pogo charging cable
+    usd: 2.5
+    source: conflicts.md C2 (2-3 USD)
+  - name: cell VTC LP103053 90 mAh (hand-soldered tabs J3/J4)
+    usd: 2.2
+    source: assumed, no quote (notes/parts.md)
+description: layout cutout of pocket-recorder (mcu)
+components:
+  C15:
+    value: 4.7uF
+    mpn: GRM155R60J475ME47D
+    price_usd: 0.01
+    voltage_rating_v: 6.3
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: mcu
+    decouples: U1
+    pins:
+      '1': VDD_3V0
+      '2': GND
+    placement:
+      x: 5.81
+      y: 9.96
+      rot: 0.0
+      fixed: true
+  C16:
+    value: 100nF
+    mpn: GRM033R61A104KE15D
+    price_usd: 0.003
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0201_0603Metric
+    group: mcu
+    decouples: U1
+    pins:
+      '1': VDD_3V0
+      '2': GND
+    placement:
+      x: 6.3694
+      y: 5.4826
+      rot: 90.0
+      fixed: true
+  C8:
+    value: 1uF
+    mpn: GRM155R61A105KE15D
+    price_usd: 0.004
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': GND
+    placement:
+      x: 18.508
+      y: 13.6205
+      rot: 0.0
+      fixed: true
+  C9:
+    value: 100nF
+    mpn: GRM033R61A104KE15D
+    price_usd: 0.003
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': GND
+    placement:
+      x: 18.3
+      y: 14.95
+      rot: 180.0
+      fixed: true
+  R11:
+    value: 10k
+    mpn: 0201WMF1002TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': NAND_MOSI
+    placement:
+      x: 18.35
+      y: 11.0
+      rot: 180.0
+      fixed: true
+  R12:
+    value: 10k
+    mpn: 0201WMF1002TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': NAND_MISO
+    placement:
+      x: 18.5
+      y: 9.75
+      rot: 180.0
+      fixed: true
+  R13:
+    value: 10k
+    mpn: 0201WMF1002TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': NAND_D1
+    placement:
+      x: 6.15
+      y: 11.75
+      rot: 180.0
+      fixed: true
+  R14:
+    value: 10k
+    mpn: 0201WMF1002TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': NAND_D2
+    placement:
+      x: 18.35
+      y: 12.25
+      rot: 180.0
+      fixed: true
+  TP1:
+    value: SWDIO
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_1.0x1.0mm
+    group: mcu
+    bom: false
+    pins:
+      '1': SWDIO
+    placement:
+      x: 5.7002
+      y: 7.7326
+      rot: 270.0
+      fixed: true
+  U1:
+    placement:
+      x: 16.25
+      y: 8.5
+      rot: 180.0
+      fixed: true
+    value: ISP1807-LR
+    mpn: ISP1807-LR-RS
+    lcsc: C5264268
+    price_usd: 13.65
+    sourcing: 'Mouser 9566 stock @500 13.65; JLC stock 0: consign'
+    datasheet: https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP1807/isp_ble_DS1807.pdf
+    symbol: pocket_isp1807:ISP1807-LR
+    footprint: pocket:ISP1807LR
+    group: mcu
+    vias_under: true
+    thermal_vias:
+    - pad: '14'
+      count: 1
+    - pad: '16'
+      count: 1
+    - pad: '18'
+      count: 1
+    - pad: '21'
+      count: 1
+    - pad: '23'
+      count: 1
+    - pad: '24'
+      count: 1
+    pins:
+      '1': GND
+      '7': GND
+      '14': GND
+      '16': GND
+      '18': GND
+      '21': GND
+      '23': GND
+      '24': GND
+      '25': GND
+      '31': GND
+      '26': VDD_3V0
+      '28': SWDIO
+      '30': SWDCLK
+      '20': RF_ANT
+      '22': RF_ANT
+      '32': PDM_CLK
+      '34': PDM_DATA
+      '36': NAND_CS
+      '38': NAND_SCK
+      '40': NAND_MOSI
+      '42': NAND_MISO
+      '44': I2C_SDA
+      '46': I2C_SCL
+      '48': PMIC_INT
+      '6': MIC_EN
+    nc:
+    - '2'
+    - '3'
+    - '4'
+    - '5'
+    - '8'
+    - '9'
+    - '10'
+    - '11'
+    - '12'
+    - '13'
+    - '15'
+    - '17'
+    - '19'
+    - '27'
+    - '29'
+    - '33'
+    - '35'
+    - '37'
+    - '39'
+    - '41'
+    - '43'
+    - '45'
+    - '47'
+    - '49'
+    - '50'
+    - '51'
+    - '52'
+    - '53'
+    - '54'
+    - '55'
+    - '56'
+    - '57'
+    - '58'
+    - '59'
+    - '60'
+    - '61'
+    - '62'
+    - '63'
+    - '64'
+    - '65'
+    - '66'
+    - '67'
+    - '68'
+    - '69'
+    - '70'
+    - '71'
+    - '72'
+    - '73'
+    - '74'
+    - '75'
+    - '76'
+    - '77'
+    - '78'
+    limits:
+      abs_max_v: 3.9
+      rec_max_v: 3.6
+      source: DS1807 R19 p5 VCC_nRF 1.7-3.6 V; abs max 3.9 V from the nRF52840 PS (VDD abs max), I/O VDD + 0.3 = 3.45 V at
+        VDD_3V0 3.15
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SCL
+    group: cutout_terminal
+    placement:
+      x: 11.25
+      y: 21.25
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_SCK
+    group: cutout_terminal
+    placement:
+      x: 14.5
+      y: 21.25
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PDM_CLK
+    group: cutout_terminal
+    placement:
+      x: 1.75
+      y: 6.75
+      rot: 0
+      fixed: true
+  TPB12:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PDM_DATA
+    group: cutout_terminal
+    placement:
+      x: 1.75
+      y: 9.5
+      rot: 0
+      fixed: true
+  TPB13:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PMIC_INT
+    group: cutout_terminal
+    placement:
+      x: 7.75
+      y: 21.25
+      rot: 0
+      fixed: true
+  TPB14:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': SWDCLK
+    group: cutout_terminal
+    placement:
+      x: 1.75
+      y: 14.5
+      rot: 0
+      fixed: true
+  TPB15:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VDD_3V0
+    group: cutout_terminal
+    placement:
+      x: 1.75
+      y: 17.25
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SDA
+    group: cutout_terminal
+    placement:
+      x: 17.25
+      y: 21.25
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_EN
+    group: cutout_terminal
+    placement:
+      x: 12.7967
+      y: 18.6
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_CS
+    group: cutout_terminal
+    placement:
+      x: 15.5956
+      y: 18.6
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_D1
+    group: cutout_terminal
+    placement:
+      x: 9.9978
+      y: 18.6
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_D2
+    group: cutout_terminal
+    placement:
+      x: 5.0
+      y: 21.25
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_MISO
+    group: cutout_terminal
+    placement:
+      x: 4.4
+      y: 15.8107
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_MOSI
+    group: cutout_terminal
+    placement:
+      x: 1.75
+      y: 20.0
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_PWR
+    group: cutout_terminal
+    placement:
+      x: 6.9444
+      y: 18.6
+      rot: 0
+      fixed: true
+nets:
+  VDD_3V0:
+    class: power
+    current_a: 0.06
+    width_mm: 0.25
+    v_max: 3.15
+  NAND_PWR:
+    class: power
+    current_a: 0.035
+    width_mm: 0.2
+    v_max: 3.15
+  GND:
+    class: ground
+  PDM_CLK:
+    class: clock
+    v_max: 3.15
+  PMIC_INT:
+    v_max: 3.15
+  MIC_EN:
+    v_max: 3.15
+  I2C_SDA:
+    v_max: 3.15
+  I2C_SCL:
+    v_max: 3.15
+floorplan:
+  construction: single
+  wall_mm:
+    left: 0.5
+    right: 0.5
+    top: 0.5
+    bottom: 0.5
+  depth:
+    limit_mm: 2.9
+    extra:
+    - name: enclosure walls 2 x 0.5
+      mm: 1.0
+      source: R1, conflicts.md C1
+    - name: assembly clearance over tallest part
+      mm: 0.3
+      source: R24 derivation
+  regions:
+  - name: antenna_keepout
+    kind: antenna
+    allow:
+    - ble_module
+    copper_keepout:
+      layers:
+      - F.Cu
+      - In1.Cu
+      - In2.Cu
+      - B.Cu
+      forbids:
+      - tracks
+      - vias
+      - copperpour
+    isolation_mm: 0
+    source: 'ISP1807 datasheet: no metal between antenna end and board edge (notes/datasheets/isp1807.md); stage 4: DS1807
+      R19 4.3 p14 keep-out zone 18.0 mm min along the board edge x 4.0 mm deep at the antenna end (the NC-pad half, pads 65-78,
+      opposite pin 1; text positions read with pdftotext -bbox); module antenna end on the y = 0 edge'
+    rect:
+    - 2.25
+    - 0.0
+    - 20.25
+    - 4.4
+  - name: pogo_edge
+    kind: other
+    items: []
+    source: 'R27: pogo pads within 3 mm of the device short edge; R17 TVS within 5 mm'
+    rect:
+    - 15.25
+    - 20.0
+    - 20.25
+    - 23.0
+  items:
+  - name: ble_module
+    footprint: pocket:ISP1807LR
+    side: front
+    at:
+    - 16.25
+    - 8.5
+    rot: 180
+    height_mm: 1.0
+    refs:
+    - U1
+    source: 'ISP1807-LR 8 x 8 x 1.0 LGA, footprint pocket:ISP1807LR (SamacSys 1526419, 78 pads); rot 180 puts pads 65-78 (NC,
+      antenna half: OUT_ANT pin 20 sits at its border, DS1807 p14 keep-out opposite pin 1) at board y 0.8-4.0 on the y = 0
+      edge; signal pads 1-48 face the board interior'
+  - name: swd_pads
+    refs:
+    - TP1
+    - TP2
+    - TP3
+    - TP4
+    side: front
+    height_mm: 0.05
+    source: 'SWDIO, SWDCLK, VDD, GND test pads (RESET pin 13 not brought out: inner pad, SWD works without it)'
+  - name: storage_block
+    refs:
+    - U3
+    - C8
+    - C9
+    - R10
+    - R11
+    - R12
+    - R13
+    - R14
+    side: front
+    height_mm: 1.0
+    source: FLSD04GHFLT LGA-8 9.2 x 7.2 x 1.0 max (datasheet p7-8) + caps + pull-ups
+  - name: module_support
+    refs:
+    - C15
+    - C16
+    - C11
+    - C12
+    - D2
+    side: front
+    height_mm: 0.6
+    source: module and mic decoupling, button TVS

@@ -35,6 +35,10 @@ fast:
     no_access:
     - U311.21
     - U312.21
+  gate:
+    fail: false
+    peak: 4.0
+    area_mm2: 0.0
   seconds:
     check: 5.8
     pin_access: 0.7

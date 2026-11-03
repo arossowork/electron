@@ -34,6 +34,7 @@ needs_router = pytest.mark.skipif(not (krt.krt_dir() / "py_router" / "route.py")
 CORRIDOR_TOL_MM = 0.02  # channel margin (channel - track width) of each constrained net
 RUDY_REL = 0.05  # relative tolerance of the RUDY congestion sum
 OVERFLOW_TOL = 0.05  # mm of wire per cell
+GATE_PEAK_TOL = 0.25  # the gate's peak window ratio
 
 
 def _exp(case: Path) -> dict:
@@ -73,6 +74,31 @@ def test_fixed_placement(case):
     assert pa["necked"] == ea["necked"]
     assert pa["nets_no_exit_at_width"] == ea["nets_no_exit_at_width"]
     assert pa["no_access"] == ea["no_access"]
+    if "gate" in e:
+        assert g["gate"]["fail"] == e["gate"]["fail"], g["gate"]
+        assert abs(g["gate"]["peak"] - e["gate"]["peak"]) <= GATE_PEAK_TOL, (g["gate"], e["gate"])
+
+
+# clean cases the floorplan congestion gate fails (docs/layout-flow.md, "Known false positive"): a predictor change
+# that clears one makes test_gate_spares_the_cases_that_route fail until it is taken off this list
+GATE_FALSE_POSITIVES = {"pr_mcu"}  # pocket-recorder: a pad row of the ISP1807 LGA along a window border, 7.7 x
+
+
+def test_gate_spares_the_cases_that_route():
+    """The floorplan congestion gate sends a design back to architecture, so it must not fail a placement that
+    routes clean (recorded values: expected.yaml fast.gate, which test_fixed_placement re-measures). pr_mcu is the
+    known exception, kept as the benchmark of a fix."""
+    clean, failed = [], []
+    for c in CASES:
+        e = lc.expected(c)
+        r, g = e.get("route") or {}, (e.get("fast") or {}).get("gate")
+        if g is None or not r.get("ok"):
+            continue
+        clean.append(c.name)
+        if g["fail"]:
+            failed.append(c.name)
+    assert "pr_pmic" in clean and set(failed) == GATE_FALSE_POSITIVES, failed
+
 
 
 def _check(case):

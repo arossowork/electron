@@ -1,0 +1,158 @@
+source: projects/pocket-recorder
+source_project: pocket-recorder
+placement: projects/pocket-recorder/build/placement.good.json
+selection:
+  parts: null
+  region: 10,1,22,16
+  nets: null
+window:
+- 1.75
+- 0.0
+- 22.0
+- 23.0
+frame_mm: 7.0
+offset:
+- -1.75
+- -0.0
+board_mm:
+- 20.25
+- 23.0
+free:
+- C15
+- C16
+- C8
+- C9
+- R11
+- R12
+- R13
+- R14
+- TP1
+dropped_neighbors:
+- MK1
+- R10
+- TP2
+- TP3
+- TP4
+- U3
+terminals:
+- ref: TPB1
+  net: I2C_SCL
+  from: U1.46
+  to: R3.2
+  at:
+  - 11.25
+  - 21.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB10
+  net: NAND_SCK
+  from: U1.38
+  to: U3.3
+  at:
+  - 14.5
+  - 21.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: PDM_CLK
+  from: U1.32
+  to: MK1.3
+  at:
+  - 1.75
+  - 6.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB12
+  net: PDM_DATA
+  from: U1.34
+  to: MK1.4
+  at:
+  - 1.75
+  - 9.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB13
+  net: PMIC_INT
+  from: U1.48
+  to: U2.7
+  at:
+  - 7.75
+  - 21.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB14
+  net: SWDCLK
+  from: U1.30
+  to: TP2.1
+  at:
+  - 1.75
+  - 14.5
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB15
+  net: VDD_3V0
+  from: C15.1
+  to: TP3.1
+  at:
+  - 1.75
+  - 17.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: I2C_SDA
+  from: U1.44
+  to: R2.2
+  at:
+  - 17.25
+  - 21.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: MIC_EN
+  from: U1.6
+  to: R4.1
+  at:
+  - 12.7967
+  - 18.6
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: NAND_CS
+  from: U1.36
+  to: U3.2
+  at:
+  - 15.5956
+  - 18.6
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: NAND_D1
+  from: R13.2
+  to: U3.1
+  at:
+  - 9.9978
+  - 18.6
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: NAND_D2
+  from: R14.2
+  to: U3.7
+  at:
+  - 5.0
+  - 21.25
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: NAND_MISO
+  from: U1.42
+  to: U3.6
+  at:
+  - 4.4
+  - 15.8107
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: NAND_MOSI
+  from: U1.40
+  to: U3.5
+  at:
+  - 1.75
+  - 20.0
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: NAND_PWR
+  from: R13.1
+  to: U3.8
+  at:
+  - 6.9444
+  - 18.6
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []

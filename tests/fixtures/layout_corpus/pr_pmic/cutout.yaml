@@ -1,0 +1,146 @@
+source: projects/pocket-recorder
+source_project: pocket-recorder
+placement: projects/pocket-recorder/build/placement.good.json
+selection:
+  parts: null
+  region: 4,21,16,33
+  nets: null
+window:
+- 0.0
+- 15.600000000000001
+- 21.65
+- 39.15
+frame_mm: 5.0
+offset:
+- -0.0
+- -15.600000000000001
+board_mm:
+- 21.65
+- 23.55
+free:
+- C1
+- C10
+- C13
+- C2
+- C3
+- C4
+- C5
+- C6
+- C7
+- D1
+- D3
+- D4
+- J3
+- L1
+- M1
+- R1
+- R10
+- R15
+- R16
+- R17
+- R18
+- R19
+- R2
+- R3
+- R4
+- R8
+- TH1
+- U2
+- U4
+- U5
+dropped_neighbors:
+- J1
+- J2
+- J4
+- TP3
+- U3
+terminals:
+- ref: TPB1
+  net: BAT_N
+  from: U4.3
+  to: J4.1
+  at:
+  - 9.3125
+  - 21.8
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB10
+  net: VBUS_POGO
+  from: D1.1
+  to: J1.1
+  at:
+  - 19.9
+  - 9.5194
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB11
+  net: VDD_3V0
+  from: C6.1
+  to: TP3.1
+  at:
+  - 4.775
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB2
+  net: BTN
+  from: U2.15
+  to: D2.1
+  at:
+  - 3.0104
+  - 21.8
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB3
+  net: I2C_SCL
+  from: R3.2
+  to: U1.46
+  at:
+  - 14.3542
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB4
+  net: I2C_SDA
+  from: R2.2
+  to: U1.44
+  at:
+  - 17.1271
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB5
+  net: MIC_EN
+  from: R4.1
+  to: U1.6
+  at:
+  - 19.9
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB6
+  net: MIC_PWR
+  from: R17.1
+  to: MK2.2
+  at:
+  - 19.9
+  - 13.78
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB7
+  net: NAND_CS
+  from: R10.2
+  to: U3.2
+  at:
+  - 19.9
+  - 4.5069
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB8
+  net: NAND_PWR
+  from: R10.1
+  to: U3.8
+  at:
+  - 8.8083
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+- ref: TPB9
+  net: PMIC_INT
+  from: U2.7
+  to: U1.48
+  at:
+  - 11.5812
+  - 1.75
+  footprint: TestPoint:TestPoint_Pad_D1.0mm
+warnings: []
