@@ -417,12 +417,54 @@ def test_congested_quick_placement_fails_the_floorplan(tmp_path, monkeypatch):
     res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
     rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
     assert rp["ok"] is not False and res["placement"]["routability"]["gate"]["fail"] is False
+    monkeypatch.setenv("HWFLOW_FLOORPLAN_CONFIRM_S", "0")  # the gate alone (the route check: the test below)
     monkeypatch.setattr(routability, "RATIO_FAIL", 0.01)
     monkeypatch.setattr(routability, "AREA_FAIL_MM2", 1.0)
     res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
     rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
     assert res["verdict"] == "FAIL" and rp["ok"] is False and rp.get("back_to") == "architecture"
     assert "hot spot x" in rp["msg"] and "Moves:" in rp["msg"]
+
+
+def test_congestion_gate_fail_is_confirmed_by_routing_the_spot(tmp_path, monkeypatch):
+    """pocket-recorder (corpus pr_mcu): the gate failed a window under an LGA module that routed on every attempt.
+    A gate FAIL now routes each hot spot as a cutout of the quick placement first: a spot that routes clean makes it a
+    risk, one that does not (or a run past HWFLOW_FLOORPLAN_CONFIRM_S) keeps the FAIL."""
+    from hwflow.core.settings import get_settings
+    from hwflow.layout.route import krt
+    from test_placer import channel
+    from hwflow.layout.place import routability
+    if not (krt.krt_dir() / "py_router" / "route.py").exists():
+        pytest.skip("KiCadRoutingTools not installed")
+    channel(tmp_path)
+    raw = yaml.safe_load((tmp_path / "design.yaml").read_text())
+    raw["floorplan"] = {"construction": "double", "items": []}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(raw))
+    d = Design.load(tmp_path)
+    monkeypatch.setattr(routability, "RATIO_FAIL", 0.01)
+    monkeypatch.setattr(routability, "AREA_FAIL_MM2", 1.0)
+    assert get_settings().layout.floorplan_confirm_s > 0
+    res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
+    rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
+    assert rp["ok"] is None and "congestion gate not confirmed" in rp["msg"]
+    assert res["placement"]["gate_route"]["clean"]
+    monkeypatch.setattr(floorplan, "_spot_errors", lambda out: 2)  # the spot routes with errors: the FAIL stands
+    res = floorplan.check(d, Libs(design=d), iters=800, seeds=1)
+    rp = next(c for c in res["checks"] if c["name"] == "routability-prediction")
+    assert rp["ok"] is False and "routing check" in rp["msg"] and "2 DRC errors" in rp["msg"]
+
+
+def test_spot_errors_leave_out_the_cutout_terminals(tmp_path):
+    import json
+    (tmp_path / "build").mkdir()
+    rep = {"violations": [
+        {"severity": "error", "items": [{"description": "Pad 1 [A] of TPB1 on F.Cu"}, {"description": "Pad 1 [B] of TPB2 on F.Cu"}]},
+        {"severity": "error", "items": [{"description": "Footprint TPB6"}, {"description": "Footprint TPB15"}]},
+        {"severity": "error", "items": [{"description": "Pad 1 [A] of TPB1 on F.Cu"}, {"description": "Pad 2 [B] of U1 on F.Cu"}]},
+        {"severity": "warning", "items": [{"description": "Pad 2 [B] of U1 on F.Cu"}]}]}
+    (tmp_path / "build" / "x.drc.json").write_text(json.dumps(rep))
+    assert floorplan._spot_errors(tmp_path) == 1
+    assert floorplan._spot_errors(tmp_path / "none") == -1
 
 
 def _budget_design(tmp_path, max_mohm, r2_fixed=True, region=None):

@@ -79,9 +79,31 @@ def test_fixed_placement(case):
         assert abs(g["gate"]["peak"] - e["gate"]["peak"]) <= GATE_PEAK_TOL, (g["gate"], e["gate"])
 
 
-# clean cases the floorplan congestion gate fails (docs/layout-flow.md, "Known false positive"): a predictor change
-# that clears one makes test_gate_spares_the_cases_that_route fail until it is taken off this list
+# clean cases the window-cut congestion gate fails (docs/layout-flow.md, "Known false positive"; the floorplan clears
+# them by routing the spot, test_gate_route_check_clears_only_the_false_positive): a predictor change that clears one
+# makes test_gate_spares_the_cases_that_route fail until it is taken off this list
 GATE_FALSE_POSITIVES = {"pr_mcu"}  # pocket-recorder: a pad row of the ISP1807 LGA along a window border, 7.7 x
+# cases the gate fails that do not route: the route check must keep them (oshw_b_parasite 1 unrouted in 31 s,
+# oshw_rocketbeacon 4 in 23 s; the larger ones run out of the 120 s)
+GATE_TRUE_FAILS = ("oshw_b_parasite", "oshw_rocketbeacon")
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("name", sorted(GATE_FALSE_POSITIVES) + list(GATE_TRUE_FAILS))
+def test_gate_route_check_clears_only_the_false_positive(name, tmp_path):
+    """The floorplan routes each congestion-gate spot as a cutout before it sends a design back (floorplan.
+    _confirm_by_route): pr_mcu routes clean in about 15 s, the true failures leave nets open."""
+    from hwflow.core.design import Design
+    from hwflow.core.libs import Libs
+    from hwflow.layout.place import floorplan, placer, routability
+    w = lc.stage(lc.CORPUS / name, tmp_path)
+    d = Design.load(w / "design.yaml")
+    libs = Libs(design=d)
+    parts = placer.build_parts(d, libs)
+    g = routability.predict(d, libs, parts=parts, corridors=False, access=False)["gate"]
+    assert g["fail"]
+    r = floorplan._confirm_by_route(d, parts, g["spots"])
+    assert r["clean"] == (name in GATE_FALSE_POSITIVES), r
 
 
 def test_gate_spares_the_cases_that_route():

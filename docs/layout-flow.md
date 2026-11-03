@@ -235,8 +235,8 @@ connected components, and via sites. `Raster` is the reusable primitive (`.edt`,
   sets them (without them the floorplan saw a 1.35-1.5 mm budget net at its 0.3 mm class width): a whole-net width
   as the net's width, a budget trunk (the width on the budget path only, as krt_route routes it) as extra width
   where the trunk's pads lie on both sides of a cut. The congestion gate
-  is a FAIL back to architecture when the best quick placement and every other legal seed fail it; else `routable`
-  passes and anything else is a risk. The message names the hot spot, its parts and wide nets, and the moves (spread
+  is a FAIL back to architecture when the best quick placement and every other legal seed fail it and routing the
+  hot spots does not clear it (below, "Known false positive"); else `routable` passes and anything else is a risk. The message names the hot spot, its parts and wide nets, and the moves (spread
   the movable parts named, bring a budget's parts closer or loosen it when its wide track crosses the hot spot,
   parts to the other face, more layers or a larger board). The narrow straight or L-shaped channels of
   the layout's corridor report on the quick placement are listed as the `corridors` risk only: the routed boards
@@ -419,6 +419,7 @@ reliability and stays opt-in.
 | `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
 | `HWFLOW_ESCAPE_TAPS=0` | no escape taps (step 7): a pad walled in by two footprint neighbours of one other net gets no stub via first |
+| `HWFLOW_FLOORPLAN_CONFIRM_S=<s>` | time for routing the congestion-gate hot spots of `hwflow floorplan` before a FAIL (default 120; 0: the window cut alone decides) |
 | `HWFLOW_POUR_TAPS=1` | pour taps before signal routing (step 7): every SMD pour-net pad gets a link or a stub via first |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
@@ -524,10 +525,17 @@ Three corrections were measured on the corpus's fixed placements and dropped, si
 - one track per free run of the border (as line_cuts counts): pocket still 7.0 x (the border has no free cell);
 - a second window grid offset by half a step: pocket 6.3 x with 16 mm2, and riegel and ch32v003 move by 3-11 hard
   nets with the offset (the plain ratio is grid-sensitive).
-The window cut cannot tell this pad row from a congested QFN escape. `tests/test_layout_corpus.py` records the gate on
-every case (`fast.gate`) and lists pr_mcu as the one clean case it fails; a predictor change that clears it must keep
-the gate on the other failing cases. A floorplan that fails only on such a spot can be checked by routing the spot
-(`hwflow cutout` of the quick placement, about 15 s for pr_mcu) before going back to architecture.
+The window cut cannot tell this pad row from a congested QFN escape, so the floorplan checks a gate FAIL by routing
+it (`floorplan._confirm_by_route`): each spot (at most 3, largest first) grown by 4 mm is cut out of the quick
+placement (`hwflow cutout`, every part fixed, the nets that leave it on border terminals) and routed with `hwflow
+layout`, all spots within `HWFLOW_FLOORPLAN_CONFIRM_S` (120 s; 0 turns the check off). Only when every spot routes
+with 0 unrouted and 0 DRC errors (errors between the cut's own border terminals left out) does the FAIL become a
+risk, "congestion gate not confirmed". On the corpus's fixed placements it clears pr_mcu (clean in 16 s) and keeps
+all seven true failures: kb_audio (21 unrouted in 106 s), oshw_b_parasite (1 in 31 s), oshw_rocketbeacon (4 in
+23 s), and kb_hub, kb_audio_dig, s60_escape and oshw_pico_ice (not routed within 120 s). pocket-recorder's floorplan
+went from FAIL to PASS with risks (the spot routed in 15 s; the whole check 29 s). `tests/test_layout_corpus.py`
+records the gate on every case (`fast.gate`), lists pr_mcu as the one clean case the window cut fails, and routes
+pr_mcu, oshw_b_parasite and oshw_rocketbeacon through the check (slow tier).
 
 ## Removed after the experiments
 

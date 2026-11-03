@@ -83,6 +83,9 @@ class LayoutSettings(_Group):
     route_illegal: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROUTE_ILLEGAL"))  # debugging only
     # floorplan quick placement: the seeds one after the other instead of in worker processes (same result)
     floorplan_serial: bool = Field(False, validation_alias=AliasChoices("HWFLOW_FLOORPLAN_SERIAL"))
+    # floorplan congestion gate: a FAIL is confirmed by routing each hot spot's cutout of the quick placement for at
+    # most this many seconds (floorplan._confirm_by_route); a spot that routes clean makes the FAIL a risk. 0: off
+    floorplan_confirm_s: float = Field(120.0, validation_alias=AliasChoices("HWFLOW_FLOORPLAN_CONFIRM_S"))
     routab_predict: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ROUTAB_PREDICT"))
     # raw values; None: the design's placement.routability_<name>, then off (routability.py)
     routab_rank: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_RANK"))
