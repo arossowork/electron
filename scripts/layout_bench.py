@@ -2,7 +2,10 @@
 """Layout benchmark: runs the `layout --auto` flow on a fixed set of designs, 3 seeds each, and records quality and time.
 
 Set: every design in examples/, the 2026-10-19 thermostat baseline project, and the synthetic board
-evals/bench/synth150 (scripts/make_synth_board.py). The eval fixtures (evals/fixtures/*.yaml) are product briefs and
+evals/bench/synth150 (scripts/make_synth_board.py). With --pcbench, also the real boards of PCBWorld's D3-A set that
+scripts/pcbench.py prep imported into build/bench/pcbench/designs/, in two modes (--pcbench-mode route|place|both):
+pcb:<id> keeps the human placement (the router and the repair; a summary against PCBWorld's published KRT and
+Freerouting rows), pcbp:<id> releases the parts a placer may move (the whole flow; a summary against the human board). The eval fixtures (evals/fixtures/*.yaml) are product briefs and
 personas, not buildable designs, so they are not in the set. Every run builds in a fresh copy under the work dir
 (default build/bench/work/), never inside evals/, examples/ or projects/.
 
@@ -16,7 +19,7 @@ Headline: DRC-clean rate before repair = fraction of runs whose FIRST attempt ha
 before repair; mean --auto attempts per design. `before_kept` is the same count for the attempt that was kept.
 
     uv run python scripts/layout_bench.py [--only NAME] [--runs 3] [--workdir DIR] [--timeout 1200]
-                                           [--compare build/bench/old.json] [--out FILE]
+                                           [--compare build/bench/old.json] [--out FILE] [--pcbench | --pcbench-only] [--pcbench-mode route|place|both]
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ import argparse
 import functools
 import json
 import os
+import re
 import shutil
 import signal
 import statistics
@@ -55,6 +59,25 @@ OPT_IN = {"synth150", "synth150-lite"}  # only with --full-synth / --only
 KEEP_FIXED = ("J", "KO_", "SLOT", "BT1", "MH")
 
 
+PCBENCH_DIR = ROOT / "build/bench/pcbench/designs"
+# route mode, every part fixed: one placer seed with few iterations (it has nothing to move), one run (the seed offset
+# only moves the placer); a human placement may break the placer's legality rules, so it is routed anyway (the oshw cases)
+PCB_CFG = {"seeds": 1, "iters": 200, "max_runs": 1, "env": {"HWFLOW_KEEPOUT_STRICT": "1", "HWFLOW_ROUTE_ILLEGAL": "1"}}
+# place mode: the default `layout --auto` placer, one run per board unless --runs asks for fewer (the set is the spread).
+# An illegal placement is routed too: the human board's fixed parts often break the placer's rules (a pad within
+# 0.3 mm of the edge, overlapping connector courtyards), and the child scores legality on the released parts only
+PCBP_CFG = {"max_runs": 1, "env": {"HWFLOW_KEEPOUT_STRICT": "1", "HWFLOW_ROUTE_ILLEGAL": "1"}}
+PCB_PREFIX = ("pcb:", "pcbp:")
+
+
+def pcbench_set(mode: str = "route") -> dict[str, Path]:
+    dirs = [p.parent for p in sorted(PCBENCH_DIR.glob("*/design.yaml"))]
+    s = {f"pcb:{d.name}": d for d in dirs} if mode in ("route", "both") else {}
+    if mode in ("place", "both"):
+        s.update({f"pcbp:{d.name}": d for d in dirs})
+    return s
+
+
 def design_set() -> dict[str, Path]:
     s: dict[str, Path] = {}
     for p in sorted((ROOT / "examples").glob("*/design.yaml")):
@@ -74,7 +97,7 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
     from hwflow.layout.board import kicad, pcb
     from hwflow.layout.place import placer
     from hwflow.verify import postlayout
-    from hwflow.layout.route import repair
+    from hwflow.layout.route import krt, regionroute, repair
     from hwflow.pipeline import stages as pl_stages
     from hwflow.core.design import Design
     from hwflow.core.libs import Libs
@@ -129,8 +152,9 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
 
     placer.place = seed_shift(placer.place)
     wrap(placer, "place", "placer")
-    wrap(pcb, "run_krt", "router")
-    wrap(pcb, "krt_route", "router")
+    wrap(krt, "run_krt", "router")  # the stage calls krt.run_krt / regionroute.route (pcb only re-exports the names)
+    wrap(krt, "krt_route", "router")
+    wrap(regionroute, "route", "router")
     wrap(repair, "repair", "repair")
     wrap(kicad, "drc_fast", "drc")
     wrap(kicad, "drc", "drc", log_drc)
@@ -215,6 +239,31 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
             res["postlayout_warnings"] = sum(1 for x in chk if x["sev"] != "info")
         except Exception as e:  # noqa: BLE001
             res["postlayout_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+    if r is not None:
+        need = sum(len(v) - 1 for v in d.nets().values() if len(v) > 1)
+        unr = res["after"]["unrouted"]
+        res["connections"] = need
+        res["routability"] = round(1 - min(unr, need) / need, 4) if need else 1.0
+        if r.get("blocked"):  # an illegal placement is not routed: nothing is connected
+            res["blocked"] = r["blocked"]
+            res["routability"] = 0.0
+        # DRV as PCBWorld counts it, routing errors only: an error between fixed parts alone (courtyards, pad to pad)
+        # comes with the original placement and is the same before routing (repair.fixed_error), so it is kept apart
+        drc = r["drc"]
+        if r["drc_errors"] + r["drc_warnings"] > len(drc):
+            try:
+                drc = kicad._violations(json.loads((out / f"{d.name}.drc.json").read_text()))
+            except Exception:  # noqa: BLE001
+                pass
+        fixed = {ref: type("P", (), {"fixed": bool((c.get("placement") or {}).get("fixed"))})() for ref, c in d.components.items()}
+        errs = [x for x in drc if x["sev"] == "error" and x["type"] != "unconnected"]
+        res["fixed_errors"] = sum(1 for x in errs if repair.fixed_error(x, fixed) is not None)
+        res["drv_after"] = len(errs) - res["fixed_errors"]
+        # placement legality split by cause: a violation that names a released part is the placer's, one between
+        # fixed parts only comes with the human placement
+        viol = r.get("placement_violations") or []
+        res["placement_violations"] = viol
+        res["violations_placer"] = sum(1 for v in viol if any(not fixed[x].fixed for x in re.split(r"[\s/(),';]+", v) if x in fixed))
     result.write_text(json.dumps(res, indent=1))
 
 
@@ -244,6 +293,14 @@ def prep(src: Path, work: Path, name: str) -> Path:
                 freed.append(ref)
         (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
         print(f"  released {len(freed)} of {len(raw['components'])} parts", flush=True)
+    if name.startswith("pcbp_"):  # place mode: release the parts the importer marked free (cutout.yaml `free`)
+        import yaml
+        raw = yaml.safe_load((dst / "design.yaml").read_text())
+        free = json.loads((dst / "pcbench.json").read_text())["free"]
+        for ref in free:
+            del raw["components"][ref]["placement"]
+        (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
+        print(f"  released {len(free)} of {len(raw['components'])} parts", flush=True)
     d = Design.load(dst)
     libs = Libs(design=d)
     c = pl_stages.stage_check(d, libs)
@@ -306,6 +363,7 @@ def aggregate(runs: list[dict]) -> dict:
          "clean_before_repair_rate": mean(g(lambda r: clean(r.get("before_a1")))),
          "clean_before_repair_kept_rate": mean(g(lambda r: clean(r.get("before_kept")))),
          "timeouts": sum(1 for r in runs if r.get("timeout")), "errors": sum(1 for r in runs if r.get("error"))}
+    a["routability_mean"] = mean(g(lambda r: r.get("routability", 0.0 if r.get("timeout") or r.get("error") else None)))
     for k, f in (("attempts", lambda r: r.get("attempts")), ("hpwl_mm", lambda r: r.get("hpwl_mm")),
                  ("vias", lambda r: r.get("vias")), ("track_mm", lambda r: r.get("track_mm")),
                  ("repair_rounds", lambda r: r.get("repair_rounds")), ("wall_s", lambda r: r.get("wall_s")),
@@ -368,11 +426,100 @@ def compare(new: dict, old: dict) -> str:
                 continue
             parts.append(f"{k} {x} -> {y} ({y - x:+.2f})")
         out.append(f"{name}:\n    " + "\n    ".join(parts))
+    for sec, keys in (("pcbench", ("routability", "clean_pass", "drv", "wl_mm", "vias", "time_s")),
+                      ("pcbench_place", ("legal", "routability", "clean_pass", "drv", "hpwl_ratio", "wl_ratio", "vias_delta", "time_s"))):
+        for k in keys:
+            x, y = (old.get(sec) or {}).get(k), (new.get(sec) or {}).get(k)
+            if x is not None and y is not None:
+                out.append(f"{sec.upper()} {k}: {x} -> {y} ({y - x:+.3f})")
     for k in ("clean_before_repair_rate", "attempts_mean_of_designs", "ok_rate"):
         x, y = old.get("aggregate", {}).get(k), new["aggregate"].get(k)
         if x is not None and y is not None:
             out.append(f"ALL {k}: {x} -> {y} ({y - x:+.2f})")
     return "\n".join(out)
+
+
+def pcbench_summary(doc: dict) -> dict | None:
+    """The real-board rows in PCBWorld's terms: routability is the mean over every board (a timeout or a crash counts 0),
+    DRV (DRC errors other than unconnected), wirelength and vias are means over the fully routed boards (their RQ2 rule)."""
+    rows = [(n, dd["runs"][0]) for n, dd in doc["designs"].items() if n.startswith("pcb:") and dd["runs"]]
+    if not rows:
+        return None
+    full = [r for _, r in rows if r.get("routability") == 1.0]
+    s = {"boards": len(rows), "routability": mean([r.get("routability", 0.0) for _, r in rows]),
+         "fully_routed": len(full), "clean_pass": mean([int(r.get("routability") == 1.0 and r.get("drv_after") == 0) for _, r in rows]),
+         "drv": mean([r.get("drv_after") for r in full]), "wl_mm": mean([r.get("track_mm") for r in full]),
+         "vias": mean([r.get("vias_board") for r in full]), "time_s": mean([r.get("wall_s") for _, r in rows]),
+         "router_s": mean([(r.get("phase_s") or {}).get("router") for _, r in rows]),
+         "fixed_errors": mean([r.get("fixed_errors") for _, r in rows]),
+         "failed": [n for n, r in rows if r.get("routability") != 1.0 or r.get("drv_after")]}
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pcbench import REFERENCE
+    s["reference_d3a_fair95"] = REFERENCE
+    return s
+
+
+def pcbench_table(s: dict) -> str:
+    L = ["", f"PCBENCH (PCBWorld D3-A real boards, fixed placement): {s['boards']} boards",
+         "  method               rout.   clean    DRV      WL     vias   time_s",
+         f"  hwflow               {s['routability']:.3f}   {s['clean_pass']:.2f}  {s['drv'] or 0:6.2f}  {s['wl_mm'] or 0:7.1f}  {s['vias'] or 0:6.2f}  "
+         f"{s['time_s']:6.1f} (router {s['router_s'] or 0:.1f})"]
+    for k, v in s["reference_d3a_fair95"].items():
+        L.append(f"  {k:<20} {v['routability']:.3f}      -   {v['drv']:6.2f}  {v['wl_mm']:7.1f}  {v['vias']:6.2f}  {v['time_s']:6.2f}")
+    L.append("  reference rows: PCBWorld RQ2, d3a fair-95 (99-board list minus 4 tool-compat boards), router time only;")
+    L.append("  hwflow rows: the boards that pass the DRC filter under KiCad 10, time = whole layout stage;")
+    L.append(f"  DRV leaves out errors between fixed parts only (original placement): {s['fixed_errors'] or 0:.2f} per board.")
+    if s["failed"]:
+        L.append("  not clean: " + ", ".join(s["failed"]))
+    return "\n".join(L)
+
+
+def pcbench_place_summary(doc: dict) -> dict | None:
+    """Place mode against the human board: `legal` is the share of boards whose placement has no violation that names a
+    released part (one between fixed parts only comes with the human board, `inherited`); every board is routed, and
+    routability and clean are as in route mode (a blocked board counts 0); the ratios (hwflow / human) are medians over the
+    clean boards: HPWL of the placement and track length; vias_delta is the median of hwflow minus human vias."""
+    rows = [(n, dd["runs"][0], dd.get("human") or {}) for n, dd in doc["designs"].items() if n.startswith("pcbp:") and dd["runs"]]
+    if not rows:
+        return None
+    good = lambda r: r.get("routability") == 1.0 and r.get("drv_after") == 0 and not r.get("violations_placer")  # noqa: E731
+    clean = [(r, h) for _, r, h in rows if good(r)]
+
+    def ratio(k, hk):
+        v = [r[k] / h[hk] for r, h in clean if r.get(k) is not None and h.get(hk)]
+        return median(v) if v else None
+    legal = lambda r: not (r.get("blocked") or r.get("violations_placer") or r.get("timeout") or r.get("error"))  # noqa: E731
+    return {"boards": len(rows), "legal": mean([int(legal(r)) for _, r, _ in rows]),
+            "inherited": [n for n, r, _ in rows if r.get("placement_violations") and not r.get("violations_placer")],
+            "routability": mean([r.get("routability", 0.0) for _, r, _ in rows]),
+            "clean_pass": mean([int(good(r)) for _, r, _ in rows]),
+            "drv": mean([r.get("drv_after") for _, r, _ in rows if r.get("routability") == 1.0]),
+            "hpwl_ratio": ratio("hpwl_mm", "hpwl_mm"), "wl_ratio": ratio("track_mm", "track_mm"),
+            "vias_delta": median([(r.get("vias_board") or 0) - h.get("vias", 0) for r, h in clean]) if clean else None,
+            "time_s": mean([r.get("wall_s") for _, r, _ in rows]),
+            "placer_s": mean([(r.get("phase_s") or {}).get("placer") for _, r, _ in rows]),
+            "blocked": [n for n, r, _ in rows if r.get("blocked") or r.get("violations_placer")],
+            "failed": [n for n, r, _ in rows if not r.get("blocked") and not r.get("violations_placer")
+                       and (r.get("routability") != 1.0 or r.get("drv_after"))]}
+
+
+def pcbench_place_table(s: dict) -> str:
+    f = lambda x, p=2: "-" if x is None else f"{x:.{p}f}"  # noqa: E731
+    vias = "-" if s["vias_delta"] is None else f"{s['vias_delta']:+.1f}"
+    L = ["", f"PCBENCH PLACE (PCBWorld D3-A, free parts placed by hwflow, the rest fixed): {s['boards']} boards",
+         f"  legal placement {f(s['legal'])}, routability {f(s['routability'], 3)}, clean {f(s['clean_pass'])}, "
+         f"DRV {f(s['drv'])} (fully routed boards)",
+         f"  against the human board (median over clean boards): HPWL x{f(s['hpwl_ratio'])}, track length x{f(s['wl_ratio'])}, "
+         f"vias {vias}",
+         f"  time {f(s['time_s'], 1)} s per board (placer {f(s['placer_s'], 1)} s)"]
+    if s["blocked"]:
+        L.append(f"  placer violations ({len(s['blocked'])}): " + ", ".join(s["blocked"]))
+    if s.get("inherited"):
+        L.append(f"  violations between fixed parts only, from the human placement, not counted ({len(s['inherited'])}): "
+                 + ", ".join(s["inherited"]))
+    if s["failed"]:
+        L.append(f"  routed, not clean ({len(s['failed'])}): " + ", ".join(s["failed"]))
+    return "\n".join(L)
 
 
 def main():
@@ -385,11 +532,20 @@ def main():
     ap.add_argument("--out", help="output JSON (default build/bench/<date-HHMM>.json)")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--full-synth", action="store_true", help="also run synth150 with the default placer settings (about an hour of placer per attempt: a timeout record)")
+    ap.add_argument("--pcbench", action="store_true", help="add the imported PCBWorld D3-A real boards (scripts/pcbench.py prep)")
+    ap.add_argument("--pcbench-only", action="store_true", help="only the PCBWorld boards")
+    ap.add_argument("--pcbench-mode", choices=("route", "place", "both"), default="route",
+                    help="route: human placement, all fixed; place: free parts placed by the flow; both")
     ap.add_argument("--child"); ap.add_argument("--offset", type=int, default=0); ap.add_argument("--result"); ap.add_argument("--seeds", type=int, default=4); ap.add_argument("--iters", type=int, default=30000)
     a = ap.parse_args()
     if a.child:
         return child(Path(a.child), a.offset, Path(a.result), a.seeds, a.iters)
     ds = design_set()
+    if a.pcbench or a.pcbench_only:
+        pb = pcbench_set(a.pcbench_mode)
+        if not pb:
+            sys.exit(f"no imported boards in {PCBENCH_DIR}; run `uv run python scripts/pcbench.py prep` first")
+        ds = pb if a.pcbench_only else {**ds, **pb}
     if a.list:
         print("\n".join(f"{k}: {v}" for k, v in ds.items()))
         return 0
@@ -409,23 +565,28 @@ def main():
     t_all = time.time()
     for name, src in ds.items():
         print(f"[{name}]", flush=True)
-        cfg = {**DEFAULTS, **SPECIAL.get(name, {})}
-        pd = prep(src, work, name)
+        cfg = {**DEFAULTS, **(PCB_CFG if name.startswith("pcb:") else PCBP_CFG if name.startswith("pcbp:") else SPECIAL.get(name, {}))}
+        pd = prep(src, work, name.replace(":", "_"))
         runs = []
         n_runs = min(a.runs, cfg["max_runs"] or a.runs)
         for i in range(n_runs):
             t = time.time()
-            r = run_one(pd, name, i, a.timeout, work, cfg["seeds"], cfg["iters"], cfg["env"])
+            r = run_one(pd, name.replace(":", "_"), i, a.timeout, work, cfg["seeds"], cfg["iters"], cfg["env"])
             runs.append(r)
             b = r.get("before_a1") or {}
             print(f"  run {i + 1} (seed +{r.get('offset')}): {'TIMEOUT in ' + str(r.get('running_phase_at_timeout')) if r.get('timeout') else ('ERROR ' + str(r.get('error'))[:150] if r.get('error') else ('ok' if r.get('ok') else 'FAIL'))}"
                   f" attempts={r.get('attempts')} before(a1) err={b.get('errors')} unr={b.get('unrouted')} after={(r.get('after') or {}).get('errors')} "
                   f"rounds={r.get('repair_rounds')} {r.get('phase_s')} wall={r['wall_s']}s", flush=True)
             doc["designs"][name] = {"placer": {"seeds": cfg["seeds"], "iters": cfg["iters"]}, "env": cfg["env"], "runs": runs, "aggregate": aggregate(runs)}
-        shutil.rmtree(work / name / "prep", ignore_errors=True)
-    allr = [r for n, dd in doc["designs"].items() if n != "thermostat-strict" for r in dd["runs"]]
+            if name.startswith(PCB_PREFIX) and (src / "pcbench.json").exists():
+                doc["designs"][name]["human"] = json.loads((src / "pcbench.json").read_text()).get("human")
+        shutil.rmtree(work / name.replace(":", "_") / "prep", ignore_errors=True)
+    doc["pcbench"] = pcbench_summary(doc)
+    doc["pcbench_place"] = pcbench_place_summary(doc)
+    allr = [r for n, dd in doc["designs"].items() if n != "thermostat-strict" and not n.startswith(PCB_PREFIX) for r in dd["runs"]]
     agg = aggregate(allr)
-    agg["attempts_mean_of_designs"] = mean([dd["aggregate"]["attempts_mean"] for n, dd in doc["designs"].items() if n != "thermostat-strict"])
+    agg["attempts_mean_of_designs"] = mean([dd["aggregate"]["attempts_mean"] for n, dd in doc["designs"].items()
+                                            if n != "thermostat-strict" and not n.startswith(PCB_PREFIX)])
     agg["total_wall_s"] = round(time.time() - t_all, 1)
     doc["aggregate"] = agg
     doc["loadavg_end"] = os.getloadavg()
@@ -433,6 +594,10 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=1))
     print("\n" + table(doc))
+    if doc["pcbench"]:
+        print(pcbench_table(doc["pcbench"]))
+    if doc["pcbench_place"]:
+        print(pcbench_place_table(doc["pcbench_place"]))
     if a.compare:
         print(compare(doc, json.loads(Path(a.compare).read_text())))
     print(f"\nwritten {out}")

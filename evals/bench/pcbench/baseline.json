@@ -1,0 +1,6715 @@
+{
+ "note": "scripts/layout_bench.py --pcbench-only --pcbench-mode both; route rows and place rows from two runs on the same commit",
+ "pcbench_src": [
+  "https://github.com/PCBench/PCBench.git",
+  "dec3be75"
+ ],
+ "pcbworld": [
+  "https://github.com/LGAI-Research/PCBWorld.git",
+  "v1.1.1"
+ ],
+ "kicad": "10.0.7",
+ "imported": 95,
+ "of": 99,
+ "skipped": {
+  "0008_CapPCB_CapPcb": "fails KiCad DRC with its own routing (PCBWorld step 1)",
+  "0036_nRF24breakoutBoard_nRF24-breakout": "fails KiCad DRC with its own routing (PCBWorld step 1)",
+  "0078_Hardware_Playground_buck_led_driver": "fails KiCad DRC with its own routing (PCBWorld step 1)",
+  "0080_kitspace_RPi_shield": "fails KiCad DRC with its own routing (PCBWorld step 1)"
+ },
+ "pcbench": {
+  "boards": 95,
+  "routability": 0.99,
+  "fully_routed": 87,
+  "clean_pass": 0.91,
+  "drv": 0.09,
+  "wl_mm": 117.57,
+  "vias": 2.72,
+  "time_s": 3.93,
+  "router_s": 1.64,
+  "fixed_errors": 1.34,
+  "failed": [
+   "pcb:0024_memsarray_mems_modules",
+   "pcb:0034_NavigationThing_NavigationThingBacklight",
+   "pcb:0037_hardware-designs_spsgrf-board",
+   "pcb:0048_MySRaspiGW_MySRaspiGW",
+   "pcb:0050_MySRaspiGW_MySRaspiGW_PA_LNA_Pimoroni",
+   "pcb:0051_MySRaspiGW_MySRaspiGW_Pimoroni",
+   "pcb:0054_induction-hob_temperature-sensor",
+   "pcb:0068_AVR-ISP_pogo-plug_1.27mm_AVR-ISP_pogo-plug_1.27mm",
+   "pcb:0086_BB-PWR-8009_BB-PWR-8009_revA"
+  ],
+  "reference_d3a_fair95": {
+   "Freerouting": {
+    "routability": 0.98,
+    "drv": 0.09,
+    "wl_mm": 158.82,
+    "vias": 0.72,
+    "time_s": 3.9
+   },
+   "KiCadRoutingTools": {
+    "routability": 0.94,
+    "drv": 1.01,
+    "wl_mm": 156.01,
+    "vias": 3.74,
+    "time_s": 0.65
+   }
+  }
+ },
+ "pcbench_place": {
+  "boards": 95,
+  "legal": 0.8,
+  "inherited": [
+   "pcbp:0020_Cherry-Mx-Bitboard_Cherry_Mx_Bitboard",
+   "pcbp:0024_memsarray_mems_modules",
+   "pcbp:0034_NavigationThing_NavigationThingBacklight",
+   "pcbp:0040_oshtimer_transponder",
+   "pcbp:0064_kicad-guitar-preamp_Preamp-Instructables",
+   "pcbp:0067_radio_saw_dcc6c",
+   "pcbp:0083_DustSensorShield_DustSensorShield",
+   "pcbp:0085_mini-whip_mini-whip-power-feed"
+  ],
+  "routability": 0.95,
+  "clean_pass": 0.67,
+  "drv": 0.63,
+  "hpwl_ratio": 0.94,
+  "wl_ratio": 0.56,
+  "vias_delta": 1.0,
+  "time_s": 37.94,
+  "placer_s": 10.88,
+  "blocked": [
+   "pcbp:0006_raspberry_pi_pullup_button_pullup_shutdown_button",
+   "pcbp:0007_raspberry_pi_pullup_button_pullup_shutdown_button(revB)",
+   "pcbp:0018_Hardware_Playground_hy_adapter",
+   "pcbp:0023_hardware-designs_si7021-board",
+   "pcbp:0037_hardware-designs_spsgrf-board",
+   "pcbp:0041_FogDrive_attiny45_slim",
+   "pcbp:0048_MySRaspiGW_MySRaspiGW",
+   "pcbp:0049_MySRaspiGW_MySRaspiGW_PA_LNA",
+   "pcbp:0050_MySRaspiGW_MySRaspiGW_PA_LNA_Pimoroni",
+   "pcbp:0051_MySRaspiGW_MySRaspiGW_Pimoroni",
+   "pcbp:0056_nrf2rfm69_nrf2rfm69",
+   "pcbp:0057_tepmachcha_tepmachcha",
+   "pcbp:0065_DiscoDanceFloorV1_BusTerminator",
+   "pcbp:0069_C-BISCUIT_crowbar",
+   "pcbp:0072_esp8266_wi07_3_adapter_esp",
+   "pcbp:0076_breakout-boards_usb-5v-3v3",
+   "pcbp:0077_HaveSome_PCB_HaveSomePCB",
+   "pcbp:0082_firefly-jar_solar_lamp",
+   "pcbp:0086_BB-PWR-8009_BB-PWR-8009_revA"
+  ],
+  "failed": [
+   "pcbp:0001_rufs__autosave-simple_kicad_schema_and_pcb_v1",
+   "pcbp:0002_rufs_simple_kicad_schema_and_pcb_v1",
+   "pcbp:0009_SmartLaserCO2-PCB_WaterCool",
+   "pcbp:0010_SmartLaserCO2-PCB_OptAdjust",
+   "pcbp:0024_memsarray_mems_modules",
+   "pcbp:0029_espeverywhere__autosave-espeverywhere_breakout",
+   "pcbp:0040_oshtimer_transponder",
+   "pcbp:0054_induction-hob_temperature-sensor",
+   "pcbp:0055_dustbox_Dustbox",
+   "pcbp:0066_ESP8266-WS2811-LEDs_ws2811controller_panels",
+   "pcbp:0068_AVR-ISP_pogo-plug_1.27mm_AVR-ISP_pogo-plug_1.27mm",
+   "pcbp:0071_hackyflasher_Flasher"
+  ]
+ },
+ "designs": {
+  "pcb:0001_rufs__autosave-simple_kicad_schema_and_pcb_v1": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "F.Cu": 57.2
+    },
+    "segments": 8,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 50.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 3,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 21.6,
+     "vias_board": 0,
+     "hpwl_mm": 50.8,
+     "wall_s": 2.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0002_rufs_simple_kicad_schema_and_pcb_v1": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "F.Cu": 57.2
+    },
+    "segments": 8,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 50.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 3,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 21.6,
+     "vias_board": 0,
+     "hpwl_mm": 50.8,
+     "wall_s": 2.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0003_kitspace_grove_adaptor": {
+   "human": {
+    "track_mm": 17.1,
+    "per_layer_mm": {
+     "F.Cu": 17.1
+    },
+    "segments": 9,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 18.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 4,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 11.1,
+     "vias_board": 0,
+     "hpwl_mm": 18.0,
+     "wall_s": 2.4,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0004_S1G-Mod_JST_Adapter": {
+   "human": {
+    "track_mm": 61.2,
+    "per_layer_mm": {
+     "B.Cu": 61.2
+    },
+    "segments": 17,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 65.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 4,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 48.2,
+     "vias_board": 3,
+     "hpwl_mm": 65.7,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0005_AVR-Playground_hello_world": {
+   "human": {
+    "track_mm": 162.3,
+    "per_layer_mm": {
+     "B.Cu": 72.5,
+     "F.Cu": 89.9
+    },
+    "segments": 18,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 126.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 81.8,
+     "vias_board": 1,
+     "hpwl_mm": 126.5,
+     "wall_s": 3.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.5
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0006_raspberry_pi_pullup_button_pullup_shutdown_button": {
+   "human": {
+    "track_mm": 56.5,
+    "per_layer_mm": {
+     "B.Cu": 10.3,
+     "F.Cu": 46.2
+    },
+    "segments": 30,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 52.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 55.7,
+     "vias_board": 1,
+     "hpwl_mm": 52.8,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0007_raspberry_pi_pullup_button_pullup_shutdown_button(revB)": {
+   "human": {
+    "track_mm": 55.8,
+    "per_layer_mm": {
+     "B.Cu": 10.6,
+     "F.Cu": 45.2
+    },
+    "segments": 29,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 51.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 49.3,
+     "vias_board": 1,
+     "hpwl_mm": 51.9,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0009_SmartLaserCO2-PCB_WaterCool": {
+   "human": {
+    "track_mm": 109.5,
+    "per_layer_mm": {
+     "B.Cu": 44.3,
+     "F.Cu": 65.2
+    },
+    "segments": 29,
+    "vias": 0,
+    "nets_with_copper": 2,
+    "hpwl_mm": 70.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 4,
+     "track_mm": 50.2,
+     "vias_board": 0,
+     "hpwl_mm": 70.6,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0010_SmartLaserCO2-PCB_OptAdjust": {
+   "human": {
+    "track_mm": 82.0,
+    "per_layer_mm": {
+     "B.Cu": 11.4,
+     "F.Cu": 70.6
+    },
+    "segments": 15,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 89.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 4,
+     "track_mm": 42.9,
+     "vias_board": 0,
+     "hpwl_mm": 89.3,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0011_PixyWirelessShield_Shield_PIXY": {
+   "human": {
+    "track_mm": 175.2,
+    "per_layer_mm": {
+     "B.Cu": 66.4,
+     "F.Cu": 108.8
+    },
+    "segments": 38,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 161.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 143.9,
+     "vias_board": 2,
+     "hpwl_mm": 161.4,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0012_kitspace_ir_sensor": {
+   "human": {
+    "track_mm": 229.4,
+    "per_layer_mm": {
+     "F.Cu": 229.4
+    },
+    "segments": 16,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 242.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 7,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 125.8,
+     "vias_board": 0,
+     "hpwl_mm": 242.0,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.5
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0013_crossover-schiit-stack_xover4schiit": {
+   "human": {
+    "track_mm": 174.1,
+    "per_layer_mm": {
+     "B.Cu": 28.0,
+     "F.Cu": 146.1
+    },
+    "segments": 23,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 134.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 75.1,
+     "vias_board": 0,
+     "hpwl_mm": 134.4,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0014_hardware-designs_m-trigger": {
+   "human": {
+    "track_mm": 102.5,
+    "per_layer_mm": {
+     "B.Cu": 51.8,
+     "F.Cu": 50.6
+    },
+    "segments": 21,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 114.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 105.3,
+     "vias_board": 1,
+     "hpwl_mm": 114.3,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0015_kitspace_tt_opt101_module_b1": {
+   "human": {
+    "track_mm": 65.8,
+    "per_layer_mm": {
+     "B.Cu": 44.2,
+     "F.Cu": 21.6
+    },
+    "segments": 19,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 57.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 7,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 43.1,
+     "vias_board": 1,
+     "hpwl_mm": 57.4,
+     "wall_s": 2.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0016_breakout-boards_avr-isp-x2": {
+   "human": {
+    "track_mm": 41.3,
+    "per_layer_mm": {
+     "F.Cu": 41.3
+    },
+    "segments": 12,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 45.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 39.2,
+     "vias_board": 0,
+     "hpwl_mm": 45.7,
+     "wall_s": 1.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0017_Blink-Eras_AVR_ISP_Pogo": {
+   "human": {
+    "track_mm": 100.9,
+    "per_layer_mm": {
+     "B.Cu": 50.5,
+     "F.Cu": 50.5
+    },
+    "segments": 32,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 91.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 94.2,
+     "vias_board": 2,
+     "hpwl_mm": 91.4,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0018_Hardware_Playground_hy_adapter": {
+   "human": {
+    "track_mm": 56.4,
+    "per_layer_mm": {
+     "B.Cu": 29.9,
+     "F.Cu": 26.4
+    },
+    "segments": 25,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 60.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 16,
+     "track_mm": 49.4,
+     "vias_board": 5,
+     "hpwl_mm": 60.0,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 27,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0019_CubeSAT-Reaction-Wheel_Edison_Motor_Servo": {
+   "human": {
+    "track_mm": 119.9,
+    "per_layer_mm": {
+     "B.Cu": 11.4,
+     "F.Cu": 108.5
+    },
+    "segments": 30,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 137.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 92.1,
+     "vias_board": 1,
+     "hpwl_mm": 137.2,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0020_Cherry-Mx-Bitboard_Cherry_Mx_Bitboard": {
+   "human": {
+    "track_mm": 71.4,
+    "per_layer_mm": {
+     "B.Cu": 31.3,
+     "F.Cu": 40.1
+    },
+    "segments": 24,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 59.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 69.9,
+     "vias_board": 0,
+     "hpwl_mm": 59.1,
+     "wall_s": 2.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0021_RPi-PWM-Fan-interface_RPi_PWM_Fan_interface": {
+   "human": {
+    "track_mm": 58.7,
+    "per_layer_mm": {
+     "B.Cu": 6.5,
+     "F.Cu": 52.2
+    },
+    "segments": 31,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 58.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 42.0,
+     "vias_board": 0,
+     "hpwl_mm": 58.3,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0022_OpenVNAVI_motor_unit": {
+   "human": {
+    "track_mm": 68.2,
+    "per_layer_mm": {
+     "F.Cu": 68.2
+    },
+    "segments": 45,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 57.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 49.6,
+     "vias_board": 2,
+     "hpwl_mm": 57.7,
+     "wall_s": 2.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0023_hardware-designs_si7021-board": {
+   "human": {
+    "track_mm": 112.2,
+    "per_layer_mm": {
+     "B.Cu": 17.0,
+     "F.Cu": 95.2
+    },
+    "segments": 34,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 106.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 77.4,
+     "vias_board": 4,
+     "hpwl_mm": 106.7,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 4,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0024_memsarray_mems_modules": {
+   "human": {
+    "track_mm": 49.9,
+    "per_layer_mm": {
+     "B.Cu": 14.5,
+     "F.Cu": 35.4
+    },
+    "segments": 40,
+    "vias": 2,
+    "nets_with_copper": 4,
+    "hpwl_mm": 34.4
+   },
+   "runs": [
+    {
+     "routability": 0.8571,
+     "connections": 7,
+     "drv_after": 1,
+     "fixed_errors": 4,
+     "track_mm": 19.6,
+     "vias_board": 2,
+     "hpwl_mm": 34.4,
+     "wall_s": 33.4,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 6.4,
+      "repair": 24.2,
+      "drc": 2.6,
+      "other": 0.2
+     },
+     "placement_violations": 4,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0025_kitspace_hum_temp_sensor": {
+   "human": {
+    "track_mm": 108.4,
+    "per_layer_mm": {
+     "B.Cu": 25.3,
+     "F.Cu": 83.1
+    },
+    "segments": 34,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 94.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 61.3,
+     "vias_board": 0,
+     "hpwl_mm": 94.6,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0026_PCB_constant_current_ac_hv": {
+   "human": {
+    "track_mm": 138.2,
+    "per_layer_mm": {
+     "F.Cu": 138.2
+    },
+    "segments": 24,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 139.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 121.1,
+     "vias_board": 0,
+     "hpwl_mm": 139.7,
+     "wall_s": 2.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.4
+     },
+     "placement_violations": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0027_ID-FIX_scanConnect": {
+   "human": {
+    "track_mm": 54.4,
+    "per_layer_mm": {
+     "B.Cu": 51.9,
+     "F.Cu": 2.5
+    },
+    "segments": 22,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 52.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 4,
+     "track_mm": 53.3,
+     "vias_board": 0,
+     "hpwl_mm": 52.6,
+     "wall_s": 3.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.5
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0028_hardware-designs_c-trigger": {
+   "human": {
+    "track_mm": 84.6,
+    "per_layer_mm": {
+     "B.Cu": 35.2,
+     "F.Cu": 49.5
+    },
+    "segments": 17,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 90.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 84.3,
+     "vias_board": 0,
+     "hpwl_mm": 90.5,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0029_espeverywhere__autosave-espeverywhere_breakout": {
+   "human": {
+    "track_mm": 134.0,
+    "per_layer_mm": {
+     "F.Cu": 134.0
+    },
+    "segments": 35,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 151.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 112.4,
+     "vias_board": 7,
+     "hpwl_mm": 151.9,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0030_kitspace_sop8breakout": {
+   "human": {
+    "track_mm": 31.6,
+    "per_layer_mm": {
+     "B.Cu": 31.6
+    },
+    "segments": 30,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 37.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 28.0,
+     "vias_board": 0,
+     "hpwl_mm": 37.0,
+     "wall_s": 1.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0031_kitspace_Potentiometer_mount_4LED": {
+   "human": {
+    "track_mm": 209.5,
+    "per_layer_mm": {
+     "B.Cu": 95.5,
+     "F.Cu": 114.1
+    },
+    "segments": 45,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 234.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 211.4,
+     "vias_board": 2,
+     "hpwl_mm": 234.8,
+     "wall_s": 2.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0032_kitspace_Potentiometer_mount_8LED": {
+   "human": {
+    "track_mm": 1072.3,
+    "per_layer_mm": {
+     "B.Cu": 539.6,
+     "F.Cu": 532.7
+    },
+    "segments": 111,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 394.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 343.9,
+     "vias_board": 3,
+     "hpwl_mm": 394.6,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.5
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0033_breakout-boards_swd-to-wires": {
+   "human": {
+    "track_mm": 101.8,
+    "per_layer_mm": {
+     "B.Cu": 61.1,
+     "F.Cu": 40.6
+    },
+    "segments": 56,
+    "vias": 1,
+    "nets_with_copper": 8,
+    "hpwl_mm": 94.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 79.8,
+     "vias_board": 4,
+     "hpwl_mm": 94.0,
+     "wall_s": 2.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0034_NavigationThing_NavigationThingBacklight": {
+   "human": {
+    "track_mm": 51.7,
+    "per_layer_mm": {
+     "F.Cu": 51.7
+    },
+    "segments": 23,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 44.6
+   },
+   "runs": [
+    {
+     "routability": 0.5714,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 21.6,
+     "vias_board": 0,
+     "hpwl_mm": 44.6,
+     "wall_s": 2.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0035_KiCad-Like-a-Pro-Tutorial_rf24-breakout-v1": {
+   "human": {
+    "track_mm": 220.5,
+    "per_layer_mm": {
+     "B.Cu": 61.0,
+     "F.Cu": 159.4
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 195.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 169.0,
+     "vias_board": 1,
+     "hpwl_mm": 195.5,
+     "wall_s": 3.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0037_hardware-designs_spsgrf-board": {
+   "human": {
+    "track_mm": 234.6,
+    "per_layer_mm": {
+     "B.Cu": 127.9,
+     "F.Cu": 106.7
+    },
+    "segments": 74,
+    "vias": 7,
+    "nets_with_copper": 8,
+    "hpwl_mm": 180.8
+   },
+   "runs": [
+    {
+     "routability": 0.9,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 146.3,
+     "vias_board": 8,
+     "hpwl_mm": 180.8,
+     "wall_s": 4.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 1.4,
+      "drc": 1.3,
+      "other": 0.4
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0038_PCB_serie_led_strip": {
+   "human": {
+    "track_mm": 39.1,
+    "per_layer_mm": {
+     "F.Cu": 39.1
+    },
+    "segments": 9,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 39.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 39.5,
+     "vias_board": 0,
+     "hpwl_mm": 39.1,
+     "wall_s": 2.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0039_drawduino_drawduino": {
+   "human": {
+    "track_mm": 225.5,
+    "per_layer_mm": {
+     "B.Cu": 78.8,
+     "F.Cu": 146.8
+    },
+    "segments": 50,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 195.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 123.2,
+     "vias_board": 3,
+     "hpwl_mm": 195.8,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0040_oshtimer_transponder": {
+   "human": {
+    "track_mm": 77.0,
+    "per_layer_mm": {
+     "B.Cu": 18.3,
+     "F.Cu": 58.7
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 65.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 36.9,
+     "vias_board": 2,
+     "hpwl_mm": 65.2,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0041_FogDrive_attiny45_slim": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "B.Cu": 57.2
+    },
+    "segments": 15,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 54.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 5,
+     "track_mm": 35.6,
+     "vias_board": 0,
+     "hpwl_mm": 54.6,
+     "wall_s": 3.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 2.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 10,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0042_starsynctrackers_reset_switch": {
+   "human": {
+    "track_mm": 83.6,
+    "per_layer_mm": {
+     "F.Cu": 83.6
+    },
+    "segments": 51,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 76.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 58.5,
+     "vias_board": 4,
+     "hpwl_mm": 76.8,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0043_breakout-boards_swd-and-uart": {
+   "human": {
+    "track_mm": 122.0,
+    "per_layer_mm": {
+     "B.Cu": 44.1,
+     "F.Cu": 77.9
+    },
+    "segments": 58,
+    "vias": 6,
+    "nets_with_copper": 8,
+    "hpwl_mm": 99.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 82.4,
+     "vias_board": 2,
+     "hpwl_mm": 99.6,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0044_blink-errr_blink-errr": {
+   "human": {
+    "track_mm": 167.2,
+    "per_layer_mm": {
+     "B.Cu": 36.1,
+     "F.Cu": 131.0
+    },
+    "segments": 57,
+    "vias": 3,
+    "nets_with_copper": 5,
+    "hpwl_mm": 146.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 101.1,
+     "vias_board": 3,
+     "hpwl_mm": 146.4,
+     "wall_s": 5.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 1.4,
+      "drc": 2.6,
+      "other": 0.3
+     },
+     "placement_violations": 4,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0045_retroreflectors_TANGOFLOCK": {
+   "human": {
+    "track_mm": 131.2,
+    "per_layer_mm": {
+     "B.Cu": 42.7,
+     "F.Cu": 88.5
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 111.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 99.1,
+     "vias_board": 1,
+     "hpwl_mm": 111.3,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0046_mearm-base-pcb_ServoPCB": {
+   "human": {
+    "track_mm": 450.5,
+    "per_layer_mm": {
+     "B.Cu": 250.8,
+     "F.Cu": 199.7
+    },
+    "segments": 88,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 400.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 315.7,
+     "vias_board": 6,
+     "hpwl_mm": 400.3,
+     "wall_s": 6.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 4.2,
+      "repair": 0.0,
+      "drc": 1.7,
+      "other": 0.8
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0047_LoLin_Designs_LoLin": {
+   "human": {
+    "track_mm": 236.3,
+    "per_layer_mm": {
+     "B.Cu": 115.4,
+     "F.Cu": 120.9
+    },
+    "segments": 50,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 237.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 154.1,
+     "vias_board": 2,
+     "hpwl_mm": 237.4,
+     "wall_s": 4.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.9
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0048_MySRaspiGW_MySRaspiGW": {
+   "human": {
+    "track_mm": 93.4,
+    "per_layer_mm": {
+     "B.Cu": 48.1,
+     "F.Cu": 45.3
+    },
+    "segments": 69,
+    "vias": 3,
+    "nets_with_copper": 7,
+    "hpwl_mm": 72.9
+   },
+   "runs": [
+    {
+     "routability": 0.9231,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 67.5,
+     "vias_board": 2,
+     "hpwl_mm": 72.9,
+     "wall_s": 19.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 16.3,
+      "repair": 1.4,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0049_MySRaspiGW_MySRaspiGW_PA_LNA": {
+   "human": {
+    "track_mm": 98.0,
+    "per_layer_mm": {
+     "B.Cu": 44.7,
+     "F.Cu": 53.2
+    },
+    "segments": 65,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 71.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 3,
+     "track_mm": 50.2,
+     "vias_board": 4,
+     "hpwl_mm": 71.1,
+     "wall_s": 5.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 1.3,
+      "drc": 2.6,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0050_MySRaspiGW_MySRaspiGW_PA_LNA_Pimoroni": {
+   "human": {
+    "track_mm": 96.0,
+    "per_layer_mm": {
+     "B.Cu": 36.2,
+     "F.Cu": 59.8
+    },
+    "segments": 69,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 85.5
+   },
+   "runs": [
+    {
+     "routability": 0.9231,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 3,
+     "track_mm": 76.8,
+     "vias_board": 5,
+     "hpwl_mm": 85.5,
+     "wall_s": 8.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 5.4,
+      "repair": 1.3,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0051_MySRaspiGW_MySRaspiGW_Pimoroni": {
+   "human": {
+    "track_mm": 117.3,
+    "per_layer_mm": {
+     "B.Cu": 30.0,
+     "F.Cu": 87.3
+    },
+    "segments": 65,
+    "vias": 1,
+    "nets_with_copper": 7,
+    "hpwl_mm": 90.6
+   },
+   "runs": [
+    {
+     "routability": 0.7692,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 91.4,
+     "vias_board": 6,
+     "hpwl_mm": 90.6,
+     "wall_s": 8.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 5.6,
+      "repair": 1.4,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0052_breakout-boards_50-to-100": {
+   "human": {
+    "track_mm": 112.7,
+    "per_layer_mm": {
+     "B.Cu": 36.7,
+     "F.Cu": 76.0
+    },
+    "segments": 55,
+    "vias": 4,
+    "nets_with_copper": 10,
+    "hpwl_mm": 116.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 132.0,
+     "vias_board": 3,
+     "hpwl_mm": 116.0,
+     "wall_s": 2.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.8,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0053_mechkeys_lfk78-jtag": {
+   "human": {
+    "track_mm": 129.9,
+    "per_layer_mm": {
+     "B.Cu": 34.5,
+     "F.Cu": 95.4
+    },
+    "segments": 51,
+    "vias": 0,
+    "nets_with_copper": 10,
+    "hpwl_mm": 110.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 115.0,
+     "vias_board": 5,
+     "hpwl_mm": 110.5,
+     "wall_s": 2.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0054_induction-hob_temperature-sensor": {
+   "human": {
+    "track_mm": 46.2,
+    "per_layer_mm": {
+     "B.Cu": 12.9,
+     "F.Cu": 33.2
+    },
+    "segments": 57,
+    "vias": 8,
+    "nets_with_copper": 6,
+    "hpwl_mm": 39.8
+   },
+   "runs": [
+    {
+     "routability": 0.8667,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 4,
+     "track_mm": 31.2,
+     "vias_board": 6,
+     "hpwl_mm": 39.8,
+     "wall_s": 4.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 1.3,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0055_dustbox_Dustbox": {
+   "human": {
+    "track_mm": 283.0,
+    "per_layer_mm": {
+     "B.Cu": 283.0
+    },
+    "segments": 46,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 237.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 5,
+     "track_mm": 254.9,
+     "vias_board": 4,
+     "hpwl_mm": 237.7,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.7,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.6
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0056_nrf2rfm69_nrf2rfm69": {
+   "human": {
+    "track_mm": 170.9,
+    "per_layer_mm": {
+     "B.Cu": 110.6,
+     "F.Cu": 60.3
+    },
+    "segments": 57,
+    "vias": 6,
+    "nets_with_copper": 9,
+    "hpwl_mm": 165.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 123.9,
+     "vias_board": 6,
+     "hpwl_mm": 165.1,
+     "wall_s": 3.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 2.3,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.3
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0057_tepmachcha_tepmachcha": {
+   "human": {
+    "track_mm": 212.1,
+    "per_layer_mm": {
+     "B.Cu": 56.8,
+     "F.Cu": 155.4
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 223.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 143.8,
+     "vias_board": 2,
+     "hpwl_mm": 223.4,
+     "wall_s": 5.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 2.8,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.9
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0058_scimpy_powersupply": {
+   "human": {
+    "track_mm": 287.7,
+    "per_layer_mm": {
+     "B.Cu": 193.6,
+     "F.Cu": 94.1
+    },
+    "segments": 53,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 205.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 142.5,
+     "vias_board": 1,
+     "hpwl_mm": 205.4,
+     "wall_s": 3.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.5
+     },
+     "placement_violations": 5,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0059_marlin-neopixel-bridge_ATtiny85_Marneo": {
+   "human": {
+    "track_mm": 169.7,
+    "per_layer_mm": {
+     "B.Cu": 158.9,
+     "F.Cu": 10.8
+    },
+    "segments": 55,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 121.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 101.3,
+     "vias_board": 2,
+     "hpwl_mm": 121.4,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0060_Paperino_HW_paperino_breakout": {
+   "human": {
+    "track_mm": 168.2,
+    "per_layer_mm": {
+     "B.Cu": 168.2
+    },
+    "segments": 33,
+    "vias": 0,
+    "nets_with_copper": 11,
+    "hpwl_mm": 193.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 139.3,
+     "vias_board": 16,
+     "hpwl_mm": 193.9,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0061_kitspace_temp_breakout": {
+   "human": {
+    "track_mm": 251.3,
+    "per_layer_mm": {
+     "B.Cu": 77.9,
+     "F.Cu": 173.4
+    },
+    "segments": 70,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 165.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 180.2,
+     "vias_board": 1,
+     "hpwl_mm": 165.1,
+     "wall_s": 3.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0062_I2CTempsensor_sensors": {
+   "human": {
+    "track_mm": 140.7,
+    "per_layer_mm": {
+     "B.Cu": 76.4,
+     "F.Cu": 64.3
+    },
+    "segments": 83,
+    "vias": 1,
+    "nets_with_copper": 5,
+    "hpwl_mm": 117.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 18,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 90.8,
+     "vias_board": 2,
+     "hpwl_mm": 117.1,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0063_stlinkv2_breakout_stlink_breakout": {
+   "human": {
+    "track_mm": 73.0,
+    "per_layer_mm": {
+     "B.Cu": 24.9,
+     "F.Cu": 48.0
+    },
+    "segments": 21,
+    "vias": 1,
+    "nets_with_copper": 6,
+    "hpwl_mm": 72.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 37.9,
+     "vias_board": 0,
+     "hpwl_mm": 72.6,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0064_kicad-guitar-preamp_Preamp-Instructables": {
+   "human": {
+    "track_mm": 157.2,
+    "per_layer_mm": {
+     "B.Cu": 48.8,
+     "F.Cu": 108.4
+    },
+    "segments": 28,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 125.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 75.3,
+     "vias_board": 0,
+     "hpwl_mm": 125.8,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0065_DiscoDanceFloorV1_BusTerminator": {
+   "human": {
+    "track_mm": 95.0,
+    "per_layer_mm": {
+     "B.Cu": 15.7,
+     "F.Cu": 79.3
+    },
+    "segments": 57,
+    "vias": 1,
+    "nets_with_copper": 7,
+    "hpwl_mm": 75.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 52.6,
+     "vias_board": 3,
+     "hpwl_mm": 75.4,
+     "wall_s": 2.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 6,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0066_ESP8266-WS2811-LEDs_ws2811controller_panels": {
+   "human": {
+    "track_mm": 190.4,
+    "per_layer_mm": {
+     "B.Cu": 11.6,
+     "F.Cu": 178.8
+    },
+    "segments": 86,
+    "vias": 2,
+    "nets_with_copper": 8,
+    "hpwl_mm": 158.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 105.1,
+     "vias_board": 4,
+     "hpwl_mm": 158.7,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0067_radio_saw_dcc6c": {
+   "human": {
+    "track_mm": 92.9,
+    "per_layer_mm": {
+     "B.Cu": 17.3,
+     "F.Cu": 75.6
+    },
+    "segments": 45,
+    "vias": 2,
+    "nets_with_copper": 5,
+    "hpwl_mm": 49.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 10,
+     "track_mm": 17.4,
+     "vias_board": 3,
+     "hpwl_mm": 49.2,
+     "wall_s": 5.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 1.4,
+      "drc": 2.9,
+      "other": 0.2
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0068_AVR-ISP_pogo-plug_1.27mm_AVR-ISP_pogo-plug_1.27mm": {
+   "human": {
+    "track_mm": 54.0,
+    "per_layer_mm": {
+     "B.Cu": 33.5,
+     "F.Cu": 20.5
+    },
+    "segments": 54,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 46.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 8,
+     "fixed_errors": 12,
+     "track_mm": 27.2,
+     "vias_board": 0,
+     "hpwl_mm": 46.3,
+     "wall_s": 5.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 2.5,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0069_C-BISCUIT_crowbar": {
+   "human": {
+    "track_mm": 126.7,
+    "per_layer_mm": {
+     "B.Cu": 55.1,
+     "F.Cu": 71.7
+    },
+    "segments": 56,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 103.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 64.9,
+     "vias_board": 3,
+     "hpwl_mm": 103.0,
+     "wall_s": 3.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 6,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0070_Raspberry-Pi-Soft-Power-Controller_Switching_Supply_TPS563208_MCI": {
+   "human": {
+    "track_mm": 178.2,
+    "per_layer_mm": {
+     "B.Cu": 60.0,
+     "F.Cu": 118.2
+    },
+    "segments": 54,
+    "vias": 4,
+    "nets_with_copper": 7,
+    "hpwl_mm": 133.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 87.3,
+     "vias_board": 2,
+     "hpwl_mm": 133.5,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0071_hackyflasher_Flasher": {
+   "human": {
+    "track_mm": 733.9,
+    "per_layer_mm": {
+     "B.Cu": 599.9,
+     "F.Cu": 134.1
+    },
+    "segments": 63,
+    "vias": 6,
+    "nets_with_copper": 8,
+    "hpwl_mm": 657.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 621.0,
+     "vias_board": 9,
+     "hpwl_mm": 657.9,
+     "wall_s": 4.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 2.3,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 1.0
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0072_esp8266_wi07_3_adapter_esp": {
+   "human": {
+    "track_mm": 115.7,
+    "per_layer_mm": {
+     "B.Cu": 26.7,
+     "F.Cu": 89.0
+    },
+    "segments": 54,
+    "vias": 6,
+    "nets_with_copper": 9,
+    "hpwl_mm": 108.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 80.7,
+     "vias_board": 6,
+     "hpwl_mm": 108.7,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0073_z2amiller_sensorboard_programmer": {
+   "human": {
+    "track_mm": 152.2,
+    "per_layer_mm": {
+     "B.Cu": 68.0,
+     "F.Cu": 84.2
+    },
+    "segments": 42,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 143.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 96.2,
+     "vias_board": 3,
+     "hpwl_mm": 143.0,
+     "wall_s": 3.0,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0074_kitspace_12V5A_breakout": {
+   "human": {
+    "track_mm": 238.7,
+    "per_layer_mm": {
+     "B.Cu": 38.4,
+     "F.Cu": 200.3
+    },
+    "segments": 44,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 127.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 115.2,
+     "vias_board": 0,
+     "hpwl_mm": 127.5,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0075_RPi-ATtiny85-Programmer_rpi_attiny85_programmer": {
+   "human": {
+    "track_mm": 211.0,
+    "per_layer_mm": {
+     "B.Cu": 148.1,
+     "F.Cu": 62.9
+    },
+    "segments": 66,
+    "vias": 0,
+    "nets_with_copper": 12,
+    "hpwl_mm": 229.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 219.9,
+     "vias_board": 2,
+     "hpwl_mm": 229.1,
+     "wall_s": 2.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0076_breakout-boards_usb-5v-3v3": {
+   "human": {
+    "track_mm": 99.6,
+    "per_layer_mm": {
+     "B.Cu": 21.8,
+     "F.Cu": 77.8
+    },
+    "segments": 52,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 71.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 45.9,
+     "vias_board": 0,
+     "hpwl_mm": 71.2,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 5,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0077_HaveSome_PCB_HaveSomePCB": {
+   "human": {
+    "track_mm": 82.8,
+    "per_layer_mm": {
+     "B.Cu": 24.2,
+     "F.Cu": 58.6
+    },
+    "segments": 75,
+    "vias": 1,
+    "nets_with_copper": 3,
+    "hpwl_mm": 51.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 23,
+     "drv_after": 0,
+     "fixed_errors": 11,
+     "track_mm": 66.5,
+     "vias_board": 1,
+     "hpwl_mm": 51.0,
+     "wall_s": 2.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.7,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 13,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0079_Inkjet_InkjetBreakout": {
+   "human": {
+    "track_mm": 349.4,
+    "per_layer_mm": {
+     "B.Cu": 140.5,
+     "F.Cu": 208.9
+    },
+    "segments": 105,
+    "vias": 6,
+    "nets_with_copper": 13,
+    "hpwl_mm": 250.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 259.0,
+     "vias_board": 9,
+     "hpwl_mm": 250.9,
+     "wall_s": 3.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0081_everled_everled": {
+   "human": {
+    "track_mm": 166.3,
+    "per_layer_mm": {
+     "B.Cu": 52.3,
+     "F.Cu": 113.9
+    },
+    "segments": 60,
+    "vias": 1,
+    "nets_with_copper": 8,
+    "hpwl_mm": 122.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 92.6,
+     "vias_board": 2,
+     "hpwl_mm": 122.5,
+     "wall_s": 7.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 2.4,
+      "repair": 1.5,
+      "drc": 2.9,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0082_firefly-jar_solar_lamp": {
+   "human": {
+    "track_mm": 285.6,
+    "per_layer_mm": {
+     "B.Cu": 108.6,
+     "F.Cu": 177.1
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 272.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 191.6,
+     "vias_board": 2,
+     "hpwl_mm": 272.9,
+     "wall_s": 3.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.9
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0083_DustSensorShield_DustSensorShield": {
+   "human": {
+    "track_mm": 512.4,
+    "per_layer_mm": {
+     "B.Cu": 303.9,
+     "F.Cu": 208.5
+    },
+    "segments": 76,
+    "vias": 6,
+    "nets_with_copper": 13,
+    "hpwl_mm": 502.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 406.7,
+     "vias_board": 16,
+     "hpwl_mm": 502.1,
+     "wall_s": 6.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 3.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 1.6
+     },
+     "placement_violations": 5,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0084_kitspace__autosave-nunchuk_breakout": {
+   "human": {
+    "track_mm": 150.2,
+    "per_layer_mm": {
+     "B.Cu": 50.7,
+     "F.Cu": 99.5
+    },
+    "segments": 67,
+    "vias": 1,
+    "nets_with_copper": 6,
+    "hpwl_mm": 128.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 90.9,
+     "vias_board": 3,
+     "hpwl_mm": 128.3,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0085_mini-whip_mini-whip-power-feed": {
+   "human": {
+    "track_mm": 249.9,
+    "per_layer_mm": {
+     "B.Cu": 88.9,
+     "F.Cu": 161.0
+    },
+    "segments": 109,
+    "vias": 5,
+    "nets_with_copper": 6,
+    "hpwl_mm": 166.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 19,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 81.2,
+     "vias_board": 2,
+     "hpwl_mm": 166.6,
+     "wall_s": 3.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0086_BB-PWR-8009_BB-PWR-8009_revA": {
+   "human": {
+    "track_mm": 69.1,
+    "per_layer_mm": {
+     "B.Cu": 22.5,
+     "F.Cu": 46.6
+    },
+    "segments": 57,
+    "vias": 2,
+    "nets_with_copper": 6,
+    "hpwl_mm": 54.7
+   },
+   "runs": [
+    {
+     "routability": 0.8261,
+     "connections": 23,
+     "drv_after": 0,
+     "fixed_errors": 5,
+     "track_mm": 24.2,
+     "vias_board": 0,
+     "hpwl_mm": 54.7,
+     "wall_s": 16.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 7.1,
+      "repair": 7.9,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0087_solar-lanterns_proto1": {
+   "human": {
+    "track_mm": 196.1,
+    "per_layer_mm": {
+     "B.Cu": 82.1,
+     "F.Cu": 114.0
+    },
+    "segments": 66,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 169.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 117.1,
+     "vias_board": 3,
+     "hpwl_mm": 169.3,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0088_DA_Lamp_attiny44a_servo_i2c": {
+   "human": {
+    "track_mm": 250.3,
+    "per_layer_mm": {
+     "B.Cu": 8.5,
+     "F.Cu": 241.7
+    },
+    "segments": 127,
+    "vias": 1,
+    "nets_with_copper": 9,
+    "hpwl_mm": 135.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 121.1,
+     "vias_board": 7,
+     "hpwl_mm": 135.8,
+     "wall_s": 6.1,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 1.4,
+      "drc": 2.9,
+      "other": 0.2
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0089_cobwebb-junction-box_CobwebbJunctionBox": {
+   "human": {
+    "track_mm": 503.5,
+    "per_layer_mm": {
+     "B.Cu": 23.3,
+     "F.Cu": 480.2
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 442.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 450.1,
+     "vias_board": 0,
+     "hpwl_mm": 442.6,
+     "wall_s": 3.5,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 1.2
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0090_keyboard_converter_adapter_ibm4704_converter_adapter_ibm4704": {
+   "human": {
+    "track_mm": 220.4,
+    "per_layer_mm": {
+     "B.Cu": 170.7,
+     "F.Cu": 49.7
+    },
+    "segments": 71,
+    "vias": 1,
+    "nets_with_copper": 10,
+    "hpwl_mm": 164.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 121.6,
+     "vias_board": 9,
+     "hpwl_mm": 164.2,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0091_rufs_dra818v_breakout_board": {
+   "human": {
+    "track_mm": 293.4,
+    "per_layer_mm": {
+     "B.Cu": 82.7,
+     "F.Cu": 210.7
+    },
+    "segments": 75,
+    "vias": 3,
+    "nets_with_copper": 11,
+    "hpwl_mm": 290.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 18,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 227.6,
+     "vias_board": 9,
+     "hpwl_mm": 290.4,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0092_DerKnopf_power-supply": {
+   "human": {
+    "track_mm": 188.6,
+    "per_layer_mm": {
+     "B.Cu": 12.4,
+     "F.Cu": 176.2
+    },
+    "segments": 77,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 150.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 87.2,
+     "vias_board": 0,
+     "hpwl_mm": 150.8,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0093_kitspace_nunchuk_breakout": {
+   "human": {
+    "track_mm": 189.5,
+    "per_layer_mm": {
+     "B.Cu": 123.5,
+     "F.Cu": 66.0
+    },
+    "segments": 91,
+    "vias": 5,
+    "nets_with_copper": 6,
+    "hpwl_mm": 129.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 91.2,
+     "vias_board": 4,
+     "hpwl_mm": 129.2,
+     "wall_s": 3.4,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.4
+     },
+     "placement_violations": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0094_kitspace_gas_sensor": {
+   "human": {
+    "track_mm": 255.9,
+    "per_layer_mm": {
+     "B.Cu": 65.2,
+     "F.Cu": 190.8
+    },
+    "segments": 71,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 215.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 23,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 177.5,
+     "vias_board": 4,
+     "hpwl_mm": 215.4,
+     "wall_s": 3.8,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.5
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0095_PsuFanController_FanController": {
+   "human": {
+    "track_mm": 180.2,
+    "per_layer_mm": {
+     "F.Cu": 180.2
+    },
+    "segments": 37,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 142.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 3,
+     "track_mm": 104.0,
+     "vias_board": 0,
+     "hpwl_mm": 142.2,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0097_bristle_bot_light_follow_bristle_bot": {
+   "human": {
+    "track_mm": 393.1,
+    "per_layer_mm": {
+     "B.Cu": 127.9,
+     "F.Cu": 265.1
+    },
+    "segments": 68,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 319.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 293.7,
+     "vias_board": 8,
+     "hpwl_mm": 319.8,
+     "wall_s": 3.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.9,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0098_MSGEQ7-Breakout-Board_MSGEQ7_Breakout_Board": {
+   "human": {
+    "track_mm": 211.4,
+    "per_layer_mm": {
+     "B.Cu": 63.7,
+     "F.Cu": 147.7
+    },
+    "segments": 78,
+    "vias": 0,
+    "nets_with_copper": 11,
+    "hpwl_mm": 193.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 19,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 130.8,
+     "vias_board": 3,
+     "hpwl_mm": 193.4,
+     "wall_s": 3.4,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0099_SparkSwitch_SparkProtectionSwitch": {
+   "human": {
+    "track_mm": 200.0,
+    "per_layer_mm": {
+     "B.Cu": 25.4,
+     "F.Cu": 174.6
+    },
+    "segments": 102,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 160.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 146.9,
+     "vias_board": 2,
+     "hpwl_mm": 160.3,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.8,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcb:0100_smt-zvs-driver_IH10-mc": {
+   "human": {
+    "track_mm": 251.2,
+    "per_layer_mm": {
+     "F.Cu": 251.2
+    },
+    "segments": 110,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 189.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 6,
+     "track_mm": 150.4,
+     "vias_board": 8,
+     "hpwl_mm": 189.5,
+     "wall_s": 3.7,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.7,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.6
+     },
+     "placement_violations": 13,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0001_rufs__autosave-simple_kicad_schema_and_pcb_v1": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "F.Cu": 57.2
+    },
+    "segments": 8,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 50.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 3,
+     "drv_after": 1,
+     "fixed_errors": 0,
+     "track_mm": 6.1,
+     "vias_board": 0,
+     "hpwl_mm": 22.9,
+     "wall_s": 18.5,
+     "phase_s": {
+      "placer": 9.5,
+      "router": 3.6,
+      "repair": 0.0,
+      "drc": 5.1,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0002_rufs_simple_kicad_schema_and_pcb_v1": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "F.Cu": 57.2
+    },
+    "segments": 8,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 50.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 3,
+     "drv_after": 1,
+     "fixed_errors": 0,
+     "track_mm": 6.1,
+     "vias_board": 0,
+     "hpwl_mm": 22.9,
+     "wall_s": 18.1,
+     "phase_s": {
+      "placer": 9.1,
+      "router": 3.6,
+      "repair": 0.0,
+      "drc": 5.1,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0003_kitspace_grove_adaptor": {
+   "human": {
+    "track_mm": 17.1,
+    "per_layer_mm": {
+     "F.Cu": 17.1
+    },
+    "segments": 9,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 18.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 4,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 11.1,
+     "vias_board": 0,
+     "hpwl_mm": 18.0,
+     "wall_s": 2.4,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.9,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0004_S1G-Mod_JST_Adapter": {
+   "human": {
+    "track_mm": 61.2,
+    "per_layer_mm": {
+     "B.Cu": 61.2
+    },
+    "segments": 17,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 65.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 4,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 48.2,
+     "vias_board": 3,
+     "hpwl_mm": 65.7,
+     "wall_s": 3.6,
+     "phase_s": {
+      "placer": 0.9,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0005_AVR-Playground_hello_world": {
+   "human": {
+    "track_mm": 162.3,
+    "per_layer_mm": {
+     "B.Cu": 72.5,
+     "F.Cu": 89.9
+    },
+    "segments": 18,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 126.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 66.9,
+     "vias_board": 1,
+     "hpwl_mm": 87.8,
+     "wall_s": 11.2,
+     "phase_s": {
+      "placer": 7.4,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0006_raspberry_pi_pullup_button_pullup_shutdown_button": {
+   "human": {
+    "track_mm": 56.5,
+    "per_layer_mm": {
+     "B.Cu": 10.3,
+     "F.Cu": 46.2
+    },
+    "segments": 30,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 52.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 2,
+     "fixed_errors": 0,
+     "track_mm": 35.3,
+     "vias_board": 0,
+     "hpwl_mm": 35.9,
+     "wall_s": 22.0,
+     "phase_s": {
+      "placer": 13.4,
+      "router": 1.6,
+      "repair": 1.7,
+      "drc": 5.0,
+      "other": 0.2
+     },
+     "placement_violations": [
+      "R1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0007_raspberry_pi_pullup_button_pullup_shutdown_button(revB)": {
+   "human": {
+    "track_mm": 55.8,
+    "per_layer_mm": {
+     "B.Cu": 10.6,
+     "F.Cu": 45.2
+    },
+    "segments": 29,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 51.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 2,
+     "fixed_errors": 0,
+     "track_mm": 29.1,
+     "vias_board": 0,
+     "hpwl_mm": 33.9,
+     "wall_s": 22.1,
+     "phase_s": {
+      "placer": 14.9,
+      "router": 2.0,
+      "repair": 0.0,
+      "drc": 5.0,
+      "other": 0.3
+     },
+     "placement_violations": [
+      "D1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0009_SmartLaserCO2-PCB_WaterCool": {
+   "human": {
+    "track_mm": 109.5,
+    "per_layer_mm": {
+     "B.Cu": 44.3,
+     "F.Cu": 65.2
+    },
+    "segments": 29,
+    "vias": 0,
+    "nets_with_copper": 2,
+    "hpwl_mm": 70.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 4,
+     "fixed_errors": 0,
+     "track_mm": 50.2,
+     "vias_board": 0,
+     "hpwl_mm": 70.6,
+     "wall_s": 13.7,
+     "phase_s": {
+      "placer": 2.1,
+      "router": 4.4,
+      "repair": 0.0,
+      "drc": 6.2,
+      "other": 1.0
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0010_SmartLaserCO2-PCB_OptAdjust": {
+   "human": {
+    "track_mm": 82.0,
+    "per_layer_mm": {
+     "B.Cu": 11.4,
+     "F.Cu": 70.6
+    },
+    "segments": 15,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 89.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 4,
+     "fixed_errors": 0,
+     "track_mm": 26.0,
+     "vias_board": 0,
+     "hpwl_mm": 56.6,
+     "wall_s": 15.5,
+     "phase_s": {
+      "placer": 4.8,
+      "router": 4.4,
+      "repair": 0.0,
+      "drc": 5.2,
+      "other": 1.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0011_PixyWirelessShield_Shield_PIXY": {
+   "human": {
+    "track_mm": 175.2,
+    "per_layer_mm": {
+     "B.Cu": 66.4,
+     "F.Cu": 108.8
+    },
+    "segments": 38,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 161.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 80.0,
+     "vias_board": 2,
+     "hpwl_mm": 81.6,
+     "wall_s": 8.1,
+     "phase_s": {
+      "placer": 5.4,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0012_kitspace_ir_sensor": {
+   "human": {
+    "track_mm": 229.4,
+    "per_layer_mm": {
+     "F.Cu": 229.4
+    },
+    "segments": 16,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 242.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 7,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 35.6,
+     "vias_board": 0,
+     "hpwl_mm": 65.2,
+     "wall_s": 5.5,
+     "phase_s": {
+      "placer": 2.5,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0013_crossover-schiit-stack_xover4schiit": {
+   "human": {
+    "track_mm": 174.1,
+    "per_layer_mm": {
+     "B.Cu": 28.0,
+     "F.Cu": 146.1
+    },
+    "segments": 23,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 134.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 5,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 75.1,
+     "vias_board": 0,
+     "hpwl_mm": 134.4,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0014_hardware-designs_m-trigger": {
+   "human": {
+    "track_mm": 102.5,
+    "per_layer_mm": {
+     "B.Cu": 51.8,
+     "F.Cu": 50.6
+    },
+    "segments": 21,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 114.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 92.3,
+     "vias_board": 0,
+     "hpwl_mm": 102.9,
+     "wall_s": 4.4,
+     "phase_s": {
+      "placer": 2.4,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0015_kitspace_tt_opt101_module_b1": {
+   "human": {
+    "track_mm": 65.8,
+    "per_layer_mm": {
+     "B.Cu": 44.2,
+     "F.Cu": 21.6
+    },
+    "segments": 19,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 57.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 7,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 21.5,
+     "vias_board": 2,
+     "hpwl_mm": 45.1,
+     "wall_s": 5.9,
+     "phase_s": {
+      "placer": 3.6,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0016_breakout-boards_avr-isp-x2": {
+   "human": {
+    "track_mm": 41.3,
+    "per_layer_mm": {
+     "F.Cu": 41.3
+    },
+    "segments": 12,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 45.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 30.0,
+     "vias_board": 0,
+     "hpwl_mm": 29.5,
+     "wall_s": 8.2,
+     "phase_s": {
+      "placer": 6.3,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0017_Blink-Eras_AVR_ISP_Pogo": {
+   "human": {
+    "track_mm": 100.9,
+    "per_layer_mm": {
+     "B.Cu": 50.5,
+     "F.Cu": 50.5
+    },
+    "segments": 32,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 91.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 30.1,
+     "vias_board": 0,
+     "hpwl_mm": 28.2,
+     "wall_s": 5.8,
+     "phase_s": {
+      "placer": 3.9,
+      "router": 0.5,
+      "repair": 0.0,
+      "drc": 1.2,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0018_Hardware_Playground_hy_adapter": {
+   "human": {
+    "track_mm": 56.4,
+    "per_layer_mm": {
+     "B.Cu": 29.9,
+     "F.Cu": 26.4
+    },
+    "segments": 25,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 60.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 8,
+     "fixed_errors": 0,
+     "track_mm": 38.9,
+     "vias_board": 5,
+     "hpwl_mm": 25.5,
+     "wall_s": 32.9,
+     "phase_s": {
+      "placer": 19.8,
+      "router": 4.3,
+      "repair": 3.6,
+      "drc": 5.0,
+      "other": 0.3
+     },
+     "placement_violations": [
+      "Noname_20 pad 1 copper closer than 0.3 mm to the board edge",
+      "courtyard overlap Noname_17/Noname_15",
+      "courtyard overlap Noname_16/Noname_15",
+      "courtyard overlap Noname_8/Noname_1",
+      "courtyard overlap Noname_6/Noname_1",
+      "courtyard overlap Noname_4/Noname_3",
+      "Noname_2 pad 1 copper closer than 0.3 mm to the board edge",
+      "Noname_15 inside floorplan region 'outline_cut1' (0.1 mm2)"
+     ],
+     "violations_placer": 8,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0019_CubeSAT-Reaction-Wheel_Edison_Motor_Servo": {
+   "human": {
+    "track_mm": 119.9,
+    "per_layer_mm": {
+     "B.Cu": 11.4,
+     "F.Cu": 108.5
+    },
+    "segments": 30,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 137.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 70.5,
+     "vias_board": 1,
+     "hpwl_mm": 83.6,
+     "wall_s": 6.3,
+     "phase_s": {
+      "placer": 3.5,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0020_Cherry-Mx-Bitboard_Cherry_Mx_Bitboard": {
+   "human": {
+    "track_mm": 71.4,
+    "per_layer_mm": {
+     "B.Cu": 31.3,
+     "F.Cu": 40.1
+    },
+    "segments": 24,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 59.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 73.4,
+     "vias_board": 0,
+     "hpwl_mm": 57.8,
+     "wall_s": 20.5,
+     "phase_s": {
+      "placer": 13.1,
+      "router": 2.2,
+      "repair": 0.0,
+      "drc": 4.8,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "courtyard overlap P11/SW1"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0021_RPi-PWM-Fan-interface_RPi_PWM_Fan_interface": {
+   "human": {
+    "track_mm": 58.7,
+    "per_layer_mm": {
+     "B.Cu": 6.5,
+     "F.Cu": 52.2
+    },
+    "segments": 31,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 58.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 39.0,
+     "vias_board": 0,
+     "hpwl_mm": 49.9,
+     "wall_s": 6.4,
+     "phase_s": {
+      "placer": 3.7,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0022_OpenVNAVI_motor_unit": {
+   "human": {
+    "track_mm": 68.2,
+    "per_layer_mm": {
+     "F.Cu": 68.2
+    },
+    "segments": 45,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 57.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 33.8,
+     "vias_board": 0,
+     "hpwl_mm": 40.3,
+     "wall_s": 4.9,
+     "phase_s": {
+      "placer": 2.5,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0023_hardware-designs_si7021-board": {
+   "human": {
+    "track_mm": 112.2,
+    "per_layer_mm": {
+     "B.Cu": 17.0,
+     "F.Cu": 95.2
+    },
+    "segments": 34,
+    "vias": 1,
+    "nets_with_copper": 4,
+    "hpwl_mm": 106.7
+   },
+   "runs": [
+    {
+     "routability": 0.9,
+     "connections": 10,
+     "drv_after": 4,
+     "fixed_errors": 0,
+     "track_mm": 63.5,
+     "vias_board": 3,
+     "hpwl_mm": 118.5,
+     "wall_s": 193.6,
+     "phase_s": {
+      "placer": 17.2,
+      "router": 108.7,
+      "repair": 62.2,
+      "drc": 5.0,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0024_memsarray_mems_modules": {
+   "human": {
+    "track_mm": 49.9,
+    "per_layer_mm": {
+     "B.Cu": 14.5,
+     "F.Cu": 35.4
+    },
+    "segments": 40,
+    "vias": 2,
+    "nets_with_copper": 4,
+    "hpwl_mm": 34.4
+   },
+   "runs": [
+    {
+     "routability": 0.8571,
+     "connections": 7,
+     "drv_after": 1,
+     "fixed_errors": 4,
+     "track_mm": 11.3,
+     "vias_board": 2,
+     "hpwl_mm": 30.6,
+     "wall_s": 141.7,
+     "phase_s": {
+      "placer": 10.2,
+      "router": 25.6,
+      "repair": 95.3,
+      "drc": 10.4,
+      "other": 0.3
+     },
+     "placement_violations": [
+      "P1 pad 1 copper closer than 0.3 mm to the board edge",
+      "P2 pad 1 copper closer than 0.3 mm to the board edge",
+      "P3 pad 1 copper closer than 0.3 mm to the board edge",
+      "P4 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0025_kitspace_hum_temp_sensor": {
+   "human": {
+    "track_mm": 108.4,
+    "per_layer_mm": {
+     "B.Cu": 25.3,
+     "F.Cu": 83.1
+    },
+    "segments": 34,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 94.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 53.4,
+     "vias_board": 0,
+     "hpwl_mm": 71.6,
+     "wall_s": 6.2,
+     "phase_s": {
+      "placer": 3.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0026_PCB_constant_current_ac_hv": {
+   "human": {
+    "track_mm": 138.2,
+    "per_layer_mm": {
+     "F.Cu": 138.2
+    },
+    "segments": 24,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 139.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 130.6,
+     "vias_board": 1,
+     "hpwl_mm": 143.4,
+     "wall_s": 5.6,
+     "phase_s": {
+      "placer": 3.3,
+      "router": 0.7,
+      "repair": 0.0,
+      "drc": 1.3,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0027_ID-FIX_scanConnect": {
+   "human": {
+    "track_mm": 54.4,
+    "per_layer_mm": {
+     "B.Cu": 51.9,
+     "F.Cu": 2.5
+    },
+    "segments": 22,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 52.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 53.3,
+     "vias_board": 0,
+     "hpwl_mm": 52.6,
+     "wall_s": 4.6,
+     "phase_s": {
+      "placer": 1.5,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0028_hardware-designs_c-trigger": {
+   "human": {
+    "track_mm": 84.6,
+    "per_layer_mm": {
+     "B.Cu": 35.2,
+     "F.Cu": 49.5
+    },
+    "segments": 17,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 90.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 46.5,
+     "vias_board": 0,
+     "hpwl_mm": 52.7,
+     "wall_s": 6.4,
+     "phase_s": {
+      "placer": 4.2,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0029_espeverywhere__autosave-espeverywhere_breakout": {
+   "human": {
+    "track_mm": 134.0,
+    "per_layer_mm": {
+     "F.Cu": 134.0
+    },
+    "segments": 35,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 151.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 1,
+     "fixed_errors": 0,
+     "track_mm": 118.8,
+     "vias_board": 6,
+     "hpwl_mm": 151.9,
+     "wall_s": 16.0,
+     "phase_s": {
+      "placer": 4.2,
+      "router": 5.2,
+      "repair": 0.0,
+      "drc": 6.0,
+      "other": 0.6
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0030_kitspace_sop8breakout": {
+   "human": {
+    "track_mm": 31.6,
+    "per_layer_mm": {
+     "B.Cu": 31.6
+    },
+    "segments": 30,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 37.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 66.5,
+     "vias_board": 4,
+     "hpwl_mm": 78.0,
+     "wall_s": 8.8,
+     "phase_s": {
+      "placer": 6.5,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0031_kitspace_Potentiometer_mount_4LED": {
+   "human": {
+    "track_mm": 209.5,
+    "per_layer_mm": {
+     "B.Cu": 95.5,
+     "F.Cu": 114.1
+    },
+    "segments": 45,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 234.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 100.4,
+     "vias_board": 0,
+     "hpwl_mm": 104.4,
+     "wall_s": 7.0,
+     "phase_s": {
+      "placer": 4.7,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0032_kitspace_Potentiometer_mount_8LED": {
+   "human": {
+    "track_mm": 1072.3,
+    "per_layer_mm": {
+     "B.Cu": 539.6,
+     "F.Cu": 532.7
+    },
+    "segments": 111,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 394.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 8,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 90.6,
+     "vias_board": 1,
+     "hpwl_mm": 106.8,
+     "wall_s": 7.4,
+     "phase_s": {
+      "placer": 4.7,
+      "router": 0.7,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0033_breakout-boards_swd-to-wires": {
+   "human": {
+    "track_mm": 101.8,
+    "per_layer_mm": {
+     "B.Cu": 61.1,
+     "F.Cu": 40.6
+    },
+    "segments": 56,
+    "vias": 1,
+    "nets_with_copper": 8,
+    "hpwl_mm": 94.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 46.4,
+     "vias_board": 1,
+     "hpwl_mm": 41.9,
+     "wall_s": 10.6,
+     "phase_s": {
+      "placer": 7.6,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0034_NavigationThing_NavigationThingBacklight": {
+   "human": {
+    "track_mm": 51.7,
+    "per_layer_mm": {
+     "F.Cu": 51.7
+    },
+    "segments": 23,
+    "vias": 0,
+    "nets_with_copper": 4,
+    "hpwl_mm": 44.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 33.0,
+     "vias_board": 0,
+     "hpwl_mm": 36.6,
+     "wall_s": 5.3,
+     "phase_s": {
+      "placer": 3.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [
+      "P1 pad 1 copper closer than 0.3 mm to the board edge",
+      "P2 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0035_KiCad-Like-a-Pro-Tutorial_rf24-breakout-v1": {
+   "human": {
+    "track_mm": 220.5,
+    "per_layer_mm": {
+     "B.Cu": 61.0,
+     "F.Cu": 159.4
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 195.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 58.5,
+     "vias_board": 2,
+     "hpwl_mm": 95.4,
+     "wall_s": 8.2,
+     "phase_s": {
+      "placer": 5.3,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0037_hardware-designs_spsgrf-board": {
+   "human": {
+    "track_mm": 234.6,
+    "per_layer_mm": {
+     "B.Cu": 127.9,
+     "F.Cu": 106.7
+    },
+    "segments": 74,
+    "vias": 7,
+    "nets_with_copper": 8,
+    "hpwl_mm": 180.8
+   },
+   "runs": [
+    {
+     "routability": 0.0,
+     "connections": 10,
+     "drv_after": 3,
+     "fixed_errors": 0,
+     "track_mm": 0,
+     "vias_board": 0,
+     "hpwl_mm": 271.8,
+     "wall_s": 105.3,
+     "phase_s": {
+      "placer": 31.9,
+      "router": 33.2,
+      "repair": 34.8,
+      "drc": 4.9,
+      "other": 0.6
+     },
+     "placement_violations": [
+      "R1 pad 1 copper closer than 0.3 mm to the board edge",
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0038_PCB_serie_led_strip": {
+   "human": {
+    "track_mm": 39.1,
+    "per_layer_mm": {
+     "F.Cu": 39.1
+    },
+    "segments": 9,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 39.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 9,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 21.3,
+     "vias_board": 0,
+     "hpwl_mm": 22.0,
+     "wall_s": 5.5,
+     "phase_s": {
+      "placer": 3.3,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0039_drawduino_drawduino": {
+   "human": {
+    "track_mm": 225.5,
+    "per_layer_mm": {
+     "B.Cu": 78.8,
+     "F.Cu": 146.8
+    },
+    "segments": 50,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 195.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 74.5,
+     "vias_board": 1,
+     "hpwl_mm": 153.7,
+     "wall_s": 7.7,
+     "phase_s": {
+      "placer": 4.4,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0040_oshtimer_transponder": {
+   "human": {
+    "track_mm": 77.0,
+    "per_layer_mm": {
+     "B.Cu": 18.3,
+     "F.Cu": 58.7
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 65.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 1,
+     "fixed_errors": 2,
+     "track_mm": 40.3,
+     "vias_board": 3,
+     "hpwl_mm": 68.0,
+     "wall_s": 26.9,
+     "phase_s": {
+      "placer": 15.3,
+      "router": 5.0,
+      "repair": 0.0,
+      "drc": 6.1,
+      "other": 0.5
+     },
+     "placement_violations": [
+      "P1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0041_FogDrive_attiny45_slim": {
+   "human": {
+    "track_mm": 57.2,
+    "per_layer_mm": {
+     "B.Cu": 57.2
+    },
+    "segments": 15,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 54.6
+   },
+   "runs": [
+    {
+     "routability": 0.6667,
+     "connections": 12,
+     "drv_after": 2,
+     "fixed_errors": 0,
+     "track_mm": 56.7,
+     "vias_board": 2,
+     "hpwl_mm": 124.6,
+     "wall_s": 146.0,
+     "phase_s": {
+      "placer": 22.1,
+      "router": 56.0,
+      "repair": 61.4,
+      "drc": 5.8,
+      "other": 0.6
+     },
+     "placement_violations": [
+      "C1 pad 1 copper closer than 0.3 mm to the board edge",
+      "Noname_2 pad 1 copper closer than 0.3 mm to the board edge",
+      "IC1 pad 4 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0042_starsynctrackers_reset_switch": {
+   "human": {
+    "track_mm": 83.6,
+    "per_layer_mm": {
+     "F.Cu": 83.6
+    },
+    "segments": 51,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 76.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 32.3,
+     "vias_board": 0,
+     "hpwl_mm": 48.9,
+     "wall_s": 5.9,
+     "phase_s": {
+      "placer": 3.1,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0043_breakout-boards_swd-and-uart": {
+   "human": {
+    "track_mm": 122.0,
+    "per_layer_mm": {
+     "B.Cu": 44.1,
+     "F.Cu": 77.9
+    },
+    "segments": 58,
+    "vias": 6,
+    "nets_with_copper": 8,
+    "hpwl_mm": 99.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 82.4,
+     "vias_board": 2,
+     "hpwl_mm": 99.6,
+     "wall_s": 2.9,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0044_blink-errr_blink-errr": {
+   "human": {
+    "track_mm": 167.2,
+    "per_layer_mm": {
+     "B.Cu": 36.1,
+     "F.Cu": 131.0
+    },
+    "segments": 57,
+    "vias": 3,
+    "nets_with_copper": 5,
+    "hpwl_mm": 146.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 63.1,
+     "vias_board": 2,
+     "hpwl_mm": 97.3,
+     "wall_s": 10.3,
+     "phase_s": {
+      "placer": 4.4,
+      "router": 1.3,
+      "repair": 1.5,
+      "drc": 2.9,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0045_retroreflectors_TANGOFLOCK": {
+   "human": {
+    "track_mm": 131.2,
+    "per_layer_mm": {
+     "B.Cu": 42.7,
+     "F.Cu": 88.5
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 111.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 98.0,
+     "vias_board": 1,
+     "hpwl_mm": 110.9,
+     "wall_s": 4.9,
+     "phase_s": {
+      "placer": 1.9,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0046_mearm-base-pcb_ServoPCB": {
+   "human": {
+    "track_mm": 450.5,
+    "per_layer_mm": {
+     "B.Cu": 250.8,
+     "F.Cu": 199.7
+    },
+    "segments": 88,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 400.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 312.7,
+     "vias_board": 7,
+     "hpwl_mm": 400.3,
+     "wall_s": 10.2,
+     "phase_s": {
+      "placer": 3.1,
+      "router": 4.4,
+      "repair": 0.0,
+      "drc": 1.9,
+      "other": 0.9
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0047_LoLin_Designs_LoLin": {
+   "human": {
+    "track_mm": 236.3,
+    "per_layer_mm": {
+     "B.Cu": 115.4,
+     "F.Cu": 120.9
+    },
+    "segments": 50,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 237.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 76.4,
+     "vias_board": 0,
+     "hpwl_mm": 128.3,
+     "wall_s": 9.8,
+     "phase_s": {
+      "placer": 5.8,
+      "router": 1.7,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.7
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0048_MySRaspiGW_MySRaspiGW": {
+   "human": {
+    "track_mm": 93.4,
+    "per_layer_mm": {
+     "B.Cu": 48.1,
+     "F.Cu": 45.3
+    },
+    "segments": 69,
+    "vias": 3,
+    "nets_with_copper": 7,
+    "hpwl_mm": 72.9
+   },
+   "runs": [
+    {
+     "routability": 0.6923,
+     "connections": 13,
+     "drv_after": 7,
+     "fixed_errors": 0,
+     "track_mm": 37.7,
+     "vias_board": 1,
+     "hpwl_mm": 90.5,
+     "wall_s": 250.1,
+     "phase_s": {
+      "placer": 16.1,
+      "router": 95.8,
+      "repair": 130.4,
+      "drc": 7.4,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0049_MySRaspiGW_MySRaspiGW_PA_LNA": {
+   "human": {
+    "track_mm": 98.0,
+    "per_layer_mm": {
+     "B.Cu": 44.7,
+     "F.Cu": 53.2
+    },
+    "segments": 65,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 71.1
+   },
+   "runs": [
+    {
+     "routability": 0.7692,
+     "connections": 13,
+     "drv_after": 7,
+     "fixed_errors": 0,
+     "track_mm": 48.1,
+     "vias_board": 2,
+     "hpwl_mm": 104.8,
+     "wall_s": 218.5,
+     "phase_s": {
+      "placer": 16.3,
+      "router": 95.2,
+      "repair": 100.8,
+      "drc": 5.7,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0050_MySRaspiGW_MySRaspiGW_PA_LNA_Pimoroni": {
+   "human": {
+    "track_mm": 96.0,
+    "per_layer_mm": {
+     "B.Cu": 36.2,
+     "F.Cu": 59.8
+    },
+    "segments": 69,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 85.5
+   },
+   "runs": [
+    {
+     "routability": 0.6923,
+     "connections": 13,
+     "drv_after": 6,
+     "fixed_errors": 0,
+     "track_mm": 48.9,
+     "vias_board": 1,
+     "hpwl_mm": 139.1,
+     "wall_s": 228.9,
+     "phase_s": {
+      "placer": 17.6,
+      "router": 100.1,
+      "repair": 104.9,
+      "drc": 5.7,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0051_MySRaspiGW_MySRaspiGW_Pimoroni": {
+   "human": {
+    "track_mm": 117.3,
+    "per_layer_mm": {
+     "B.Cu": 30.0,
+     "F.Cu": 87.3
+    },
+    "segments": 65,
+    "vias": 1,
+    "nets_with_copper": 7,
+    "hpwl_mm": 90.6
+   },
+   "runs": [
+    {
+     "routability": 0.6923,
+     "connections": 13,
+     "drv_after": 6,
+     "fixed_errors": 0,
+     "track_mm": 38.7,
+     "vias_board": 2,
+     "hpwl_mm": 143.5,
+     "wall_s": 53.5,
+     "phase_s": {
+      "placer": 17.4,
+      "router": 4.7,
+      "repair": 19.6,
+      "drc": 11.3,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge",
+      "U1 inside floorplan region 'outline_cut1' (0.2 mm2)"
+     ],
+     "violations_placer": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0052_breakout-boards_50-to-100": {
+   "human": {
+    "track_mm": 112.7,
+    "per_layer_mm": {
+     "B.Cu": 36.7,
+     "F.Cu": 76.0
+    },
+    "segments": 55,
+    "vias": 4,
+    "nets_with_copper": 10,
+    "hpwl_mm": 116.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 132.0,
+     "vias_board": 3,
+     "hpwl_mm": 116.0,
+     "wall_s": 2.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.7,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0053_mechkeys_lfk78-jtag": {
+   "human": {
+    "track_mm": 129.9,
+    "per_layer_mm": {
+     "B.Cu": 34.5,
+     "F.Cu": 95.4
+    },
+    "segments": 51,
+    "vias": 0,
+    "nets_with_copper": 10,
+    "hpwl_mm": 110.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 10,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 115.0,
+     "vias_board": 5,
+     "hpwl_mm": 110.5,
+     "wall_s": 2.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 0.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0054_induction-hob_temperature-sensor": {
+   "human": {
+    "track_mm": 46.2,
+    "per_layer_mm": {
+     "B.Cu": 12.9,
+     "F.Cu": 33.2
+    },
+    "segments": 57,
+    "vias": 8,
+    "nets_with_copper": 6,
+    "hpwl_mm": 39.8
+   },
+   "runs": [
+    {
+     "routability": 0.9333,
+     "connections": 15,
+     "drv_after": 4,
+     "fixed_errors": 0,
+     "track_mm": 23.6,
+     "vias_board": 2,
+     "hpwl_mm": 28.0,
+     "wall_s": 151.4,
+     "phase_s": {
+      "placer": 14.1,
+      "router": 90.9,
+      "repair": 38.6,
+      "drc": 7.3,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0055_dustbox_Dustbox": {
+   "human": {
+    "track_mm": 283.0,
+    "per_layer_mm": {
+     "B.Cu": 283.0
+    },
+    "segments": 46,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 237.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 14,
+     "drv_after": 5,
+     "fixed_errors": 0,
+     "track_mm": 187.9,
+     "vias_board": 0,
+     "hpwl_mm": 164.0,
+     "wall_s": 19.6,
+     "phase_s": {
+      "placer": 8.6,
+      "router": 3.2,
+      "repair": 0.0,
+      "drc": 5.7,
+      "other": 2.0
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0056_nrf2rfm69_nrf2rfm69": {
+   "human": {
+    "track_mm": 170.9,
+    "per_layer_mm": {
+     "B.Cu": 110.6,
+     "F.Cu": 60.3
+    },
+    "segments": 57,
+    "vias": 6,
+    "nets_with_copper": 9,
+    "hpwl_mm": 165.1
+   },
+   "runs": [
+    {
+     "routability": 0.75,
+     "connections": 12,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 129.9,
+     "vias_board": 6,
+     "hpwl_mm": 220.2,
+     "wall_s": 206.6,
+     "phase_s": {
+      "placer": 35.4,
+      "router": 85.2,
+      "repair": 79.5,
+      "drc": 5.9,
+      "other": 0.6
+     },
+     "placement_violations": [
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0057_tepmachcha_tepmachcha": {
+   "human": {
+    "track_mm": 212.1,
+    "per_layer_mm": {
+     "B.Cu": 56.8,
+     "F.Cu": 155.4
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 223.4
+   },
+   "runs": [
+    {
+     "routability": 0.0,
+     "connections": 12,
+     "drv_after": 2,
+     "fixed_errors": 0,
+     "track_mm": 0,
+     "vias_board": 0,
+     "hpwl_mm": 701.2,
+     "wall_s": 203.1,
+     "phase_s": {
+      "placer": 190.2,
+      "router": 2.3,
+      "repair": 3.5,
+      "drc": 4.9,
+      "other": 2.2
+     },
+     "placement_violations": [
+      "SHIELD1 pad 0 copper closer than 0.3 mm to the board edge",
+      "U1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0058_scimpy_powersupply": {
+   "human": {
+    "track_mm": 287.7,
+    "per_layer_mm": {
+     "B.Cu": 193.6,
+     "F.Cu": 94.1
+    },
+    "segments": 53,
+    "vias": 0,
+    "nets_with_copper": 5,
+    "hpwl_mm": 205.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 157.0,
+     "vias_board": 2,
+     "hpwl_mm": 217.5,
+     "wall_s": 99.7,
+     "phase_s": {
+      "placer": 13.1,
+      "router": 54.9,
+      "repair": 28.0,
+      "drc": 2.9,
+      "other": 0.8
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0059_marlin-neopixel-bridge_ATtiny85_Marneo": {
+   "human": {
+    "track_mm": 169.7,
+    "per_layer_mm": {
+     "B.Cu": 158.9,
+     "F.Cu": 10.8
+    },
+    "segments": 55,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 121.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 96.7,
+     "vias_board": 1,
+     "hpwl_mm": 134.1,
+     "wall_s": 7.2,
+     "phase_s": {
+      "placer": 4.2,
+      "router": 1.3,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0060_Paperino_HW_paperino_breakout": {
+   "human": {
+    "track_mm": 168.2,
+    "per_layer_mm": {
+     "B.Cu": 168.2
+    },
+    "segments": 33,
+    "vias": 0,
+    "nets_with_copper": 11,
+    "hpwl_mm": 193.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 11,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 127.6,
+     "vias_board": 16,
+     "hpwl_mm": 178.9,
+     "wall_s": 17.2,
+     "phase_s": {
+      "placer": 13.9,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0061_kitspace_temp_breakout": {
+   "human": {
+    "track_mm": 251.3,
+    "per_layer_mm": {
+     "B.Cu": 77.9,
+     "F.Cu": 173.4
+    },
+    "segments": 70,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 165.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 190.2,
+     "vias_board": 2,
+     "hpwl_mm": 165.1,
+     "wall_s": 6.1,
+     "phase_s": {
+      "placer": 2.3,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0062_I2CTempsensor_sensors": {
+   "human": {
+    "track_mm": 140.7,
+    "per_layer_mm": {
+     "B.Cu": 76.4,
+     "F.Cu": 64.3
+    },
+    "segments": 83,
+    "vias": 1,
+    "nets_with_copper": 5,
+    "hpwl_mm": 117.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 18,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 61.6,
+     "vias_board": 0,
+     "hpwl_mm": 87.1,
+     "wall_s": 8.0,
+     "phase_s": {
+      "placer": 4.6,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0063_stlinkv2_breakout_stlink_breakout": {
+   "human": {
+    "track_mm": 73.0,
+    "per_layer_mm": {
+     "B.Cu": 24.9,
+     "F.Cu": 48.0
+    },
+    "segments": 21,
+    "vias": 1,
+    "nets_with_copper": 6,
+    "hpwl_mm": 72.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 37.9,
+     "vias_board": 0,
+     "hpwl_mm": 72.6,
+     "wall_s": 2.6,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0064_kicad-guitar-preamp_Preamp-Instructables": {
+   "human": {
+    "track_mm": 157.2,
+    "per_layer_mm": {
+     "B.Cu": 48.8,
+     "F.Cu": 108.4
+    },
+    "segments": 28,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 125.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 1,
+     "track_mm": 96.6,
+     "vias_board": 0,
+     "hpwl_mm": 122.3,
+     "wall_s": 7.3,
+     "phase_s": {
+      "placer": 4.0,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": [
+      "courtyard overlap X10u1/J1"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0065_DiscoDanceFloorV1_BusTerminator": {
+   "human": {
+    "track_mm": 95.0,
+    "per_layer_mm": {
+     "B.Cu": 15.7,
+     "F.Cu": 79.3
+    },
+    "segments": 57,
+    "vias": 1,
+    "nets_with_copper": 7,
+    "hpwl_mm": 75.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 2,
+     "fixed_errors": 0,
+     "track_mm": 83.5,
+     "vias_board": 4,
+     "hpwl_mm": 115.1,
+     "wall_s": 30.1,
+     "phase_s": {
+      "placer": 15.5,
+      "router": 5.1,
+      "repair": 1.5,
+      "drc": 7.6,
+      "other": 0.5
+     },
+     "placement_violations": [
+      "R1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0066_ESP8266-WS2811-LEDs_ws2811controller_panels": {
+   "human": {
+    "track_mm": 190.4,
+    "per_layer_mm": {
+     "B.Cu": 11.6,
+     "F.Cu": 178.8
+    },
+    "segments": 86,
+    "vias": 2,
+    "nets_with_copper": 8,
+    "hpwl_mm": 158.7
+   },
+   "runs": [
+    {
+     "routability": 0.8667,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 70.4,
+     "vias_board": 4,
+     "hpwl_mm": 123.7,
+     "wall_s": 314.0,
+     "phase_s": {
+      "placer": 14.9,
+      "router": 172.0,
+      "repair": 104.7,
+      "drc": 21.7,
+      "other": 0.7
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0067_radio_saw_dcc6c": {
+   "human": {
+    "track_mm": 92.9,
+    "per_layer_mm": {
+     "B.Cu": 17.3,
+     "F.Cu": 75.6
+    },
+    "segments": 45,
+    "vias": 2,
+    "nets_with_copper": 5,
+    "hpwl_mm": 49.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 10,
+     "track_mm": 17.4,
+     "vias_board": 3,
+     "hpwl_mm": 49.2,
+     "wall_s": 8.0,
+     "phase_s": {
+      "placer": 2.5,
+      "router": 1.0,
+      "repair": 1.5,
+      "drc": 2.8,
+      "other": 0.3
+     },
+     "placement_violations": [
+      "P2 pad 1 copper closer than 0.3 mm to the board edge",
+      "P1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0068_AVR-ISP_pogo-plug_1.27mm_AVR-ISP_pogo-plug_1.27mm": {
+   "human": {
+    "track_mm": 54.0,
+    "per_layer_mm": {
+     "B.Cu": 33.5,
+     "F.Cu": 20.5
+    },
+    "segments": 54,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 46.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 6,
+     "drv_after": 8,
+     "fixed_errors": 12,
+     "track_mm": 27.2,
+     "vias_board": 0,
+     "hpwl_mm": 46.3,
+     "wall_s": 5.2,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.1,
+      "repair": 2.4,
+      "drc": 1.4,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0069_C-BISCUIT_crowbar": {
+   "human": {
+    "track_mm": 126.7,
+    "per_layer_mm": {
+     "B.Cu": 55.1,
+     "F.Cu": 71.7
+    },
+    "segments": 56,
+    "vias": 3,
+    "nets_with_copper": 6,
+    "hpwl_mm": 103.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 4,
+     "fixed_errors": 0,
+     "track_mm": 79.2,
+     "vias_board": 3,
+     "hpwl_mm": 116.7,
+     "wall_s": 129.4,
+     "phase_s": {
+      "placer": 19.5,
+      "router": 68.7,
+      "repair": 31.4,
+      "drc": 8.9,
+      "other": 0.9
+     },
+     "placement_violations": [
+      "U1 pad 2 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0070_Raspberry-Pi-Soft-Power-Controller_Switching_Supply_TPS563208_MCI": {
+   "human": {
+    "track_mm": 178.2,
+    "per_layer_mm": {
+     "B.Cu": 60.0,
+     "F.Cu": 118.2
+    },
+    "segments": 54,
+    "vias": 4,
+    "nets_with_copper": 7,
+    "hpwl_mm": 133.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 56.7,
+     "vias_board": 2,
+     "hpwl_mm": 103.8,
+     "wall_s": 6.4,
+     "phase_s": {
+      "placer": 3.4,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0071_hackyflasher_Flasher": {
+   "human": {
+    "track_mm": 733.9,
+    "per_layer_mm": {
+     "B.Cu": 599.9,
+     "F.Cu": 134.1
+    },
+    "segments": 63,
+    "vias": 6,
+    "nets_with_copper": 8,
+    "hpwl_mm": 657.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 1,
+     "fixed_errors": 0,
+     "track_mm": 80.6,
+     "vias_board": 0,
+     "hpwl_mm": 102.8,
+     "wall_s": 46.5,
+     "phase_s": {
+      "placer": 27.9,
+      "router": 8.2,
+      "repair": 0.0,
+      "drc": 6.2,
+      "other": 4.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0072_esp8266_wi07_3_adapter_esp": {
+   "human": {
+    "track_mm": 115.7,
+    "per_layer_mm": {
+     "B.Cu": 26.7,
+     "F.Cu": 89.0
+    },
+    "segments": 54,
+    "vias": 6,
+    "nets_with_copper": 9,
+    "hpwl_mm": 108.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 92.9,
+     "vias_board": 4,
+     "hpwl_mm": 119.8,
+     "wall_s": 44.3,
+     "phase_s": {
+      "placer": 31.2,
+      "router": 5.8,
+      "repair": 0.0,
+      "drc": 6.4,
+      "other": 1.0
+     },
+     "placement_violations": [
+      "courtyard overlap P1/U1"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0073_z2amiller_sensorboard_programmer": {
+   "human": {
+    "track_mm": 152.2,
+    "per_layer_mm": {
+     "B.Cu": 68.0,
+     "F.Cu": 84.2
+    },
+    "segments": 42,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 143.0
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 15,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 101.5,
+     "vias_board": 2,
+     "hpwl_mm": 139.8,
+     "wall_s": 7.4,
+     "phase_s": {
+      "placer": 4.5,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0074_kitspace_12V5A_breakout": {
+   "human": {
+    "track_mm": 238.7,
+    "per_layer_mm": {
+     "B.Cu": 38.4,
+     "F.Cu": 200.3
+    },
+    "segments": 44,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 127.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 107.4,
+     "vias_board": 0,
+     "hpwl_mm": 109.8,
+     "wall_s": 9.9,
+     "phase_s": {
+      "placer": 3.0,
+      "router": 2.1,
+      "repair": 0.0,
+      "drc": 4.2,
+      "other": 0.6
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0075_RPi-ATtiny85-Programmer_rpi_attiny85_programmer": {
+   "human": {
+    "track_mm": 211.0,
+    "per_layer_mm": {
+     "B.Cu": 148.1,
+     "F.Cu": 62.9
+    },
+    "segments": 66,
+    "vias": 0,
+    "nets_with_copper": 12,
+    "hpwl_mm": 229.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 217.0,
+     "vias_board": 3,
+     "hpwl_mm": 196.6,
+     "wall_s": 8.4,
+     "phase_s": {
+      "placer": 5.8,
+      "router": 0.8,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0076_breakout-boards_usb-5v-3v3": {
+   "human": {
+    "track_mm": 99.6,
+    "per_layer_mm": {
+     "B.Cu": 21.8,
+     "F.Cu": 77.8
+    },
+    "segments": 52,
+    "vias": 0,
+    "nets_with_copper": 3,
+    "hpwl_mm": 71.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 53.3,
+     "vias_board": 2,
+     "hpwl_mm": 78.8,
+     "wall_s": 32.2,
+     "phase_s": {
+      "placer": 18.3,
+      "router": 5.8,
+      "repair": 0.0,
+      "drc": 7.4,
+      "other": 0.7
+     },
+     "placement_violations": [
+      "courtyard overlap P1/P2",
+      "courtyard overlap P2/P3",
+      "courtyard overlap P4/CON2"
+     ],
+     "violations_placer": 1,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0077_HaveSome_PCB_HaveSomePCB": {
+   "human": {
+    "track_mm": 82.8,
+    "per_layer_mm": {
+     "B.Cu": 24.2,
+     "F.Cu": 58.6
+    },
+    "segments": 75,
+    "vias": 1,
+    "nets_with_copper": 3,
+    "hpwl_mm": 51.0
+   },
+   "runs": [
+    {
+     "routability": 0.8261,
+     "connections": 23,
+     "drv_after": 9,
+     "fixed_errors": 0,
+     "track_mm": 90.2,
+     "vias_board": 1,
+     "hpwl_mm": 62.7,
+     "wall_s": 106.5,
+     "phase_s": {
+      "placer": 19.9,
+      "router": 41.7,
+      "repair": 37.0,
+      "drc": 7.6,
+      "other": 0.5
+     },
+     "placement_violations": [
+      "SOT223 pad 1 copper closer than 0.3 mm to the board edge",
+      "PINS1 pad 1 copper closer than 0.3 mm to the board edge",
+      "XREF222 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 3,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0079_Inkjet_InkjetBreakout": {
+   "human": {
+    "track_mm": 349.4,
+    "per_layer_mm": {
+     "B.Cu": 140.5,
+     "F.Cu": 208.9
+    },
+    "segments": 105,
+    "vias": 6,
+    "nets_with_copper": 13,
+    "hpwl_mm": 250.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 13,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 259.0,
+     "vias_board": 9,
+     "hpwl_mm": 250.9,
+     "wall_s": 3.3,
+     "phase_s": {
+      "placer": 0.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0081_everled_everled": {
+   "human": {
+    "track_mm": 166.3,
+    "per_layer_mm": {
+     "B.Cu": 52.3,
+     "F.Cu": 113.9
+    },
+    "segments": 60,
+    "vias": 1,
+    "nets_with_copper": 8,
+    "hpwl_mm": 122.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 85.9,
+     "vias_board": 3,
+     "hpwl_mm": 121.2,
+     "wall_s": 11.6,
+     "phase_s": {
+      "placer": 4.1,
+      "router": 2.7,
+      "repair": 1.8,
+      "drc": 2.9,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0082_firefly-jar_solar_lamp": {
+   "human": {
+    "track_mm": 285.6,
+    "per_layer_mm": {
+     "B.Cu": 108.6,
+     "F.Cu": 177.1
+    },
+    "segments": 59,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 272.9
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 3,
+     "fixed_errors": 0,
+     "track_mm": 125.8,
+     "vias_board": 0,
+     "hpwl_mm": 202.4,
+     "wall_s": 65.9,
+     "phase_s": {
+      "placer": 46.9,
+      "router": 8.2,
+      "repair": 0.0,
+      "drc": 7.8,
+      "other": 3.0
+     },
+     "placement_violations": [
+      "B1 inside floorplan region 'outline_cut2' (0.4 mm2)",
+      "B1 inside floorplan region 'outline_cut4' (0.3 mm2)"
+     ],
+     "violations_placer": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0083_DustSensorShield_DustSensorShield": {
+   "human": {
+    "track_mm": 512.4,
+    "per_layer_mm": {
+     "B.Cu": 303.9,
+     "F.Cu": 208.5
+    },
+    "segments": 76,
+    "vias": 6,
+    "nets_with_copper": 13,
+    "hpwl_mm": 502.1
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 451.8,
+     "vias_board": 5,
+     "hpwl_mm": 606.8,
+     "wall_s": 95.2,
+     "phase_s": {
+      "placer": 65.2,
+      "router": 18.4,
+      "repair": 0.0,
+      "drc": 6.9,
+      "other": 4.7
+     },
+     "placement_violations": [
+      "courtyard overlap P3/P7"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0084_kitspace__autosave-nunchuk_breakout": {
+   "human": {
+    "track_mm": 150.2,
+    "per_layer_mm": {
+     "B.Cu": 50.7,
+     "F.Cu": 99.5
+    },
+    "segments": 67,
+    "vias": 1,
+    "nets_with_copper": 6,
+    "hpwl_mm": 128.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 104.4,
+     "vias_board": 3,
+     "hpwl_mm": 134.0,
+     "wall_s": 7.0,
+     "phase_s": {
+      "placer": 3.7,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0085_mini-whip_mini-whip-power-feed": {
+   "human": {
+    "track_mm": 249.9,
+    "per_layer_mm": {
+     "B.Cu": 88.9,
+     "F.Cu": 161.0
+    },
+    "segments": 109,
+    "vias": 5,
+    "nets_with_copper": 6,
+    "hpwl_mm": 166.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 19,
+     "drv_after": 0,
+     "fixed_errors": 2,
+     "track_mm": 76.7,
+     "vias_board": 2,
+     "hpwl_mm": 154.5,
+     "wall_s": 10.8,
+     "phase_s": {
+      "placer": 3.5,
+      "router": 3.2,
+      "repair": 0.0,
+      "drc": 3.4,
+      "other": 0.7
+     },
+     "placement_violations": [
+      "courtyard overlap P1/P1_2",
+      "courtyard overlap P2/P2_2"
+     ],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0086_BB-PWR-8009_BB-PWR-8009_revA": {
+   "human": {
+    "track_mm": 69.1,
+    "per_layer_mm": {
+     "B.Cu": 22.5,
+     "F.Cu": 46.6
+    },
+    "segments": 57,
+    "vias": 2,
+    "nets_with_copper": 6,
+    "hpwl_mm": 54.7
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 23,
+     "drv_after": 5,
+     "fixed_errors": 0,
+     "track_mm": 37.1,
+     "vias_board": 2,
+     "hpwl_mm": 50.1,
+     "wall_s": 65.8,
+     "phase_s": {
+      "placer": 16.9,
+      "router": 27.5,
+      "repair": 7.4,
+      "drc": 13.4,
+      "other": 0.6
+     },
+     "placement_violations": [
+      "courtyard overlap C4/L1",
+      "L1 pad 1 copper closer than 0.3 mm to the board edge"
+     ],
+     "violations_placer": 2,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0087_solar-lanterns_proto1": {
+   "human": {
+    "track_mm": 196.1,
+    "per_layer_mm": {
+     "B.Cu": 82.1,
+     "F.Cu": 114.0
+    },
+    "segments": 66,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 169.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 85.1,
+     "vias_board": 2,
+     "hpwl_mm": 132.6,
+     "wall_s": 7.3,
+     "phase_s": {
+      "placer": 4.1,
+      "router": 1.4,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0088_DA_Lamp_attiny44a_servo_i2c": {
+   "human": {
+    "track_mm": 250.3,
+    "per_layer_mm": {
+     "B.Cu": 8.5,
+     "F.Cu": 241.7
+    },
+    "segments": 127,
+    "vias": 1,
+    "nets_with_copper": 9,
+    "hpwl_mm": 135.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 115.7,
+     "vias_board": 6,
+     "hpwl_mm": 128.4,
+     "wall_s": 7.6,
+     "phase_s": {
+      "placer": 4.3,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.2
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0089_cobwebb-junction-box_CobwebbJunctionBox": {
+   "human": {
+    "track_mm": 503.5,
+    "per_layer_mm": {
+     "B.Cu": 23.3,
+     "F.Cu": 480.2
+    },
+    "segments": 41,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 442.6
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 17,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 520.9,
+     "vias_board": 14,
+     "hpwl_mm": 446.1,
+     "wall_s": 10.3,
+     "phase_s": {
+      "placer": 6.0,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 1.1
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0090_keyboard_converter_adapter_ibm4704_converter_adapter_ibm4704": {
+   "human": {
+    "track_mm": 220.4,
+    "per_layer_mm": {
+     "B.Cu": 170.7,
+     "F.Cu": 49.7
+    },
+    "segments": 71,
+    "vias": 1,
+    "nets_with_copper": 10,
+    "hpwl_mm": 164.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 60.1,
+     "vias_board": 3,
+     "hpwl_mm": 111.3,
+     "wall_s": 7.8,
+     "phase_s": {
+      "placer": 4.0,
+      "router": 1.7,
+      "repair": 0.0,
+      "drc": 1.8,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0091_rufs_dra818v_breakout_board": {
+   "human": {
+    "track_mm": 293.4,
+    "per_layer_mm": {
+     "B.Cu": 82.7,
+     "F.Cu": 210.7
+    },
+    "segments": 75,
+    "vias": 3,
+    "nets_with_copper": 11,
+    "hpwl_mm": 290.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 18,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 277.9,
+     "vias_board": 12,
+     "hpwl_mm": 308.1,
+     "wall_s": 16.8,
+     "phase_s": {
+      "placer": 13.0,
+      "router": 2.0,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0092_DerKnopf_power-supply": {
+   "human": {
+    "track_mm": 188.6,
+    "per_layer_mm": {
+     "B.Cu": 12.4,
+     "F.Cu": 176.2
+    },
+    "segments": 77,
+    "vias": 0,
+    "nets_with_copper": 6,
+    "hpwl_mm": 150.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 20,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 112.2,
+     "vias_board": 4,
+     "hpwl_mm": 160.7,
+     "wall_s": 7.1,
+     "phase_s": {
+      "placer": 3.8,
+      "router": 1.6,
+      "repair": 0.0,
+      "drc": 1.4,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0093_kitspace_nunchuk_breakout": {
+   "human": {
+    "track_mm": 189.5,
+    "per_layer_mm": {
+     "B.Cu": 123.5,
+     "F.Cu": 66.0
+    },
+    "segments": 91,
+    "vias": 5,
+    "nets_with_copper": 6,
+    "hpwl_mm": 129.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 91.4,
+     "vias_board": 7,
+     "hpwl_mm": 132.5,
+     "wall_s": 6.4,
+     "phase_s": {
+      "placer": 3.1,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0094_kitspace_gas_sensor": {
+   "human": {
+    "track_mm": 255.9,
+    "per_layer_mm": {
+     "B.Cu": 65.2,
+     "F.Cu": 190.8
+    },
+    "segments": 71,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 215.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 23,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 248.0,
+     "vias_board": 9,
+     "hpwl_mm": 300.3,
+     "wall_s": 10.3,
+     "phase_s": {
+      "placer": 6.6,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0095_PsuFanController_FanController": {
+   "human": {
+    "track_mm": 180.2,
+    "per_layer_mm": {
+     "F.Cu": 180.2
+    },
+    "segments": 37,
+    "vias": 0,
+    "nets_with_copper": 8,
+    "hpwl_mm": 142.2
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 160.3,
+     "vias_board": 3,
+     "hpwl_mm": 189.3,
+     "wall_s": 8.3,
+     "phase_s": {
+      "placer": 4.6,
+      "router": 1.8,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0097_bristle_bot_light_follow_bristle_bot": {
+   "human": {
+    "track_mm": 393.1,
+    "per_layer_mm": {
+     "B.Cu": 127.9,
+     "F.Cu": 265.1
+    },
+    "segments": 68,
+    "vias": 0,
+    "nets_with_copper": 9,
+    "hpwl_mm": 319.8
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 21,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 103.6,
+     "vias_board": 0,
+     "hpwl_mm": 128.8,
+     "wall_s": 8.2,
+     "phase_s": {
+      "placer": 4.5,
+      "router": 1.7,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.4
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0098_MSGEQ7-Breakout-Board_MSGEQ7_Breakout_Board": {
+   "human": {
+    "track_mm": 211.4,
+    "per_layer_mm": {
+     "B.Cu": 63.7,
+     "F.Cu": 147.7
+    },
+    "segments": 78,
+    "vias": 0,
+    "nets_with_copper": 11,
+    "hpwl_mm": 193.4
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 19,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 81.2,
+     "vias_board": 0,
+     "hpwl_mm": 139.1,
+     "wall_s": 8.7,
+     "phase_s": {
+      "placer": 5.3,
+      "router": 1.5,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0099_SparkSwitch_SparkProtectionSwitch": {
+   "human": {
+    "track_mm": 200.0,
+    "per_layer_mm": {
+     "B.Cu": 25.4,
+     "F.Cu": 174.6
+    },
+    "segments": 102,
+    "vias": 2,
+    "nets_with_copper": 7,
+    "hpwl_mm": 160.3
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 16,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 170.6,
+     "vias_board": 2,
+     "hpwl_mm": 151.5,
+     "wall_s": 6.1,
+     "phase_s": {
+      "placer": 3.3,
+      "router": 1.0,
+      "repair": 0.0,
+      "drc": 1.5,
+      "other": 0.3
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  },
+  "pcbp:0100_smt-zvs-driver_IH10-mc": {
+   "human": {
+    "track_mm": 251.2,
+    "per_layer_mm": {
+     "F.Cu": 251.2
+    },
+    "segments": 110,
+    "vias": 0,
+    "nets_with_copper": 7,
+    "hpwl_mm": 189.5
+   },
+   "runs": [
+    {
+     "routability": 1.0,
+     "connections": 22,
+     "drv_after": 0,
+     "fixed_errors": 0,
+     "track_mm": 195.0,
+     "vias_board": 7,
+     "hpwl_mm": 245.5,
+     "wall_s": 11.4,
+     "phase_s": {
+      "placer": 7.1,
+      "router": 2.3,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.5
+     },
+     "placement_violations": [],
+     "violations_placer": 0,
+     "error": null
+    }
+   ]
+  }
+ }
+}
