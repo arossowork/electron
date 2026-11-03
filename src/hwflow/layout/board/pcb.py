@@ -132,12 +132,51 @@ def _drop_local_clearance(node: list, need: float) -> list:
                                     and float(x[1]) < need - 1e-9)]
 
 
+def _closed_courtyards(t: list) -> list:
+    """A courtyard whose lines and arcs do not close into outlines (KiCad malformed_courtyard: a rectangle with a
+    stray line across it, an antenna marking drawn on F.CrtYd) becomes its bounding rectangle, the box the placer
+    holds the part by: DRC then tests the courtyard the placement kept clear. Closed shapes (rect, circle, poly)
+    and closed outlines are left as they are."""
+    from ...core.libs import _arc_extremes
+    for layer in ("F.CrtYd", "B.CrtYd"):
+        items = [g for g in t[2:] if isinstance(g, list) and g and g[0] in ("fp_line", "fp_arc", "fp_rect", "fp_circle",
+                                                                            "fp_poly") and str(sexpr.value(g, "layer", "")) == layer]
+        segs = [g for g in items if g[0] in ("fp_line", "fp_arc")]
+        if not segs:
+            continue
+        ends: dict = {}
+        for g in segs:
+            for k in ("start", "end"):
+                e = sexpr.find(g, k)
+                key = (round(float(e[1]), 3), round(float(e[2]), 3))
+                ends[key] = ends.get(key, 0) + 1
+        if all(n == 2 for n in ends.values()):
+            continue
+        xs, ys = [], []
+        for g in items:
+            pts = [(float(e[1]), float(e[2])) for k in ("start", "end", "mid", "center") if (e := sexpr.find(g, k))]
+            pts += [(float(xy[1]), float(xy[2])) for xy in sexpr.find_all(sexpr.find(g, "pts") or [], "xy")]
+            if g[0] == "fp_arc" and sexpr.find(g, "mid"):
+                pts += _arc_extremes(*pts[:3])
+            if g[0] == "fp_circle":
+                (cx, cy), (ex, ey) = pts[1], pts[0]  # center comes after start/end in the key order above
+                r = math.hypot(ex - cx, ey - cy)
+                pts += [(cx - r, cy - r), (cx + r, cy + r)]
+            xs += [x for x, _ in pts]
+            ys += [y for _, y in pts]
+        keep = [g for g in t if not (isinstance(g, list) and any(g is i for i in items))]
+        keep.append(["fp_rect", ["start", min(xs), min(ys)], ["end", max(xs), max(ys)],
+                     ["stroke", ["width", 0.05], ["type", "solid"]], ["fill", "no"], ["layer", Q(layer)], ["uuid", uid()]])
+        t = keep
+    return t
+
+
 def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: dict, pin_nets: dict,
                      fields: dict | None = None, keepoff: dict | None = None) -> list:
     """`keepoff` (net -> isolation distance, `isolation_keepoff`): a local clearance override below the distance of
     an isolation member net on the footprint is dropped from it and its pads, so the isolation rules bind."""
     need = max([float((keepoff or {}).get(n, 0.0)) for n in pin_nets.values() if n] or [0.0])
-    t = copy.deepcopy(fp_tree)
+    t = _closed_courtyards(copy.deepcopy(fp_tree))
     if need > 0:
         t = _drop_local_clearance(t, need)
     t[0] = "footprint"
@@ -796,10 +835,35 @@ def write_project(dirpath: Path, name: str, design: Design):
     if design.raw.get("blocks"):  # the land-pattern rules of the layout blocks
         from ...core import blocks
         rules += blocks.drc_rules(design)
+    rules += ringless_hole_rules(design)
     if rules:
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
     elif dru.exists():
         dru.unlink()
+
+
+def ringless_hole_rules(design: Design) -> list[str]:
+    """KiCad rules that exempt from the annular-ring minimum the through-hole pads without a ring by construction
+    (copper no larger than the drill) and without a net: a "No Annular" mounting hole of the older KiCad libraries, the
+    unnumbered peg of a battery holder. The minimum ring is there for a connection that the hole carries; such a hole carries none, and
+    DRC would fail it wherever it is placed."""
+    from ...core.libs import Libs
+    libs, nets, out = None, set(design.nets()), []
+    for c in design.components.values():
+        if c.get("virtual") or not c.get("footprint"):
+            continue
+        libs = libs or Libs(design=design)
+        try:
+            pads = libs.footprint(c.get("footprint"))["pads"]
+        except Exception:  # noqa: BLE001 - a missing footprint is reported by check, not here
+            continue
+        bare = sorted({p["number"] for p in pads if p["kind"] == "thru_hole" and p.get("drill")
+                       and min(p["w"], p["h"]) <= float(p["drill"]) + 1e-6 and (c.pins or {}).get(p["number"]) not in nets})
+        if bare:  # only those pads: the footprint's other pads keep the minimum
+            nums = " || ".join(f"A.Pad_Number == \'{n}\'" for n in bare)
+            out.append(f'(rule "ringless_hole_{c.ref}" (constraint annular_width (min 0mm)) '
+                       f'(condition "A.memberOfFootprint(\'{c.ref}\') && ({nums})"))')
+    return out
 
 
 # ------------------------------------------------------------------ Specctra DSN

@@ -44,6 +44,8 @@ class Part:
     nocu: frozenset = frozenset()  # numbers of the pads without copper (a keep-out marker's dummy pad)
     cu: dict | None = None        # pad number -> its copper layers (frozenset, "*" = every layer); None: every layer
     round: frozenset = frozenset()  # numbers of the circular pads (the corridor term measures them as circles)
+    guard: frozenset = frozenset()  # pads kept clear of every other courtyard, either side (a part without a body)
+    keep: float = 0.0  # what the pads of a part without a body keep around them (half the pad clearance)
 
     def side_box(self, side: str):
         if not self.sides or side not in self.sides:
@@ -83,6 +85,7 @@ class Parts(dict):
     areas: list = ()
     blocks: list = ()
     libs = None
+    margin: float = 0.25  # the placer margin the courtyard boxes carry (COURTYARD_MARGIN; 0 in a tight placement)
 
 
 @dataclass

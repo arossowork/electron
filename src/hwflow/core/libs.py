@@ -238,6 +238,11 @@ class Libs:
                     for xy in sexpr.find_all(pts, "xy"):
                         xs.append(float(xy[1]))
                         ys.append(float(xy[2]))
+                if kind == "fp_arc" and sexpr.find(g, "mid"):  # the arc's own extremes, not only its three points
+                    for x, y in _arc_extremes(*((float(sexpr.find(g, k)[1]), float(sexpr.find(g, k)[2]))
+                                                for k in ("start", "mid", "end"))):
+                        xs.append(x)
+                        ys.append(y)
                 if kind == "fp_circle":
                     c, e = sexpr.find(g, "center"), sexpr.find(g, "end")
                     r = ((float(c[1]) - float(e[1])) ** 2 + (float(c[2]) - float(e[2])) ** 2) ** 0.5
@@ -254,9 +259,11 @@ class Libs:
             sx, sy = side_pts[layer]
             if sx:
                 sides[side] = (min(sx), min(sy), max(sx), max(sy))
+        courtyard = bool(sides)
         if not sides:
             sides["front"] = (min(xs), min(ys), max(xs), max(ys))
         return {"id": fp_id, "pads": pads, "bbox": (min(xs), min(ys), max(xs), max(ys)), "sides": sides, "tree": t,
+                "courtyard": courtyard,
                 "smd": all(p["kind"] == "smd" for p in pads if p["number"])}
 
     def search_footprints(self, query: str, limit: int = 40) -> list[str]:
@@ -270,3 +277,24 @@ class Libs:
                     if len(res) >= limit:
                         return res
         return res
+
+
+def _arc_extremes(a, m, b) -> list[tuple[float, float]]:
+    """The points of the circle through a, m, b at 0, 90, 180 and 270 degrees that lie on the arc from a through m to
+    b: with the end points they bound the arc (a courtyard arc bulges past them)."""
+    import math
+    (ax, ay), (mx, my), (bx, by) = a, m, b
+    dd = 2 * (ax * (my - by) + mx * (by - ay) + bx * (ay - my))
+    if abs(dd) < 1e-12:
+        return []  # collinear: a straight segment
+    ux = ((ax * ax + ay * ay) * (my - by) + (mx * mx + my * my) * (by - ay) + (bx * bx + by * by) * (ay - my)) / dd
+    uy = ((ax * ax + ay * ay) * (bx - mx) + (mx * mx + my * my) * (ax - bx) + (bx * bx + by * by) * (mx - ax)) / dd
+    r = math.hypot(ax - ux, ay - uy)
+    ang = lambda x, y: math.atan2(y - uy, x - ux) % (2 * math.pi)  # noqa: E731
+    t0, tm, t1 = ang(ax, ay), ang(mx, my), ang(bx, by)
+    ccw = (tm - t0) % (2 * math.pi) < (t1 - t0) % (2 * math.pi)  # a -> m -> b counterclockwise in angle
+    span = (t1 - t0) % (2 * math.pi) if ccw else (t0 - t1) % (2 * math.pi)
+    start = t0 if ccw else t1
+    return [(ux + r * math.cos(q), uy + r * math.sin(q)) for q in (0, math.pi / 2, math.pi, 1.5 * math.pi)
+            if (q - start) % (2 * math.pi) <= span + 1e-9]
+

@@ -78,6 +78,8 @@ class LayoutSettings(_Group):
     budget_s: float = Field(3000.0, validation_alias=AliasChoices("HWFLOW_LAYOUT_BUDGET_S"))
     auto_max_errors: int | None = Field(None, validation_alias=AliasChoices("HWFLOW_AUTO_MAX_ERRORS"))
     settle: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SETTLE"))  # Placer.settle legalizer
+    # a placement left with violations is placed again on the bare courtyards (placer.place); HWFLOW_TIGHT=0: never
+    tight: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_TIGHT"))
     # incremental (ECO) placement from build/placement.good.json after a clean layout (layout/place/eco.py)
     eco: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ECO"))
     route_illegal: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROUTE_ILLEGAL"))  # debugging only

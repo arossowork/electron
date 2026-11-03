@@ -58,6 +58,27 @@ When violations are left after settle, `unstick` runs once more on the settled p
 violations: settle's raster has no isolation distances, so on thermo-e2e-4 it fixed the regions but put R19 0.5-1 mm
 inside F1's mains isolation; the grid search cleared it in 6 s.
 
+When the placement is still illegal, `place` places again by KiCad's rules alone (the tight placement,
+`HWFLOW_TIGHT=0`: off) and keeps it when it leaves fewer violations. The placer margin around each courtyard
+(`COURTYARD_MARGIN`) and the board margin (`board.margin_mm`) are dropped. A footprint without a courtyard keeps
+only its pads, with half the pad clearance around each (`Part.guard`, `Part.keep`), so other parts may sit between
+them, as KiCad allows. On the PCBWorld D3-A boards (`evals/bench/pcbench`), small open-hardware boards too dense for
+the margins placed legally only this way.
+
+The placer's model of a footprint (`placer.build_parts`):
+
+- **Courtyard arcs** count to their extremes (`libs._arc_extremes`): the round courtyard of a 5 mm LED is 6.4 mm high,
+  not the 3.1 mm between its arc's end points.
+- **Every copper pad** is in it: a second pad with the same number apart from the first (the other clip of a fuse
+  holder, `<number>#<k>`) and a plated pad without a number (`#<k>`) are copper without a net that the edge, side
+  and through-hole checks see.
+- **A shield or stacked-board outline** without a courtyard, whose few pads span at least 60% of the board
+  (`placer._bodiless`), has no body: the parts of the board sit under it. A smaller footprint without a courtyard (a
+  potted AC/DC module, a battery holder) keeps its pad box as courtyard outside the tight placement.
+- **A part larger than the board** in every rotation (a radio module on a smaller carrier, `placer._oversize`)
+  overhangs the edge: the board bounds hold its copper only, and its courtyard still keeps the other parts off its
+  body. `unstick` scans the box centre of a part over the board, not its origin, which lies off the board then.
+
 ### Reproducibility
 
 The same design and `seed0` give the same placement bit for bit, whatever the CPU load and in any process

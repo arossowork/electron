@@ -1,5 +1,5 @@
 {
- "note": "scripts/layout_bench.py --pcbench-only --pcbench-mode both; route rows and place rows from two runs on the same commit",
+ "note": "route rows: layout_bench.py --pcbench-mode route; place rows: --pcbench-mode place after the tight placement and footprint-model changes (8 parallel shards, so time_s is under load)",
  "pcbench_src": [
   "https://github.com/PCBench/PCBench.git",
   "dec3be75"
@@ -58,59 +58,40 @@
  },
  "pcbench_place": {
   "boards": 95,
-  "legal": 0.8,
+  "legal": 0.96,
   "inherited": [
-   "pcbp:0020_Cherry-Mx-Bitboard_Cherry_Mx_Bitboard",
    "pcbp:0024_memsarray_mems_modules",
    "pcbp:0034_NavigationThing_NavigationThingBacklight",
    "pcbp:0040_oshtimer_transponder",
    "pcbp:0064_kicad-guitar-preamp_Preamp-Instructables",
    "pcbp:0067_radio_saw_dcc6c",
-   "pcbp:0083_DustSensorShield_DustSensorShield",
+   "pcbp:0076_breakout-boards_usb-5v-3v3",
    "pcbp:0085_mini-whip_mini-whip-power-feed"
   ],
-  "routability": 0.95,
-  "clean_pass": 0.67,
-  "drv": 0.63,
-  "hpwl_ratio": 0.94,
-  "wl_ratio": 0.56,
+  "routability": 0.99,
+  "clean_pass": 0.86,
+  "drv": 0.18,
+  "hpwl_ratio": 0.91,
+  "wl_ratio": 0.55,
   "vias_delta": 1.0,
-  "time_s": 37.94,
-  "placer_s": 10.88,
+  "time_s": 84.49,
+  "placer_s": 29.04,
   "blocked": [
    "pcbp:0006_raspberry_pi_pullup_button_pullup_shutdown_button",
-   "pcbp:0007_raspberry_pi_pullup_button_pullup_shutdown_button(revB)",
-   "pcbp:0018_Hardware_Playground_hy_adapter",
-   "pcbp:0023_hardware-designs_si7021-board",
-   "pcbp:0037_hardware-designs_spsgrf-board",
-   "pcbp:0041_FogDrive_attiny45_slim",
-   "pcbp:0048_MySRaspiGW_MySRaspiGW",
-   "pcbp:0049_MySRaspiGW_MySRaspiGW_PA_LNA",
-   "pcbp:0050_MySRaspiGW_MySRaspiGW_PA_LNA_Pimoroni",
-   "pcbp:0051_MySRaspiGW_MySRaspiGW_Pimoroni",
    "pcbp:0056_nrf2rfm69_nrf2rfm69",
-   "pcbp:0057_tepmachcha_tepmachcha",
-   "pcbp:0065_DiscoDanceFloorV1_BusTerminator",
-   "pcbp:0069_C-BISCUIT_crowbar",
-   "pcbp:0072_esp8266_wi07_3_adapter_esp",
-   "pcbp:0076_breakout-boards_usb-5v-3v3",
    "pcbp:0077_HaveSome_PCB_HaveSomePCB",
-   "pcbp:0082_firefly-jar_solar_lamp",
-   "pcbp:0086_BB-PWR-8009_BB-PWR-8009_revA"
+   "pcbp:0083_DustSensorShield_DustSensorShield"
   ],
   "failed": [
-   "pcbp:0001_rufs__autosave-simple_kicad_schema_and_pcb_v1",
-   "pcbp:0002_rufs_simple_kicad_schema_and_pcb_v1",
-   "pcbp:0009_SmartLaserCO2-PCB_WaterCool",
-   "pcbp:0010_SmartLaserCO2-PCB_OptAdjust",
+   "pcbp:0018_Hardware_Playground_hy_adapter",
    "pcbp:0024_memsarray_mems_modules",
-   "pcbp:0029_espeverywhere__autosave-espeverywhere_breakout",
-   "pcbp:0040_oshtimer_transponder",
+   "pcbp:0048_MySRaspiGW_MySRaspiGW",
+   "pcbp:0049_MySRaspiGW_MySRaspiGW_PA_LNA",
    "pcbp:0054_induction-hob_temperature-sensor",
-   "pcbp:0055_dustbox_Dustbox",
    "pcbp:0066_ESP8266-WS2811-LEDs_ws2811controller_panels",
    "pcbp:0068_AVR-ISP_pogo-plug_1.27mm_AVR-ISP_pogo-plug_1.27mm",
-   "pcbp:0071_hackyflasher_Flasher"
+   "pcbp:0069_C-BISCUIT_crowbar",
+   "pcbp:0086_BB-PWR-8009_BB-PWR-8009_revA"
   ]
  },
  "designs": {
@@ -3341,18 +3322,18 @@
     {
      "routability": 1.0,
      "connections": 3,
-     "drv_after": 1,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 6.1,
+     "track_mm": 6.2,
      "vias_board": 0,
-     "hpwl_mm": 22.9,
-     "wall_s": 18.5,
+     "hpwl_mm": 27.8,
+     "wall_s": 23.3,
      "phase_s": {
-      "placer": 9.5,
-      "router": 3.6,
+      "placer": 12.0,
+      "router": 4.3,
       "repair": 0.0,
-      "drc": 5.1,
-      "other": 0.3
+      "drc": 6.7,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3375,17 +3356,17 @@
     {
      "routability": 1.0,
      "connections": 3,
-     "drv_after": 1,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 6.1,
+     "track_mm": 6.2,
      "vias_board": 0,
-     "hpwl_mm": 22.9,
-     "wall_s": 18.1,
+     "hpwl_mm": 27.8,
+     "wall_s": 27.1,
      "phase_s": {
-      "placer": 9.1,
-      "router": 3.6,
+      "placer": 17.2,
+      "router": 2.8,
       "repair": 0.0,
-      "drc": 5.1,
+      "drc": 6.8,
       "other": 0.4
      },
      "placement_violations": [],
@@ -3414,13 +3395,13 @@
      "track_mm": 11.1,
      "vias_board": 0,
      "hpwl_mm": 18.0,
-     "wall_s": 2.4,
+     "wall_s": 9.9,
      "phase_s": {
       "placer": 0.0,
-      "router": 0.9,
+      "router": 3.1,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.1
+      "drc": 6.5,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3448,13 +3429,13 @@
      "track_mm": 48.2,
      "vias_board": 3,
      "hpwl_mm": 65.7,
-     "wall_s": 3.6,
+     "wall_s": 14.1,
      "phase_s": {
-      "placer": 0.9,
-      "router": 1.2,
+      "placer": 3.9,
+      "router": 4.2,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.2
+      "drc": 5.1,
+      "other": 0.9
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3483,13 +3464,13 @@
      "track_mm": 66.9,
      "vias_board": 1,
      "hpwl_mm": 87.8,
-     "wall_s": 11.2,
+     "wall_s": 29.6,
      "phase_s": {
-      "placer": 7.4,
-      "router": 1.6,
+      "placer": 17.3,
+      "router": 3.4,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.5
+      "drc": 7.4,
+      "other": 1.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3518,13 +3499,13 @@
      "track_mm": 35.3,
      "vias_board": 0,
      "hpwl_mm": 35.9,
-     "wall_s": 22.0,
+     "wall_s": 137.0,
      "phase_s": {
-      "placer": 13.4,
-      "router": 1.6,
-      "repair": 1.7,
-      "drc": 5.0,
-      "other": 0.2
+      "placer": 91.6,
+      "router": 5.1,
+      "repair": 8.2,
+      "drc": 31.2,
+      "other": 1.0
      },
      "placement_violations": [
       "R1 pad 1 copper closer than 0.3 mm to the board edge"
@@ -3550,23 +3531,21 @@
     {
      "routability": 1.0,
      "connections": 5,
-     "drv_after": 2,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 29.1,
+     "track_mm": 30.8,
      "vias_board": 0,
-     "hpwl_mm": 33.9,
-     "wall_s": 22.1,
+     "hpwl_mm": 33.6,
+     "wall_s": 38.0,
      "phase_s": {
-      "placer": 14.9,
-      "router": 2.0,
+      "placer": 29.2,
+      "router": 1.6,
       "repair": 0.0,
-      "drc": 5.0,
+      "drc": 7.0,
       "other": 0.3
      },
-     "placement_violations": [
-      "D1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -3587,18 +3566,18 @@
     {
      "routability": 1.0,
      "connections": 8,
-     "drv_after": 4,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 50.2,
+     "track_mm": 49.4,
      "vias_board": 0,
      "hpwl_mm": 70.6,
-     "wall_s": 13.7,
+     "wall_s": 20.9,
      "phase_s": {
-      "placer": 2.1,
-      "router": 4.4,
+      "placer": 6.4,
+      "router": 6.2,
       "repair": 0.0,
       "drc": 6.2,
-      "other": 1.0
+      "other": 2.1
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3622,17 +3601,17 @@
     {
      "routability": 1.0,
      "connections": 6,
-     "drv_after": 4,
+     "drv_after": 0,
      "fixed_errors": 0,
      "track_mm": 26.0,
      "vias_board": 0,
      "hpwl_mm": 56.6,
-     "wall_s": 15.5,
+     "wall_s": 18.1,
      "phase_s": {
-      "placer": 4.8,
-      "router": 4.4,
+      "placer": 6.4,
+      "router": 3.1,
       "repair": 0.0,
-      "drc": 5.2,
+      "drc": 7.5,
       "other": 1.1
      },
      "placement_violations": [],
@@ -3662,13 +3641,13 @@
      "track_mm": 80.0,
      "vias_board": 2,
      "hpwl_mm": 81.6,
-     "wall_s": 8.1,
+     "wall_s": 34.5,
      "phase_s": {
-      "placer": 5.4,
-      "router": 1.1,
+      "placer": 18.2,
+      "router": 4.0,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.2
+      "drc": 11.7,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3696,13 +3675,13 @@
      "track_mm": 35.6,
      "vias_board": 0,
      "hpwl_mm": 65.2,
-     "wall_s": 5.5,
+     "wall_s": 22.9,
      "phase_s": {
-      "placer": 2.5,
-      "router": 1.3,
+      "placer": 9.8,
+      "router": 4.9,
       "repair": 0.0,
-      "drc": 1.2,
-      "other": 0.5
+      "drc": 7.1,
+      "other": 1.2
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3731,13 +3710,13 @@
      "track_mm": 75.1,
      "vias_board": 0,
      "hpwl_mm": 134.4,
-     "wall_s": 2.6,
+     "wall_s": 12.6,
      "phase_s": {
       "placer": 0.0,
-      "router": 1.0,
+      "router": 4.2,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.3
+      "drc": 7.5,
+      "other": 0.9
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3766,13 +3745,13 @@
      "track_mm": 92.3,
      "vias_board": 0,
      "hpwl_mm": 102.9,
-     "wall_s": 4.4,
+     "wall_s": 18.1,
      "phase_s": {
-      "placer": 2.4,
-      "router": 0.5,
+      "placer": 8.3,
+      "router": 1.3,
       "repair": 0.0,
-      "drc": 1.2,
-      "other": 0.2
+      "drc": 8.0,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3801,13 +3780,13 @@
      "track_mm": 21.5,
      "vias_board": 2,
      "hpwl_mm": 45.1,
-     "wall_s": 5.9,
+     "wall_s": 28.6,
      "phase_s": {
-      "placer": 3.6,
-      "router": 1.0,
+      "placer": 13.2,
+      "router": 3.9,
       "repair": 0.0,
-      "drc": 1.2,
-      "other": 0.1
+      "drc": 10.9,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3835,13 +3814,13 @@
      "track_mm": 30.0,
      "vias_board": 0,
      "hpwl_mm": 29.5,
-     "wall_s": 8.2,
+     "wall_s": 29.3,
      "phase_s": {
-      "placer": 6.3,
-      "router": 0.5,
+      "placer": 20.4,
+      "router": 1.7,
       "repair": 0.0,
-      "drc": 1.2,
-      "other": 0.1
+      "drc": 6.9,
+      "other": 0.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3870,13 +3849,13 @@
      "track_mm": 30.1,
      "vias_board": 0,
      "hpwl_mm": 28.2,
-     "wall_s": 5.8,
+     "wall_s": 23.2,
      "phase_s": {
-      "placer": 3.9,
-      "router": 0.5,
+      "placer": 13.7,
+      "router": 1.8,
       "repair": 0.0,
-      "drc": 1.2,
-      "other": 0.2
+      "drc": 7.2,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3898,32 +3877,23 @@
    },
    "runs": [
     {
-     "routability": 1.0,
+     "routability": 0.8333,
      "connections": 6,
-     "drv_after": 8,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 38.9,
-     "vias_board": 5,
-     "hpwl_mm": 25.5,
-     "wall_s": 32.9,
+     "track_mm": 51.1,
+     "vias_board": 3,
+     "hpwl_mm": 41.4,
+     "wall_s": 364.8,
      "phase_s": {
-      "placer": 19.8,
-      "router": 4.3,
-      "repair": 3.6,
-      "drc": 5.0,
-      "other": 0.3
+      "placer": 133.7,
+      "router": 121.3,
+      "repair": 68.4,
+      "drc": 40.1,
+      "other": 1.2
      },
-     "placement_violations": [
-      "Noname_20 pad 1 copper closer than 0.3 mm to the board edge",
-      "courtyard overlap Noname_17/Noname_15",
-      "courtyard overlap Noname_16/Noname_15",
-      "courtyard overlap Noname_8/Noname_1",
-      "courtyard overlap Noname_6/Noname_1",
-      "courtyard overlap Noname_4/Noname_3",
-      "Noname_2 pad 1 copper closer than 0.3 mm to the board edge",
-      "Noname_15 inside floorplan region 'outline_cut1' (0.1 mm2)"
-     ],
-     "violations_placer": 8,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -3949,13 +3919,13 @@
      "track_mm": 70.5,
      "vias_board": 1,
      "hpwl_mm": 83.6,
-     "wall_s": 6.3,
+     "wall_s": 24.1,
      "phase_s": {
-      "placer": 3.5,
-      "router": 1.2,
+      "placer": 14.2,
+      "router": 4.6,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.2
+      "drc": 4.6,
+      "other": 0.7
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -3981,20 +3951,18 @@
      "connections": 11,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 73.4,
+     "track_mm": 62.5,
      "vias_board": 0,
-     "hpwl_mm": 57.8,
-     "wall_s": 20.5,
+     "hpwl_mm": 51.8,
+     "wall_s": 34.3,
      "phase_s": {
-      "placer": 13.1,
-      "router": 2.2,
+      "placer": 22.3,
+      "router": 1.5,
       "repair": 0.0,
-      "drc": 4.8,
+      "drc": 10.1,
       "other": 0.4
      },
-     "placement_violations": [
-      "courtyard overlap P11/SW1"
-     ],
+     "placement_violations": [],
      "violations_placer": 0,
      "error": null
     }
@@ -4021,13 +3989,13 @@
      "track_mm": 39.0,
      "vias_board": 0,
      "hpwl_mm": 49.9,
-     "wall_s": 6.4,
+     "wall_s": 32.5,
      "phase_s": {
-      "placer": 3.7,
-      "router": 1.1,
+      "placer": 16.3,
+      "router": 4.9,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.2
+      "drc": 10.7,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4055,13 +4023,13 @@
      "track_mm": 33.8,
      "vias_board": 0,
      "hpwl_mm": 40.3,
-     "wall_s": 4.9,
+     "wall_s": 24.4,
      "phase_s": {
-      "placer": 2.5,
-      "router": 1.0,
+      "placer": 13.2,
+      "router": 4.0,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.1
+      "drc": 6.7,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4083,25 +4051,23 @@
    },
    "runs": [
     {
-     "routability": 0.9,
+     "routability": 1.0,
      "connections": 10,
-     "drv_after": 4,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 63.5,
+     "track_mm": 69.0,
      "vias_board": 3,
-     "hpwl_mm": 118.5,
-     "wall_s": 193.6,
+     "hpwl_mm": 100.3,
+     "wall_s": 243.3,
      "phase_s": {
-      "placer": 17.2,
-      "router": 108.7,
-      "repair": 62.2,
-      "drc": 5.0,
-      "other": 0.4
+      "placer": 70.2,
+      "router": 100.2,
+      "repair": 50.1,
+      "drc": 21.8,
+      "other": 1.0
      },
-     "placement_violations": [
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -4127,13 +4093,13 @@
      "track_mm": 11.3,
      "vias_board": 2,
      "hpwl_mm": 30.6,
-     "wall_s": 141.7,
+     "wall_s": 523.1,
      "phase_s": {
-      "placer": 10.2,
-      "router": 25.6,
-      "repair": 95.3,
-      "drc": 10.4,
-      "other": 0.3
+      "placer": 69.7,
+      "router": 82.6,
+      "repair": 316.0,
+      "drc": 53.9,
+      "other": 0.9
      },
      "placement_violations": [
       "P1 pad 1 copper closer than 0.3 mm to the board edge",
@@ -4167,13 +4133,13 @@
      "track_mm": 53.4,
      "vias_board": 0,
      "hpwl_mm": 71.6,
-     "wall_s": 6.2,
+     "wall_s": 32.7,
      "phase_s": {
-      "placer": 3.0,
-      "router": 1.5,
+      "placer": 22.0,
+      "router": 4.0,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.3
+      "drc": 5.6,
+      "other": 1.1
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4201,13 +4167,13 @@
      "track_mm": 130.6,
      "vias_board": 1,
      "hpwl_mm": 143.4,
-     "wall_s": 5.6,
+     "wall_s": 17.8,
      "phase_s": {
-      "placer": 3.3,
-      "router": 0.7,
+      "placer": 11.9,
+      "router": 1.5,
       "repair": 0.0,
-      "drc": 1.3,
-      "other": 0.3
+      "drc": 3.4,
+      "other": 1.0
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4233,16 +4199,16 @@
      "connections": 8,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 53.3,
-     "vias_board": 0,
+     "track_mm": 43.6,
+     "vias_board": 1,
      "hpwl_mm": 52.6,
-     "wall_s": 4.6,
+     "wall_s": 19.8,
      "phase_s": {
-      "placer": 1.5,
-      "router": 1.3,
+      "placer": 6.1,
+      "router": 4.4,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.4
+      "drc": 8.0,
+      "other": 1.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4271,13 +4237,13 @@
      "track_mm": 46.5,
      "vias_board": 0,
      "hpwl_mm": 52.7,
-     "wall_s": 6.4,
+     "wall_s": 22.6,
      "phase_s": {
-      "placer": 4.2,
-      "router": 0.6,
+      "placer": 16.1,
+      "router": 1.5,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 4.7,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4300,18 +4266,18 @@
     {
      "routability": 1.0,
      "connections": 8,
-     "drv_after": 1,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 118.8,
-     "vias_board": 6,
+     "track_mm": 116.3,
+     "vias_board": 7,
      "hpwl_mm": 151.9,
-     "wall_s": 16.0,
+     "wall_s": 15.2,
      "phase_s": {
-      "placer": 4.2,
-      "router": 5.2,
+      "placer": 3.4,
+      "router": 4.5,
       "repair": 0.0,
-      "drc": 6.0,
-      "other": 0.6
+      "drc": 6.9,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4339,13 +4305,13 @@
      "track_mm": 66.5,
      "vias_board": 4,
      "hpwl_mm": 78.0,
-     "wall_s": 8.8,
+     "wall_s": 24.1,
      "phase_s": {
-      "placer": 6.5,
-      "router": 0.6,
+      "placer": 17.9,
+      "router": 1.2,
       "repair": 0.0,
-      "drc": 1.6,
-      "other": 0.2
+      "drc": 4.6,
+      "other": 0.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4374,13 +4340,13 @@
      "track_mm": 100.4,
      "vias_board": 0,
      "hpwl_mm": 104.4,
-     "wall_s": 7.0,
+     "wall_s": 20.6,
      "phase_s": {
-      "placer": 4.7,
-      "router": 0.6,
+      "placer": 13.8,
+      "router": 1.6,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.3
+      "drc": 4.7,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4409,13 +4375,13 @@
      "track_mm": 90.6,
      "vias_board": 1,
      "hpwl_mm": 106.8,
-     "wall_s": 7.4,
+     "wall_s": 29.9,
      "phase_s": {
-      "placer": 4.7,
-      "router": 0.7,
+      "placer": 20.8,
+      "router": 2.6,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.5
+      "drc": 5.1,
+      "other": 1.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4444,13 +4410,13 @@
      "track_mm": 46.4,
      "vias_board": 1,
      "hpwl_mm": 41.9,
-     "wall_s": 10.6,
+     "wall_s": 31.7,
      "phase_s": {
-      "placer": 7.6,
-      "router": 1.2,
+      "placer": 19.6,
+      "router": 3.6,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 7.9,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4478,13 +4444,13 @@
      "track_mm": 33.0,
      "vias_board": 0,
      "hpwl_mm": 36.6,
-     "wall_s": 5.3,
+     "wall_s": 22.2,
      "phase_s": {
-      "placer": 3.0,
-      "router": 0.6,
+      "placer": 15.9,
+      "router": 2.4,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 3.6,
+      "other": 0.4
      },
      "placement_violations": [
       "P1 pad 1 copper closer than 0.3 mm to the board edge",
@@ -4516,13 +4482,13 @@
      "track_mm": 58.5,
      "vias_board": 2,
      "hpwl_mm": 95.4,
-     "wall_s": 8.2,
+     "wall_s": 28.2,
      "phase_s": {
-      "placer": 5.3,
-      "router": 1.2,
+      "placer": 19.3,
+      "router": 3.2,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 5.0,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4544,26 +4510,23 @@
    },
    "runs": [
     {
-     "routability": 0.0,
+     "routability": 1.0,
      "connections": 10,
-     "drv_after": 3,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 0,
-     "vias_board": 0,
-     "hpwl_mm": 271.8,
-     "wall_s": 105.3,
+     "track_mm": 100.6,
+     "vias_board": 8,
+     "hpwl_mm": 131.1,
+     "wall_s": 29.6,
      "phase_s": {
-      "placer": 31.9,
-      "router": 33.2,
-      "repair": 34.8,
-      "drc": 4.9,
-      "other": 0.6
+      "placer": 17.2,
+      "router": 4.3,
+      "repair": 0.0,
+      "drc": 7.8,
+      "other": 0.3
      },
-     "placement_violations": [
-      "R1 pad 1 copper closer than 0.3 mm to the board edge",
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 2,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -4588,13 +4551,13 @@
      "track_mm": 21.3,
      "vias_board": 0,
      "hpwl_mm": 22.0,
-     "wall_s": 5.5,
+     "wall_s": 20.0,
      "phase_s": {
-      "placer": 3.3,
-      "router": 0.6,
+      "placer": 13.8,
+      "router": 1.1,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 4.5,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4619,17 +4582,17 @@
      "routability": 1.0,
      "connections": 14,
      "drv_after": 0,
-     "fixed_errors": 1,
-     "track_mm": 74.5,
+     "fixed_errors": 0,
+     "track_mm": 75.4,
      "vias_board": 1,
      "hpwl_mm": 153.7,
-     "wall_s": 7.7,
+     "wall_s": 30.9,
      "phase_s": {
-      "placer": 4.4,
-      "router": 1.5,
+      "placer": 18.2,
+      "router": 5.4,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.4
+      "drc": 6.2,
+      "other": 1.1
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4653,18 +4616,18 @@
     {
      "routability": 1.0,
      "connections": 12,
-     "drv_after": 1,
+     "drv_after": 0,
      "fixed_errors": 2,
-     "track_mm": 40.3,
+     "track_mm": 42.3,
      "vias_board": 3,
-     "hpwl_mm": 68.0,
-     "wall_s": 26.9,
+     "hpwl_mm": 65.5,
+     "wall_s": 34.7,
      "phase_s": {
-      "placer": 15.3,
-      "router": 5.0,
+      "placer": 23.3,
+      "router": 4.2,
       "repair": 0.0,
-      "drc": 6.1,
-      "other": 0.5
+      "drc": 6.6,
+      "other": 0.6
      },
      "placement_violations": [
       "P1 pad 1 copper closer than 0.3 mm to the board edge"
@@ -4687,27 +4650,23 @@
    },
    "runs": [
     {
-     "routability": 0.6667,
+     "routability": 1.0,
      "connections": 12,
-     "drv_after": 2,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 56.7,
+     "track_mm": 57.6,
      "vias_board": 2,
-     "hpwl_mm": 124.6,
-     "wall_s": 146.0,
+     "hpwl_mm": 88.6,
+     "wall_s": 179.9,
      "phase_s": {
-      "placer": 22.1,
-      "router": 56.0,
-      "repair": 61.4,
-      "drc": 5.8,
-      "other": 0.6
+      "placer": 136.5,
+      "router": 21.7,
+      "repair": 0.0,
+      "drc": 20.5,
+      "other": 1.3
      },
-     "placement_violations": [
-      "C1 pad 1 copper closer than 0.3 mm to the board edge",
-      "Noname_2 pad 1 copper closer than 0.3 mm to the board edge",
-      "IC1 pad 4 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 3,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -4732,13 +4691,13 @@
      "track_mm": 32.3,
      "vias_board": 0,
      "hpwl_mm": 48.9,
-     "wall_s": 5.9,
+     "wall_s": 25.9,
      "phase_s": {
-      "placer": 3.1,
-      "router": 1.2,
+      "placer": 16.1,
+      "router": 3.3,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 5.9,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4767,13 +4726,13 @@
      "track_mm": 82.4,
      "vias_board": 2,
      "hpwl_mm": 99.6,
-     "wall_s": 2.9,
+     "wall_s": 9.4,
      "phase_s": {
       "placer": 0.0,
-      "router": 1.2,
+      "router": 3.2,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 5.8,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4799,16 +4758,16 @@
      "connections": 14,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 63.1,
+     "track_mm": 61.9,
      "vias_board": 2,
-     "hpwl_mm": 97.3,
-     "wall_s": 10.3,
+     "hpwl_mm": 97.5,
+     "wall_s": 50.7,
      "phase_s": {
-      "placer": 4.4,
-      "router": 1.3,
-      "repair": 1.5,
-      "drc": 2.9,
-      "other": 0.3
+      "placer": 29.1,
+      "router": 4.0,
+      "repair": 4.6,
+      "drc": 12.3,
+      "other": 0.8
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4833,17 +4792,17 @@
      "routability": 1.0,
      "connections": 12,
      "drv_after": 0,
-     "fixed_errors": 2,
+     "fixed_errors": 0,
      "track_mm": 98.0,
      "vias_board": 1,
      "hpwl_mm": 110.9,
-     "wall_s": 4.9,
+     "wall_s": 21.8,
      "phase_s": {
-      "placer": 1.9,
-      "router": 1.2,
+      "placer": 7.4,
+      "router": 3.7,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.3
+      "drc": 9.9,
+      "other": 0.8
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4872,13 +4831,13 @@
      "track_mm": 312.7,
      "vias_board": 7,
      "hpwl_mm": 400.3,
-     "wall_s": 10.2,
+     "wall_s": 34.7,
      "phase_s": {
-      "placer": 3.1,
-      "router": 4.4,
+      "placer": 10.4,
+      "router": 15.3,
       "repair": 0.0,
-      "drc": 1.9,
-      "other": 0.9
+      "drc": 6.3,
+      "other": 2.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4907,13 +4866,13 @@
      "track_mm": 76.4,
      "vias_board": 0,
      "hpwl_mm": 128.3,
-     "wall_s": 9.8,
+     "wall_s": 51.7,
      "phase_s": {
-      "placer": 5.8,
-      "router": 1.7,
+      "placer": 40.0,
+      "router": 5.5,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.7
+      "drc": 4.5,
+      "other": 1.7
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -4935,25 +4894,23 @@
    },
    "runs": [
     {
-     "routability": 0.6923,
+     "routability": 0.8462,
      "connections": 13,
-     "drv_after": 7,
+     "drv_after": 14,
      "fixed_errors": 0,
-     "track_mm": 37.7,
-     "vias_board": 1,
-     "hpwl_mm": 90.5,
-     "wall_s": 250.1,
+     "track_mm": 45.1,
+     "vias_board": 3,
+     "hpwl_mm": 50.1,
+     "wall_s": 537.0,
      "phase_s": {
-      "placer": 16.1,
-      "router": 95.8,
-      "repair": 130.4,
-      "drc": 7.4,
-      "other": 0.4
+      "placer": 49.0,
+      "router": 263.8,
+      "repair": 185.4,
+      "drc": 37.8,
+      "other": 1.0
      },
-     "placement_violations": [
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -4972,25 +4929,23 @@
    },
    "runs": [
     {
-     "routability": 0.7692,
+     "routability": 0.9231,
      "connections": 13,
-     "drv_after": 7,
+     "drv_after": 14,
      "fixed_errors": 0,
-     "track_mm": 48.1,
-     "vias_board": 2,
-     "hpwl_mm": 104.8,
-     "wall_s": 218.5,
+     "track_mm": 42.5,
+     "vias_board": 3,
+     "hpwl_mm": 52.2,
+     "wall_s": 370.7,
      "phase_s": {
-      "placer": 16.3,
-      "router": 95.2,
-      "repair": 100.8,
-      "drc": 5.7,
-      "other": 0.4
+      "placer": 32.6,
+      "router": 210.0,
+      "repair": 116.5,
+      "drc": 10.9,
+      "other": 0.8
      },
-     "placement_violations": [
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5009,25 +4964,23 @@
    },
    "runs": [
     {
-     "routability": 0.6923,
+     "routability": 1.0,
      "connections": 13,
-     "drv_after": 6,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 48.9,
-     "vias_board": 1,
-     "hpwl_mm": 139.1,
-     "wall_s": 228.9,
+     "track_mm": 54.3,
+     "vias_board": 4,
+     "hpwl_mm": 60.9,
+     "wall_s": 221.2,
      "phase_s": {
-      "placer": 17.6,
-      "router": 100.1,
-      "repair": 104.9,
-      "drc": 5.7,
-      "other": 0.4
+      "placer": 32.0,
+      "router": 119.3,
+      "repair": 52.0,
+      "drc": 17.0,
+      "other": 1.0
      },
-     "placement_violations": [
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5046,26 +4999,23 @@
    },
    "runs": [
     {
-     "routability": 0.6923,
+     "routability": 1.0,
      "connections": 13,
-     "drv_after": 6,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 38.7,
-     "vias_board": 2,
-     "hpwl_mm": 143.5,
-     "wall_s": 53.5,
+     "track_mm": 63.2,
+     "vias_board": 5,
+     "hpwl_mm": 62.0,
+     "wall_s": 135.0,
      "phase_s": {
-      "placer": 17.4,
-      "router": 4.7,
-      "repair": 19.6,
-      "drc": 11.3,
-      "other": 0.4
+      "placer": 31.8,
+      "router": 42.3,
+      "repair": 27.2,
+      "drc": 32.8,
+      "other": 0.8
      },
-     "placement_violations": [
-      "U1 pad 1 copper closer than 0.3 mm to the board edge",
-      "U1 inside floorplan region 'outline_cut1' (0.2 mm2)"
-     ],
-     "violations_placer": 2,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5091,13 +5041,13 @@
      "track_mm": 132.0,
      "vias_board": 3,
      "hpwl_mm": 116.0,
-     "wall_s": 2.3,
+     "wall_s": 9.9,
      "phase_s": {
       "placer": 0.0,
-      "router": 0.7,
+      "router": 3.3,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.1
+      "drc": 6.3,
+      "other": 0.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5126,13 +5076,13 @@
      "track_mm": 115.0,
      "vias_board": 5,
      "hpwl_mm": 110.5,
-     "wall_s": 2.2,
+     "wall_s": 10.3,
      "phase_s": {
       "placer": 0.0,
-      "router": 0.6,
+      "router": 3.4,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 6.1,
+      "other": 0.7
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5161,13 +5111,13 @@
      "track_mm": 23.6,
      "vias_board": 2,
      "hpwl_mm": 28.0,
-     "wall_s": 151.4,
+     "wall_s": 459.0,
      "phase_s": {
-      "placer": 14.1,
-      "router": 90.9,
-      "repair": 38.6,
-      "drc": 7.3,
-      "other": 0.5
+      "placer": 78.7,
+      "router": 269.2,
+      "repair": 88.8,
+      "drc": 20.9,
+      "other": 1.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5190,18 +5140,18 @@
     {
      "routability": 1.0,
      "connections": 14,
-     "drv_after": 5,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 187.9,
-     "vias_board": 0,
-     "hpwl_mm": 164.0,
-     "wall_s": 19.6,
+     "track_mm": 188.4,
+     "vias_board": 1,
+     "hpwl_mm": 170.7,
+     "wall_s": 23.4,
      "phase_s": {
-      "placer": 8.6,
+      "placer": 12.7,
       "router": 3.2,
       "repair": 0.0,
-      "drc": 5.7,
-      "other": 2.0
+      "drc": 6.2,
+      "other": 1.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5227,16 +5177,16 @@
      "connections": 12,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 129.9,
-     "vias_board": 6,
-     "hpwl_mm": 220.2,
-     "wall_s": 206.6,
+     "track_mm": 101.1,
+     "vias_board": 3,
+     "hpwl_mm": 206.8,
+     "wall_s": 382.5,
      "phase_s": {
-      "placer": 35.4,
-      "router": 85.2,
-      "repair": 79.5,
-      "drc": 5.9,
-      "other": 0.6
+      "placer": 88.9,
+      "router": 132.4,
+      "repair": 152.4,
+      "drc": 7.9,
+      "other": 0.9
      },
      "placement_violations": [
       "U1 pad 1 copper closer than 0.3 mm to the board edge"
@@ -5260,26 +5210,23 @@
    },
    "runs": [
     {
-     "routability": 0.0,
+     "routability": 1.0,
      "connections": 12,
-     "drv_after": 2,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 0,
-     "vias_board": 0,
-     "hpwl_mm": 701.2,
-     "wall_s": 203.1,
+     "track_mm": 267.2,
+     "vias_board": 5,
+     "hpwl_mm": 376.6,
+     "wall_s": 51.1,
      "phase_s": {
-      "placer": 190.2,
-      "router": 2.3,
-      "repair": 3.5,
-      "drc": 4.9,
-      "other": 2.2
+      "placer": 43.8,
+      "router": 4.5,
+      "repair": 0.0,
+      "drc": 2.1,
+      "other": 0.7
      },
-     "placement_violations": [
-      "SHIELD1 pad 0 copper closer than 0.3 mm to the board edge",
-      "U1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 2,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5302,16 +5249,16 @@
      "connections": 17,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 157.0,
-     "vias_board": 2,
-     "hpwl_mm": 217.5,
-     "wall_s": 99.7,
+     "track_mm": 182.2,
+     "vias_board": 1,
+     "hpwl_mm": 221.5,
+     "wall_s": 30.6,
      "phase_s": {
-      "placer": 13.1,
-      "router": 54.9,
-      "repair": 28.0,
-      "drc": 2.9,
-      "other": 0.8
+      "placer": 20.0,
+      "router": 4.7,
+      "repair": 0.0,
+      "drc": 4.5,
+      "other": 1.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5337,16 +5284,16 @@
      "connections": 16,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 96.7,
+     "track_mm": 96.9,
      "vias_board": 1,
      "hpwl_mm": 134.1,
-     "wall_s": 7.2,
+     "wall_s": 20.3,
      "phase_s": {
-      "placer": 4.2,
-      "router": 1.3,
+      "placer": 13.4,
+      "router": 3.2,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 3.2,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5371,16 +5318,16 @@
      "connections": 11,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 127.6,
+     "track_mm": 128.7,
      "vias_board": 16,
-     "hpwl_mm": 178.9,
-     "wall_s": 17.2,
+     "hpwl_mm": 178.3,
+     "wall_s": 56.8,
      "phase_s": {
-      "placer": 13.9,
-      "router": 1.4,
+      "placer": 44.5,
+      "router": 3.9,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.4
+      "drc": 6.9,
+      "other": 1.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5409,13 +5356,13 @@
      "track_mm": 190.2,
      "vias_board": 2,
      "hpwl_mm": 165.1,
-     "wall_s": 6.1,
+     "wall_s": 19.2,
      "phase_s": {
-      "placer": 2.3,
-      "router": 1.8,
+      "placer": 6.0,
+      "router": 5.7,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.5
+      "drc": 6.4,
+      "other": 1.0
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5444,13 +5391,13 @@
      "track_mm": 61.6,
      "vias_board": 0,
      "hpwl_mm": 87.1,
-     "wall_s": 8.0,
+     "wall_s": 24.6,
      "phase_s": {
-      "placer": 4.6,
-      "router": 1.8,
+      "placer": 12.3,
+      "router": 4.8,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 7.1,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5479,13 +5426,13 @@
      "track_mm": 37.9,
      "vias_board": 0,
      "hpwl_mm": 72.6,
-     "wall_s": 2.6,
+     "wall_s": 8.0,
      "phase_s": {
       "placer": 0.0,
-      "router": 1.1,
+      "router": 3.0,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 4.5,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5511,16 +5458,16 @@
      "connections": 17,
      "drv_after": 0,
      "fixed_errors": 1,
-     "track_mm": 96.6,
+     "track_mm": 95.6,
      "vias_board": 0,
      "hpwl_mm": 122.3,
-     "wall_s": 7.3,
+     "wall_s": 12.3,
      "phase_s": {
-      "placer": 4.0,
-      "router": 1.5,
+      "placer": 8.1,
+      "router": 2.0,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.4
+      "drc": 1.7,
+      "other": 0.5
      },
      "placement_violations": [
       "courtyard overlap X10u1/J1"
@@ -5546,23 +5493,21 @@
     {
      "routability": 1.0,
      "connections": 16,
-     "drv_after": 2,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 83.5,
-     "vias_board": 4,
-     "hpwl_mm": 115.1,
-     "wall_s": 30.1,
+     "track_mm": 24.1,
+     "vias_board": 0,
+     "hpwl_mm": 41.8,
+     "wall_s": 14.3,
      "phase_s": {
-      "placer": 15.5,
-      "router": 5.1,
-      "repair": 1.5,
-      "drc": 7.6,
-      "other": 0.5
+      "placer": 11.2,
+      "router": 1.2,
+      "repair": 0.0,
+      "drc": 1.6,
+      "other": 0.2
      },
-     "placement_violations": [
-      "R1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5588,13 +5533,13 @@
      "track_mm": 70.4,
      "vias_board": 4,
      "hpwl_mm": 123.7,
-     "wall_s": 314.0,
+     "wall_s": 787.1,
      "phase_s": {
-      "placer": 14.9,
-      "router": 172.0,
-      "repair": 104.7,
-      "drc": 21.7,
-      "other": 0.7
+      "placer": 40.5,
+      "router": 431.8,
+      "repair": 252.9,
+      "drc": 60.4,
+      "other": 1.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5623,13 +5568,13 @@
      "track_mm": 17.4,
      "vias_board": 3,
      "hpwl_mm": 49.2,
-     "wall_s": 8.0,
+     "wall_s": 37.9,
      "phase_s": {
-      "placer": 2.5,
-      "router": 1.0,
-      "repair": 1.5,
-      "drc": 2.8,
-      "other": 0.3
+      "placer": 17.7,
+      "router": 3.6,
+      "repair": 3.8,
+      "drc": 12.4,
+      "other": 0.4
      },
      "placement_violations": [
       "P2 pad 1 copper closer than 0.3 mm to the board edge",
@@ -5661,13 +5606,13 @@
      "track_mm": 27.2,
      "vias_board": 0,
      "hpwl_mm": 46.3,
-     "wall_s": 5.2,
+     "wall_s": 16.7,
      "phase_s": {
       "placer": 0.0,
-      "router": 1.1,
-      "repair": 2.4,
-      "drc": 1.4,
-      "other": 0.3
+      "router": 3.4,
+      "repair": 6.8,
+      "drc": 5.9,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5691,23 +5636,21 @@
     {
      "routability": 1.0,
      "connections": 16,
-     "drv_after": 4,
+     "drv_after": 1,
      "fixed_errors": 0,
-     "track_mm": 79.2,
-     "vias_board": 3,
-     "hpwl_mm": 116.7,
-     "wall_s": 129.4,
+     "track_mm": 87.3,
+     "vias_board": 2,
+     "hpwl_mm": 114.9,
+     "wall_s": 445.3,
      "phase_s": {
-      "placer": 19.5,
-      "router": 68.7,
-      "repair": 31.4,
-      "drc": 8.9,
-      "other": 0.9
+      "placer": 151.8,
+      "router": 180.1,
+      "repair": 90.6,
+      "drc": 21.2,
+      "other": 1.7
      },
-     "placement_violations": [
-      "U1 pad 2 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5733,13 +5676,13 @@
      "track_mm": 56.7,
      "vias_board": 2,
      "hpwl_mm": 103.8,
-     "wall_s": 6.4,
+     "wall_s": 20.0,
      "phase_s": {
-      "placer": 3.4,
-      "router": 1.2,
+      "placer": 11.5,
+      "router": 2.9,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.3
+      "drc": 4.8,
+      "other": 0.8
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5763,18 +5706,18 @@
     {
      "routability": 1.0,
      "connections": 16,
-     "drv_after": 1,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 80.6,
+     "track_mm": 92.3,
      "vias_board": 0,
-     "hpwl_mm": 102.8,
-     "wall_s": 46.5,
+     "hpwl_mm": 129.5,
+     "wall_s": 31.0,
      "phase_s": {
-      "placer": 27.9,
-      "router": 8.2,
+      "placer": 18.5,
+      "router": 4.9,
       "repair": 0.0,
-      "drc": 6.2,
-      "other": 4.1
+      "drc": 4.1,
+      "other": 3.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5800,21 +5743,19 @@
      "connections": 15,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 92.9,
+     "track_mm": 71.7,
      "vias_board": 4,
-     "hpwl_mm": 119.8,
-     "wall_s": 44.3,
+     "hpwl_mm": 100.1,
+     "wall_s": 18.4,
      "phase_s": {
-      "placer": 31.2,
-      "router": 5.8,
+      "placer": 15.3,
+      "router": 1.4,
       "repair": 0.0,
-      "drc": 6.4,
-      "other": 1.0
+      "drc": 1.6,
+      "other": 0.2
      },
-     "placement_violations": [
-      "courtyard overlap P1/U1"
-     ],
-     "violations_placer": 1,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5837,16 +5778,16 @@
      "connections": 15,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 101.5,
+     "track_mm": 101.1,
      "vias_board": 2,
-     "hpwl_mm": 139.8,
-     "wall_s": 7.4,
+     "hpwl_mm": 140.4,
+     "wall_s": 7.5,
      "phase_s": {
-      "placer": 4.5,
-      "router": 1.2,
+      "placer": 4.3,
+      "router": 1.4,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.2
+      "drc": 1.6,
+      "other": 0.3
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5872,15 +5813,15 @@
      "connections": 22,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 107.4,
+     "track_mm": 113.1,
      "vias_board": 0,
-     "hpwl_mm": 109.8,
-     "wall_s": 9.9,
+     "hpwl_mm": 116.4,
+     "wall_s": 8.0,
      "phase_s": {
-      "placer": 3.0,
-      "router": 2.1,
+      "placer": 3.5,
+      "router": 2.0,
       "repair": 0.0,
-      "drc": 4.2,
+      "drc": 1.8,
       "other": 0.6
      },
      "placement_violations": [],
@@ -5910,13 +5851,13 @@
      "track_mm": 217.0,
      "vias_board": 3,
      "hpwl_mm": 196.6,
-     "wall_s": 8.4,
+     "wall_s": 28.1,
      "phase_s": {
-      "placer": 5.8,
-      "router": 0.8,
+      "placer": 20.6,
+      "router": 2.9,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.3
+      "drc": 3.9,
+      "other": 0.7
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -5942,23 +5883,22 @@
      "connections": 22,
      "drv_after": 0,
      "fixed_errors": 2,
-     "track_mm": 53.3,
+     "track_mm": 54.4,
      "vias_board": 2,
-     "hpwl_mm": 78.8,
-     "wall_s": 32.2,
+     "hpwl_mm": 73.2,
+     "wall_s": 34.3,
      "phase_s": {
-      "placer": 18.3,
-      "router": 5.8,
+      "placer": 25.8,
+      "router": 3.9,
       "repair": 0.0,
-      "drc": 7.4,
+      "drc": 3.9,
       "other": 0.7
      },
      "placement_violations": [
       "courtyard overlap P1/P2",
-      "courtyard overlap P2/P3",
-      "courtyard overlap P4/CON2"
+      "courtyard overlap P2/P3"
      ],
-     "violations_placer": 1,
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -5977,25 +5917,25 @@
    },
    "runs": [
     {
-     "routability": 0.8261,
+     "routability": 1.0,
      "connections": 23,
-     "drv_after": 9,
+     "drv_after": 4,
      "fixed_errors": 0,
-     "track_mm": 90.2,
-     "vias_board": 1,
-     "hpwl_mm": 62.7,
-     "wall_s": 106.5,
+     "track_mm": 93.4,
+     "vias_board": 4,
+     "hpwl_mm": 52.0,
+     "wall_s": 303.3,
      "phase_s": {
-      "placer": 19.9,
-      "router": 41.7,
-      "repair": 37.0,
-      "drc": 7.6,
-      "other": 0.5
+      "placer": 122.3,
+      "router": 72.1,
+      "repair": 77.2,
+      "drc": 30.7,
+      "other": 1.0
      },
      "placement_violations": [
       "SOT223 pad 1 copper closer than 0.3 mm to the board edge",
-      "PINS1 pad 1 copper closer than 0.3 mm to the board edge",
-      "XREF222 pad 1 copper closer than 0.3 mm to the board edge"
+      "courtyard overlap SOT323/XREF12",
+      "XREF13 pad 1 copper closer than 0.3 mm to the board edge"
      ],
      "violations_placer": 3,
      "error": null
@@ -6023,13 +5963,13 @@
      "track_mm": 259.0,
      "vias_board": 9,
      "hpwl_mm": 250.9,
-     "wall_s": 3.3,
+     "wall_s": 15.5,
      "phase_s": {
       "placer": 0.0,
-      "router": 1.6,
+      "router": 6.2,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 8.3,
+      "other": 1.0
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6058,13 +5998,13 @@
      "track_mm": 85.9,
      "vias_board": 3,
      "hpwl_mm": 121.2,
-     "wall_s": 11.6,
+     "wall_s": 35.3,
      "phase_s": {
-      "placer": 4.1,
-      "router": 2.7,
-      "repair": 1.8,
-      "drc": 2.9,
-      "other": 0.2
+      "placer": 14.2,
+      "router": 8.0,
+      "repair": 4.2,
+      "drc": 8.0,
+      "other": 0.9
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6088,24 +6028,21 @@
     {
      "routability": 1.0,
      "connections": 20,
-     "drv_after": 3,
+     "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 125.8,
+     "track_mm": 62.2,
      "vias_board": 0,
-     "hpwl_mm": 202.4,
-     "wall_s": 65.9,
+     "hpwl_mm": 107.2,
+     "wall_s": 48.6,
      "phase_s": {
-      "placer": 46.9,
-      "router": 8.2,
+      "placer": 40.2,
+      "router": 3.8,
       "repair": 0.0,
-      "drc": 7.8,
-      "other": 3.0
+      "drc": 3.1,
+      "other": 1.6
      },
-     "placement_violations": [
-      "B1 inside floorplan region 'outline_cut2' (0.4 mm2)",
-      "B1 inside floorplan region 'outline_cut4' (0.3 mm2)"
-     ],
-     "violations_placer": 2,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -6126,23 +6063,24 @@
     {
      "routability": 1.0,
      "connections": 17,
-     "drv_after": 0,
+     "drv_after": 1,
      "fixed_errors": 0,
-     "track_mm": 451.8,
-     "vias_board": 5,
-     "hpwl_mm": 606.8,
-     "wall_s": 95.2,
+     "track_mm": 414.1,
+     "vias_board": 15,
+     "hpwl_mm": 493.6,
+     "wall_s": 259.1,
      "phase_s": {
-      "placer": 65.2,
-      "router": 18.4,
+      "placer": 229.6,
+      "router": 17.5,
       "repair": 0.0,
-      "drc": 6.9,
-      "other": 4.7
+      "drc": 7.6,
+      "other": 4.4
      },
      "placement_violations": [
-      "courtyard overlap P3/P7"
+      "courtyard overlap P3/P7",
+      "DS1 inside floorplan region 'outline_cut1' (1.7 mm2)"
      ],
-     "violations_placer": 0,
+     "violations_placer": 1,
      "error": null
     }
    ]
@@ -6165,15 +6103,15 @@
      "connections": 21,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 104.4,
-     "vias_board": 3,
-     "hpwl_mm": 134.0,
-     "wall_s": 7.0,
+     "track_mm": 116.0,
+     "vias_board": 7,
+     "hpwl_mm": 146.1,
+     "wall_s": 8.9,
      "phase_s": {
-      "placer": 3.7,
-      "router": 1.5,
+      "placer": 4.5,
+      "router": 1.9,
       "repair": 0.0,
-      "drc": 1.5,
+      "drc": 2.1,
       "other": 0.3
      },
      "placement_violations": [],
@@ -6199,17 +6137,17 @@
      "routability": 1.0,
      "connections": 19,
      "drv_after": 0,
-     "fixed_errors": 2,
-     "track_mm": 76.7,
-     "vias_board": 2,
-     "hpwl_mm": 154.5,
-     "wall_s": 10.8,
+     "fixed_errors": 0,
+     "track_mm": 84.9,
+     "vias_board": 1,
+     "hpwl_mm": 153.9,
+     "wall_s": 166.2,
      "phase_s": {
-      "placer": 3.5,
-      "router": 3.2,
+      "placer": 126.2,
+      "router": 14.4,
       "repair": 0.0,
-      "drc": 3.4,
-      "other": 0.7
+      "drc": 22.4,
+      "other": 3.1
      },
      "placement_violations": [
       "courtyard overlap P1/P1_2",
@@ -6234,26 +6172,23 @@
    },
    "runs": [
     {
-     "routability": 1.0,
+     "routability": 0.913,
      "connections": 23,
-     "drv_after": 5,
+     "drv_after": 1,
      "fixed_errors": 0,
-     "track_mm": 37.1,
-     "vias_board": 2,
-     "hpwl_mm": 50.1,
-     "wall_s": 65.8,
+     "track_mm": 45.6,
+     "vias_board": 6,
+     "hpwl_mm": 53.2,
+     "wall_s": 550.5,
      "phase_s": {
-      "placer": 16.9,
-      "router": 27.5,
-      "repair": 7.4,
-      "drc": 13.4,
-      "other": 0.6
+      "placer": 147.4,
+      "router": 159.1,
+      "repair": 189.1,
+      "drc": 53.4,
+      "other": 1.5
      },
-     "placement_violations": [
-      "courtyard overlap C4/L1",
-      "L1 pad 1 copper closer than 0.3 mm to the board edge"
-     ],
-     "violations_placer": 2,
+     "placement_violations": [],
+     "violations_placer": 0,
      "error": null
     }
    ]
@@ -6279,13 +6214,13 @@
      "track_mm": 85.1,
      "vias_board": 2,
      "hpwl_mm": 132.6,
-     "wall_s": 7.3,
+     "wall_s": 15.2,
      "phase_s": {
-      "placer": 4.1,
-      "router": 1.4,
+      "placer": 8.6,
+      "router": 3.2,
       "repair": 0.0,
-      "drc": 1.6,
-      "other": 0.3
+      "drc": 2.9,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6314,13 +6249,13 @@
      "track_mm": 115.7,
      "vias_board": 6,
      "hpwl_mm": 128.4,
-     "wall_s": 7.6,
+     "wall_s": 30.9,
      "phase_s": {
-      "placer": 4.3,
-      "router": 1.6,
+      "placer": 18.5,
+      "router": 5.1,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.2
+      "drc": 6.5,
+      "other": 0.8
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6346,16 +6281,16 @@
      "connections": 17,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 520.9,
-     "vias_board": 14,
-     "hpwl_mm": 446.1,
-     "wall_s": 10.3,
+     "track_mm": 533.0,
+     "vias_board": 13,
+     "hpwl_mm": 448.3,
+     "wall_s": 36.5,
      "phase_s": {
-      "placer": 6.0,
-      "router": 1.6,
+      "placer": 23.5,
+      "router": 4.7,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 1.1
+      "drc": 4.1,
+      "other": 4.1
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6381,15 +6316,15 @@
      "connections": 16,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 60.1,
+     "track_mm": 60.5,
      "vias_board": 3,
-     "hpwl_mm": 111.3,
-     "wall_s": 7.8,
+     "hpwl_mm": 111.4,
+     "wall_s": 7.0,
      "phase_s": {
-      "placer": 4.0,
-      "router": 1.7,
+      "placer": 3.6,
+      "router": 1.5,
       "repair": 0.0,
-      "drc": 1.8,
+      "drc": 1.6,
       "other": 0.3
      },
      "placement_violations": [],
@@ -6419,12 +6354,12 @@
      "track_mm": 277.9,
      "vias_board": 12,
      "hpwl_mm": 308.1,
-     "wall_s": 16.8,
+     "wall_s": 10.9,
      "phase_s": {
-      "placer": 13.0,
-      "router": 2.0,
+      "placer": 7.5,
+      "router": 1.7,
       "repair": 0.0,
-      "drc": 1.5,
+      "drc": 1.4,
       "other": 0.3
      },
      "placement_violations": [],
@@ -6454,13 +6389,13 @@
      "track_mm": 112.2,
      "vias_board": 4,
      "hpwl_mm": 160.7,
-     "wall_s": 7.1,
+     "wall_s": 12.0,
      "phase_s": {
-      "placer": 3.8,
-      "router": 1.6,
+      "placer": 7.4,
+      "router": 2.1,
       "repair": 0.0,
-      "drc": 1.4,
-      "other": 0.4
+      "drc": 2.0,
+      "other": 0.5
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6486,16 +6421,16 @@
      "connections": 21,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 91.4,
-     "vias_board": 7,
-     "hpwl_mm": 132.5,
-     "wall_s": 6.4,
+     "track_mm": 98.1,
+     "vias_board": 5,
+     "hpwl_mm": 130.2,
+     "wall_s": 28.7,
      "phase_s": {
-      "placer": 3.1,
-      "router": 1.5,
-      "repair": 0.0,
-      "drc": 1.6,
-      "other": 0.3
+      "placer": 10.6,
+      "router": 4.7,
+      "repair": 5.2,
+      "drc": 7.7,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6524,13 +6459,13 @@
      "track_mm": 248.0,
      "vias_board": 9,
      "hpwl_mm": 300.3,
-     "wall_s": 10.3,
+     "wall_s": 19.8,
      "phase_s": {
-      "placer": 6.6,
-      "router": 1.8,
+      "placer": 12.0,
+      "router": 4.1,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.4
+      "drc": 2.9,
+      "other": 0.7
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6558,13 +6493,13 @@
      "track_mm": 160.3,
      "vias_board": 3,
      "hpwl_mm": 189.3,
-     "wall_s": 8.3,
+     "wall_s": 24.5,
      "phase_s": {
-      "placer": 4.6,
-      "router": 1.8,
+      "placer": 16.7,
+      "router": 3.6,
       "repair": 0.0,
-      "drc": 1.6,
-      "other": 0.3
+      "drc": 3.6,
+      "other": 0.6
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6593,13 +6528,13 @@
      "track_mm": 103.6,
      "vias_board": 0,
      "hpwl_mm": 128.8,
-     "wall_s": 8.2,
+     "wall_s": 57.7,
      "phase_s": {
-      "placer": 4.5,
-      "router": 1.7,
+      "placer": 30.1,
+      "router": 10.0,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.4
+      "drc": 15.7,
+      "other": 2.0
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6628,13 +6563,13 @@
      "track_mm": 81.2,
      "vias_board": 0,
      "hpwl_mm": 139.1,
-     "wall_s": 8.7,
+     "wall_s": 36.7,
      "phase_s": {
-      "placer": 5.3,
-      "router": 1.5,
+      "placer": 24.0,
+      "router": 5.6,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.3
+      "drc": 6.1,
+      "other": 1.0
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6663,13 +6598,13 @@
      "track_mm": 170.6,
      "vias_board": 2,
      "hpwl_mm": 151.5,
-     "wall_s": 6.1,
+     "wall_s": 7.7,
      "phase_s": {
-      "placer": 3.3,
-      "router": 1.0,
+      "placer": 4.1,
+      "router": 1.4,
       "repair": 0.0,
-      "drc": 1.5,
-      "other": 0.3
+      "drc": 1.8,
+      "other": 0.4
      },
      "placement_violations": [],
      "violations_placer": 0,
@@ -6694,16 +6629,16 @@
      "connections": 22,
      "drv_after": 0,
      "fixed_errors": 0,
-     "track_mm": 195.0,
-     "vias_board": 7,
-     "hpwl_mm": 245.5,
-     "wall_s": 11.4,
+     "track_mm": 166.1,
+     "vias_board": 8,
+     "hpwl_mm": 194.6,
+     "wall_s": 43.4,
      "phase_s": {
-      "placer": 7.1,
-      "router": 2.3,
-      "repair": 0.0,
-      "drc": 1.6,
-      "other": 0.5
+      "placer": 27.3,
+      "router": 6.3,
+      "repair": 1.7,
+      "drc": 6.7,
+      "other": 1.3
      },
      "placement_violations": [],
      "violations_placer": 0,
