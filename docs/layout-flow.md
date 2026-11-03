@@ -287,6 +287,15 @@ retrying with more than 3 nets open).
    copper is ripped up, the member routes first, then the ripped nets (2 net orders per pass). An attempt is kept only
    when all of them route and the fast DRC has no more errors other than unconnected. At most `RIPUP_TRIES` = 4
    attempts per call; an attempt the time budget cuts is dropped. The route groups cache the result.
+   **Escape taps** (`taps.escapes`, on by default, `HWFLOW_ESCAPE_TAPS=0`: off): before any net is routed, a
+   single-layer SMD pad of a routed net whose two nearest pads on its footprint (a pad row: the second within 1.5 x
+   the nearest distance, on the opposite side) share one other routed net gets a stub to a via of its own net, kept
+   as fixed copper (same search and clearances as the pour taps below). Without it the router joins the two
+   neighbours with a track in front of the pad and walls it in: pocket-recorder, nPM1300 pads 28-32 (VOUT2, LSIN,
+   LSOUT alternate), NAND_PWR open at pad 31 in 4 attempts, placer and width changes included; with the taps
+   0 unrouted. Two nets that wall each other in on one footprint (the USB-C D+/D- crossover A6, B7, A7, B6) get no
+   tap: the router crosses them with a via of its own (oshw_pico_ice 42 -> 50 open with taps there). The plan takes
+   under 1 s; in the layout corpus it touches kb_audio and oshw_rocketbeacon only, both unchanged (taps on against off).
    **Pour taps** (`taps.py`, `HWFLOW_POUR_TAPS=1`, off by default and not in the fast preset): before any signal
    net is routed, every single-layer SMD pad of a pour net that its copper does not already join to a via or a
    through-hole pad (a layout block's track) gets its tap, kept by the router as fixed copper: a straight track (at
@@ -409,6 +418,7 @@ reliability and stays opt-in.
 | `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_ROADS=route` (above); an explicit switch wins |
 | `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
+| `HWFLOW_ESCAPE_TAPS=0` | no escape taps (step 7): a pad walled in by two footprint neighbours of one other net gets no stub via first |
 | `HWFLOW_POUR_TAPS=1` | pour taps before signal routing (step 7): every SMD pour-net pad gets a link or a stub via first |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |

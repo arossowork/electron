@@ -190,8 +190,8 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800, 
     routed = [n for n in pcb.net_classes(design) if n not in gnds and n not in closed]
     tap_t, tap_v = [], []
     from . import taps
-    if taps.on(design):  # every pour pad's tap first: each group routes around it
-        src, tap_t, tap_v, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
+    # every pour pad's tap and every walled-in pad's escape first: each group routes around them
+    src, tap_t, tap_v, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
     board = pcb.read_board(src)
     groups = partition(routed, pads_by_net(board), seeds(design))
     if len(groups) < 2:

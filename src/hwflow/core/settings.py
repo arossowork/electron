@@ -114,6 +114,9 @@ class LayoutSettings(_Group):
     # and via to the plane, kept as fixed copper; off by default, on with HWFLOW_POUR_TAPS=1 (measurements in
     # docs/layout-flow.md, step 7)
     pour_taps: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_TAPS"))
+    # escape taps (layout.route.taps.escapes): a pad walled in by its footprint neighbours of one other net gets a
+    # stub and via of its own net before routing; on by default, off with HWFLOW_ESCAPE_TAPS=0
+    escape_taps: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ESCAPE_TAPS"))
     # routable first pass (layout.route.firstpass, experiment, off by default): "1" (every step) or a comma list of
     # roads (planned roads reserved in placement and routed first), hot (the routability window cuts as a local
     # placer penalty), quick (a truncated route as a filter that drives one local placement fix); None: the
