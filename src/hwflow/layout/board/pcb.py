@@ -209,37 +209,43 @@ def _rotate_text(item: list, r: float):
 
 
 def thermal_vias(design: Design, libs, parts: dict[str, Part]) -> list[dict]:
-    """Via grids inside thermal pads, from `thermal_vias: {pad, count, pitch_mm}` on a component."""
+    """Via grids inside thermal pads, from `thermal_vias: {pad, count, pitch_mm}` (or a list of them, one per pad) on a
+    component."""
+    from ...core.design import thermal_via_specs
     b = design.board
     out = []
     for ref, part in parts.items():
         c = design.components[ref]
-        tv = c.get("thermal_vias")
-        if not tv:
-            continue
-        pad_no = str(tv.get("pad", ""))
-        net = c.pins.get(pad_no)
-        pad = next((p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pad_no), None)
-        if not net or pad is None:
-            continue
-        w, h = pad["w"], pad["h"]
-        if pad.get("hull"):
-            xs, ys = [q[0] for q in pad["hull"]], [q[1] for q in pad["hull"]]
-            cx0, cy0 = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
-            w, h = max(xs) - min(xs), max(ys) - min(ys)
-        else:
-            cx0, cy0 = 0.0, 0.0
-        if pad["rot"] % 180:
-            w, h = h, w
-        pitch = float(tv.get("pitch_mm", max(b["via_dia_mm"] + 0.4, 1.0)))
-        r = b["via_dia_mm"] / 2
-        nx = max(1, int((w - 2 * r) // pitch) + 1)
-        ny = max(1, int((h - 2 * r) // pitch) + 1)
-        pts = [((i - (nx - 1) / 2) * pitch + cx0, (j - (ny - 1) / 2) * pitch + cy0) for i in range(nx) for j in range(ny)]
-        pts = pts[: int(tv.get("count", len(pts)))]
-        for lx, ly in pts:
-            dx, dy = rot(pad["x"] + lx, pad["y"] + ly, part.r)
-            out.append({"net": net, "x": part.x + dx, "y": part.y + dy, "thermal": f"{ref}.{pad_no}"})
+        for tv in thermal_via_specs(c):
+            out += _pad_via_grid(b, libs, c, ref, part, tv)
+    return out
+
+
+def _pad_via_grid(b, libs, c, ref: str, part: Part, tv: dict) -> list[dict]:
+    pad_no = str(tv.get("pad", ""))
+    net = c.pins.get(pad_no)
+    pad = next((p for p in libs.footprint(c.get("footprint"))["pads"] if p["number"] == pad_no), None)
+    if not net or pad is None:
+        return []
+    w, h = pad["w"], pad["h"]
+    if pad.get("hull"):
+        xs, ys = [q[0] for q in pad["hull"]], [q[1] for q in pad["hull"]]
+        cx0, cy0 = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+        w, h = max(xs) - min(xs), max(ys) - min(ys)
+    else:
+        cx0, cy0 = 0.0, 0.0
+    if pad["rot"] % 180:
+        w, h = h, w
+    pitch = float(tv.get("pitch_mm", max(b["via_dia_mm"] + 0.4, 1.0)))
+    r = b["via_dia_mm"] / 2
+    nx = max(1, int((w - 2 * r) // pitch) + 1)
+    ny = max(1, int((h - 2 * r) // pitch) + 1)
+    pts = [((i - (nx - 1) / 2) * pitch + cx0, (j - (ny - 1) / 2) * pitch + cy0) for i in range(nx) for j in range(ny)]
+    pts = pts[: int(tv.get("count", len(pts)))]
+    out = []
+    for lx, ly in pts:
+        dx, dy = rot(pad["x"] + lx, pad["y"] + ly, part.r)
+        out.append({"net": net, "x": part.x + dx, "y": part.y + dy, "thermal": f"{ref}.{pad_no}"})
     return out
 
 

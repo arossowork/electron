@@ -51,6 +51,16 @@ FAMILIES = {
         "source": "RP2040 datasheet: ADC inputs on GPIO26-29 (ADC0-3), DORMANT wake on any GPIO edge or level, "
                   "no GPIO strapping pins (boot select is QSPI_SS)",
     },
+    "nrf52": {
+        "match": r"nRF528\d\d|ISP1807",
+        "gpio_from_pin_name": r"^P0[._](\d+)",
+        "adc": {2: "AIN0", 3: "AIN1", 4: "AIN2", 5: "AIN3", 28: "AIN4", 29: "AIN5", 30: "AIN6", 31: "AIN7"},
+        "deep_sleep_wake": list(range(32)),
+        "strapping": {},
+        "source": "nRF52840 product specification: SAADC AIN0-3 on P0.02-P0.05, AIN4-7 on P0.28-P0.31, System OFF "
+                  "wake on any GPIO via DETECT (PIN_CNF.SENSE), no GPIO strapping pins (P0.18 nRESET, P0.09/P0.10 "
+                  "NFC by default); port 1 pins are not mapped here",
+    },
     "nrf91": {
         "match": r"nRF91[56]\d",
         "gpio_from_pin_name": r"^P0\.(\d+)",

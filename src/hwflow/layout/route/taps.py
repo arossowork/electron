@@ -29,6 +29,7 @@ from shapely.ops import unary_union
 
 from ...core import sexpr
 from ...core.geometry import COURTYARD_MARGIN
+from ...core.design import via_pads
 from ..board import keepout, pcb, routing
 
 REACH_MM = 2.5  # longest stub beyond the pad edge
@@ -99,8 +100,7 @@ def plan(design, libs, parts, board: Path) -> dict:
     modules = _modules(design, libs, parts)
     skip_layers = set(b.get("pour_skip_layers", []))
     pour_ko = [a for a in keepout.rule_areas(tree, ("copperpour",)) if "copperpour" in a["forbids"]]
-    thermal = {(ref, str((design.components[ref].get("thermal_vias") or {}).get("pad", "")))
-               for ref in design.components if design.components[ref].get("thermal_vias")}
+    thermal = {(ref, n) for ref, c in design.components.items() for n in via_pads(c)}
     classes = pcb.net_classes(design)
     only = _tapped_parts(design)
     for net in sorted(design.ground_nets()):

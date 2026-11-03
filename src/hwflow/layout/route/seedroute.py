@@ -50,6 +50,7 @@ from ..place import barrier, corridor
 from ..board import pcb, routing
 from ...core import sexpr
 from ...core.sexpr import Q
+from ...core.design import via_pads
 
 MARGIN_MM = 0.01       # every piece of seed copper keeps its exact spacings plus this
 CHORD_MM = 0.005       # the room keeps this more, so a buffer chord never takes a centre line under MARGIN_MM
@@ -103,8 +104,7 @@ def _own_smd_pads(model, design, net, layer) -> list[tuple]:
     for p in model.pads:
         if p["net"] != net or layer not in p["layers"] or len(p["layers"]) != 1:
             continue
-        tv = (design.components.get(p["ref"]) or {}).get("thermal_vias") or {}
-        if tv and str(tv.get("pad")) == str(p["number"]):
+        if str(p["number"]) in via_pads(design.components.get(p["ref"])):
             continue
         out.append((p["own"], VIA_PAD_MM, f"{p['ref']}.{p['number']} (own pad, no via in pad)"))
     return out

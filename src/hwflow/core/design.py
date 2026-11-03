@@ -156,6 +156,20 @@ class Design:
         return total, missing
 
 
+def thermal_via_specs(c) -> list[dict]:
+    """A component's `thermal_vias` as a list of `{pad, count, pitch_mm}`: one mapping, or a list of them (one per
+    pad, e.g. the inner ground pads of an LGA module that are made for via-in-pad)."""
+    tv = c.get("thermal_vias") if c is not None else None
+    if not tv:
+        return []
+    return [t for t in (tv if isinstance(tv, list) else [tv]) if isinstance(t, dict) and t.get("pad") is not None]
+
+
+def via_pads(c) -> set[str]:
+    """Pad numbers of a component that may hold vias (its `thermal_vias` pads)."""
+    return {str(t["pad"]) for t in thermal_via_specs(c)}
+
+
 def in_bom(c) -> bool:
     """False for parts that are copper, not a purchased part: `bom: false`, or a net tie (KiCad NetTie symbol or
     footprint, which KiCad itself excludes from BOM and position files)."""
