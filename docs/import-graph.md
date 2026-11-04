@@ -28,7 +28,7 @@ Inside `hwflow.layout`, from the top:
 |---|---|---|
 | `diagnose` | layout diagnosis | everything below |
 | `checks`, `feasibility` | layout checks of `hwflow check`; proof registry (modules loaded by name) | route, place, board |
-| `route` | `krt` (KiCadRoutingTools and Freerouting drivers, retries, necked routing, `run_group`), `seedroute`, `regionroute`, `repair`, `prune`, `roads` (roads first: plan, reserve, preseed) | place, board |
+| `route` | `krt` (KiCadRoutingTools and Freerouting drivers, retries, necked routing, `run_group`), `seedroute`, `regionroute`, `repair`, `prune`, `extreme` (the last-resort round), `roads` (roads first: plan, reserve, preseed) | place, board |
 | `place` | `placer`, `gplace`, `asicflow` (the layout flow), `floorplan` (early check, report), `legality` (placement verdict of the legality gate; `diagnose` re-exports it), `routability` (raster routability prediction, a report), and the geometric pre-route proofs the placer uses: `corridor`, `barrier`, `cutcap`, `padiso`, `partescape`, `pinaccess` | board |
 | `board` | `pcb` (board writer and reader, net classes, isolation rules), `routing` (rule areas, widening: edits to a board file), `keepout` (footprint keep-out DRC), `kicad` (kicad-cli) | core |
 
@@ -94,7 +94,7 @@ the aliases (`tests/test_import_shims.py`). Remove them after the M1 release, no
 | `spice` `simrobust` `optimize` `budgets` | `sim.<name>` |
 | `sch` | `schematic.sch` |
 | `pcb` `kicad` `routing` `keepout` | `layout.board.<name>` |
-| `seedroute` `regionroute` `repair` `prune` | `layout.route.<name>` |
+| `seedroute` `regionroute` `repair` `prune` `extreme` | `layout.route.<name>` |
 | `feasibility` `diagnose` | `layout.<name>` |
 | `placer` `gplace` `asicflow` `floorplan` `cutcap` `corridor` `barrier` `padiso` `partescape` `pinaccess` | `layout.place.<name>` |
 | `postlayout` `em` | `verify.<name>` |

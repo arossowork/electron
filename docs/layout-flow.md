@@ -360,6 +360,27 @@ retrying with more than 3 nets open).
    keeps the clearances, the isolation distances and the rule areas; a round is kept only with fewer DRC errors and
    no more errors of any type other than unconnected.
 
+**Extreme routing** (`extreme.py`, `HWFLOW_EXTREME=0`: off), the last resort after the repair and the prune when the
+board still has DRC errors. It has two steps, and the full DRC must show fewer errors after a step to keep it:
+
+1. Narrower tracks. Every net with no electrical reason for its width is routed again at
+   `extreme.EXTREME_TRACK_MM` (0.15 mm, the `min_track_width` that `pcb.write_project` gives KiCad). A net keeps its
+   width when it has any of these:
+   - `impedance_ohm` (the width sets Z0);
+   - `current_a`;
+   - `min_width_mm` or `min_width_inner_mm`;
+   - `class: power`;
+   - a layout budget width;
+   - a ground pour.
+
+   The step is skipped above 60 such nets: it is meant for a small board. The new widths stay in the design for the
+   post-layout checks.
+2. Via-in-pad stitching. A split pour that the repair found no via room for gets a stitching via that may sit in a
+   pad of its own net (`repair.stitch_vias(in_pad=True)`).
+
+REPORT.md names the narrowed nets, says to check the fab's minimum track, and asks for filled and capped vias
+(IPC-4761 type VII) when a via sits in a pad. status.json has the same data in `layout.extreme_route`.
+
 ## Roads first and the layout portfolio (both off by default)
 
 **Roads first** (`layout/route/roads.py`, a prototype). The "roads" are the nets the rules constrain: isolation

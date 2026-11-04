@@ -496,6 +496,26 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:
         print(f"[layout] removed {pruned} dangling tracks or vias")
+    extreme_route = None
+    if (get_settings().layout.extreme and any(x["sev"] == "error" for x in drc) and not d.route_budget_exhausted
+            and d.board.get("router", "krt") == "krt" and (krt.krt_dir() / "py_router" / "route.py").exists()):
+        # the last resort: narrower tracks where no impedance, current or width rule holds them, and via-in-pad
+        # stitching of a split pour (layout/route/extreme.py); each step kept only when the full DRC improves
+        from ..layout.route import extreme
+        t = time.time()
+        xr = extreme.second_round(d, libs, parts, out, board, tracks, vias, drc,
+                                  lambda tr, vi: route_check(tr, vi, island), deadline=deadline)
+        tm["extreme_s"] = round(time.time() - t, 1)
+        if xr:
+            for line in xr["log"]:
+                print(f"[layout] extreme routing: {line}")
+            if xr["kept"]:
+                tracks, vias, drc = xr["tracks"], xr["vias"], xr["drc"]
+                extreme_route = {"narrowed": xr["narrowed"], "track_mm": extreme.EXTREME_TRACK_MM,
+                                 "via_in_pad": xr["via_in_pad"], "log": xr["log"]}
+                summary += "; extreme routing: " + "; ".join(xr["log"])
+                if xr["narrowed"]:
+                    pcb.write_project(out, name, d)  # the net classes at their new widths
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     lays = pcb.net_layers(d)  # nets.<name>.layers: a track on another layer fails the layout
@@ -534,7 +554,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
             and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
-            "nets": nstats,
+            "nets": nstats, "extreme_route": extreme_route,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,

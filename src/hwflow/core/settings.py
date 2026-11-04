@@ -80,8 +80,9 @@ class LayoutSettings(_Group):
     settle: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SETTLE"))  # Placer.settle legalizer
     # a placement left with violations is placed again on the bare courtyards (placer.place); HWFLOW_TIGHT=0: never
     tight: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_TIGHT"))
-    # still copper-to-edge violations after it: placed again with copper 0.15 mm from the edge (placer.place);
-    # HWFLOW_EXTREME=0: never
+    # still copper-to-edge violations after it: placed again with copper 0.15 mm from the edge (placer.place); a
+    # layout left with DRC errors is routed again with narrower tracks and via-in-pad stitching
+    # (layout/route/extreme.py); HWFLOW_EXTREME=0: never
     extreme: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_EXTREME"))
     # incremental (ECO) placement from build/placement.good.json after a clean layout (layout/place/eco.py)
     eco: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ECO"))

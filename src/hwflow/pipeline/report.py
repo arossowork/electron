@@ -169,6 +169,15 @@ def write_report(d: Design, history: bool = False) -> str:
                      f"parts stayed; new or changed: {', '.join(e['touched']) or 'none'}; in conflict with the edit: "
                      f"{', '.join(e['conflicts']) or 'none'}; re-placed: {', '.join(e['moved'][:20]) or 'none'}"
                      f"{' ...' if len(e['moved']) > 20 else ''} (largest move {e.get('max_shift_mm', 0)} mm)")
+        if c.get("extreme_route"):  # layout/route/extreme.py, the last resort of the routing
+            x = c["extreme_route"]
+            if x.get("narrowed"):
+                L.append(f"  - extreme routing: {len(x['narrowed'])} nets at {x['track_mm']:g} mm instead of their "
+                         f"class width ({', '.join(sorted(x['narrowed'])[:8])}{' ...' if len(x['narrowed']) > 8 else ''}"
+                         "): none has an impedance, current or width rule; check the fab's minimum track")
+            if x.get("via_in_pad"):
+                L.append(f"  - extreme routing: {len(x['via_in_pad'])} pour stitching vias may sit in pads "
+                         "(via-in-pad): order them filled and capped (IPC-4761 type VII)")
         if (c.get("place_work") or {}).get("extreme_edge_mm"):  # placer.place's last resort
             L.append(f"  - extreme placement: copper {c['place_work']['extreme_edge_mm']} mm from the board edge, not "
                      "0.3 mm (the board did not fit otherwise): check the fab's copper-to-edge minimum")

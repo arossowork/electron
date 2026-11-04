@@ -225,12 +225,13 @@ def _groups(net: str, fill: dict, rb: dict) -> tuple[list, list, list]:
     return nodes, [find(i) for i in range(len(nodes))], holds
 
 
-def stitch_vias(d, board: Path, net: str) -> tuple[list[dict], int, bool]:
+def stitch_vias(d, board: Path, net: str, in_pad: bool = False) -> tuple[list[dict], int, bool]:
     """Join the pour of `net` that DRC reports as split. The pour polygons of the refilled board are grouped by the
     vias and pads that join them; each group other than the biggest one gets a via inside it that lands in a polygon
     of the biggest group on another layer, clear of all other copper. Groups with a pad or a via, or a few mm2 of
     copper, count; smaller fragments are only a DRC warning. Returns (new vias, groups left without a place for a
-    via, whether those hold no pad or via, so KiCad may remove them as islands)."""
+    via, whether those hold no pad or via, so KiCad may remove them as islands). `in_pad`: a via may also sit in a pad
+    of the net (via-in-pad, the extreme routing round: filled and capped vias at the fab)."""
     b = d.board
     r = b["via_dia_mm"] / 2
     fill = zone_fill(board)
@@ -247,9 +248,9 @@ def stitch_vias(d, board: Path, net: str) -> tuple[list[dict], int, bool]:
     m = pcb.edge_mm(d) + r + 0.1
     inner = floorplan.outline(d).buffer(-m, join_style="mitre")
     obst = _obstacles(d, board, net)
-    for fp in rb["footprints"].values():  # no via inside a pad of the net either
+    for fp in rb["footprints"].values():  # no via inside a pad of the net either (unless in_pad)
         for p in fp["pads"]:
-            if p["net"] == net:
+            if p["net"] == net and not in_pad:
                 obst = obst.union(box(p["x"] - p["w"] / 2, p["y"] - p["h"] / 2, p["x"] + p["w"] / 2, p["y"] + p["h"] / 2).buffer(r + 0.1))
     new, left, removable = [], 0, True
     for g in sorted((g for g in area if g != main and (held[g] or area[g] >= 2.0)), key=lambda g: -area[g]):
