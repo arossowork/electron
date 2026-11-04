@@ -20,6 +20,10 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
     from ..board import keepout
     parts.areas = keepout.placement_areas(design, libs) + list(areas or [])
     pad_half = min(COURTYARD_MARGIN, (float(design.board.get("clearance_mm", 0.2)) + CLEAR_MARGIN) / 2)
+    # a routing channel (one track between two clearances, with the placer's clearance margin), less the margin of the
+    # part beyond it: what a courtyard side that its pads reach keeps (`_yard_box`)
+    chan = (float(design.board.get("track_mm", 0.25)) + 2 * float(design.board.get("clearance_mm", 0.2))
+            + CLEAR_MARGIN) - margin
     for c in design.components.values():
         if c.get("virtual"):
             continue
@@ -34,8 +38,10 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
         # a tight placement (margin 0) takes a courtyard as KiCad does; a footprint without one has only its pad box,
         # which keeps half the pad clearance (with the placer's clearance margin): two of them keep it between pads
         m = margin if fp.get("courtyard", True) else max(margin, pad_half)
-        sides = {k: (b[2] - b[0] + 2 * m, b[3] - b[1] + 2 * m, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
-                 for k, b in fp.get("sides", {}).items()}
+        # a part the placer moves keeps a routing channel beside pads its courtyard is drawn on; a part at a given
+        # position keeps its courtyard (KiCad's test), and a tight placement only that
+        ch = chan if margin and "x" not in pl else 0.0
+        sides = {k: _yard_box(b, m, pads, sizes, ch) for k, b in fp.get("sides", {}).items()}
         if not any(l.endswith(".Cu") for p in fp["pads"] for l in p["layers"]):
             sides = {}  # nothing to place: a keep-out or cutout marker has no copper and no body
         guard, keep = frozenset(), 0.0
@@ -43,6 +49,11 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
             sides = {}  # a shield or stacked-board outline, or a tight placement: its pads are all KiCad knows of it
             guard = frozenset(k for k, v in kinds.items() if v == "smd")
             keep = pad_half
+        # SMD copper outside the courtyard (a module whose pad row ends at its outline): no courtyard test sees it, so
+        # it keeps the pad clearance to the through-hole copper of other parts, which is on both sides (`_out_overlap`)
+        out = frozenset(n for n in pads if sides and kinds.get(n) == "smd" and not any(
+            _inside((pads[n][0] - sizes[n][0] / 2, pads[n][1] - sizes[n][1] / 2, pads[n][0] + sizes[n][0] / 2,
+                     pads[n][1] + sizes[n][1] / 2), b) for b in fp.get("sides", {}).values()))
         bw, bh, bcx, bcy = x1 - x0 + 2 * m, y1 - y0 + 2 * m, (x0 + x1) / 2, (y0 + y1) / 2
         if "x" not in pl and _oversize(x1 - x0, y1 - y0, design.board) and pads:
             # larger than the board in every rotation (a radio module on a carrier smaller than itself): its body
@@ -57,7 +68,7 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
                     sides=sides, tht=frozenset(k for k, v in kinds.items() if v == "thru_hole"),
                     nocu=frozenset(p["number"] for p in fp["pads"]
                                    if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])),
-                    cu=cu, round=frozenset(rnd), guard=guard, keep=keep,
+                    cu=cu, round=frozenset(rnd), guard=guard, keep=keep, out=out, out_keep=2 * pad_half,
                     npth=tuple((p["x"], p["y"], *((p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])))
                                for p in fp["pads"] if p["kind"] == "np_thru_hole"))
         if "x" in pl and "y" in pl:
@@ -73,6 +84,25 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
     return parts
 
 
+def _yard_box(b, m: float, pads: dict, sizes: dict, chan: float) -> tuple:
+    """(w, h, cx, cy) of courtyard b (x0, y0, x1, y1) with margin m on each side. On a side the pad copper reaches
+    (within YARD_ON_PADS: a courtyard drawn on the pads, a module's castellated row), the pads keep `chan` to the box
+    edge instead: a row that faces another part's would otherwise be 2 m from it, legal for KiCad but no room for a
+    track to leave either. The usual courtyard (0.1 mm or more beyond the pads, IPC-7351) keeps m."""
+    def gap(n, i):
+        (cx, cy), (w, h) = pads[n], sizes[n]
+        return abs((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)[i] - b[i])
+    e = [max([m] + [chan - gap(n, i) for n in pads if gap(n, i) < YARD_ON_PADS]) for i in range(4)]
+    x0, y0, x1, y1 = b[0] - e[0], b[1] - e[1], b[2] + e[2], b[3] + e[3]
+    return x1 - x0, y1 - y0, (x0 + x1) / 2, (y0 + y1) / 2
+
+
+def _inside(a, b, tol: float = 0.01) -> bool:
+    """Box a (x0, y0, x1, y1) within box b."""
+    return a[0] >= b[0] - tol and a[1] >= b[1] - tol and a[2] <= b[2] + tol and a[3] <= b[3] + tol
+
+
+YARD_ON_PADS = 0.05  # a courtyard side this close to the pad copper is drawn on the pads (_yard_box)
 BODILESS_FILL = 0.1   # pad area / pad bounding box under which a footprint without a courtyard may have no body
 BODILESS_COVER = 0.6  # ... when its pads also span this share of the board
 
@@ -176,7 +206,16 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
         if (a.tht or a.npth or a.guard) and b.sides:
             for pad in hole_boxes(a):
                 total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
+        if a.tht and b.out:
+            total += sum(_overlap(x, y) for x, y in _out_pairs(a, b))
     return total
+
+
+def _out_pairs(a: "Part", b: "Part"):
+    """(through-hole pad box of a, pad box of b with the pad clearance) for b's SMD pads outside its courtyard."""
+    k = b.out_keep
+    outs = [(x0 - k, y0 - k, x1 + k, y1 + k) for x0, y0, x1, y1 in (part_pad_box(b, n) for n in sorted(b.out, key=str))]
+    return [(x, y) for x in (part_pad_box(a, n) for n in sorted(a.tht, key=str)) for y in outs]
 
 
 def hole_boxes(p: "Part") -> list:
@@ -208,6 +247,12 @@ def _tht_pair(pa: "Part", pb: "Part"):
         yards = [y for y in (b.side_box("front"), b.side_box("back")) if y]
         for pad in hole_boxes(a):
             for y in yards:
+                o = _overlap(pad, y)
+                if o > 0 and (best is None or o > best[0]):
+                    best = (o, (y, pad) if flip else (pad, y))
+    for a, b, flip in ((pa, pb, False), (pb, pa, True)):
+        if a.tht and b.out:
+            for pad, y in _out_pairs(a, b):
                 o = _overlap(pad, y)
                 if o > 0 and (best is None or o > best[0]):
                     best = (o, (y, pad) if flip else (pad, y))
@@ -321,6 +366,8 @@ ANNEAL = {"moves": 0, "s": 0.0}  # annealing moves and seconds in this process (
 # same design and seed give the same placement under any CPU load; a wall-clock limit is only a safety abort, and each
 # one that fires is listed in `aborts` (the placement is then not reproducible). Reset by stages.stage_layout.
 WORK: dict = {"pack_evals": 0, "aborts": []}
+EXTREME_EDGE_MM = 0.15  # copper-to-edge clearance of the extreme placement (place(), the last resort)
+EXTREME_HPWL = 0.7      # ... kept with as many violations when its wirelength is at most this share
 
 
 def safety_abort(what: str) -> None:
@@ -561,7 +608,11 @@ class Placer:
             # between_mm: two different member nets keep it (functional insulation), with the clearance margin
             self.iso_between.append(g["between"] + CLEAR_MARGIN if g.get("between") is not None else 0.0)
         base = float(self.d.board["clearance_mm"])  # a net class with a larger clearance keeps it to every other net
-        cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
+        # a tight placement (no courtyard margin) keeps every net's clearance between the pads of two parts: courtyards
+        # that touch leave no room otherwise (a module's castellated pads beside a header's, a solder-mask bridge)
+        tight = self.cm == 0.0
+        cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items()
+               if v["clearance"] > base or tight}
         self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
         self.iso_parts = set()
         for (r, p), n in net_of.items():  # a pad without copper (a keep-out marker's dummy pad) keeps no distance
@@ -2719,21 +2770,61 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
     `deadline` (time.time(), the layout budget) is only a safety abort: no new seed starts after it (the first always
     runs) and unstick stops, each reported in WORK["aborts"]. Returns (parts, cost, violations)."""
     parts, cost, v = _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, COURTYARD_MARGIN)
-    if v and any(not p.fixed for p in parts.values()) and get_settings().layout.tight:
-        # the placer margin around each courtyard and the board margin are room for assembly and for the router, not
-        # rules: KiCad tests the courtyards, the pad clearance and the copper-to-edge clearance. A board too dense for
-        # them (small open-hardware boards: a part off the edge or on another) is placed again by those rules alone
-        # (build_parts `tight`), kept when it leaves fewer violations
-        bm = design.board.get("margin_mm")
-        design.board["margin_mm"] = 0.0
-        try:
-            t = _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, 0.0, tight=True)
-        finally:
-            design.board["margin_mm"] = bm
-        print(f"[place] tight placement (KiCad's rules, no placer margins): {len(v)} -> {len(t[2])} violations")
-        if len(t[2]) < len(v):
-            return t
+    if not (v and any(not p.fixed for p in parts.values()) and get_settings().layout.tight):
+        return parts, cost, v
+    # the placer margin around each courtyard and the board margin are room for assembly and for the router, not
+    # rules: KiCad tests the courtyards, the pad clearance and the copper-to-edge clearance. A board too dense for
+    # them (small open-hardware boards: a part off the edge or on another) is placed again by those rules alone
+    # (build_parts `tight`), kept when it leaves fewer violations
+    t = _with_board(design, {"margin_mm": 0.0},
+                    lambda: _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, 0.0, tight=True))
+    print(f"[place] tight placement (KiCad's rules, no placer margins): {len(v)} -> {len(t[2])} violations")
+    if len(t[2]) < len(v):
+        parts, cost, v = t
+    if "copper_edge_mm" not in design.board and get_settings().layout.extreme:
+        # extreme placement, the last resort on a board too dense for the placer margins: copper may come
+        # EXTREME_EDGE_MM from the edge, not 0.3 mm. Most fabs take it (JLCPCB 0.2 mm routed, many human boards less),
+        # but it is a narrower margin than hwflow's own, so it is kept only when it removes violations, or leaves as
+        # few with at most EXTREME_HPWL of the wirelength (a strip board where the 0.3 mm rule leaves room only with
+        # two connected parts at its two ends). The board then keeps copper_edge_mm: the router, the pours and KiCad
+        # DRC follow it, and REPORT.md says so (WORK["extreme_edge_mm"])
+        t = _with_board(design, {"margin_mm": 0.0, "copper_edge_mm": EXTREME_EDGE_MM},
+                        lambda: _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, 0.0,
+                                       tight=True))
+        h0, h1 = _hpwl(design, parts), _hpwl(design, t[0])
+        print(f"[place] extreme placement (copper {EXTREME_EDGE_MM} mm from the edge): {len(v)} -> {len(t[2])} "
+              f"violations, HPWL {h0:.1f} -> {h1:.1f} mm")
+        if len(t[2]) < len(v) or (len(t[2]) == len(v) and h1 <= EXTREME_HPWL * h0):
+            design.raw.setdefault("board", {})["copper_edge_mm"] = EXTREME_EDGE_MM
+            WORK["extreme_edge_mm"] = EXTREME_EDGE_MM
+            print(f"[place] WARNING: copper_edge_mm lowered to {EXTREME_EDGE_MM} mm for this layout: check the fab")
+            parts, cost, v = t
     return parts, cost, v
+
+
+def _hpwl(design, parts) -> float:
+    """Half-perimeter wirelength (mm) over the pad centres of the placed parts, every net."""
+    total = 0.0
+    for conns in design.nets().values():
+        pts = [parts[r].pad(p) for r, p in conns if r in parts and p in parts[r].pads]
+        if len(pts) > 1:
+            xs, ys = [x for x, _ in pts], [y for _, y in pts]
+            total += max(xs) - min(xs) + max(ys) - min(ys)
+    return total
+
+
+def _with_board(design, keys, fn):
+    """fn() with the board keys set in design.yaml's board (Design.board is a fresh dict per read), the board as it
+    was afterwards (a key it did not have is removed again)."""
+    b = design.raw.setdefault("board", {})
+    old = {k: b[k] for k in keys if k in b}
+    b.update(keys)
+    try:
+        return fn()
+    finally:
+        for k in keys:
+            b.pop(k, None)
+        b.update(old)
 
 
 def _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, margin, tight=False):

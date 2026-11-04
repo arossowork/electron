@@ -313,6 +313,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pj = out / "placement.json"
     t0 = time.time()
     placer.WORK.update(pack_evals=0, aborts=[])  # the placement's work counters and safety aborts (place_work)
+    placer.WORK.pop("extreme_edge_mm", None)
     weights = (d.raw.get("placement") or {}).get("weights")
     declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
@@ -549,7 +550,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
 def _place_work() -> dict:
     """The placement's work counters and its wall-clock safety aborts (placer.WORK): an empty `aborts` means the
     placement stopped on counts only, so the same design and seed reproduce it bit for bit."""
-    return {"pack_evals": placer.WORK["pack_evals"], "aborts": list(placer.WORK["aborts"])}
+    return {"pack_evals": placer.WORK["pack_evals"], "aborts": list(placer.WORK["aborts"]),
+            "extreme_edge_mm": placer.WORK.get("extreme_edge_mm")}
 
 
 def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:

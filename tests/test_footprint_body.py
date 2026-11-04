@@ -97,7 +97,7 @@ def test_tight_placement_fits_a_board_too_dense_for_the_placer_margin(tmp_path, 
     comps = {f"R{i}": {"value": "1k", "symbol": "Device:R", "footprint": "Resistor_SMD:R_1206_3216Metric",
                        "pins": {"1": "A", "2": "B"}} for i in range(5)}
     d = _design(tmp_path, comps, w=5.0, h=13.0)
-    d.board["margin_mm"] = 0.0
+    d.raw["board"]["margin_mm"] = 0.0
     libs = Libs(design=d)
     monkeypatch.setenv("HWFLOW_TIGHT", "0")
     _, _, loose = placer.place(d, libs, seeds=1, iters=3000)
@@ -133,3 +133,48 @@ def test_open_courtyard_is_written_as_its_bounding_rectangle():
     yards = [g for g in out if isinstance(g, list) and str(sexpr.value(g, "layer", "")) == "F.CrtYd"]
     assert len(yards) == 1 and yards[0][0] == "fp_rect"
     assert (sexpr.find(yards[0], "start")[1:], sexpr.find(yards[0], "end")[1:]) == ([0, 0], [4, 9])
+
+
+def test_extreme_placement_lowers_the_copper_edge_clearance_as_a_last_resort(tmp_path, monkeypatch):
+    """A 1206 resistor (copper 4.0 x 1.75 mm) on a 4.4 x 2.2 mm board: 0.3 mm of copper-to-edge clearance leaves no
+    room, 0.15 mm does. The board then keeps copper_edge_mm for the router and DRC, and placer.WORK records it."""
+    comps = {"R1": {"value": "1k", "symbol": "Device:R", "footprint": "Resistor_SMD:R_1206_3216Metric",
+                    "pins": {"1": "A", "2": "B"}}}
+    d = _design(tmp_path, comps, w=4.4, h=2.2)
+    libs = Libs(design=d)
+    placer.WORK.pop("extreme_edge_mm", None)
+    board = dict(d.board)
+    monkeypatch.setenv("HWFLOW_EXTREME", "0")
+    _, _, v = placer.place(d, libs, seeds=1, iters=2000)
+    assert v and d.board == board  # the board is left as it was
+    monkeypatch.setenv("HWFLOW_EXTREME", "1")
+    _, _, v = placer.place(d, libs, seeds=1, iters=2000)
+    assert not v
+    assert d.board["copper_edge_mm"] == placer.EXTREME_EDGE_MM == pcb.edge_mm(d)
+    assert placer.WORK["extreme_edge_mm"] == placer.EXTREME_EDGE_MM
+    placer.WORK.pop("extreme_edge_mm", None)
+
+
+def test_courtyard_drawn_on_the_pads_keeps_a_routing_channel():
+    """A pad row that reaches its courtyard (a module's castellated edge) keeps a track and two clearances, with the
+    placer's clearance margin, less the other part's margin, to the box edge; a courtyard beyond the pads keeps the
+    plain margin."""
+    pads, sizes = {"1": (6.1, 0.0)}, {"1": (1.0, 1.0)}
+    chan = 0.25 + 2 * 0.2 + placer.CLEAR_MARGIN - 0.25
+    w, h, cx, cy = placer._yard_box((-6.6, -1.0, 6.6, 1.0), 0.25, pads, sizes, chan)
+    assert (cx - w / 2, cx + w / 2) == pytest.approx((-6.6 - 0.25, 6.6 + chan))  # only the side the pad reaches
+    assert h == pytest.approx(2.5)
+    w, _, cx, _ = placer._yard_box((-6.7, -1.0, 6.7, 1.0), 0.25, pads, sizes, 1.0)
+    assert cx + w / 2 == pytest.approx(6.7 + 0.25)  # 0.1 mm beyond the pad (IPC least): the margin, whatever chan
+
+
+def test_pads_outside_the_courtyard_keep_clear_of_through_hole_copper():
+    """A module whose pad row sticks out of its courtyard over a back-side header: the courtyards are on different
+    sides and do not touch, but the SMD pads would sit on the header's plated pads."""
+    m = placer.Part("U1", 4, 4, 0, 0, {"1": (2.5, 0.0)}, pad_size={"1": (1.0, 1.0)}, x=0, y=0,
+                    sides={"front": (4, 4, 0, 0)}, out=frozenset({"1"}), out_keep=0.3)
+    j = placer.Part("P1", 2, 2, 0, 0, {"1": (0.0, 0.0)}, pad_size={"1": (1.7, 1.7)}, x=3.5, y=0, fixed=True,
+                    sides={"back": (2, 2, 0, 0)}, tht=frozenset({"1"}))
+    assert placer._side_overlap(m, j) > 0 and placer._tht_pair(m, j) is not None
+    j.x = 4.6  # the header pad from 3.75 mm: the module pad (to 3.0 mm) keeps 0.75 mm, more than the 0.3 mm asked
+    assert placer._side_overlap(m, j) == 0

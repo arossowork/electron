@@ -27,7 +27,7 @@ def findings(design, libs=None) -> list[dict]:
             parts = placer.build_parts(design, libs)
         except Exception:  # noqa: BLE001 - a missing footprint is reported above
             parts = {}
-        edge = max(float(design.board["clearance_mm"]), pcb.EDGE_CLEARANCE_MM)
+        edge = max(float(design.board["clearance_mm"]), pcb.edge_mm(design))
         for msg in cut_pad_findings(design, parts, edge):
             add("warn", "cut-pad", msg)
     # board.isolation between_mm: a positive distance; pads of fixed parts of two member nets closer than it

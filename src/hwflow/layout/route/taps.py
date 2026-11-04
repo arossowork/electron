@@ -97,7 +97,7 @@ def plan(design, libs, parts, board: Path) -> dict:
     rb = pcb.read_board(board)
     tree = sexpr.loads(Path(board).read_text())
     r = b["via_dia_mm"] / 2
-    inner = floorplan.outline(design).buffer(-(pcb.EDGE_CLEARANCE_MM + r + 0.1), join_style="mitre")
+    inner = floorplan.outline(design).buffer(-(pcb.edge_mm(design) + r + 0.1), join_style="mitre")
     modules = _modules(design, libs, parts)
     skip_layers = set(b.get("pour_skip_layers", []))
     pour_ko = [a for a in keepout.rule_areas(tree, ("copperpour",)) if "copperpour" in a["forbids"]]
@@ -272,7 +272,7 @@ def escapes(design, libs, parts, board: Path, tracks=(), vias=()) -> dict:
     rb["vias"] += [dict(v) for v in vias]
     tree = sexpr.loads(Path(board).read_text())
     r = b["via_dia_mm"] / 2
-    inner = floorplan.outline(design).buffer(-(pcb.EDGE_CLEARANCE_MM + r + 0.1), join_style="mitre")
+    inner = floorplan.outline(design).buffer(-(pcb.edge_mm(design) + r + 0.1), join_style="mitre")
     modules = _modules(design, libs, parts)
     classes = pcb.net_classes(design)
     cen = {ref: (fp["x"], fp["y"]) for ref, fp in rb["footprints"].items()}

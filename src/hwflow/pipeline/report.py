@@ -169,6 +169,9 @@ def write_report(d: Design, history: bool = False) -> str:
                      f"parts stayed; new or changed: {', '.join(e['touched']) or 'none'}; in conflict with the edit: "
                      f"{', '.join(e['conflicts']) or 'none'}; re-placed: {', '.join(e['moved'][:20]) or 'none'}"
                      f"{' ...' if len(e['moved']) > 20 else ''} (largest move {e.get('max_shift_mm', 0)} mm)")
+        if (c.get("place_work") or {}).get("extreme_edge_mm"):  # placer.place's last resort
+            L.append(f"  - extreme placement: copper {c['place_work']['extreme_edge_mm']} mm from the board edge, not "
+                     "0.3 mm (the board did not fit otherwise): check the fab's copper-to-edge minimum")
         for a in (c.get("place_work") or {}).get("aborts") or []:  # placer.WORK: a wall-clock stop, not a count
             L.append(f"  - placement safety abort: {a} (this placement is not reproducible)")
         for a in ((c.get("repair") or {}).get("aborts") or []) + ((c.get("pour_stitch") or {}).get("aborts") or []):

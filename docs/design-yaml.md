@@ -44,6 +44,7 @@ A part that KiCad's libraries do not have goes into a project library. Put `<lib
 | ref_plane_h_mm | thickness on 2 layers, 0.2 on 4 layers | trace to reference plane distance |
 | decap_max_mm | 4.0 | maximum copper path from a decoupling capacitor to its IC pin (post-layout warning; with `HWFLOW_PLACE_DECAP_HARD=1` also a hard placement limit on the straight pad distance over the routing allowance) |
 | margin_mm | 1.0 | keep parts this far from the board edge |
+| copper_edge_mm | 0.3 | copper-to-edge clearance: KiCad DRC (`min_copper_edge_clearance`), the router, the pours and the placer. Set it only for a fab that allows less; the extreme placement sets it to 0.15 for one layout when the board fits no other way (docs/layout-flow.md) |
 | router | krt | `krt` or `freerouting` (KiCadRoutingTools: one pass per track-width class, no vias in pads) |
 | post_tran_l | false | include extracted trace inductance in post-layout transients (always in AC and noise) |
 | post_tran_lump | true | in post-layout transients, reduce each net's trace network to its pads (exact DC resistance, no trace C); AC and noise keep the full network. Scope: lumped transients check resistive drops and slow dynamics, not reflections, ringing, crosstalk or RC delay along a trace. Nets with `class: fast`, `edge_ns` or `post_full: true` keep their full R and C network |

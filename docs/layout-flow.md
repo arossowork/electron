@@ -65,6 +65,17 @@ only its pads, with half the pad clearance around each (`Part.guard`, `Part.keep
 them, as KiCad allows. On the PCBWorld D3-A boards (`evals/bench/pcbench`), small open-hardware boards too dense for
 the margins placed legally only this way.
 
+The tight placement keeps every net's pad clearance between two parts' pads, not only the larger net classes': with
+courtyards that touch, nothing else keeps a module's pads off a header's.
+
+After it, the **extreme placement** is the last resort (`HWFLOW_EXTREME=0`: off): the tight placement again with
+copper `placer.EXTREME_EDGE_MM` (0.15 mm) from the board edge instead of 0.3 mm. It is kept when it leaves fewer
+violations, or as many with at most `placer.EXTREME_HPWL` (70%) of the wirelength: on a 4.8 mm strip the 0.3 mm rule
+left room only with a resistor and its LED at the two ends, and that net did not route. The board then keeps
+`board.copper_edge_mm` for this layout: the router, the pours, the via stitching and the KiCad DRC rule
+(`pcb.edge_mm`) follow it, `[place] WARNING` is printed, and REPORT.md says to check the fab's copper-to-edge minimum
+(status.json `layout.place_work.extreme_edge_mm`). A design that sets `board.copper_edge_mm` itself is never changed.
+
 The placer's model of a footprint (`placer.build_parts`):
 
 - **Courtyard arcs** count to their extremes (`libs._arc_extremes`): the round courtyard of a 5 mm LED is 6.4 mm high,
@@ -75,6 +86,12 @@ The placer's model of a footprint (`placer.build_parts`):
 - **A shield or stacked-board outline** without a courtyard, whose few pads span at least 60% of the board
   (`placer._bodiless`), has no body: the parts of the board sit under it. A smaller footprint without a courtyard (a
   potted AC/DC module, a battery holder) keeps its pad box as courtyard outside the tight placement.
+- **A courtyard drawn on its pads** (a module's castellated row): on the side its pads reach, a part the placer moves
+  keeps a routing channel (track, two clearances and the 0.1 mm placer margin, less the other part's margin) instead
+  of the margin (`placer._yard_box`). Two such rows face to face are legal for KiCad 0.5 mm apart, but no track can
+  leave either. A part at a given position keeps its courtyard, so a human placement is judged by KiCad's test.
+- **SMD pads outside the courtyard** (`Part.out`) keep the pad clearance to other parts' through-hole copper, which
+  is on both sides: no courtyard test sees them (an nRF24 module's pad row over a back-side header).
 - **A part larger than the board** in every rotation (a radio module on a smaller carrier, `placer._oversize`)
   overhangs the edge: the board bounds hold its copper only, and its courtyard still keeps the other parts off its
   body. `unstick` scans the box centre of a part over the board, not its origin, which lies off the board then.

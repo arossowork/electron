@@ -247,7 +247,7 @@ def krt_route(design: Design, src: Path, workdir: Path, stem: str, nets=None, ke
         for a in keepout.rule_areas(sexpr.loads(path.read_text()), ("tracks",)):
             for L in routing.pad_layers(a["layers"], copper):
                 ko.setdefault(L, []).append(a["poly"])
-        return ko, floorplan.outline(design).buffer(-pcb.EDGE_CLEARANCE_MM, join_style="mitre")
+        return ko, floorplan.outline(design).buffer(-pcb.edge_mm(design), join_style="mitre")
 
     def fit(path, fnets, w):
         """Fit the tracks of `fnets` in the pass result `path` to width `w` where clearances allow (routing.widen).

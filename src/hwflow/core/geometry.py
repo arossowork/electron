@@ -46,6 +46,8 @@ class Part:
     round: frozenset = frozenset()  # numbers of the circular pads (the corridor term measures them as circles)
     guard: frozenset = frozenset()  # pads kept clear of every other courtyard, either side (a part without a body)
     keep: float = 0.0  # what the pads of a part without a body keep around them (half the pad clearance)
+    out: frozenset = frozenset()  # SMD pads that stick out of the courtyard (a module's castellated row)
+    out_keep: float = 0.0  # the gap those keep to another part's through-hole copper
 
     def side_box(self, side: str):
         if not self.sides or side not in self.sides:

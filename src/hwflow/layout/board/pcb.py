@@ -438,6 +438,12 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
 
 
 EDGE_CLEARANCE_MM = 0.3  # min_copper_edge_clearance written by write_project
+
+
+def edge_mm(design) -> float:
+    """The copper-to-edge clearance of the board: `board.copper_edge_mm`, else EDGE_CLEARANCE_MM. The placer's extreme
+    placement lowers it for one layout (placer.EXTREME_EDGE_MM); DRC, the router and the pours follow it."""
+    return float((design.board or {}).get("copper_edge_mm", EDGE_CLEARANCE_MM))
 ARC_QUAD_SEGS = 256  # circle cuts on Edge.Cuts: a chord sags r x 5e-6 under the arc, so the edge points are on it
 
 
@@ -815,7 +821,7 @@ def write_project(dirpath: Path, name: str, design: Design):
                                                                        + [v["width"] for v in classes.values()]),
                                                 "min_via_diameter": min(0.45, float(b["via_dia_mm"])),
                                                 "min_through_hole_diameter": min(0.2, float(b["via_drill_mm"])),
-                                                "min_copper_edge_clearance": EDGE_CLEARANCE_MM,
+                                                "min_copper_edge_clearance": edge_mm(design),
                                                 "min_hole_clearance": min(0.25, float(b["clearance_mm"])),
                                                 "min_hole_to_hole": 0.25,
                                                 "min_via_annular_width": min(0.1, round((float(b["via_dia_mm"]) - float(
