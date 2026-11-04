@@ -1083,8 +1083,9 @@ def _route_spots(design, parts, spots, tmp, limit, t_end, rows) -> dict:
             cutout.cutout(design.dir, out, region=f"{x0 - g},{y0 - g},{x1 + g},{y1 + g}", placement=pj,
                           name=f"spot{k}")
             t = time.time()
-            # the child layout: this environment, the router past the legality gate, no confirmation of its own
-            env = dict(os.environ, HWFLOW_ROUTE_ILLEGAL="1", HWFLOW_FLOORPLAN_CONFIRM_S="0")
+            # the child layout: this environment, the router past the legality gate, no confirmation of its own, no
+            # extreme round (a spot that routes only with narrowed tracks or via-in-pad does not clear the gate)
+            env = dict(os.environ, HWFLOW_ROUTE_ILLEGAL="1", HWFLOW_FLOORPLAN_CONFIRM_S="0", HWFLOW_EXTREME="0")
             subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(out)], capture_output=True,
                            text=True, timeout=left, env=env)
             L = json.loads((out / "build" / "status.json").read_text()).get("layout") or {}
