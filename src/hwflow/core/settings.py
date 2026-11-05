@@ -163,6 +163,16 @@ class RepairSettings(_Group):
 class RouterSettings(_Group):
     # KICAD_* / KRT_* (except KICAD_CLI) reach the router subprocess and change its copper: they are cache-key inputs
     env_knobs: dict[str, str] = Field(default_factory=dict)
+    # HWFLOW_ROUTER=krt|freerouting: overrides board.router of every design (A/B runs); a cache-key input
+    force: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTER"))
+
+    @model_validator(mode="after")
+    def _force(self) -> "RouterSettings":
+        if self.force is not None:
+            self.force = self.force.strip().lower() or None
+        if self.force not in (None, "krt", "freerouting"):
+            raise ValueError(f"HWFLOW_ROUTER must be krt or freerouting, not {self.force!r}")
+        return self
 
     @model_validator(mode="before")
     @classmethod

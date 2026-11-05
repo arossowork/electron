@@ -121,6 +121,13 @@ def _run_summary(res: list[dict]) -> list[dict]:
             for a in res if a.get("status", "ok") != "ok" or a.get("flaky")]
 
 
+def router_used(d: Design) -> str:
+    """The router `_route_once` runs for `d`: board.router (HWFLOW_ROUTER overrides it), Freerouting if KRT is absent."""
+    if d.board.get("router", "krt") == "krt" and (krt.krt_dir() / "py_router" / "route.py").exists():
+        return "krt"
+    return "freerouting"
+
+
 def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None,
                 deadline: float | None = None) -> tuple[list, list, str, int]:
     """Route the board. With `d.route_groups` a list (the layout stage sets it), the nets route group by group
@@ -141,6 +148,8 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
                     groups += res[4]
                     return res[:4]
             return krt.run_krt(d, libs, parts, out, deadline=deadline)
+        if get_settings().router.force:
+            raise RuntimeError(f"HWFLOW_ROUTER=krt but KiCadRoutingTools is not installed at {krt.krt_dir()}")
         print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
     try:
@@ -523,7 +532,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
-            "corridors": corridors, "router": summary, "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
+            "corridors": corridors, "router": summary, "router_used": router_used(d), "segments": len(tracks), "vias": len(vias), "drc_errors": len(errs),
             "drc_warnings": len(drc) - len(errs), "unrouted": len(unrouted), "drc": drc[:40], "repair": rep,
             "open_nets": repair.open_nets(drc), "load": repair.load(drc),
             "route_cache": key if hit else None, "pour_stitch": stitch, "fixed_parts_only": repair.fixed_part_errors(drc, parts),
