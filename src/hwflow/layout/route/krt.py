@@ -22,7 +22,10 @@ def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) 
     if not Path(jar).exists():
         raise FileNotFoundError(f"freerouting jar not found at {jar}; set FREEROUTING")
     cmd = [get_settings().tools.java, "-Djava.awt.headless=true", "-jar", jar, "--gui.enabled=false",
-           "-de", str(dsn.resolve()), "-do", str(ses.resolve()), "--router.autorouter.max_passes", str(passes)]
+           "-de", str(dsn.resolve()), "-do", str(ses.resolve()), f"--router.autorouter.max_passes={passes}",
+           # the board-edge clearance hwflow's DRC checks (min_copper_edge_clearance), not Freerouting's default
+           f"--router.copper_to_edge_clearance_um={pcb.EDGE_CLEARANCE_MM * 1000:g}",
+           "-da"]  # 2.x settings take key=value (a separate value is an unknown argument); -da: no analytics upload
     ses.unlink(missing_ok=True)
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=dsn.parent, stdin=subprocess.DEVNULL)

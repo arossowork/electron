@@ -8,7 +8,7 @@ import re
 import uuid
 from pathlib import Path
 
-from shapely.geometry import box
+from shapely.geometry import Polygon, box
 
 from ...core import sexpr
 from ...core.design import Design
@@ -675,12 +675,16 @@ def _um(v: float) -> float:
     return round(v * 1000, 1)
 
 
-def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list]:
+def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list] | None:
+    """The Specctra padstack of a pad, or None for an SMD pad with no copper layer (a mask- or paste-only pad):
+    Freerouting rejects a padstack without a shape and then drops the whole board."""
     if p["kind"] in ("thru_hole", "np_thru_hole"):
         lays = layers_all
     else:
         lays = [l for l in p["layers"] if l.endswith(".Cu")]
         lays = ["F.Cu"] if "F.Cu" in lays else lays
+        if not lays:
+            return None
     w, h = _um(p["w"]), _um(p["h"])
     shape = p["shape"]
     shapes = []
@@ -719,8 +723,14 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     if shape.geom_type == "Polygon" and floorplan.cuts(design):  # cut regions: the outline ring, holes as keep-outs
         ring = [c for x, y in shape.exterior.coords for c in (_um(x), -_um(y))]
         structure.append(["boundary", ["path", "pcb", 0] + ring])
+        # Freerouting keeps only the net clearance from a keep-out, and copper_to_edge_clearance_um only from the
+        # boundary: grow each hole so that copper stays EDGE_CLEARANCE_MM from the cut edge, as the DRC checks
+        clr = min([float(b["clearance_mm"])] + [float(v["clearance"]) for v in classes.values()])
+        grow = max(0.0, EDGE_CLEARANCE_MM - clr)
         for h in shape.interiors:
-            structure.append(["keepout", Q(""), ["polygon", "signal", 0] + [c for x, y in h.coords for c in (_um(x), -_um(y))]])
+            g = Polygon(h).buffer(grow, join_style="mitre") if grow else Polygon(h)
+            structure.append(["keepout", Q(""), ["polygon", "signal", 0]
+                              + [c for x, y in g.exterior.coords for c in (_um(x), -_um(y))]])
     else:
         structure.append(["boundary", ["path", "pcb", 0, 0, 0, _um(W), 0, _um(W), -_um(H), 0, -_um(H), 0, 0]])
     via_name = f"Via[0-{len(layers) - 1}]_{_um(b['via_dia_mm']):g}:{_um(b['via_drill_mm']):g}_um"
@@ -729,21 +739,35 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     placement = ["placement"]
     library = ["library"]
     padstacks = {}
+    no_copper: set[str] = set()  # "<ref>-<pad>" pins without copper: kept out of the image and the network
+    copper: set[str] = set()
     for ref, part in parts.items():
         c = design.components[ref]
         fp = libs.footprint(c.get("footprint"))
         img = f"{c.get('footprint')}__{ref}"
         placement.append(["component", Q(img), ["place", ref, _um(part.x), -_um(part.y), "front", part.r]])
         image = ["image", Q(img)]
+        unnumbered = 0
         for p in fp["pads"]:
-            if not p["number"] or p["kind"] == "np_thru_hole":
+            if p["kind"] == "np_thru_hole":
                 continue
-            name, ps = _padstack(p, layers)
+            got = _padstack(p, layers)
+            if got is None:
+                if p["number"]:
+                    no_copper.add(f"{ref}-{p['number']}")
+                continue
+            name, ps = got
             padstacks[name] = ps
+            if p["number"]:
+                copper.add(f"{ref}-{p['number']}")
+                pin_id = p["number"]
+            else:  # an unnumbered copper pad (a shield or mounting tab): a pin of no net, so an obstacle to route around
+                unnumbered += 1
+                pin_id = f"~{unnumbered}"
             pin = ["pin", Q(name)]
             if p["rot"]:
                 pin.append(["rotate", p["rot"]])
-            pin += [Q(p["number"]), _um(p["x"]), -_um(p["y"])]
+            pin += [Q(pin_id), _um(p["x"]), -_um(p["y"])]
             image.append(pin)
         # keepout for non-plated holes
         for p in fp["pads"]:
@@ -760,10 +784,11 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
         wiring += [["wire", ["path", t["layer"], _um(t["w"]), _um(t["x1"]), -_um(t["y1"]), _um(t["x2"]), -_um(t["y2"])],
                     ["net", Q(t["net"])], ["type", "protect"]] for t in bt]
         wiring += [["via", Q(via_name), _um(v["x"]), -_um(v["y"]), ["net", Q(v["net"])], ["type", "protect"]] for v in bv]
+    no_copper -= copper  # a pad number with copper elsewhere in the footprint stays a pin
     network = ["network"]
     nets = design.nets()
     for net, conns in nets.items():
-        pins = [f"{r}-{p}" for r, p in conns if r in parts]
+        pins = [f"{r}-{p}" for r, p in conns if r in parts and f"{r}-{p}" not in no_copper]
         network.append(["net", Q(net), ["pins"] + pins])
     only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(layers)}
     groups: dict[tuple, list] = {}

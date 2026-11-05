@@ -139,7 +139,6 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
     (regionroute) when they form more than one group, each group's copper cached in build/routecache/groups/; the
     group rows are appended to that list."""
     out = out or _out(d)
-    name = d.name
     groups = getattr(d, "route_groups", None)
     if deadline is not None and time.time() >= deadline:
         d.route_budget_exhausted = True
@@ -156,6 +155,13 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
         if get_settings().router.force:
             raise RuntimeError(f"HWFLOW_ROUTER=krt but KiCadRoutingTools is not installed at {krt.krt_dir()}")
         print("KiCadRoutingTools not installed; falling back to Freerouting (run scripts/setup.sh)")
+    return _route_freerouting(d, libs, parts, passes, out, deadline)
+
+
+def _route_freerouting(d: Design, libs: Libs, parts, passes: int, out: Path,
+                       deadline: float | None = None) -> tuple[list, list, str, int]:
+    """One Freerouting pass: the DSN export, the router and the session import (what `krt.run_krt` is for KRT)."""
+    name = d.name
     pcb.export_dsn(d, libs, parts, out / f"{name}.dsn")
     try:
         log = krt.run_freerouting(out / f"{name}.dsn", out / f"{name}.ses", passes=passes,

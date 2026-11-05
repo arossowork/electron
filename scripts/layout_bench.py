@@ -155,6 +155,7 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
     wrap(krt, "run_krt", "router")  # the stage calls krt.run_krt / regionroute.route (pcb only re-exports the names)
     wrap(krt, "krt_route", "router")
     wrap(regionroute, "route", "router")
+    wrap(pl_stages, "_route_freerouting", "router")  # DSN export, Freerouting and SES import: like run_krt for KRT
     wrap(repair, "repair", "repair")
     wrap(kicad, "drc_fast", "drc")
     wrap(kicad, "drc", "drc", log_drc)
