@@ -16,12 +16,12 @@ def _design(tmp_path, board):
 
 def test_env_overrides_board_router(tmp_path, monkeypatch):
     monkeypatch.delenv("HWFLOW_ROUTER", raising=False)
-    assert _design(tmp_path, {}).board["router"] == "krt"  # the default is unchanged
-    assert _design(tmp_path, {"router": "freerouting"}).board["router"] == "freerouting"
+    assert stages.board_router(_design(tmp_path, {})) == "krt"  # the default is unchanged
+    assert stages.board_router(_design(tmp_path, {"router": "freerouting"})) == "freerouting"
     monkeypatch.setenv("HWFLOW_ROUTER", "Freerouting")
-    assert _design(tmp_path, {"router": "krt"}).board["router"] == "freerouting"
+    assert stages.board_router(_design(tmp_path, {"router": "krt"})) == "freerouting"
     monkeypatch.setenv("HWFLOW_ROUTER", "krt")
-    assert _design(tmp_path, {"router": "freerouting"}).board["router"] == "krt"
+    assert stages.board_router(_design(tmp_path, {"router": "freerouting"})) == "krt"
 
 
 def test_override_is_a_cache_key_input(monkeypatch):

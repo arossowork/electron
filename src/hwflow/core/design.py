@@ -110,9 +110,6 @@ class Design:
              "clearance_mm": 0.2, "track_mm": 0.25, "via_drill_mm": 0.3, "via_dia_mm": 0.6,
              "gnd_pour": True, "er": 4.3, "margin_mm": 1.0, "router": "krt"}
         b.update(self.raw.get("board") or {})
-        from .settings import get_settings
-        if (forced := get_settings().router.force):
-            b["router"] = forced
         return b
 
     def net_info(self, net: str) -> dict:

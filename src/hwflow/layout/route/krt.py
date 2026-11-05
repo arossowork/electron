@@ -451,7 +451,7 @@ def router_version(design: Design) -> str:
     """What the routing result depends on besides the input: a hash of the KiCadRoutingTools sources and its compiled
     extension (or the Freerouting jar), so a cached route is dropped when the router changes."""
     import hashlib
-    krt = design.board.get("router", "krt") == "krt" and (krt_dir() / "py_router" / "route.py").exists()
+    krt = (get_settings().router.force or design.board.get("router", "krt")) == "krt" and (krt_dir() / "py_router" / "route.py").exists()
     key = f"krt:{krt_dir()}" if krt else f"freerouting:{freerouting_jar()}"
     if key not in _ROUTER_VERSION:
         h = hashlib.sha256()

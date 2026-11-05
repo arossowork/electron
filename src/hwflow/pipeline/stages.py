@@ -121,9 +121,14 @@ def _run_summary(res: list[dict]) -> list[dict]:
             for a in res if a.get("status", "ok") != "ok" or a.get("flaky")]
 
 
+def board_router(d: Design) -> str:
+    """board.router of `d`; HWFLOW_ROUTER overrides it (A/B runs)."""
+    return get_settings().router.force or d.board.get("router", "krt")
+
+
 def router_used(d: Design) -> str:
-    """The router `_route_once` runs for `d`: board.router (HWFLOW_ROUTER overrides it), Freerouting if KRT is absent."""
-    if d.board.get("router", "krt") == "krt" and (krt.krt_dir() / "py_router" / "route.py").exists():
+    """The router `_route_once` runs for `d`: `board_router`, Freerouting if KRT is absent."""
+    if board_router(d) == "krt" and (krt.krt_dir() / "py_router" / "route.py").exists():
         return "krt"
     return "freerouting"
 
@@ -139,7 +144,7 @@ def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = No
     if deadline is not None and time.time() >= deadline:
         d.route_budget_exhausted = True
         return [], [], "stopped at layout wall-time budget before routing", len(pcb.net_classes(d))
-    if d.board.get("router", "krt") == "krt":
+    if board_router(d) == "krt":
         if (krt.krt_dir() / "py_router" / "route.py").exists():
             if groups is not None:
                 from ..layout.route import regionroute
@@ -438,7 +443,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
                                                      groups, route_check, deadline=deadline)
         if (get_settings().layout.pour_stitch and d.board["gnd_pour"] and not d.route_budget_exhausted
-                and d.board.get("router", "krt") == "krt"):
+                and board_router(d) == "krt"):
             from ..layout.route import pourstitch
             t = time.time()
             ps = pourstitch.stitch(d, libs, parts, board, tracks, vias, drc, route_check, deadline=deadline)
@@ -451,7 +456,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
                       "work": ps.get("work")}
         rounds = int(d.board.get("repair_rounds", 3))
         if (not d.route_budget_exhausted and any(x["sev"] == "error" for x in drc) and rounds > 0
-                and d.board.get("router", "krt") == "krt"
+                and board_router(d) == "krt"
                 and (krt.krt_dir() / "py_router" / "route.py").exists()):
             pre = (tracks, vias, drc, board.read_bytes())
             t = time.time()
@@ -481,7 +486,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             tracks, vias = tr, vi
             summary += f"; seed route {', '.join(dropped)} removed (a DRC error touches it)"
             print(f"[layout] seed route {', '.join(dropped)}: removed, a DRC error touches it")
-            if roads.on_route(d) and d.board.get("router", "krt") == "krt":  # back to the router as ordinary nets
+            if roads.on_route(d) and board_router(d) == "krt":  # back to the router as ordinary nets
                 try:
                     tracks, vias, note = roads.reroute(d, libs, parts, out, tracks, vias, dropped)
                     summary += f"; {note}"
