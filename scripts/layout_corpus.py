@@ -188,10 +188,69 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
            "route_groups": [{k: g.get(k) for k in ("name", "nets", "unrouted", "seconds")}
                             for g in L.get("route_groups") or []],
            "seconds": round(wall, 1), "cpu_s": round(cpu, 1), "timing": L.get("timing"),
-           "firstpass": L.get("firstpass")}
+           "firstpass": L.get("firstpass"), "router_used": L.get("router_used"),
+           "hpwl_mm": _board_hpwl(w / "build"),
+           # the steps stages.stage_layout runs only with krt (a Freerouting board gets none of them)
+           "krt_only_steps": {"repair": bool(L.get("repair")), "repair_rounds": (L.get("repair") or {}).get("rounds", 0),
+                              "pour_stitch": bool(L.get("pour_stitch")),
+                              "roads_reroute": "[layout] roads " in log}}
     if tmp:
         shutil.rmtree(tmp, ignore_errors=True)
     return out
+
+
+def _board_hpwl(build: Path) -> float | None:
+    """HPWL (pad centres, nets of 2+ pads; scripts/pcbench.py board_hpwl) of the routed board in `build`."""
+    from hwflow.layout.board import pcb
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pcbench import board_hpwl
+    b = [f for f in sorted(build.glob("*.kicad_pcb"))]
+    try:
+        return board_hpwl(pcb.read_board(b[0])) if b else None
+    except Exception:  # noqa: BLE001 - a metric only
+        return None
+
+
+def source_reference(case: Path) -> dict:
+    """The case's own placement, for the place mode: HPWL of the source placement (every part where the case puts
+    it), and the copper to compare with: the human board's (expected.yaml human.copper, the oshw boards) or else
+    the recorded routed outcome of the source placement (expected.yaml route, hwflow's router)."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pcbench import hpwl
+    e = expected(case)
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            h = hpwl(stage(case, Path(tmp)))
+        except Exception:  # noqa: BLE001
+            h = None
+    cop = (e.get("human") or {}).get("copper")
+    r = e.get("route") or {}
+    ref = ({"of": "human", "track_mm": cop.get("track_mm"), "vias": cop.get("vias")} if cop
+           else {"of": "recorded route", "track_mm": r.get("track_mm"), "vias": r.get("vias")})
+    free = len((yaml.safe_load((case / "cutout.yaml").read_text()) or {}).get("free") or [])
+    return {"hpwl_mm": h, "free": free, **ref}
+
+
+def place_table(cases, rows) -> str:
+    """Place mode, per case: free parts, legal, unrouted, DRC errors, clean, HPWL and track length against the
+    source placement, vias, time, the krt-only steps that ran."""
+    f = lambda x, p=2: "-" if x is None else f"{x:.{p}f}"  # noqa: E731
+    L = [f"\n{'case':28} {'free':>4} {'legal':>5} {'unr':>4} {'drc':>4} {'clean':>5} {'hpwl x':>6} {'wl x':>6} "
+         f"{'vias':>5} {'ref':>5} {'s':>7}  krt-only steps"]
+    for c in cases:
+        g, ref = rows[c.name]["route"], rows[c.name].get("source") or {}
+        if g.get("error"):
+            L.append(f"{c.name:28} {ref.get('free', '-'):>4} error: {g['error'][:80]}")
+            continue
+        ratio = lambda a, b: None if not a or not b else a / b  # noqa: E731
+        steps = ", ".join(k for k, v in (g.get("krt_only_steps") or {}).items() if v and k != "repair_rounds")
+        L.append(f"{c.name:28} {ref.get('free', 0):>4} {'yes' if not g.get('placement_violations') else 'no':>5} "
+                 f"{g.get('unrouted', 0):>4} {g.get('drc_errors', 0):>4} "
+                 f"{'yes' if not g.get('unrouted') and not g.get('drc_errors') else 'no':>5} "
+                 f"{f(ratio(g.get('hpwl_mm'), ref.get('hpwl_mm'))):>6} {f(ratio(g.get('track_mm'), ref.get('track_mm'))):>6} "
+                 f"{g.get('vias') if g.get('vias') is not None else '-':>5} {ref.get('vias') if ref.get('vias') is not None else '-':>5} "
+                 f"{g.get('seconds', '-'):>7}  {steps}" + ("  (no free part: routing only)" if not ref.get("free") else ""))
+    return "\n".join(L)
 
 
 def slack(n: int) -> int:
@@ -274,9 +333,13 @@ def main(argv=None) -> int:
     ap.add_argument("--free", action="store_true",
                     help="place the cutout.yaml `free` parts again before routing (the placement test; compare runs "
                          "with --json, not with expected.yaml)")
+    ap.add_argument("--place", action="store_true",
+                    help="place and route: --free, plus the source placement's HPWL, track length and vias beside each "
+                         "result (no regression verdict against expected.yaml)")
     ap.add_argument("--env", action="append", default=[], metavar="K=V", help="environment of the layout runs")
     a = ap.parse_args(argv)
     env = dict(kv.split("=", 1) for kv in a.env)
+    a.free = a.free or a.place
     cases = case_dirs(a.cases)
     if not cases:
         print("no case")
@@ -311,6 +374,13 @@ def main(argv=None) -> int:
             e = json.loads(json.dumps(e, default=float))  # numpy scalars -> plain numbers
             e["measured"] = time.strftime("%Y-%m-%d")
             (c / "expected.yaml").write_text(yaml.safe_dump(e, sort_keys=False, width=120))
+    if a.what == "summary" and a.place:
+        for c in cases:
+            rows[c.name]["source"] = source_reference(c)
+        print(place_table(cases, rows))
+        if a.json:
+            Path(a.json).write_text(json.dumps(rows, indent=1, default=float))
+        return 0
     if a.what == "summary":
         print(f"\n{'case':28} {'expected':24} {'actual':24} {'exp s':>7} {'act s':>7}  verdict")
         worse = 0

@@ -5,8 +5,11 @@ PCBWorld (LG AI Research, arXiv 2607.05915, BSD-3) scores routers on real open-s
 (MIT corpus; every board keeps its own license, recorded per board in the manifest). The board files are never copied
 into this repository: `prep` clones both repositories at pinned commits under the work dir and rebuilds the set there.
 
-    uv run python scripts/pcbench.py prep [--work build/bench/pcbench] [--limit N] [--workers 12]
-    uv run python scripts/layout_bench.py --pcbench-only [--pcbench-mode route|place|both]   # (layout_bench.py)
+    uv run python scripts/pcbench.py prep [--set d3a|d3b|d3c] [--work build/bench/pcbench] [--limit N] [--workers 12]
+    uv run python scripts/layout_bench.py --pcbench-only [--pcbench-set d3a|d3b|d3c] [--pcbench-mode route|place|both]
+
+Sets (PCBWorld configs/datasets/d3.json test lists, all 2-layer): d3a = easy, 99 boards (designs/); d3b = medium, 10 boards,
+pins <= 100 (designs_d3b/); d3c = hard, 10 boards, pins > 100 (designs_d3c/).
 
 `prep`:
   1. PCBWorld's own chain, steps 0 and 1 (tools/datagen/pcbench_prep): KiCad 5 -> current board format, then the DRC filter
@@ -46,6 +49,22 @@ PCBWORLD = ("https://github.com/LGAI-Research/PCBWorld.git", "v1.1.1")
 # full-set mean, DRV/WL/vias are means over the fully routed boards, time is router seconds per board.
 REFERENCE = {"Freerouting": {"routability": 0.98, "drv": 0.09, "wl_mm": 158.82, "vias": 0.72, "time_s": 3.90},
              "KiCadRoutingTools": {"routability": 0.94, "drv": 1.01, "wl_mm": 156.01, "vias": 3.74, "time_s": 0.65}}
+# D3 sets: the key in PCBWorld's configs/datasets/d3.json, the work subdirectory suffix (D3-A keeps the plain names
+# designs/, src/, v9/, newdrc/, manifest.json) and PCBWorld's published router rows for the set. D3-B: paper Table 21
+# (@5 protocol, potential-selected rollout; Freerouting the mean of 4 seeds; clean is CP). D3-C: not evaluated in the paper.
+SETS = {"d3a": {"key": "easy", "suffix": "", "label": "D3-A", "reference": REFERENCE, "ref_note": "RQ2, d3a fair-95"},
+        "d3b": {"key": "medium", "suffix": "_d3b", "label": "D3-B", "ref_note": "paper Table 21, D3-B, @5",
+                "reference": {"Freerouting": {"routability": 1.00, "clean_pass": 0.78, "drv": 10.60, "wl_mm": 535.4, "vias": 3.48, "time_s": 9.94},
+                              "KiCadRoutingTools": {"routability": 0.86, "clean_pass": 0.20, "drv": 44.70, "wl_mm": 472.3, "vias": 11.80, "time_s": 3.27},
+                              "human": {"routability": 1.00, "clean_pass": 1.00, "drv": 0.0, "wl_mm": 570.3, "vias": 6.70, "time_s": 0.0}}},
+        "d3c": {"key": "hard", "suffix": "_d3c", "label": "D3-C", "reference": {}, "ref_note": "not evaluated in the paper"}}
+
+
+def set_dirs(work: Path, name: str = "d3a") -> dict[str, Path]:
+    """The work paths of one D3 set: designs, src, v9, newdrc and the manifest."""
+    x = SETS[name]["suffix"]
+    return {"designs": work / f"designs{x}", "src": work / f"src{x}", "v9": work / f"v9{x}", "newdrc": work / f"newdrc{x}",
+            "manifest": work / f"manifest{x}.json"}
 
 
 def sh(cmd, **kw):
@@ -88,11 +107,11 @@ def hpwl(design_dir: Path) -> float:
         return board_hpwl(pcb.read_board(f))
 
 
-def import_one(board: Path, out: Path, bid: str, meta: dict | None) -> dict:
+def import_one(board: Path, out: Path, bid: str, meta: dict | None, label: str = "D3-A") -> dict:
     from hwflow.layout.board import kicad_import
     lics = (meta or {}).get("licenses") or []
     lic = ", ".join(x.get("spdx_id", "?") for x in (lics if isinstance(lics, list) else [lics])) or "unknown"
-    source = {"url": (meta or {}).get("source"), "license": lic, "corpus": f"PCBench {PCBENCH[1]} via PCBWorld {PCBWORLD[1]} D3-A",
+    source = {"url": (meta or {}).get("source"), "license": lic, "corpus": f"PCBench {PCBENCH[1]} via PCBWorld {PCBWORLD[1]} {label}",
               "id": bid}
     shutil.rmtree(out, ignore_errors=True)
     try:
@@ -120,14 +139,15 @@ def _import_job(a):
         return {"id": a[2], "ok": False, "reason": f"import: {type(e).__name__}: {str(e)[:200]}"}
 
 
-def prep(work: Path, limit: int, workers: int):
+def prep(work: Path, limit: int, workers: int, set_name: str = "d3a"):
+    cfg, dirs = SETS[set_name], set_dirs(work, set_name)
     ext = work / "ext"
     ext.mkdir(parents=True, exist_ok=True)
     clone(*PCBENCH, ext / "PCBench")
     clone(*PCBWORLD, ext / "PCBWorld")
-    ids = json.loads((ext / "PCBWorld/configs/datasets/d3.json").read_text())["easy"]["test"]
+    ids = json.loads((ext / "PCBWorld/configs/datasets/d3.json").read_text())[cfg["key"]]["test"]
     ids = ids[:limit] if limit else ids
-    src = work / "src"
+    src = dirs["src"]
     shutil.rmtree(src, ignore_errors=True)
     src.mkdir()
     for i in ids:  # D3 ids are <NNNN>_<PCBench folder>
@@ -135,31 +155,31 @@ def prep(work: Path, limit: int, workers: int):
     pp = ext / "PCBWorld/tools/datagen/pcbench_prep"
     py = os.environ.get("PCBNEW_PYTHON", "/usr/bin/python3")
     env = {**os.environ, "PYTHONPATH": str(ext / "PCBWorld"), "KICAD_CLI": shutil.which("kicad-cli") or "kicad-cli",
-           "PCBNEW_PYTHON": py, "PCBENCH_PCBS_ROOT": str(src), "PCBENCH_V9_ROOT": str(work / "v9"),
-           "PCBENCH_NEWDRC_OUT": str(work / "newdrc")}
+           "PCBNEW_PYTHON": py, "PCBENCH_PCBS_ROOT": str(src), "PCBENCH_V9_ROOT": str(dirs["v9"]),
+           "PCBENCH_NEWDRC_OUT": str(dirs["newdrc"])}
     sh([py, str(pp / "convert_v9.py"), "--workers", str(workers)], env=env, cwd=ext / "PCBWorld", check=True)
     sh([py, str(pp / "drc_fix_v9.py"), "--workers", str(workers)], env=env, cwd=ext / "PCBWorld")  # exit 1: some boards fail
     jobs, rows = [], []
-    shutil.rmtree(work / "designs", ignore_errors=True)
+    shutil.rmtree(dirs["designs"], ignore_errors=True)
     for i in ids:
-        folder = work / "newdrc" / i.split("_", 1)[1]
+        folder = dirs["newdrc"] / i.split("_", 1)[1]
         board = folder / "processed_v9.kicad_pcb"
         if not board.exists():
             rows.append({"id": i, "ok": False, "reason": "fails KiCad DRC with its own routing (PCBWorld step 1)"})
             continue
         meta = json.loads((folder / "metadata.json").read_text()) if (folder / "metadata.json").exists() else None
-        jobs.append((board, work / "designs" / re.sub(r"[^A-Za-z0-9_.()-]", "_", i), i, meta))
+        jobs.append((board, dirs["designs"] / re.sub(r"[^A-Za-z0-9_.()-]", "_", i), i, meta, cfg["label"]))
     with ProcessPoolExecutor(workers) as ex:
         rows += list(ex.map(_import_job, jobs))
     rows.sort(key=lambda r: r["id"])
-    man = {"pcbench": PCBENCH, "pcbworld": PCBWORLD,
+    man = {"pcbench": PCBENCH, "pcbworld": PCBWORLD, "set": set_name,
            "kicad": subprocess.run(["kicad-cli", "version"], capture_output=True, text=True).stdout.strip(),
            "boards": rows, "imported": sum(r["ok"] for r in rows), "of": len(ids)}
-    (work / "manifest.json").write_text(json.dumps(man, indent=1))
+    dirs["manifest"].write_text(json.dumps(man, indent=1))
     for r in rows:
         if not r["ok"]:
             print(f"  skip {r['id']}: {r['reason']}")
-    print(f"imported {man['imported']} of {len(ids)} D3-A boards into {work / 'designs'}")
+    print(f"imported {man['imported']} of {len(ids)} {cfg['label']} boards into {dirs['designs']}")
 
 
 def main():
@@ -168,9 +188,10 @@ def main():
     p = sub.add_parser("prep")
     p.add_argument("--work", default=str(ROOT / "build/bench/pcbench"))
     p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--set", default="d3a", choices=sorted(SETS), help="D3 test set: d3a (easy, 99), d3b (medium, 10), d3c (hard, 10)")
     p.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2))
     a = ap.parse_args()
-    prep(Path(a.work).resolve(), a.limit, a.workers)
+    prep(Path(a.work).resolve(), a.limit, a.workers, a.set)
 
 
 if __name__ == "__main__":

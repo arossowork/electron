@@ -67,14 +67,50 @@ PCB_CFG = {"seeds": 1, "iters": 200, "max_runs": 1, "env": {"HWFLOW_KEEPOUT_STRI
 # An illegal placement is routed too: the human board's fixed parts often break the placer's rules (a pad within
 # 0.3 mm of the edge, overlapping connector courtyards), and the child scores legality on the released parts only
 PCBP_CFG = {"max_runs": 1, "env": {"HWFLOW_KEEPOUT_STRICT": "1", "HWFLOW_ROUTE_ILLEGAL": "1"}}
-PCB_PREFIX = ("pcb:", "pcbp:")
+PCB_PREFIX = ("pcb:", "pcbp:", "pcbr:")
+# replay mode (pcbr:<id>): a placement that hwflow's placer made in an earlier place-mode run (--placements DIR: that
+# run's work dir), every part fixed at it and routed as in route mode: the router alone on hwflow's placement, so two
+# routers can be compared on the same placement. Default the attempt-1 placement (build/auto/attempt1.json: placer
+# seeds only, chosen before any routing result); --placement-attempt kept takes the attempt the run kept
+# (build/placement.json, chosen by that run's router).
+REPLAY: dict = {"dir": None, "attempt": "1"}
 
 
-def pcbench_set(mode: str = "route") -> dict[str, Path]:
-    dirs = [p.parent for p in sorted(PCBENCH_DIR.glob("*/design.yaml"))]
+def replay_placement(name: str) -> Path:
+    """The placement file of board `name` (pcbr_<id>) in the place-mode work dir REPLAY["dir"]."""
+    b = Path(REPLAY["dir"]) / ("pcbp_" + name.split("_", 1)[1]) / "run1" / "build"
+    return b / "placement.json" if REPLAY["attempt"] == "kept" else b / "auto" / f"attempt{REPLAY['attempt']}.json"
+
+
+def fix_at(raw: dict, saved: dict) -> list[str]:
+    """Every component of design dict `raw` that `saved` (placement.json: ref -> [x, y, rot]) places, fixed there; the
+    other placement keys (side) stay. Returns the refs that were not fixed before."""
+    was_free = []
+    for ref, c in raw["components"].items():
+        if ref not in saved or str(ref).startswith("__"):
+            continue
+        pl = dict(c.get("placement") or {})
+        if not pl.get("fixed", "x" in pl):
+            was_free.append(ref)
+        x, y, r = saved[ref]
+        pl.update(x=round(float(x), 4), y=round(float(y), 4), rot=float(r), fixed=True)
+        c["placement"] = pl
+    return was_free
+
+
+def pcbench_dir(set_name: str = "d3a") -> Path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pcbench import set_dirs
+    return set_dirs(PCBENCH_DIR.parent, set_name)["designs"]
+
+
+def pcbench_set(mode: str = "route", set_name: str = "d3a") -> dict[str, Path]:
+    dirs = [p.parent for p in sorted(pcbench_dir(set_name).glob("*/design.yaml"))]
     s = {f"pcb:{d.name}": d for d in dirs} if mode in ("route", "both") else {}
     if mode in ("place", "both"):
         s.update({f"pcbp:{d.name}": d for d in dirs})
+    if mode == "replay":
+        s = {f"pcbr:{d.name}": d for d in dirs}
     return s
 
 
@@ -256,7 +292,11 @@ def child(rundir: Path, offset: int, result: Path, seeds: int, iters: int):
                 drc = kicad._violations(json.loads((out / f"{d.name}.drc.json").read_text()))
             except Exception:  # noqa: BLE001
                 pass
-        fixed = {ref: type("P", (), {"fixed": bool((c.get("placement") or {}).get("fixed"))})() for ref, c in d.components.items()}
+        # replay mode: the parts hwflow placed count as placed (not fixed), as in the place run, so an error between
+        # them is a DRV and a violation that names one is the placer's
+        placed = set(json.loads((rundir / "replay_free.json").read_text())) if (rundir / "replay_free.json").exists() else set()
+        fixed = {ref: type("P", (), {"fixed": bool((c.get("placement") or {}).get("fixed")) and ref not in placed})()
+                 for ref, c in d.components.items()}
         errs = [x for x in drc if x["sev"] == "error" and x["type"] != "unconnected"]
         res["fixed_errors"] = sum(1 for x in errs if repair.fixed_error(x, fixed) is not None)
         res["drv_after"] = len(errs) - res["fixed_errors"]
@@ -302,6 +342,16 @@ def prep(src: Path, work: Path, name: str) -> Path:
             del raw["components"][ref]["placement"]
         (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
         print(f"  released {len(free)} of {len(raw['components'])} parts", flush=True)
+    if name.startswith("pcbr_"):  # replay mode: every part fixed at a placement of an earlier place-mode run
+        import yaml
+        src_pl = replay_placement(name)
+        if not src_pl.exists():
+            raise FileNotFoundError(f"no placement to replay: {src_pl}")
+        raw = yaml.safe_load((dst / "design.yaml").read_text())
+        freed = fix_at(raw, json.loads(src_pl.read_text()))
+        (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
+        (dst / "replay_free.json").write_text(json.dumps(freed))
+        print(f"  replay {src_pl}: {len(freed)} placed parts fixed at hwflow's placement", flush=True)
     d = Design.load(dst)
     libs = Libs(design=d)
     c = pl_stages.stage_check(d, libs)
@@ -440,6 +490,12 @@ def compare(new: dict, old: dict) -> str:
     return "\n".join(out)
 
 
+def _set_cfg(doc: dict) -> dict:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pcbench import SETS
+    return SETS[doc.get("pcbench_set") or "d3a"]
+
+
 def pcbench_summary(doc: dict) -> dict | None:
     """The real-board rows in PCBWorld's terms: routability is the mean over every board (a timeout or a crash counts 0),
     DRV (DRC errors other than unconnected), wirelength and vias are means over the fully routed boards (their RQ2 rule)."""
@@ -454,33 +510,36 @@ def pcbench_summary(doc: dict) -> dict | None:
          "router_s": mean([(r.get("phase_s") or {}).get("router") for _, r in rows]),
          "fixed_errors": mean([r.get("fixed_errors") for _, r in rows]),
          "failed": [n for n, r in rows if r.get("routability") != 1.0 or r.get("drv_after")]}
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from pcbench import REFERENCE
-    s["reference_d3a_fair95"] = REFERENCE
+    cfg = _set_cfg(doc)
+    s["set"], s["reference"], s["reference_note"] = cfg["label"], cfg["reference"], cfg["ref_note"]
+    s["timeouts"] = [n for n, r in rows if r.get("timeout")]
     return s
 
 
 def pcbench_table(s: dict) -> str:
-    L = ["", f"PCBENCH (PCBWorld D3-A real boards, fixed placement): {s['boards']} boards",
+    L = ["", f"PCBENCH (PCBWorld {s.get('set', 'D3-A')} real boards, fixed placement): {s['boards']} boards",
          "  method               rout.   clean    DRV      WL     vias   time_s",
          f"  hwflow               {s['routability']:.3f}   {s['clean_pass']:.2f}  {s['drv'] or 0:6.2f}  {s['wl_mm'] or 0:7.1f}  {s['vias'] or 0:6.2f}  "
          f"{s['time_s']:6.1f} (router {s['router_s'] or 0:.1f})"]
-    for k, v in s["reference_d3a_fair95"].items():
-        L.append(f"  {k:<20} {v['routability']:.3f}      -   {v['drv']:6.2f}  {v['wl_mm']:7.1f}  {v['vias']:6.2f}  {v['time_s']:6.2f}")
-    L.append("  reference rows: PCBWorld RQ2, d3a fair-95 (99-board list minus 4 tool-compat boards), router time only;")
+    for k, v in (s.get("reference") or {}).items():
+        cp = f"{v['clean_pass']:.2f}" if "clean_pass" in v else "   -"
+        L.append(f"  {k:<20} {v['routability']:.3f}   {cp}  {v['drv']:6.2f}  {v['wl_mm']:7.1f}  {v['vias']:6.2f}  {v['time_s']:6.2f}")
+    L.append(f"  reference rows: PCBWorld {s.get('reference_note', '')}, router time only;")
     L.append("  hwflow rows: the boards that pass the DRC filter under KiCad 10, time = whole layout stage;")
     L.append(f"  DRV leaves out errors between fixed parts only (original placement): {s['fixed_errors'] or 0:.2f} per board.")
+    if s.get("timeouts"):
+        L.append(f"  timeouts ({len(s['timeouts'])}, counted as failures): " + ", ".join(s["timeouts"]))
     if s["failed"]:
         L.append("  not clean: " + ", ".join(s["failed"]))
     return "\n".join(L)
 
 
-def pcbench_place_summary(doc: dict) -> dict | None:
+def pcbench_place_summary(doc: dict, prefix: str = "pcbp:") -> dict | None:
     """Place mode against the human board: `legal` is the share of boards whose placement has no violation that names a
     released part (one between fixed parts only comes with the human board, `inherited`); every board is routed, and
     routability and clean are as in route mode (a blocked board counts 0); the ratios (hwflow / human) are medians over the
     clean boards: HPWL of the placement and track length; vias_delta is the median of hwflow minus human vias."""
-    rows = [(n, dd["runs"][0], dd.get("human") or {}) for n, dd in doc["designs"].items() if n.startswith("pcbp:") and dd["runs"]]
+    rows = [(n, dd["runs"][0], dd.get("human") or {}) for n, dd in doc["designs"].items() if n.startswith(prefix) and dd["runs"]]
     if not rows:
         return None
     good = lambda r: r.get("routability") == 1.0 and r.get("drv_after") == 0 and not r.get("violations_placer")  # noqa: E731
@@ -490,7 +549,8 @@ def pcbench_place_summary(doc: dict) -> dict | None:
         v = [r[k] / h[hk] for r, h in clean if r.get(k) is not None and h.get(hk)]
         return median(v) if v else None
     legal = lambda r: not (r.get("blocked") or r.get("violations_placer") or r.get("timeout") or r.get("error"))  # noqa: E731
-    return {"boards": len(rows), "legal": mean([int(legal(r)) for _, r, _ in rows]),
+    return {"set": _set_cfg(doc)["label"], "timeouts": [n for n, r, _ in rows if r.get("timeout")],
+            "boards": len(rows), "legal": mean([int(legal(r)) for _, r, _ in rows]),
             "inherited": [n for n, r, _ in rows if r.get("placement_violations") and not r.get("violations_placer")],
             "routability": mean([r.get("routability", 0.0) for _, r, _ in rows]),
             "clean_pass": mean([int(good(r)) for _, r, _ in rows]),
@@ -507,7 +567,7 @@ def pcbench_place_summary(doc: dict) -> dict | None:
 def pcbench_place_table(s: dict) -> str:
     f = lambda x, p=2: "-" if x is None else f"{x:.{p}f}"  # noqa: E731
     vias = "-" if s["vias_delta"] is None else f"{s['vias_delta']:+.1f}"
-    L = ["", f"PCBENCH PLACE (PCBWorld D3-A, free parts placed by hwflow, the rest fixed): {s['boards']} boards",
+    L = ["", f"PCBENCH PLACE (PCBWorld {s.get('set', 'D3-A')}, free parts placed by hwflow, the rest fixed): {s['boards']} boards",
          f"  legal placement {f(s['legal'])}, routability {f(s['routability'], 3)}, clean {f(s['clean_pass'])}, "
          f"DRV {f(s['drv'])} (fully routed boards)",
          f"  against the human board (median over clean boards): HPWL x{f(s['hpwl_ratio'])}, track length x{f(s['wl_ratio'])}, "
@@ -518,6 +578,8 @@ def pcbench_place_table(s: dict) -> str:
     if s.get("inherited"):
         L.append(f"  violations between fixed parts only, from the human placement, not counted ({len(s['inherited'])}): "
                  + ", ".join(s["inherited"]))
+    if s.get("timeouts"):
+        L.append(f"  timeouts ({len(s['timeouts'])}, counted as failures): " + ", ".join(s["timeouts"]))
     if s["failed"]:
         L.append(f"  routed, not clean ({len(s['failed'])}): " + ", ".join(s["failed"]))
     return "\n".join(L)
@@ -535,17 +597,26 @@ def main():
     ap.add_argument("--full-synth", action="store_true", help="also run synth150 with the default placer settings (about an hour of placer per attempt: a timeout record)")
     ap.add_argument("--pcbench", action="store_true", help="add the imported PCBWorld D3-A real boards (scripts/pcbench.py prep)")
     ap.add_argument("--pcbench-only", action="store_true", help="only the PCBWorld boards")
-    ap.add_argument("--pcbench-mode", choices=("route", "place", "both"), default="route",
-                    help="route: human placement, all fixed; place: free parts placed by the flow; both")
+    ap.add_argument("--pcbench-set", choices=("d3a", "d3b", "d3c"), default="d3a",
+                    help="which imported D3 set (scripts/pcbench.py prep --set): d3a easy, d3b medium, d3c hard")
+    ap.add_argument("--pcbench-mode", choices=("route", "place", "both", "replay"), default="route",
+                    help="route: human placement, all fixed; place: free parts placed by the flow; both; replay: "
+                         "hwflow's placement from an earlier place run (--placements), all fixed")
+    ap.add_argument("--placements", help="replay mode: the work dir of the place-mode run whose placements are routed")
+    ap.add_argument("--placement-attempt", default="1", help="replay mode: attempt number (default 1) or `kept`")
     ap.add_argument("--child"); ap.add_argument("--offset", type=int, default=0); ap.add_argument("--result"); ap.add_argument("--seeds", type=int, default=4); ap.add_argument("--iters", type=int, default=30000)
     a = ap.parse_args()
     if a.child:
         return child(Path(a.child), a.offset, Path(a.result), a.seeds, a.iters)
     ds = design_set()
+    if a.pcbench_mode == "replay":
+        if not a.placements:
+            sys.exit("--pcbench-mode replay needs --placements <work dir of a place-mode run>")
+        REPLAY.update(dir=str(Path(a.placements).resolve()), attempt=a.placement_attempt)
     if a.pcbench or a.pcbench_only:
-        pb = pcbench_set(a.pcbench_mode)
+        pb = pcbench_set(a.pcbench_mode, a.pcbench_set)
         if not pb:
-            sys.exit(f"no imported boards in {PCBENCH_DIR}; run `uv run python scripts/pcbench.py prep` first")
+            sys.exit(f"no imported boards in {pcbench_dir(a.pcbench_set)}; run `uv run python scripts/pcbench.py prep --set {a.pcbench_set}` first")
         ds = pb if a.pcbench_only else {**ds, **pb}
     if a.list:
         print("\n".join(f"{k}: {v}" for k, v in ds.items()))
@@ -561,13 +632,20 @@ def main():
     work = Path(a.workdir).resolve()
     work.mkdir(parents=True, exist_ok=True)
     doc = {"date": datetime.now().isoformat(timespec="seconds"), "runs": a.runs, "offsets": OFFSETS, "timeout_s": a.timeout, "loadavg_start": os.getloadavg(), "cpus": os.cpu_count(),
+           "pcbench_set": a.pcbench_set if (a.pcbench or a.pcbench_only) else None, "router_env": os.environ.get("HWFLOW_ROUTER"),
            "git": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
            "designs": {}}
     t_all = time.time()
     for name, src in ds.items():
         print(f"[{name}]", flush=True)
-        cfg = {**DEFAULTS, **(PCB_CFG if name.startswith("pcb:") else PCBP_CFG if name.startswith("pcbp:") else SPECIAL.get(name, {}))}
-        pd = prep(src, work, name.replace(":", "_"))
+        cfg = {**DEFAULTS, **(PCB_CFG if name.startswith(("pcb:", "pcbr:")) else PCBP_CFG if name.startswith("pcbp:") else SPECIAL.get(name, {}))}
+        try:
+            pd = prep(src, work, name.replace(":", "_"))
+        except FileNotFoundError as e:  # replay: the place run left no placement (a timeout or a crash there)
+            print(f"  {e}", flush=True)
+            doc["designs"][name] = {"runs": [{"error": str(e), "ok": False, "wall_s": 0.0, "routability": 0.0}],
+                                    "human": json.loads((src / "pcbench.json").read_text()).get("human")}
+            continue
         runs = []
         n_runs = min(a.runs, cfg["max_runs"] or a.runs)
         for i in range(n_runs):
@@ -584,6 +662,9 @@ def main():
         shutil.rmtree(work / name.replace(":", "_") / "prep", ignore_errors=True)
     doc["pcbench"] = pcbench_summary(doc)
     doc["pcbench_place"] = pcbench_place_summary(doc)
+    doc["pcbench_replay"] = pcbench_place_summary(doc, "pcbr:")
+    if doc["pcbench_replay"]:
+        doc["pcbench_replay"]["placements"] = dict(REPLAY)
     allr = [r for n, dd in doc["designs"].items() if n != "thermostat-strict" and not n.startswith(PCB_PREFIX) for r in dd["runs"]]
     agg = aggregate(allr)
     agg["attempts_mean_of_designs"] = mean([dd["aggregate"]["attempts_mean"] for n, dd in doc["designs"].items()
@@ -599,6 +680,8 @@ def main():
         print(pcbench_table(doc["pcbench"]))
     if doc["pcbench_place"]:
         print(pcbench_place_table(doc["pcbench_place"]))
+    if doc["pcbench_replay"]:
+        print(pcbench_place_table(doc["pcbench_replay"]).replace("PCBENCH PLACE", "PCBENCH REPLAY (hwflow placement, all fixed)"))
     if a.compare:
         print(compare(doc, json.loads(Path(a.compare).read_text())))
     print(f"\nwritten {out}")

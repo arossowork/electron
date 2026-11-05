@@ -25,7 +25,7 @@ def test_route_summary_follows_pcbworld_rules():
     s = layout_bench.pcbench_summary(doc)
     assert s["boards"] == 2 and s["routability"] == 0.75 and s["clean_pass"] == 0.5
     assert (s["drv"], s["wl_mm"], s["vias"]) == (0, 100, 2)  # means over the fully routed boards only
-    assert s["failed"] == ["pcb:b"] and "KiCadRoutingTools" in s["reference_d3a_fair95"]
+    assert s["failed"] == ["pcb:b"] and "KiCadRoutingTools" in s["reference"] and s["set"] == "D3-A"
 
 
 def test_place_summary_compares_with_the_human_board():
@@ -43,3 +43,26 @@ def test_place_summary_compares_with_the_human_board():
     assert (s["hpwl_ratio"], s["wl_ratio"], s["vias_delta"]) == (0.9, 0.9, 2)  # clean boards only
     assert s["blocked"] == ["pcbp:b", "pcbp:d"] and s["failed"] == ["pcbp:c"] and s["inherited"] == ["pcbp:e"]
     assert "HPWL x0.90" in layout_bench.pcbench_place_table(s)
+
+
+def test_d3_sets_keep_d3a_paths_and_separate_the_others(tmp_path):
+    assert pcbench.set_dirs(tmp_path)["designs"] == tmp_path / "designs"  # D3-A unchanged
+    assert pcbench.set_dirs(tmp_path, "d3b")["designs"] == tmp_path / "designs_d3b"
+    assert pcbench.set_dirs(tmp_path, "d3c")["manifest"] == tmp_path / "manifest_d3c.json"
+    assert [pcbench.SETS[k]["key"] for k in ("d3a", "d3b", "d3c")] == ["easy", "medium", "hard"]
+    doc = {"pcbench_set": "d3b", "designs": {"pcb:a": run(routability=1.0, drv_after=0),
+                                             "pcb:b": {"runs": [{"timeout": True, "wall_s": 9.0}]}}}
+    s = layout_bench.pcbench_summary(doc)
+    assert s["set"] == "D3-B" and s["reference"]["Freerouting"]["clean_pass"] == 0.78
+    assert s["timeouts"] == ["pcb:b"] and s["routability"] == 0.5  # a timeout counts 0
+    assert "timeouts (1" in layout_bench.pcbench_table(s)
+
+
+def test_replay_fixes_every_part_at_the_saved_placement():
+    raw = {"components": {"J1": {"placement": {"x": 1, "y": 2, "rot": 0, "fixed": True}},
+                          "R1": {"value": "1k"}, "U1": {"placement": {"side": "back"}}}}
+    saved = {"__board_mm__": [10, 10], "J1": [1, 2, 0], "R1": [3.123456, 4, 90], "U1": [5, 6, 180]}
+    assert layout_bench.fix_at(raw, saved) == ["R1", "U1"]
+    assert raw["components"]["R1"]["placement"] == {"x": 3.1235, "y": 4.0, "rot": 90.0, "fixed": True}
+    assert raw["components"]["U1"]["placement"]["side"] == "back"  # other placement keys stay
+    assert raw["components"]["J1"]["placement"]["fixed"] is True
