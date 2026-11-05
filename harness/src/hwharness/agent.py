@@ -18,7 +18,7 @@ CALL_TIMEOUT = int(os.environ.get("HWFLOW_CALL_TIMEOUT", str(6 * 3600)))  # one 
 # Keep these flags identical for every --resume of a session, or the prompt cache misses.
 AUTOCOMPACT_WINDOW = os.environ.get("HWFLOW_AUTOCOMPACT_WINDOW", "400000")
 DESIGNER_TOOLS = "Bash,Read,Write,Edit,Agent,Skill,WebSearch,WebFetch"
-LEAN_ARGS = ["--setting-sources", "project,local", "--strict-mcp-config"]
+LEAN_ARGS = ["--setting-sources", "project,local", "--strict-mcp-config", "--autocompact", AUTOCOMPACT_WINDOW]
 USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
 
 
