@@ -42,7 +42,7 @@ def test_every_pin_padstack_has_a_shape_and_tabs_are_obstacles(tmp_path):
     pad = base.footprint(fp_name)["pads"][0]
     mask_only = {**copy.deepcopy(pad), "number": "99", "kind": "smd", "layers": ["F.Mask"], "x": pad["x"] + 3}
     tab = {**copy.deepcopy(pad), "number": "", "x": pad["x"] - 3}  # an unnumbered copper pad (a shield tab)
-    d.components[ref].pins["99"] = "GND"  # a net on the mask-only pad must not reach the network
+    d.components[ref].data.setdefault("pins", {})["99"] = "GND"  # a net on the mask-only pad must not reach the network
     t = _export(tmp_path, d, _ExtraPads(base, fp_name, [mask_only, tab]))
     lib = sexpr.find(t, "library")
     stacks = {str(p[1]): p for p in sexpr.find_all(lib, "padstack")}
@@ -84,3 +84,15 @@ def test_freerouting_command_line(tmp_path, monkeypatch):
     assert "--router.autorouter.max_passes=7" in cmd and "--router.autorouter.max_passes" not in cmd
     assert f"--router.copper_to_edge_clearance_um={pcb.EDGE_CLEARANCE_MM * 1000:g}" in cmd
     assert "-da" in cmd  # no analytics upload
+
+
+def test_reference_with_a_hyphen_is_quoted_in_the_network(tmp_path):
+    d = preamp(tmp_path)
+    old = next(r for r, c in d.components.items() if c.pins)
+    d.components["L-K1"] = d.components.pop(old)  # Freerouting reads L-K1-2 as pin K1-2 of component L
+    d.components["L-K1"].ref = "L-K1"
+    pins = [p for r, c in d.components.items() for p in c.pins if r == "L-K1"]
+    pcb.export_dsn(d, Libs(design=d), placer.build_parts(d, Libs(design=d)), tmp_path / "x.dsn")
+    text = (tmp_path / "x.dsn").read_text()
+    assert f'"L-K1"-{pins[0]}' in text and f" L-K1-{pins[0]}" not in text
+    assert '(place "L-K1"' in text

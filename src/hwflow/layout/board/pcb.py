@@ -710,6 +710,17 @@ def _padstack(p: dict, layers_all: list[str]) -> tuple[str, list] | None:
     return name, ["padstack", Q(name)] + shapes + [["attach", "off"]]
 
 
+def _dsn_ref(ref: str):
+    """A component reference in the DSN: quoted unless plain, because Freerouting reads a pin `L-KEMET1-2` as pin
+    `KEMET1-2` of component `L` (the net then misses the pin and counts as routed); `"L-KEMET1"-2` is unambiguous."""
+    return ref if re.fullmatch(r"[A-Za-z0-9_]+", ref) else Q(ref)
+
+
+def _dsn_pin(ref: str, pad: str) -> str:
+    r = _dsn_ref(ref)
+    return f"{sexpr._atom(r)}-{pad}"
+
+
 def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     b = design.board
     layers = cu_layers(b["layers"])
@@ -745,7 +756,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
         c = design.components[ref]
         fp = libs.footprint(c.get("footprint"))
         img = f"{c.get('footprint')}__{ref}"
-        placement.append(["component", Q(img), ["place", ref, _um(part.x), -_um(part.y), "front", part.r]])
+        placement.append(["component", Q(img), ["place", _dsn_ref(ref), _um(part.x), -_um(part.y), "front", part.r]])
         image = ["image", Q(img)]
         unnumbered = 0
         for p in fp["pads"]:
@@ -788,7 +799,7 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     network = ["network"]
     nets = design.nets()
     for net, conns in nets.items():
-        pins = [f"{r}-{p}" for r, p in conns if r in parts and f"{r}-{p}" not in no_copper]
+        pins = [_dsn_pin(r, p) for r, p in conns if r in parts and f"{r}-{p}" not in no_copper]
         network.append(["net", Q(net), ["pins"] + pins])
     only = {n: tuple(L) for n, L in net_layers(design).items() if L and set(L) != set(layers)}
     groups: dict[tuple, list] = {}
