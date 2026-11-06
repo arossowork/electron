@@ -427,6 +427,8 @@ PACK_UNITS = 5        # Placer.settle: the largest units of a tight spot whose p
 PACK_EVALS = 60
 PACK_ABORT_S = 600.0  # Placer.settle: safety abort of the packing search only (reported: the result is then load-dependent)
 SETTLE_WINDOW = 4.0   # Placer.settle: first search a window of this many unit sizes around the unit, then the board
+EDGE_CU_MARGIN = 0.05  # `_bound_box`: pad copper this much inside copper_edge_mm (KiCad measured an LCD's mounting
+# pad 0.291 mm from a board corner the placer's box test put at 0.312 mm: one copper_edge_clearance error)
 SETTLE_OVER_MM = 3.0  # Placer.settle without a board margin: how far past the board edge its raster (a courtyard) runs
 OUTER = (-SETTLE_OVER_MM, -SETTLE_OVER_MM)  # Placer.settle mode `corner` from here: lowest row, then leftmost spot
 
@@ -1059,7 +1061,7 @@ class Placer:
         off = self._cu_off.get(key)
         if off is None:
             bs = [part_pad_box(p, n) for n in p.pads if n not in p.nocu]
-            ce = float(self.d.board.get("copper_edge_mm", 0.3))
+            ce = float(self.d.board.get("copper_edge_mm", 0.3)) + EDGE_CU_MARGIN
             off = (min(b[0] for b in bs) - p.x - ce, min(b[1] for b in bs) - p.y - ce,
                    max(b[2] for b in bs) - p.x + ce, max(b[3] for b in bs) - p.y + ce) if bs else ()
             self._cu_off[key] = off
@@ -2433,6 +2435,8 @@ class Placer:
         # `violations` allows (only its pads keep copper_edge_mm, `_bound_box`): the raster runs SETTLE_OVER_MM past
         # the edge on every side, cell i at x = i res - o
         o = SETTLE_OVER_MM if (dry or self.edge_cu) else 0.0
+        if self.edge_cu and not dry:  # the pads then come as close to the edge as the rule allows (`_bound_box`)
+            ce += EDGE_CU_MARGIN
         res = min(0.25, max(0.05, math.sqrt((W + 2 * o) * (H + 2 * o) / SETTLE_CELLS)))
         nx, ny = int(math.ceil((W + 2 * o) / res)), int(math.ceil((H + 2 * o) / res))
         out_ids = {id(p) for u in bad for p in self._unit_parts(u)}
