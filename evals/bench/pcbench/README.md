@@ -7,7 +7,14 @@ uv run python scripts/pcbench.py prep                                   # ~3 min
 uv run python scripts/layout_bench.py --pcbench-only --pcbench-mode both \
     --compare evals/bench/pcbench/baseline.json                         # ~70 min (route ~6, place ~60)
 uv run python scripts/layout_bench.py --pcbench                         # route mode beside the usual design set
+uv run python scripts/pcbench.py prep --set d3b                         # D3-B (10 medium boards) -> designs_d3b/; d3c: hard
+uv run python scripts/layout_bench.py --pcbench-only --pcbench-set d3b --pcbench-mode place --workdir build/bench/w_b
+uv run python scripts/layout_bench.py --pcbench-only --pcbench-set d3b --pcbench-mode replay --placements build/bench/w_b
 ```
+
+`--pcbench-set d3a|d3b|d3c` picks the set (default d3a). `replay` takes the attempt-1 placement of an earlier place-mode
+run (`--placements` its work dir; `--placement-attempt kept` for the kept one), fixes every part there and routes it:
+the router alone on hwflow's placement, for router A/B runs (docs/research/router-ab.md).
 
 `prep` needs `kicad-cli` and KiCad's `pcbnew` Python module in the system interpreter (`PCBNEW_PYTHON`, default `/usr/bin/python3`). PCBWorld's scripts run there in a child process, never in the hwflow venv.
 
