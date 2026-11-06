@@ -68,6 +68,15 @@ the margins placed legally only this way.
 The tight placement keeps every net's pad clearance between two parts' pads, not only the larger net classes': with
 courtyards that touch, nothing else keeps a module's pads off a header's.
 
+Without a placer or board margin, the board bounds of the tight placement hold a part's pad copper, not its courtyard
+(`Placer._bound_box`, `edge_cu`): the copper keeps `copper_edge_mm` plus `placer.EDGE_CU_MARGIN` (0.05 mm), and the
+courtyard may overhang the edge, as `violations` and KiCad allow. The bounds term, legalize's clamp and settle follow
+it: settle's raster then runs `placer.SETTLE_OVER_MM` (3 mm) past the edge, and its repacks also pack from the
+raster's outer corner (`placer.OUTER`: the lowest free row, then the leftmost spot). An RFM69 module whose 16 mm
+courtyard fills a 16.5 mm carrier left room for the header and the capacitor beside it only with the header's
+courtyard 0.6 mm past the edge (PCBWorld 0056: a placer violation in every attempt before, clean after). The margin of
+0.05 mm: an LCD's mounting pad the box test put 0.312 mm from the edge was 0.291 mm in KiCad's DRC (0083).
+
 After it, the **extreme placement** is the last resort (`HWFLOW_EXTREME=0`: off): the tight placement again with
 copper `placer.EXTREME_EDGE_MM` (0.15 mm) from the board edge instead of 0.3 mm. It is kept when it leaves fewer
 violations, or as many with at most `placer.EXTREME_HPWL` (70%) of the wirelength: on a 4.8 mm strip the 0.3 mm rule
@@ -91,7 +100,13 @@ The placer's model of a footprint (`placer.build_parts`):
   of the margin (`placer._yard_box`). Two such rows face to face are legal for KiCad 0.5 mm apart, but no track can
   leave either. A part at a given position keeps its courtyard, so a human placement is judged by KiCad's test.
 - **SMD pads outside the courtyard** (`Part.out`) keep the pad clearance to other parts' through-hole copper, which
-  is on both sides: no courtyard test sees them (an nRF24 module's pad row over a back-side header).
+  is on both sides: no courtyard test sees them (an nRF24 module's pad row over a back-side header). On their own
+  side they are also part of the footprint's body, grown by half the pad clearance (`placer.out_boxes`): no other
+  courtyard and no other such pad may cover them (`_side_overlap`, legalize's pairs, settle's raster). An ESP-12E's
+  courtyard covers its antenna only; a resistor sat on its pad 22 with no violation, and KiCad found the short
+  (PCBWorld 0400).
+- **A pad's drill offset** moves its copper (`libs.footprint` `offset`, `placer._pad_copper`): a buzzer's SMD pads sit
+  2.85 mm out from their origins, so the placer put that copper over the board edge (0400).
 - **A part larger than the board** in every rotation (a radio module on a smaller carrier, `placer._oversize`)
   overhangs the edge: the board bounds hold its copper only, and its courtyard still keeps the other parts off its
   body. `unstick` scans the box centre of a part over the board, not its origin, which lies off the board then.

@@ -20,6 +20,7 @@ router-ab.md. Every placement step stops on a count (docs/layout-flow.md, reprod
 |---|---|---|---|---|---|---|---|---|
 | 1 | 3aeee21 | baseline: merged main (tight, extreme placement, extreme routing), no placer change | all denominator boards of the 3 sets | **98/104 = 0.942** | 88/91 = 0.967 | 6/7 = 0.857 | 4/6 = 0.667 | target reached: stop |
 | 2 | bae99f9 | tight placement: the board bounds hold the pad copper, not the courtyard (settle raster 3 mm past the edge, packed from its outer corner; legalize clamp; bounds term); SMD pads outside their courtyard block other courtyards on their side; pad drill offset in the copper model; pour stitch as extreme-routing step 3 | all denominator boards of the 3 sets | **99/104 = 0.952** | 88/91 = 0.967 | 6/7 = 0.857 | 5/6 = 0.833 | won 0056, 0400; lost 0083 (an LCD mounting pad 0.291 mm from the edge: the copper bound clamped pads exactly at 0.3 mm) |
+| 3 | 772514a | attempt 2 + the copper bound keeps 0.05 mm (`EDGE_CU_MARGIN`) inside copper_edge_mm; pour-stitch step dropped (won nothing) | all denominator boards of the 3 sets | **100/104 = 0.962** | 89/91 = 0.978 | 6/7 = 0.857 | 5/6 = 0.833 | won 0083 back; 0086 now fully routed, lost to 1 annular_width on its released via footprint XRef2 (intrinsic, as 0113) |
 
 Attempt 1 wall time: D3-A 22 min, D3-B 5 min, D3-C 57 min (0571 and 0626 about 45 min each).
 
