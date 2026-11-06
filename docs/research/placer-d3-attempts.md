@@ -60,3 +60,37 @@ oshw_ch32v003_usbpd, oshw_hot_plate_power, oshw_ina228_simple, oshw_powerline_us
 6 placements with placer violations (esp32c3_devkit_lipo, espgaggia, hestiapi_one, hue_simple_switch, milliohm_meter, rocketbeacon); oshw_pico_ice timed out (3600 s; it took 3582 s in router-ab.md).
 router-ab.md part 2 (a70660f, 35 cases without pr_mcu and pr_pmic): 8 clean.
 Fast tier (`pytest -m "not slow"`): 890 passed.
+
+# Phase 2 (branch placer-d3-100): toward 100%
+
+Attempts 2 and 3 above (attempts 1-3 of 20 used). Best: attempt 3 at 772514a, a full evaluation of the 104
+denominator boards: **100/104 = 0.962** (D3-A 89/91, D3-B 6/7, D3-C 5/6). No board clean in attempt 1 was lost.
+
+## The changes kept (each generic: no board name, no PCBWorld-only path)
+
+- Tight placement (no placer margin, no board margin): the board bounds hold the pad copper (copper_edge_mm + 0.05 mm),
+  not the courtyard, which may overhang the edge as `violations` and KiCad allow: bounds term, legalize's clamp,
+  settle's raster (3 mm past the edge, repacks also from its outer corner). Won 0056.
+- SMD pads outside their own courtyard (a module's pad rows) block other courtyards and such pads on their side
+  (`_side_overlap`, legalize pairs, settle raster, the spatial hashes). A stricter rule, not a looser one. With the
+  next item, won 0400.
+- A pad's drill offset moves its copper in the footprint model (`libs.footprint`, `placer._pad_copper`).
+- Tried and dropped: the pour stitch as a third extreme-routing step (no board won); a packing search over the
+  neighbourhood when no region holds the violators (0077: 3 -> 2 violations, still lost).
+
+## The 4 boards still lost
+
+| board | why | curable? |
+|---|---|---|
+| 0113_maytal (D3-B) | 6 annular_width on a released part, intrinsic to its footprint | not by placement: metric question |
+| 0086_BB-PWR-8009 (D3-A) | now fully routed; 1 annular_width on XRef2, a released via footprint (route mode: a fixed_error) | not by placement: same metric question |
+| 0077_HaveSome_PCB (D3-A) | 13 parts on 7.6 x 18.4 mm; the back side needs about 11 slots of 3.5 mm for 10: five 3 mm test pads, the header, and the SOT-223's pads, which the tight placement keeps clear on both sides (a part without a courtyard); the net-class clearance between pads is also layer-blind (a front pad and a back pad 0.05 mm apart in plan view count) | only by relaxing those two rules: a decision, not made here |
+| 0520_RGBMatrixPanelCPLD (D3-C) | legal placement, 1-2 open: small F.Cu GND islands (QFP and 0402 GND pads walled in by tracks) or a signal net near U2 | not by the pour stitch (each island needs a displacement that leaves a signal net open), not by pour taps (G2 left open) nor by the routability ranking (single-board diagnostics) |
+
+Under the current metric the reachable maximum is 102/104 (0113 and 0086 lost to intrinsic footprint errors).
+
+## Layout corpus and tests at the final code (4a8dbae, same placer as 772514a)
+
+`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`: 14 of 37 clean, the same 14 cases as at
+e360b5e; the same 6 placements with placer violations; oshw_pico_ice timed out at 3600 s, as before.
+Fast tier: 895 passed (5 new tests in tests/test_place_edge.py).
