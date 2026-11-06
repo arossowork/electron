@@ -49,3 +49,12 @@ board rule, a malformed courtyard) is excluded. In place mode the same footprint
 counts as a DRV, wherever the placer puts the part. 0113 is lost to this alone: its 6 annular_width errors are the
 same as its 6 fixed_errors in route mode. No placement can cure it. Whether such footprint-intrinsic errors should be
 excluded in place mode too is a decision about the metric, left open here.
+
+## Layout corpus and tests at e360b5e (no hwflow code changed, so start and end are the same run)
+
+`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`, krt: 14 of 37 cases clean (ht4_s11_mains,
+ht4_s1_k2in, ht4_s1_mains, kb_keys, oshw_ac_relay, oshw_buck_tps54202, oshw_ch32v003_usb_devboard,
+oshw_ch32v003_usbpd, oshw_hot_plate_power, oshw_ina228_simple, oshw_powerline_usbc, pr_mcu, pr_pmic, sp_control);
+8 placements illegal or with placer violations; oshw_pico_ice timed out (3600 s; it took 3582 s in router-ab.md).
+router-ab.md part 2 (a70660f, 35 cases without pr_mcu and pr_pmic): 8 clean.
+Fast tier (`pytest -m "not slow"`): 890 passed.
