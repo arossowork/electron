@@ -22,7 +22,8 @@ router-ab.md. Every placement step stops on a count (docs/layout-flow.md, reprod
 | 2 | bae99f9 | tight placement: the board bounds hold the pad copper, not the courtyard (settle raster 3 mm past the edge, packed from its outer corner; legalize clamp; bounds term); SMD pads outside their courtyard block other courtyards on their side; pad drill offset in the copper model; pour stitch as extreme-routing step 3 | all denominator boards of the 3 sets | **99/104 = 0.952** | 88/91 = 0.967 | 6/7 = 0.857 | 5/6 = 0.833 | won 0056, 0400; lost 0083 (an LCD mounting pad 0.291 mm from the edge: the copper bound clamped pads exactly at 0.3 mm) |
 | 3 | 772514a | attempt 2 + the copper bound keeps 0.05 mm (`EDGE_CU_MARGIN`) inside copper_edge_mm; pour-stitch step dropped (won nothing) | all denominator boards of the 3 sets | **100/104 = 0.962** | 89/91 = 0.978 | 6/7 = 0.857 | 5/6 = 0.833 | won 0083 back; 0086 now fully routed, lost to 1 annular_width on its released via footprint XRef2 (intrinsic, as 0113) |
 | 4 | c0a4e26 | net-class pad clearance per copper layer (SMD pads on opposite sides keep none, as KiCad); a courtyard-less SMD part blocks only its own copper side, its fallback box on that side | all denominator boards of the 3 sets | **100/104 = 0.962** | 89/91 = 0.978 | 6/7 = 0.857 | 5/6 = 0.833 | won 0077; lost 0076 (a bottom-mount USB socket without courtyard: its B.Cu pads 0.09 mm from a socket strip's pin, no check paired them once guarded pads stopped blocking the front courtyard) |
-| 5 | (next commit) | a courtyard-less part's SMD pads keep the pad clearance to other parts' through-hole pads (fixes 0076 of attempt 4); extreme routing steps 3 (pour taps on the walled-in pads, all signal nets re-routed) and 4 (pour stitch after it) | 0077 and 0520 only (`--only`) | - | 0077 clean | - | 0520 not clean | 0520 fully routed for the first time (attempts 2 and 3 of its 4: 0 open, GND islands closed by steps 3 and 4); its 24 errors left are annular_width on U1, the PHOTON footprint (0.092 mm ring, min 0.1), a fixed_error in route mode and counted in place mode, as 0113 and 0086 |
+| 5 | 9db4423 | a courtyard-less part's SMD pads keep the pad clearance to other parts' through-hole pads (fixes 0076 of attempt 4); extreme routing steps 3 (pour taps on the walled-in pads, all signal nets re-routed) and 4 (pour stitch after it) | 0077 and 0520 only (`--only`) | - | 0077 clean | - | 0520 not clean | 0520 fully routed for the first time (attempts 2 and 3 of its 4: 0 open, GND islands closed by steps 3 and 4); its 24 errors left are annular_width on U1, the PHOTON footprint (0.092 mm ring, min 0.1), a fixed_error in route mode and counted in place mode, as 0113 and 0086 |
+| 6 | 9db4423 | attempt 5's code (D3-C run again after the harness stopped the first run at 3 boards) | all denominator boards of the 3 sets | **101/104 = 0.971** | 90/91 = 0.989 | 6/7 = 0.857 | 5/6 = 0.833 | won 0076 back; the 3 boards lost each fail only on annular_width of a released footprint (0086 XRef2 x1, 0113 x6, 0520 U1 x24): the reachable maximum under the metric |
 
 Attempt 1 wall time: D3-A 22 min, D3-B 5 min, D3-C 57 min (0571 and 0626 about 45 min each).
 
@@ -65,8 +66,10 @@ Fast tier (`pytest -m "not slow"`): 890 passed.
 
 # Phase 2 (branch placer-d3-100): toward 100%
 
-Attempts 2 and 3 above (attempts 1-3 of 20 used). Best: attempt 3 at 772514a, a full evaluation of the 104
-denominator boards: **100/104 = 0.962** (D3-A 89/91, D3-B 6/7, D3-C 5/6). No board clean in attempt 1 was lost.
+Attempts 2 to 6 above (6 of 20 used; attempt 5 on 0077 and 0520 only). Best: attempt 6 at 9db4423, a full
+evaluation of the 104 denominator boards: **101/104 = 0.971** (D3-A 90/91, D3-B 6/7, D3-C 5/6). No board clean in
+attempt 1 was lost. The three boards left fail only on footprint-intrinsic annular_width errors of released parts
+(the scorer asymmetry above): 101/104 is the maximum under the metric, so the search stopped there.
 
 ## The changes kept (each generic: no board name, no PCBWorld-only path)
 
@@ -77,22 +80,41 @@ denominator boards: **100/104 = 0.962** (D3-A 89/91, D3-B 6/7, D3-C 5/6). No boa
   (`_side_overlap`, legalize pairs, settle raster, the spatial hashes). A stricter rule, not a looser one. With the
   next item, won 0400.
 - A pad's drill offset moves its copper in the footprint model (`libs.footprint`, `placer._pad_copper`).
-- Tried and dropped: the pour stitch as a third extreme-routing step (no board won); a packing search over the
+- Net-class pad clearance per copper layer (an F.Cu SMD pad and a B.Cu SMD pad keep none, as KiCad), and a
+  courtyard-less SMD part blocks other courtyards only on its copper side (its fallback box on that side); its SMD
+  pads keep the pad clearance to other parts' through-hole pads, which are on every layer (`_guard_pairs`). Won
+  0077 (attempt 4 lost 0076 without the last rule; attempt 6 won it back).
+- Extreme routing steps 3 (pour taps on the parts whose pour pads sit in a piece no via reaches, all signal nets
+  re-routed around them) and 4 (the pour stitch after it). 0520 is fully routed now (it was 1-2 open), which
+  shows its 24 U1 annular_width errors.
+- Tried and dropped: the pour stitch as a third extreme-routing step on the first route (no board won); a packing search over the
   neighbourhood when no region holds the violators (0077: 3 -> 2 violations, still lost).
 
-## The 4 boards still lost
+## The 3 boards still lost (attempt 6)
 
 | board | why | curable? |
 |---|---|---|
 | 0113_maytal (D3-B) | 6 annular_width on a released part, intrinsic to its footprint | not by placement: metric question |
-| 0086_BB-PWR-8009 (D3-A) | now fully routed; 1 annular_width on XRef2, a released via footprint (route mode: a fixed_error) | not by placement: same metric question |
-| 0077_HaveSome_PCB (D3-A) | 13 parts on 7.6 x 18.4 mm; the back side needs about 11 slots of 3.5 mm for 10: five 3 mm test pads, the header, and the SOT-223's pads, which the tight placement keeps clear on both sides (a part without a courtyard); the net-class clearance between pads is also layer-blind (a front pad and a back pad 0.05 mm apart in plan view count) | only by relaxing those two rules: a decision, not made here |
-| 0520_RGBMatrixPanelCPLD (D3-C) | legal placement, 1-2 open: small F.Cu GND islands (QFP and 0402 GND pads walled in by tracks) or a signal net near U2 | not by the pour stitch (each island needs a displacement that leaves a signal net open), not by pour taps (G2 left open) nor by the routability ranking (single-board diagnostics) |
+| 0086_BB-PWR-8009 (D3-A) | fully routed; 1 annular_width on XRef2, a released via footprint (route mode: a fixed_error) | not by placement: same metric question |
+| 0520_RGBMatrixPanelCPLD (D3-C) | fully routed, GND pour whole; 24 annular_width on U1, the released PHOTON footprint (0.092 mm ring, board minimum 0.1 mm; route mode: fixed_errors on U1) | not by placement: same metric question |
 
-Under the current metric the reachable maximum is 102/104 (0113 and 0086 lost to intrinsic footprint errors).
+Extreme placement and routing on the two boards worked on (attempts 3-6):
+- 0077: the normal placement had violations, so the tight and then the extreme placement ran (copper 0.15 mm from
+  the edge; kept: 0 -> 0 violations at a lower HPWL). Before attempt 4 its violations were on placer rules (the
+  layer-blind clearance, both-side guard pads), which no routing round can change: the extreme routing narrowed 3
+  nets and kept nothing.
+- 0520: every placement was legal, so no tight or extreme placement ran (its gate: violations left). The extreme
+  routing ran in all 4 attempts, no gate skipped it (route budget not exhausted, errors left, krt, 33 nets under
+  the 60-net cap). Step 1 (33 nets at 0.15 mm) re-routed with 27 -> 29 and 29 -> 26 errors; step 2 found no via
+  room in the GND islands, even with a 0.45 mm via (the walled-in pads are QFP pins 0.54 mm wide between signal
+  fan-outs), so a smaller via would not help. Steps 3 and 4 (attempt 5) closed the islands in 2 of 4 attempts.
 
-## Layout corpus and tests at the final code (4a8dbae, same placer as 772514a)
+Under the current metric the reachable maximum is 101/104 (0113, 0086 and 0520 lost to intrinsic footprint errors).
 
-`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`: 14 of 37 clean, the same 14 cases as at
-e360b5e; the same 6 placements with placer violations; oshw_pico_ice timed out at 3600 s, as before.
-Fast tier: 895 passed (5 new tests in tests/test_place_edge.py).
+## Layout corpus and tests at the final code (9db4423)
+
+`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`: 15 of 37 clean, the 14 cases clean at e360b5e and
+sp_overfull; 5 placements with placer violations (espgaggia, hestiapi_one, hue_simple_switch, milliohm_meter,
+rocketbeacon; esp32c3_devkit_lipo's were on back-side courtyard-less parts that KiCad does not test, removed with
+the layer rules of attempt 4); oshw_pico_ice timed out at 3600 s, as before.
+Fast tier: 899 passed (8 tests in tests/test_place_edge.py, 1 new in tests/test_extreme_route.py).
