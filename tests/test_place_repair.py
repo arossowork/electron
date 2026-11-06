@@ -209,3 +209,27 @@ def test_settle_holds_a_block_by_its_members_courtyards_in_a_region(tmp_path):
     assert pl._settle([u]) == 1  # a free spot for the block (none when its whole box had to fit)
     assert pl.violations() == []
     assert abs(u.x - 15.0) < 0.3 and abs(u.y - 10.0) < 0.3
+
+
+def test_verdict_counts_the_isolation_bands_of_a_region(tmp_path):
+    """Courtyards that fill a mains region well under PLACE_FILL_MAX, whose pads need more room with the isolation
+    bands than the region has: a design blockage (back to architecture), not a placer failure."""
+    comps = {f"R{i}": {"value": "1k", "symbol": "Device:R", "footprint": RS, "pins": {"1": f"H{i}", "2": f"H{i}b"}}
+             for i in range(6)}
+    iso = [{"name": f"g{i}", "nets": [f"H{i}", f"H{i}b"], "clearance_mm": 2.5, "between_mm": 0.2} for i in range(6)]
+    fp = {"construction": "single", "items": [{"name": "hv", "refs": [f"R{i}" for i in range(6)]}],
+          "regions": [{"name": "mains", "kind": "mains", "rect": [1, 1, 13, 7], "items": ["hv"],
+                       "nets": ["H*"]}]}
+    d = make(tmp_path, fp, board={"width_mm": 30, "height_mm": 12, "layers": 2, "isolation": iso}, comps=comps,
+             nets={f"H{i}{s}": {"class": "signal"} for i in range(6) for s in ("", "b")})
+    libs = Libs(design=d)
+    parts = placer.build_parts(d, libs)
+    for i, p in enumerate(parts.values()):
+        p.x, p.y, p.r = 3.0 + 2.0 * (i % 3), 3.0 + 2.0 * (i // 3), 0.0
+    pl = placer.Placer(d, parts, 30, 12, seed=1)
+    v = pl.violations()
+    assert v
+    pv = legality.placement_verdict(d, parts, 30, 12, v)
+    row = next(g for g in pv["regions"] if g["name"] == "mains")
+    assert row["fill"] < legality.PLACE_FILL_MAX < row["band_fill"]
+    assert pv["back_to"] == "architecture" and "isolation bands" in pv["msg"] and "placer failure" not in pv["msg"]

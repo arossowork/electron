@@ -1,4 +1,5 @@
-"""Connect a split pour net (GND) by rule after routing (settings.layout.pour_stitch, HWFLOW_POUR_STITCH).
+"""Connect a split pour net (GND) by rule after routing (settings.layout.pour_stitch, HWFLOW_POUR_STITCH, or the
+design's `board.pour_stitch: true`).
 
 The router never routes a pour net: a pad of it reaches the net only through the zone fill on its own layer, and the
 layers join only at the through-hole pads and vias of the net. On a dense board the signal tracks cut the outer-layer
@@ -219,7 +220,7 @@ def plan(d, board: Path, net: str, rip: bool = False, avoid=(), max_rip: int | N
     main = max(area, key=lambda g: (npads.get(g, 0), area[g]))
     space = _Space(d, rb, sexpr.loads(board.read_text()), net, copper)
     from ...core import floorplan
-    inner = floorplan.outline(d).buffer(-(pcb.EDGE_CLEARANCE_MM + r + 0.1), join_style="mitre")
+    inner = floorplan.outline(d).buffer(-(pcb.edge_mm(d) + r + 0.1), join_style="mitre")
     own = unary_union([_box(p, r + 0.1) for p in pads]) if pads else None
     landing = {}
     for i, (ly, g) in enumerate(nodes):

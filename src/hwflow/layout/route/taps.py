@@ -29,6 +29,7 @@ from shapely.ops import unary_union
 
 from ...core import sexpr
 from ...core.geometry import COURTYARD_MARGIN
+from ...core.design import via_pads
 from ..board import keepout, pcb, routing
 
 REACH_MM = 2.5  # longest stub beyond the pad edge
@@ -36,11 +37,24 @@ LINK_MM = 3.0  # longest pad-to-pad link inside a footprint
 STEP_MM = 0.1
 ANGLES = 24
 COURTYARD_MODULE_MM2 = 25.0  # a surface-mount footprint this large is a module: no via under it
+TRAP_RATIO = 1.5  # a pad's second-nearest neighbour within this many times the nearest: a pad row, not a corner
 
 
 def on(design) -> bool:
+    """Taps run with HWFLOW_POUR_TAPS (every pour pad) or with `board.pour_taps` (the pads of the parts it lists)."""
     from ...core.settings import get_settings
-    return bool(get_settings().layout.pour_taps and design.board.get("gnd_pour"))
+    return bool((get_settings().layout.pour_taps or design.board.get("pour_taps")) and design.board.get("gnd_pour"))
+
+
+def _tapped_parts(design):
+    """`board.pour_taps`: refs or globs whose pour pads get a tap (None: every part). On a dense board a via at every
+    pour pad takes the room the signal nets need; the list keeps the taps to the pads that need a short ground
+    (RF shunts, filters, decoupling)."""
+    sel = design.board.get("pour_taps")
+    if not sel or sel is True:
+        return None
+    import fnmatch
+    return lambda ref: any(fnmatch.fnmatchcase(ref, g) for g in sel)
 
 
 def _box(p, grow=0.0):
@@ -83,13 +97,13 @@ def plan(design, libs, parts, board: Path) -> dict:
     rb = pcb.read_board(board)
     tree = sexpr.loads(Path(board).read_text())
     r = b["via_dia_mm"] / 2
-    inner = floorplan.outline(design).buffer(-(pcb.EDGE_CLEARANCE_MM + r + 0.1), join_style="mitre")
+    inner = floorplan.outline(design).buffer(-(pcb.edge_mm(design) + r + 0.1), join_style="mitre")
     modules = _modules(design, libs, parts)
     skip_layers = set(b.get("pour_skip_layers", []))
     pour_ko = [a for a in keepout.rule_areas(tree, ("copperpour",)) if "copperpour" in a["forbids"]]
-    thermal = {(ref, str((design.components[ref].get("thermal_vias") or {}).get("pad", "")))
-               for ref in design.components if design.components[ref].get("thermal_vias")}
+    thermal = {(ref, n) for ref, c in design.components.items() for n in via_pads(c)}
     classes = pcb.net_classes(design)
+    only = _tapped_parts(design)
     for net in sorted(design.ground_nets()):
         pads = [(ref, p) for ref, fp in sorted(rb["footprints"].items()) for p in fp["pads"] if p["net"] == net]
         if not pads:
@@ -119,7 +133,7 @@ def plan(design, libs, parts, board: Path) -> dict:
         todo = []
         for ref, p in pads:
             ls = routing.pad_layers(p["layers"], copper)
-            if p["kind"] != "smd" or len(ls) != 1 or (ref, p["number"]) in thermal:
+            if p["kind"] != "smd" or len(ls) != 1 or (ref, p["number"]) in thermal or (only is not None and not only(ref)):
                 continue
             todo.append((ref, p, ls[0]))
         # outer pads of a footprint first: the inner ones (a module's ground grid) link to them
@@ -153,26 +167,7 @@ def plan(design, libs, parts, board: Path) -> dict:
                 done.add(g)
                 continue
             # 2. a stub to a via
-            half = math.hypot(p["w"], p["h"]) / 2
-            rad = min(p["w"], p["h"]) / 2 + r + 0.1
-            fx, fy = cen[ref]
-            best = None
-            while rad <= half + REACH_MM + 1e-9 and best is None:
-                cands = []
-                for a in range(ANGLES):
-                    ang = 2 * math.pi * a / ANGLES
-                    q = Point(p["x"] + rad * math.cos(ang), p["y"] + rad * math.sin(ang))
-                    out_ = (q.x - fx) * (p["x"] - fx) + (q.y - fy) * (p["y"] - fy)  # > 0: away from the centre
-                    cands.append((0 if out_ > 0 else 1, a, q))
-                for _, _, q in sorted(cands, key=lambda t: (t[0], t[1])):
-                    if not lands(q, layer) or space.via(q, own) != set():
-                        continue
-                    line = LineString([(c.x, c.y), (q.x, q.y)])
-                    w = next((w for w in widths if space.stub(line, layer, w) == set()), None)
-                    if w is not None:
-                        best = (q, line, w)
-                        break
-                rad += STEP_MM
+            best = _stub_via(p, cen[ref], layer, space, own, widths, r, lambda q: lands(q, layer))
             if best is None:
                 left.append((ref, p, layer))
                 continue
@@ -195,6 +190,112 @@ def plan(design, libs, parts, board: Path) -> dict:
         out["untapped"] += [f"{ref}.{p['number']}" for ref, p, _ in left]
         rb["segments"] += [dict(t) for t in out["tracks"] if t["net"] == net]  # the next pour net routes around them
         rb["vias"] += [dict(v) for v in out["vias"] if v["net"] == net]
+    return out
+
+
+def _stub_via(p, centre, layer, space, own, widths, r, ok) -> tuple | None:
+    """The shortest stub on `layer` from pad `p` to a via that keeps every clearance of `space` and passes `ok`,
+    outward from the footprint `centre` before inward: (via point, line, width) or None."""
+    c = Point(p["x"], p["y"])
+    half = math.hypot(p["w"], p["h"]) / 2
+    rad = min(p["w"], p["h"]) / 2 + r + 0.1
+    fx, fy = centre
+    while rad <= half + REACH_MM + 1e-9:
+        cands = []
+        for a in range(ANGLES):
+            ang = 2 * math.pi * a / ANGLES
+            q = Point(p["x"] + rad * math.cos(ang), p["y"] + rad * math.sin(ang))
+            out_ = (q.x - fx) * (p["x"] - fx) + (q.y - fy) * (p["y"] - fy)  # > 0: away from the centre
+            cands.append((0 if out_ > 0 else 1, a, q))
+        for _, _, q in sorted(cands, key=lambda t: (t[0], t[1])):
+            if not ok(q) or space.via(q, own) != set():
+                continue
+            line = LineString([(c.x, c.y), (q.x, q.y)])
+            w = next((w for w in widths if space.stub(line, layer, w) == set()), None)
+            if w is not None:
+                return q, line, w
+        rad += STEP_MM
+    return None
+
+
+def trapped(design, rb: dict, copper: list) -> list[tuple[str, dict, str]]:
+    """Surface-mount pads of a routed net walled in on their own footprint: the two nearest pads on the same layer
+    (the second within TRAP_RATIO of the first, on the opposite side) share one other routed net, so the track the
+    router joins them with runs in front of the pad (nPM1300 pads 28-32: LSIN1, LSOUT1, LSIN2, LSOUT2, VOUT2).
+    Two nets that wall each other in on one footprint (a USB-C receptacle's D+/D- crossover A6, B7, A7, B6) are a
+    crossing the router solves with a via of its own: no tap there (oshw_pico_ice routed 42 -> 50 open with them).
+    [(ref, pad, layer)]"""
+    pour = design.ground_nets() if design.board.get("gnd_pour") else set()
+    thermal = {(ref, n) for ref, c in design.components.items() for n in via_pads(c)}
+    out = []
+    for ref, fp in sorted(rb["footprints"].items()):
+        smd = []
+        for p in fp["pads"]:
+            ls = routing.pad_layers(p["layers"], copper)
+            if p["kind"] == "smd" and p["net"] and len(ls) == 1:
+                smd.append((p, ls[0]))
+        for p, layer in smd:
+            if p["net"] in pour or (ref, p["number"]) in thermal:
+                continue
+            near = sorted(((math.hypot(q["x"] - p["x"], q["y"] - p["y"]), i, q) for i, (q, L) in enumerate(smd)
+                           if q is not p and L == layer), key=lambda t: (t[0], t[1]))
+            if len(near) < 2 or near[1][0] > TRAP_RATIO * near[0][0]:
+                continue
+            a, b = near[0][2], near[1][2]
+            if a["net"] != b["net"] or a["net"] == p["net"] or a["net"] in pour:
+                continue
+            if (a["x"] - p["x"]) * (b["x"] - p["x"]) + (a["y"] - p["y"]) * (b["y"] - p["y"]) >= 0:
+                continue  # both on one side: the pad keeps its way out
+            out.append((ref, p, layer, a["net"]))
+    walls = {(ref, p["net"], by) for ref, p, _, by in out}
+    return [(ref, p, layer) for ref, p, layer, by in out if (ref, by, p["net"]) not in walls]
+
+
+def escapes(design, libs, parts, board: Path, tracks=(), vias=()) -> dict:
+    """Escape taps (settings.layout.escape_taps, HWFLOW_ESCAPE_TAPS=0: off): every pad `trapped` names gets a stub
+    to a via of its own net before routing, so the track joining its neighbours goes around the via instead of
+    walling the pad in (pocket-recorder: a VDD_3V0 track from nPM1300 pad 30 to 32 closed pad 31 in 4 attempts).
+    `tracks` and `vias` (the pour taps) are on the board too. {tracks, vias, untapped [ref.pad], stats}"""
+    from ...core import floorplan
+    from ...core.settings import get_settings
+    from . import pourstitch
+    out = {"tracks": [], "vias": [], "untapped": [], "stats": {"pads": 0, "stub": 0}}
+    if not get_settings().layout.escape_taps:
+        return out
+    b = design.board
+    copper = pcb.cu_layers(b["layers"])
+    rb = pcb.read_board(board)
+    pads = trapped(design, rb, copper)
+    if not pads:
+        return out
+    rb["segments"] += [dict(t) for t in tracks]
+    rb["vias"] += [dict(v) for v in vias]
+    tree = sexpr.loads(Path(board).read_text())
+    r = b["via_dia_mm"] / 2
+    inner = floorplan.outline(design).buffer(-(pcb.edge_mm(design) + r + 0.1), join_style="mitre")
+    modules = _modules(design, libs, parts)
+    classes = pcb.net_classes(design)
+    cen = {ref: (fp["x"], fp["y"]) for ref, fp in rb["footprints"].items()}
+    for ref, p, layer in pads:
+        net = p["net"]
+        out["stats"]["pads"] += 1
+        space = pourstitch._Space(design, rb, tree, net, copper)
+        own = unary_union([_box(q, r + 0.1) for fp in rb["footprints"].values() for q in fp["pads"] if q["net"] == net])
+        w0 = float(classes.get(net, {}).get("width", b["track_mm"]))
+        widths = sorted({w0, min(w0, float(b["track_mm"])), routing.neck_floor(b)}, reverse=True)
+        best = _stub_via(p, cen[ref], layer, space, own, widths, r,
+                         lambda q: inner.contains(q) and not any(m.contains(q) for m in modules))
+        if best is None:
+            out["untapped"].append(f"{ref}.{p['number']}")
+            continue
+        q, line, w = best
+        t = _track(net, line, layer, w)
+        v = {"net": net, "x": round(q.x, 4), "y": round(q.y, 4)}
+        out["tracks"].append(t)
+        out["vias"].append(v)
+        rb["segments"].append(dict(t))  # the next trapped pad keeps its distance to this tap
+        rb["vias"].append(dict(v))
+        out["stats"]["stub"] += 1
     return out
 
 
@@ -236,14 +337,21 @@ def _track(net, line, layer, w) -> dict:
 
 
 def preseed(design, libs, parts, src: Path, workdir: Path, stem: str) -> tuple[Path, list, list, dict]:
-    """The board `src` with the taps written in (a copy in `workdir`), for the router to keep. Returns (board, tracks,
-    vias, plan)."""
-    p = plan(design, libs, parts, src)
+    """The board `src` with the taps written in (a copy in `workdir`), for the router to keep: the pour taps when `on`,
+    and the escape taps, and the declared thermal vias (build_board adds those only to a routed board: without them
+    the router would run inner-layer tracks through the pad's via sites). Returns (board, tracks, vias, plan)."""
+    p = plan(design, libs, parts, src) if on(design) else {"tracks": [], "vias": [], "untapped": [], "stats": {}}
+    p = dict(p, vias=p["vias"] + [{k: v[k] for k in ("net", "x", "y")} for v in pcb.thermal_vias(design, libs, parts)])
+    e = escapes(design, libs, parts, src, p["tracks"], p["vias"])
+    if e["stats"]["pads"]:
+        print(f"[layout] escape taps: {e['stats']['pads']} pads walled in by their neighbours' net, "
+              f"{e['stats']['stub']} stub vias" + (f", none for {', '.join(e['untapped'])}" if e["untapped"] else ""))
+    p = dict(p, tracks=p["tracks"] + e["tracks"], vias=p["vias"] + e["vias"], escapes=e)
     if not (p["tracks"] or p["vias"]):
         return Path(src), [], [], p
     import uuid
     from ...core.sexpr import Q
-    tree = sexpr.loads(Path(src).read_text())  # the unrouted board: its taps added as copper (no thermal vias yet)
+    tree = sexpr.loads(Path(src).read_text())  # the unrouted board: its taps and thermal vias added as copper
     idx = {str(n[2]): n[1] for n in sexpr.find_all(tree, "net") if len(n) > 2}
     b = design.board
     for t in p["tracks"]:
@@ -255,7 +363,8 @@ def preseed(design, libs, parts, src: Path, workdir: Path, stem: str) -> tuple[P
     dst = Path(workdir) / f"{stem}taps.kicad_pcb"
     dst.write_text(sexpr.dumps(tree) + "\n")
     s = p["stats"]
-    print(f"[layout] pour taps: {s['pads']} pads, {s['joined']} already joined, {s['linked']} linked on their footprint, "
-          f"{s['stub']} stub vias, "
-          f"{len(p['untapped'])} without a tap" + (f" ({', '.join(p['untapped'][:8])})" if p["untapped"] else ""))
+    if s:
+        print(f"[layout] pour taps: {s['pads']} pads, {s['joined']} already joined, {s['linked']} linked on their "
+              f"footprint, {s['stub']} stub vias, "
+              f"{len(p['untapped'])} without a tap" + (f" ({', '.join(p['untapped'][:8])})" if p["untapped"] else ""))
     return dst, p["tracks"], p["vias"], p

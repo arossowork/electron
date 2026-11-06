@@ -44,6 +44,19 @@ def _first_existing(cands, *, dir_with: str | None = None) -> str:
     return ""
 
 
+def _main_checkout_tools(root: Path) -> list[Path]:
+    """[<main checkout>/tools] when `root` is a git worktree (its .git is a file `gitdir: <main>/.git/worktrees/<n>`),
+    else []."""
+    try:
+        line = (root / ".git").read_text().strip()
+    except (OSError, UnicodeDecodeError):  # a directory (the main checkout) or no git
+        return []
+    if not line.startswith("gitdir:"):
+        return []
+    gitdir = Path(line.split(":", 1)[1].strip())
+    return [gitdir.parents[2] / "tools"] if gitdir.parent.name == "worktrees" else []
+
+
 class _Group(BaseSettings):
     # env names are given per field (alias); unknown env vars are ignored; fields are also settable by name
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True, env_prefix="")
@@ -60,15 +73,25 @@ class LayoutSettings(_Group):
     keepout_strict: OffWords = Field(True, validation_alias=AliasChoices("HWFLOW_KEEPOUT_STRICT"))
     neckdown: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_NECKDOWN"))
     seedroute: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SEEDROUTE"))
+    ripup: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_RIPUP"))  # krt.krt_route rip-up rounds
     seed0: int = Field(1, validation_alias=AliasChoices("HWFLOW_SEED0"))
     budget_s: float = Field(3000.0, validation_alias=AliasChoices("HWFLOW_LAYOUT_BUDGET_S"))
     auto_max_errors: int | None = Field(None, validation_alias=AliasChoices("HWFLOW_AUTO_MAX_ERRORS"))
     settle: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_SETTLE"))  # Placer.settle legalizer
+    # a placement left with violations is placed again on the bare courtyards (placer.place); HWFLOW_TIGHT=0: never
+    tight: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_TIGHT"))
+    # still copper-to-edge violations after it: placed again with copper 0.15 mm from the edge (placer.place); a
+    # layout left with DRC errors is routed again with narrower tracks and via-in-pad stitching
+    # (layout/route/extreme.py); HWFLOW_EXTREME=0: never
+    extreme: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_EXTREME"))
     # incremental (ECO) placement from build/placement.good.json after a clean layout (layout/place/eco.py)
     eco: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ECO"))
     route_illegal: bool = Field(False, validation_alias=AliasChoices("HWFLOW_ROUTE_ILLEGAL"))  # debugging only
     # floorplan quick placement: the seeds one after the other instead of in worker processes (same result)
     floorplan_serial: bool = Field(False, validation_alias=AliasChoices("HWFLOW_FLOORPLAN_SERIAL"))
+    # floorplan congestion gate: a FAIL is confirmed by routing each hot spot's cutout of the quick placement for at
+    # most this many seconds (floorplan._confirm_by_route); a spot that routes clean makes the FAIL a risk. 0: off
+    floorplan_confirm_s: float = Field(120.0, validation_alias=AliasChoices("HWFLOW_FLOORPLAN_CONFIRM_S"))
     routab_predict: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ROUTAB_PREDICT"))
     # raw values; None: the design's placement.routability_<name>, then off (routability.py)
     routab_rank: str | None = Field(None, validation_alias=AliasChoices("HWFLOW_ROUTAB_RANK"))
@@ -107,12 +130,15 @@ class LayoutSettings(_Group):
     krt_rotate: int = Field(0, validation_alias=AliasChoices("HWFLOW_KRT_ROTATE"))  # first router net order
     # pour stitch (layout.route.pourstitch): join a split GND pour after routing with vias in the fill, vias in
     # exposed pads, pad stubs to a via, and stubs that displace routed nets; off by default, on with
-    # HWFLOW_POUR_STITCH=1
+    # HWFLOW_POUR_STITCH=1 or with the design's `board.pour_stitch: true`
     pour_stitch: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_STITCH"))
     # pour taps (layout.route.taps): before signal routing, every surface-mount pad of a pour net gets a link or a stub
     # and via to the plane, kept as fixed copper; off by default, on with HWFLOW_POUR_TAPS=1 (measurements in
     # docs/layout-flow.md, step 7)
     pour_taps: bool = Field(False, validation_alias=AliasChoices("HWFLOW_POUR_TAPS"))
+    # escape taps (layout.route.taps.escapes): a pad walled in by its footprint neighbours of one other net gets a
+    # stub and via of its own net before routing; on by default, off with HWFLOW_ESCAPE_TAPS=0
+    escape_taps: NotZero = Field(True, validation_alias=AliasChoices("HWFLOW_ESCAPE_TAPS"))
     # routable first pass (layout.route.firstpass, experiment, off by default): "1" (every step) or a comma list of
     # roads (planned roads reserved in placement and routed first), hot (the routability window cuts as a local
     # placer penalty), quick (a truncated route as a filter that drives one local placement fix); None: the
@@ -157,7 +183,9 @@ class RepairSettings(_Group):
     max_errors: int = Field(40, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_ERRORS"))
     # a safety abort only (repair.py): the repair and the pour-stitch re-routes stop on counts
     budget_s: float = Field(1800.0, validation_alias=AliasChoices("HWFLOW_REPAIR_BUDGET_S"))
-    max_stall: int = Field(2, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_STALL"))
+    # one rejected round stops the repair: a round that did not improve the board rarely leads to one that does,
+    # and each costs a full re-route (timed-bathroom-vent: two rejected rounds, 1018 s + 784 s, 12 -> 12 errors)
+    max_stall: int = Field(1, validation_alias=AliasChoices("HWFLOW_REPAIR_MAX_STALL"))
 
 
 class RouterSettings(_Group):
@@ -231,9 +259,13 @@ class PathSettings(_Group):
         root = Path(self.root)
         self.blocks_dir = self.blocks_dir or str(root / "blocks")
         self.library_dir = self.library_dir or str(root / "library")
-        self.tools_dir = self.tools_dir or str(root / "tools")
-        self.krt_dir = self.krt_dir or str(Path(self.tools_dir) / "KiCadRoutingTools")
-        self.freerouting = self.freerouting or str(Path(self.tools_dir) / "freerouting-2.5.0.jar")
+        # tools/ is gitignored, so a git worktree has none: each tool falls back to the main checkout's tools/
+        tools = [Path(self.tools_dir)] if self.tools_dir else [root / "tools", *_main_checkout_tools(root)]
+        self.tools_dir = str(tools[0])
+        self.krt_dir = self.krt_dir or _first_existing([str(t / "KiCadRoutingTools") for t in tools]) or str(
+            tools[0] / "KiCadRoutingTools")
+        self.freerouting = self.freerouting or _first_existing([str(t / "freerouting-2.5.0.jar") for t in tools]) or str(
+            tools[0] / "freerouting-2.5.0.jar")
         self.cas_dir = self.cas_dir or str(Path(os.path.expanduser("~")) / ".cache" / "hwflow" / "cas")
         self.ref_dirs = self.ref_dirs or os.pathsep.join([str(root / "examples"), str(root / "projects")])
         self.oshw_index = self.oshw_index or str(root / "oshw" / "index.json")

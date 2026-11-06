@@ -134,6 +134,23 @@ def test_auto_cutoff_at_the_first_final_attempt():
     assert bp.drop_reason(search, 4) == "cutoff"
 
 
+def test_auto_a_clean_attempt_ends_the_search_at_once():
+    """A clean board (ok) ends the search even while attempts before it still run: they are cancelled (reason
+    `cutoff`) and the select ranks the attempts up to it that have a result. A final board with errors on fixed parts
+    still waits for the attempts before it."""
+    res = {k: OK for k in ("check", "sch", "sim")}
+    res["layout_attempt.2"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 2}}
+    res["layout_attempt.3"] = {"verdict": "pass", "summary": {"ok": True}}
+    search = bp.layout_search(AUTO, bp.attempts_of(res), LAY, 1, 0)
+    assert search.cutoff == 3 and search.wanted == () and search.used == (2, 3) and not search.over
+    assert bp.drop_reason(search, 1) == "cutoff" and bp.drop_reason(search, 4) == "cutoff"
+    (s,) = bp.plan(AUTO, res, LAY, 1, 0)
+    assert s.key == "layout_select" and s.params["cutoff"] == 3 and s.params["used"] == [2, 3]
+    assert "cancelled" not in s.params  # the select's cache key is unchanged
+    res["layout_attempt.3"] = {"verdict": "fail", "summary": {"ok": False, "drc_errors": 1, "fixed_parts_only": True}}
+    assert keys(bp.plan(AUTO, res, LAY, 1, 0)) == ["layout_attempt.1"]
+
+
 def test_auto_hopeless_and_fixed_all_run_one_attempt():
     o = {**AUTO, "first_alone": True}  # the attempts that start with attempt 1 by default: the test below
     order, _ = drive(o, {1: {"ok": False, "drc_errors": 41, "unrouted": 0}})

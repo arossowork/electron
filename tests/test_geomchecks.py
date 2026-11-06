@@ -81,6 +81,21 @@ def test_side_only(tmp_path):
     assert run(tmp_path, {"kind": "side_only", "side": "back", "parts": ["R1"]})["ok"]
 
 
+def test_side_only_counts_a_mirrored_back_footprint_as_back(tmp_path):
+    """A `_back` footprint (front one mirrored, body on B.CrtYd, placed on F.Cu) is a back-face part, as in the
+    fab position files (kicad.mirrored_back_parts)."""
+    back = PCB.replace('(footprint "x:K" (layer "F.Cu") (at 40 20)\n  (property "Reference" "K1")\n  (fp_rect (start -4 -4) '
+                       '(end 4 4) (layer "F.CrtYd"))',
+                       '(footprint "x:K_back" (layer "F.Cu") (at 40 20)\n  (property "Reference" "K1")\n  (fp_rect (start -4 -4) '
+                       '(end 4 4) (layer "B.CrtYd"))')
+    assert back != PCB
+    d = project(tmp_path, [{"kind": "side_only", "side": "back", "parts": ["K1", "R1"]},
+                           {"kind": "side_only", "side": "front", "parts": ["K1"]}])
+    (tmp_path / "gc.kicad_pcb").write_text(back)
+    ok_back, ok_front = geomchecks.evaluate(d, tmp_path / "gc.kicad_pcb")
+    assert ok_back["ok"] and not ok_front["ok"]
+
+
 def test_validate_flags_bad_entries(tmp_path):
     d = project(tmp_path, [{"kind": "nope"}, {"kind": "outline_max", "width_mm": -1, "height_mm": 3},
                            {"kind": "min_distance", "from": {"parts": ["Z9"]}, "to": {"nets": ["X"]}, "min_mm": 1},

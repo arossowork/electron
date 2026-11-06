@@ -127,6 +127,10 @@ fast:
     - U1000.25
     - U1000.41
     - U951.9
+  gate:
+    fail: true
+    peak: 8.0
+    area_mm2: 16.0
   seconds:
     check: 67.1
     pin_access: 2.4

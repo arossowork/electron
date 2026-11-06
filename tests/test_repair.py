@@ -266,3 +266,21 @@ def test_repair_does_not_reroute_width_limited_or_repeat_failures(tmp_path, monk
     r = repair.repair(D(), None, {}, [], [], drc, board, lambda *a: drc, 5, skip_nets={"VBAT"})["report"]
     assert seen == [["SIG"], ["SIG"], []] and r["rounds"] == 2
     assert any("not re-routed: VBAT" in x for x in r["log"]) and r["log"][-1] == "nothing the router can repair"
+
+
+def test_stitching_vias_keep_out_of_via_rule_areas(tmp_path):
+    """A rule area that forbids vias (an antenna clearance, a region copper_keepout) is an obstacle for the
+    stitching vias, as it is for the router: a via there is a DRC error."""
+    proj = tmp_path / "p"
+    proj.mkdir()
+    (proj / "design.yaml").write_text(YAML)
+    d = Design.load(proj)
+    board = tmp_path / "ko.kicad_pcb"
+    board.write_text('(kicad_pcb (version 20241229) (net 0 "") (net 1 "GND")\n'
+                     ' (gr_rect (start 0 0) (end 40 30) (layer "Edge.Cuts") (width 0.1))\n'
+                     ' (zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (name "no vias") (hatch edge 0.5)\n'
+                     '  (keepout (tracks allowed) (vias not_allowed) (pads allowed) (copperpour allowed) (footprints allowed))\n'
+                     '  (polygon (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)))))\n')
+    from shapely.geometry import Point
+    obst = repair._obstacles(d, board, "GND")
+    assert obst.contains(Point(15, 15)) and obst.contains(Point(20.2, 15)) and not obst.contains(Point(30, 15))

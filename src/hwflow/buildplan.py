@@ -4,7 +4,8 @@ One planner, two drivers: `hwflow.pipeline.runner.run_build` (inline, the CLI) a
 (Temporal) both loop `plan(...)` until it returns `Done`. It encodes the stage order, `until`, the hard-failure stop
 (`check`, `sch`, a stage that raised, a blocked layout, unless `force`) and the `layout --auto` search: attempts
 1..n at once (attempt 1 alone first with option `first_alone`), cut off at the first final attempt (clean, or
-errors on fixed parts only), no other attempt when attempt 1 is hopeless (`auto_max_errors`) or every part is fixed
+errors on fixed parts only; a clean one also cancels the attempts before it that still run), no other attempt when
+attempt 1 is hopeless (`auto_max_errors`) or every part is fixed
 (the others are then stopped), a wall-time budget (`budget_s` against `now - started`), placer seeds `seed0 + (k-1)*seeds` (applied by the attempt), then `layout_select`.
 
 Stdlib only (import-linter contract "the build planner is stdlib-only"): workflows import it, so it reads no file,
@@ -131,20 +132,24 @@ def layout_search(options: Mapping[str, Any], attempts: Mapping[int, Mapping[str
     last = cutoff if cutoff is not None else n
     need = range(1, last + 1)
     complete = all(k in attempts for k in need)
+    # a clean board (0 unrouted, 0 DRC errors, legal) ends the search at once: the attempts before it that are still
+    # running are cancelled too (no better board exists); a final board with errors on fixed parts waits for them
+    clean = cutoff is not None and bool(attempts[cutoff].get("ok"))
     # A truncated first attempt is retained even for n=1, without treating its errors as hopeless.
     exhausted = bool(a1.get("budget_exhausted"))
     in_time = not exhausted and (deadline is None or now < deadline)
-    wanted = tuple(k for k in need if k not in attempts) if (in_time and not complete) else ()
-    over = exhausted or (not complete and not wanted)
+    wanted = tuple(k for k in need if k not in attempts) if (in_time and not complete and not clean) else ()
+    over = exhausted or (not complete and not wanted and not clean)
     # only the attempts up to the cutoff (or n): one that ended before attempt 1 was found hopeless, or after a final
-    # one, is not ranked, so the kept board never depends on which attempt finished first
+    # one, is not ranked (a clean board ranks the attempts before it that had ended)
     used = tuple(sorted(k for k in attempts if k <= last))
     return LayoutSearch(auto, n, cutoff, hopeless, fixed_all, deadline, budget, wanted, complete, over, used)
 
 
 def drop_reason(search: LayoutSearch, k: int) -> str:
-    """Why a running attempt `k` is no longer wanted: past the first final attempt, or the budget is used up."""
-    return "cutoff" if search.cutoff is not None and k > search.cutoff else "budget"
+    """Why a running attempt `k` is no longer wanted: past the first final attempt or before a clean one (`cutoff`),
+    or the budget is used up."""
+    return "cutoff" if search.cutoff is not None and (k > search.cutoff or not search.over) else "budget"
 
 
 def _hard(stage: str, verdict: str, options: Mapping[str, Any]) -> bool:

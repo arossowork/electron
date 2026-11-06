@@ -12,37 +12,63 @@ from ...core.geometry import COURTYARD_MARGIN, Part, Parts, Rigid, rot  # noqa: 
 from ...core.settings import get_settings
 
 
-def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=None) -> dict[str, Part]:
-    """`areas`: more rule areas for the placer (roads.areas: the road reservations)."""
+def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=None, tight: bool = False) -> dict[str, Part]:
+    """`areas`: more rule areas for the placer (roads.areas: the road reservations). `tight`: KiCad's rules taken
+    literally (placer.place, when the placement is otherwise illegal): every footprint without a courtyard has no
+    body, only its pads, which keep the pad clearance."""
     parts = Parts()
     from ..board import keepout
     parts.areas = keepout.placement_areas(design, libs) + list(areas or [])
+    pad_half = min(COURTYARD_MARGIN, (float(design.board.get("clearance_mm", 0.2)) + CLEAR_MARGIN) / 2)
+    # a routing channel (one track between two clearances, with the placer's clearance margin), less the margin of the
+    # part beyond it: what a courtyard side that its pads reach keeps (`_yard_box`)
+    chan = (float(design.board.get("track_mm", 0.25)) + 2 * float(design.board.get("clearance_mm", 0.2))
+            + CLEAR_MARGIN) - margin
     for c in design.components.values():
         if c.get("virtual"):
             continue
         fp = libs.footprint(c.get("footprint"))
         x0, y0, x1, y1 = fp["bbox"]
-        pads, sizes, cu, rnd = {}, {}, {}, set()
-        for p in fp["pads"]:
-            if p["number"] and p["number"] not in pads:
-                pads[p["number"]] = (p["x"], p["y"])
-                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
-                sizes[p["number"]] = (w, h)
-                lays = [l for l in p["layers"] if l.endswith(".Cu")]
-                cu[p["number"]] = frozenset({"*"} if p["kind"] == "thru_hole" or "*.Cu" in lays else lays)
-                if p.get("shape") == "circle":
-                    rnd.add(p["number"])
+        pads, sizes, cu, rnd, kinds = {}, {}, {}, set(), {}
+        for num, (cx, cy, w, h, lays, circle) in _pad_copper(fp["pads"], kinds).items():
+            pads[num], sizes[num], cu[num] = (cx, cy), (w, h), lays
+            if circle:
+                rnd.add(num)
         pl = c.get("placement") or {}
-        sides = {k: (b[2] - b[0] + 2 * margin, b[3] - b[1] + 2 * margin, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
-                 for k, b in fp.get("sides", {}).items()}
+        # a tight placement (margin 0) takes a courtyard as KiCad does; a footprint without one has only its pad box,
+        # which keeps half the pad clearance (with the placer's clearance margin): two of them keep it between pads
+        m = margin if fp.get("courtyard", True) else max(margin, pad_half)
+        # a part the placer moves keeps a routing channel beside pads its courtyard is drawn on; a part at a given
+        # position keeps its courtyard (KiCad's test), and a tight placement only that
+        ch = chan if margin and "x" not in pl else 0.0
+        sides = {k: _yard_box(b, m, pads, sizes, ch) for k, b in fp.get("sides", {}).items()}
         if not any(l.endswith(".Cu") for p in fp["pads"] for l in p["layers"]):
             sides = {}  # nothing to place: a keep-out or cutout marker has no copper and no body
-        part = Part(c.ref, x1 - x0 + 2 * margin, y1 - y0 + 2 * margin, (x0 + x1) / 2, (y0 + y1) / 2, pads,
+        guard, keep = frozenset(), 0.0
+        if _bodiless(fp, design.board) or (tight and not fp.get("courtyard", True)):
+            sides = {}  # a shield or stacked-board outline, or a tight placement: its pads are all KiCad knows of it
+            guard = frozenset(k for k, v in kinds.items() if v == "smd")
+            keep = pad_half
+        # SMD copper outside the courtyard (a module whose pad row ends at its outline): no courtyard test sees it, so
+        # it keeps the pad clearance to the through-hole copper of other parts, which is on both sides (`_out_overlap`)
+        out = frozenset(n for n in pads if sides and kinds.get(n) == "smd" and not any(
+            _inside((pads[n][0] - sizes[n][0] / 2, pads[n][1] - sizes[n][1] / 2, pads[n][0] + sizes[n][0] / 2,
+                     pads[n][1] + sizes[n][1] / 2), b) for b in fp.get("sides", {}).values()))
+        bw, bh, bcx, bcy = x1 - x0 + 2 * m, y1 - y0 + 2 * m, (x0 + x1) / 2, (y0 + y1) / 2
+        if "x" not in pl and _oversize(x1 - x0, y1 - y0, design.board) and pads:
+            # larger than the board in every rotation (a radio module on a carrier smaller than itself): its body
+            # overhangs the edge, so the board bounds hold its copper only; the courtyard (sides) still keeps the
+            # other parts off the body where it is over the board
+            px = [v for n, (cx, cy) in pads.items() for v in (cx - sizes[n][0] / 2, cx + sizes[n][0] / 2)]
+            py = [v for n, (cx, cy) in pads.items() for v in (cy - sizes[n][1] / 2, cy + sizes[n][1] / 2)]
+            bw, bh = max(px) - min(px) + 2 * m, max(py) - min(py) + 2 * m
+            bcx, bcy = (min(px) + max(px)) / 2, (min(py) + max(py)) / 2
+        part = Part(c.ref, bw, bh, bcx, bcy, pads,
                     edge=pl.get("edge"), group=c.get("group"), decouples=c.get("decouples"), pad_size=sizes,
-                    sides=sides, tht=frozenset(p["number"] for p in fp["pads"] if p["number"] and p["kind"] == "thru_hole"),
+                    sides=sides, tht=frozenset(k for k, v in kinds.items() if v == "thru_hole"),
                     nocu=frozenset(p["number"] for p in fp["pads"]
                                    if p["number"] and not any(l.endswith(".Cu") for l in p["layers"])),
-                    cu=cu, round=frozenset(rnd),
+                    cu=cu, round=frozenset(rnd), guard=guard, keep=keep, out=out, out_keep=2 * pad_half,
                     npth=tuple((p["x"], p["y"], *((p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])))
                                for p in fp["pads"] if p["kind"] == "np_thru_hole"))
         if "x" in pl and "y" in pl:
@@ -53,8 +79,111 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
         parts[c.ref] = part
     from ...core import blocks
     parts.blocks = blocks.units(design, libs, parts, margin)
+    parts.margin = margin
     parts.libs = libs  # the corridor proof of corridor_blocks reads the footprints again
     return parts
+
+
+def _yard_box(b, m: float, pads: dict, sizes: dict, chan: float) -> tuple:
+    """(w, h, cx, cy) of courtyard b (x0, y0, x1, y1) with margin m on each side. On a side the pad copper reaches
+    (within YARD_ON_PADS: a courtyard drawn on the pads, a module's castellated row), the pads keep `chan` to the box
+    edge instead: a row that faces another part's would otherwise be 2 m from it, legal for KiCad but no room for a
+    track to leave either. The usual courtyard (0.1 mm or more beyond the pads, IPC-7351) keeps m."""
+    def gap(n, i):
+        (cx, cy), (w, h) = pads[n], sizes[n]
+        return abs((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)[i] - b[i])
+    e = [max([m] + [chan - gap(n, i) for n in pads if gap(n, i) < YARD_ON_PADS]) for i in range(4)]
+    x0, y0, x1, y1 = b[0] - e[0], b[1] - e[1], b[2] + e[2], b[3] + e[3]
+    return x1 - x0, y1 - y0, (x0 + x1) / 2, (y0 + y1) / 2
+
+
+def _inside(a, b, tol: float = 0.01) -> bool:
+    """Box a (x0, y0, x1, y1) within box b."""
+    return a[0] >= b[0] - tol and a[1] >= b[1] - tol and a[2] <= b[2] + tol and a[3] <= b[3] + tol
+
+
+YARD_ON_PADS = 0.05  # a courtyard side this close to the pad copper is drawn on the pads (_yard_box)
+BODILESS_FILL = 0.1   # pad area / pad bounding box under which a footprint without a courtyard may have no body
+BODILESS_COVER = 0.6  # ... when its pads also span this share of the board
+
+
+def _oversize(w: float, h: float, board: dict) -> bool:
+    """A courtyard of w x h that fits the board in no rotation."""
+    W, H = float(board["width_mm"]), float(board["height_mm"])
+    return not ((w <= W and h <= H) or (h <= W and w <= H))
+
+
+def _bodiless(fp: dict, board: dict) -> bool:
+    """A footprint without a courtyard whose few pads span most of the board: the outline of a shield or of a board
+    stacked on headers (an Arduino shield template, an LCD module on its header row), not a body the other parts
+    must avoid, since they sit on the same board under it. KiCad tests no courtyard for it, so the placer gives it
+    none either and keeps only its pads clear (`guard`). A smaller one keeps its pad box as courtyard: a potted
+    module or a battery holder without a courtyard in its footprint still has a body."""
+    if fp.get("courtyard", True):
+        return False
+    x0, y0, x1, y1 = fp["bbox"]
+    area = (x1 - x0) * (y1 - y0)
+    return (area >= BODILESS_COVER * float(board["width_mm"]) * float(board["height_mm"])
+            and sum(p["w"] * p["h"] for p in fp["pads"]) < BODILESS_FILL * area)
+
+
+def _pad_copper(fpads: list, kinds: dict | None = None) -> dict:
+    """Per pad number: (centre x, y, w, h, copper layers, round) of its copper. A number used by several pads (a DPAK
+    tab pad with a larger heat-sink copper rect on F.Cu and B.Cu and plated holes, timed-bathroom-vent Q1) is the
+    bounding box of the first pad and every same-number pad that overlaps it, directly or through another one, on the
+    union of their layers: the placer's isolation, keep-out and side checks see all of that copper, not the first
+    pad alone. Same-number copper apart from that cluster (the second clip of a fuse holder, two shield tabs at the
+    ends of a connector) and copper pads without a number (a plated mounting tab) are entries of their own,
+    `<number>#<k>` and `#<k>`: copper without a net of the design, which the edge, side and through-hole checks
+    see. `kinds`: filled with entry -> pad kind (smd, thru_hole)."""
+    def box(p):
+        w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
+        return [p["x"] - w / 2, p["y"] - h / 2, p["x"] + w / 2, p["y"] + h / 2]
+
+    def layers(p):
+        lays = [l for l in p["layers"] if l.endswith(".Cu")]
+        return {"*"} if p["kind"] == "thru_hole" or "*.Cu" in lays else set(lays)
+
+    groups = {}
+    for p in fpads:
+        if p["number"] or (p["kind"] == "thru_hole" or any(l.endswith(".Cu") for l in p["layers"])) \
+                and p["kind"] != "np_thru_hole":
+            groups.setdefault(p["number"], []).append(p)
+    out = {}
+    kinds = {} if kinds is None else kinds
+    for num, ps in groups.items():
+        if not num:  # copper without a number
+            for k, q in enumerate(ps):
+                b = box(q)
+                out[f"#{k + 1}"] = (q["x"], q["y"], b[2] - b[0], b[3] - b[1], frozenset(layers(q)), q.get("shape") == "circle")
+                kinds[f"#{k + 1}"] = q["kind"]
+            continue
+        first = ps[0]
+        b, lays, rest = box(first), layers(first), ps[1:]
+        grew = True
+        while grew:
+            grew = False
+            for q in list(rest):
+                c = box(q)
+                if c[0] <= b[2] and c[2] >= b[0] and c[1] <= b[3] and c[3] >= b[1]:
+                    b = [min(b[0], c[0]), min(b[1], c[1]), max(b[2], c[2]), max(b[3], c[3])]
+                    lays |= layers(q)
+                    rest.remove(q)
+                    grew = True
+        if "*" in lays:
+            lays = {"*"}
+        merged = len(ps) - len(rest) > 1
+        if merged:
+            out[num] = ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, b[2] - b[0], b[3] - b[1], frozenset(lays), False)
+        else:
+            w, h = b[2] - b[0], b[3] - b[1]
+            out[num] = (first["x"], first["y"], w, h, frozenset(lays), first.get("shape") == "circle")
+        kinds[num] = first["kind"]
+        for k, q in enumerate(q for q in rest if q["kind"] == "thru_hole" or any(l.endswith(".Cu") for l in q["layers"])):
+            c = box(q)
+            out[f"{num}#{k + 2}"] = (q["x"], q["y"], c[2] - c[0], c[3] - c[1], frozenset(layers(q)), q.get("shape") == "circle")
+            kinds[f"{num}#{k + 2}"] = q["kind"]
+    return out
 
 
 def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
@@ -71,17 +200,33 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
         ba, bb = yard(pa, side), yard(pb, side)
         if ba and bb:
             total += _overlap(ba, bb)
+    if not pa.sides and not pb.sides and (pa.tht or pa.guard) and (pb.tht or pb.guard):  # two parts without a body
+        total += sum(_overlap(x, y) for x in hole_boxes(pa) for y in hole_boxes(pb))
     for a, b in ((pa, pb), (pb, pa)):
-        if (a.tht or a.npth) and b.sides:
+        if (a.tht or a.npth or a.guard) and b.sides:
             for pad in hole_boxes(a):
                 total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
+        if a.tht and b.out:
+            total += sum(_overlap(x, y) for x, y in _out_pairs(a, b))
     return total
+
+
+def _out_pairs(a: "Part", b: "Part"):
+    """(through-hole pad box of a, pad box of b with the pad clearance) for b's SMD pads outside its courtyard."""
+    k = b.out_keep
+    outs = [(x0 - k, y0 - k, x1 + k, y1 + k) for x0, y0, x1, y1 in (part_pad_box(b, n) for n in sorted(b.out, key=str))]
+    return [(x, y) for x in (part_pad_box(a, n) for n in sorted(a.tht, key=str)) for y in outs]
 
 
 def hole_boxes(p: "Part") -> list:
     """Boxes of everything of part `p` that goes through the board: its plated through-hole pads (the pad) and its
-    non-plated holes (mounting pegs): no courtyard of another part on either side may cover them."""
-    return [part_pad_box(p, n) for n in sorted(p.tht, key=str)] + p.npth_boxes()
+    non-plated holes (mounting pegs), and the guarded pads of a part without a body: no courtyard of another part on
+    either side may cover them."""
+    boxes = [part_pad_box(p, n) for n in sorted(p.tht | p.guard, key=str)] + p.npth_boxes()
+    if not p.sides and p.keep:  # a part without a body: its pads with the pad clearance its missing courtyard
+        m = p.keep  # does not give
+        boxes = [(b[0] - m, b[1] - m, b[2] + m, b[3] + m) for b in boxes]
+    return boxes
 
 
 def part_pad_box(p: "Part", n):
@@ -97,11 +242,17 @@ def _tht_pair(pa: "Part", pb: "Part"):
     side), or None: the overlap `_side_overlap` counts across sides, as boxes `legalize` can push apart."""
     best = None
     for a, b, flip in ((pa, pb, False), (pb, pa, True)):
-        if not (a.tht or a.npth) or not b.sides:
+        if not (a.tht or a.npth or a.guard) or not b.sides:
             continue
         yards = [y for y in (b.side_box("front"), b.side_box("back")) if y]
         for pad in hole_boxes(a):
             for y in yards:
+                o = _overlap(pad, y)
+                if o > 0 and (best is None or o > best[0]):
+                    best = (o, (y, pad) if flip else (pad, y))
+    for a, b, flip in ((pa, pb, False), (pb, pa, True)):
+        if a.tht and b.out:
+            for pad, y in _out_pairs(a, b):
                 o = _overlap(pad, y)
                 if o > 0 and (best is None or o > best[0]):
                     best = (o, (y, pad) if flip else (pad, y))
@@ -215,6 +366,8 @@ ANNEAL = {"moves": 0, "s": 0.0}  # annealing moves and seconds in this process (
 # same design and seed give the same placement under any CPU load; a wall-clock limit is only a safety abort, and each
 # one that fires is listed in `aborts` (the placement is then not reproducible). Reset by stages.stage_layout.
 WORK: dict = {"pack_evals": 0, "aborts": []}
+EXTREME_EDGE_MM = 0.15  # copper-to-edge clearance of the extreme placement (place(), the last resort)
+EXTREME_HPWL = 0.7      # ... kept with as many violations when its wirelength is at most this share
 
 
 def safety_abort(what: str) -> None:
@@ -249,6 +402,7 @@ class Placer:
                 parts[u.ref] = u.yard
                 u.pull(parts)
         self.d, self.parts, self.W, self.H = design, parts, width, height
+        self.cm = getattr(parts, "margin", COURTYARD_MARGIN)  # the margin the courtyard boxes carry
         self.rng = random.Random(seed)
         self.keepouts = list(keepouts or [])  # (x0, y0, x1, y1, capacity fraction) boxes where tracks are not allowed
         self.wt = {"wire": 1.0, "overlap": 400.0, "bounds": 400.0, "decouple": 6.0, "group": 0.6, "edge": 30.0,
@@ -454,7 +608,11 @@ class Placer:
             # between_mm: two different member nets keep it (functional insulation), with the clearance margin
             self.iso_between.append(g["between"] + CLEAR_MARGIN if g.get("between") is not None else 0.0)
         base = float(self.d.board["clearance_mm"])  # a net class with a larger clearance keeps it to every other net
-        cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items() if v["clearance"] > base}
+        # a tight placement (no courtyard margin) keeps every net's clearance between the pads of two parts: courtyards
+        # that touch leave no room otherwise (a module's castellated pads beside a header's, a solder-mask bridge)
+        tight = self.cm == 0.0
+        cls = {n: v["clearance"] + CLEAR_MARGIN for n, v in pcb.net_classes(self.d).items()
+               if v["clearance"] > base or tight}
         self.pad_grp, self.pad_net, self.pad_cl = {}, {}, {}  # (ref, pad) -> group index or -1, net, class need (0: none)
         self.iso_parts = set()
         for (r, p), n in net_of.items():  # a pad without copper (a keep-out marker's dummy pad) keeps no distance
@@ -887,7 +1045,7 @@ class Placer:
     def _region_cost(self, p, g, board_rect=None) -> tuple[float, float, float]:
         """(courtyard area of a member outside its region, courtyard area of another part inside an exclusive region on
         its sides, REGION_PAD_W x pad area of the region's nets outside it). Courtyards without the placer margin."""
-        m = COURTYARD_MARGIN
+        m = self.cm
         out = inside = pads = 0.0
         if p.ref in g["members"]:
             for b in (p.side_box("front"), p.side_box("back")):
@@ -906,6 +1064,16 @@ class Placer:
                 b = p.side_box(s)
                 if b:
                     inside += self._in_region((b[0] + m, b[1] + m, b[2] - m, b[3] - m), g)
+            if not p.sides and p.keep:  # a part without a body: its copper keeps the copper-to-edge clearance from a
+                # cut, measured as KiCad does (the distance to the region, not a box grown by it)
+                from shapely.geometry import box as sbox
+                ce = float(self.d.board.get("copper_edge_mm", 0.3)) - 0.01
+                poly = sbox(*g["rect"]) if g["rect"] else g["poly"]
+                for n in p.tht | p.guard:
+                    b = part_pad_box(p, n)
+                    gap = poly.distance(sbox(*b))
+                    if gap < ce:  # the shortfall, weighed by the pad's size
+                        inside += (ce - gap) * ((b[2] - b[0]) + (b[3] - b[1]))
         for n in g["pads"].get(p.ref, ()):  # a pad outside is an isolation error: weighed like 10 times its area
             b = part_pad_box(p, n)
             pads += REGION_PAD_W * ((b[2] - b[0]) * (b[3] - b[1]) - self._in_region(b, g))
@@ -916,7 +1084,7 @@ class Placer:
         if poly is None:
             return True
         from shapely.geometry import box
-        m = COURTYARD_MARGIN if courtyard else 0.0  # courtyard boxes carry this margin; KiCad tests the courtyard
+        m = self.cm if courtyard else 0.0  # courtyard boxes carry this margin; KiCad tests the courtyard
         b = box(bx[0] + m, bx[1] + m, bx[2] - m, bx[3] - m) if bx[2] - bx[0] > 2 * m and bx[3] - bx[1] > 2 * m else box(*bx)
         return b.intersection(poly).area > 0.01
 
@@ -968,17 +1136,29 @@ class Placer:
         net class clearance (pads of different nets); 0 on the same part."""
         if a[0] == b[0] or self._same(a[0], b[0]):
             return 0.0
-        ga, gb = self.pad_grp[a], self.pad_grp[b]
-        need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
-        if self.pad_net[a] != self.pad_net[b]:
-            need = max(need, self.pad_cl[a], self.pad_cl[b])
-            if ga == gb >= 0:
-                need = max(need, self.iso_between[ga])
+        need = self._pad_need(self._pad_key(a), self._pad_key(b))
         if need <= 0:
             return 0.0
         ba, bb = self.part_pad_box(self.parts[a[0]], a[1]), self.part_pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
+
+    def _pad_key(self, a) -> tuple:
+        """(isolation group or -1, net, net class need) of pad a = (ref, pad): what `_pad_need` reads."""
+        return self.pad_grp[a], self.pad_net[a], self.pad_cl[a]
+
+    def _pad_need(self, ka, kb) -> float:
+        """The copper gap (mm, with the placer margins) two pads of keys ka, kb (`_pad_key`) of different parts need:
+        the creepage of a board.isolation group (pads of different groups), its between_mm (two different member
+        nets) or the net class clearance (pads of different nets)."""
+        ga, na, ca = ka
+        gb, nb, cb = kb
+        need = max([self.iso_need[g] for g in (ga, gb) if g >= 0 and ga != gb] or [0.0])
+        if na != nb:
+            need = max(need, ca, cb)
+            if ga == gb >= 0:
+                need = max(need, self.iso_between[ga])
+        return need
 
     def _iso_rule(self, a, b) -> str:
         """The rule behind _iso_short(a, b), for the message: the isolation group (between a member and a pad outside
@@ -1002,7 +1182,7 @@ class Placer:
         cand = set(self.iso_parts)  # a part without a rule pad only meets the parts that have one
         if r in self.iso_parts or len(cand) > 8:  # the parts within reach, from the spatial hash
             B = self.bucket
-            bs = [b for b in (self.parts[r].side_box("front"), self.parts[r].side_box("back")) if b]
+            bs = [b for b in (self.parts[r].side_box("front"), self.parts[r].side_box("back")) if b] or [self.parts[r].box()]
             cand = set()
             for i in range(int((min(b[0] for b in bs) - self.reach) // B), int((max(b[2] for b in bs) + self.reach) // B) + 1):
                 for j in range(int((min(b[1] for b in bs) - self.reach) // B), int((max(b[3] for b in bs) + self.reach) // B) + 1):
@@ -1224,6 +1404,8 @@ class Placer:
     def _buckets(self, r):
         p = self.parts[r]
         bs = [b for b in (p.side_box("front"), p.side_box("back")) if b]
+        if not bs and (p.guard or p.tht):  # a part without a body: its pads still meet the others' pads
+            bs = [p.box()]
         if not bs:
             return ()
         B = self.bucket
@@ -1723,6 +1905,11 @@ class Placer:
                 for r, p in P.items():
                     if p.edge and self.part_edge.get(r, 0.0) > EDGE_TOL:
                         bad[r] = bad.get(r, 0.0) + self.part_edge[r]
+            ce = float(self.d.board.get("copper_edge_mm", 0.3)) - 0.01
+            for r, p in P.items():  # a pad too near the board edge (`violations`)
+                if not p.fixed and any(b[0] < ce or b[1] < ce or b[2] > self.W - ce or b[3] > self.H - ce
+                                       for b in (part_pad_box(p, n) for n in p.pads if n not in p.nocu)):
+                    bad[r] = bad.get(r, 0.0) + 1.0
             for k in range(len(self.bud)):  # a distance leg over its limit: its movable end
                 over = self._bud_dist(k) - self.bud[k][4]
                 u = self._bud_mover(k) if over > BUDGET_TOL else None
@@ -1741,24 +1928,29 @@ class Placer:
                     safety_abort(f"unstick stopped at the layout budget in round {k + 1} of {rounds}")
                     break
                 cur = self._total()
-                best, here = (cur, p.x, p.y, p.r), (p.x, p.y, p.r)
+                best, here = ((self._unit_dirty(p), cur), p.x, p.y, p.r), (p.x, p.y, p.r)
 
-                def scan(xs, ys, rots):
+                def scan(xs, ys, rots, centred=False):
                     nonlocal best
                     for a in rots:
-                        for x in xs:
-                            for y in ys:
+                        # centred: the grid holds the box centre (a part's origin may lie off the board, as an
+                        # overhanging module's does)
+                        ox, oy = rot(p.cx, p.cy, a) if centred and hasattr(p, "cx") else (0.0, 0.0)
+                        for gx in xs:
+                            for gy in ys:
+                                x, y = gx - ox, gy - oy
                                 p.x, p.y, p.r = x, y, a
                                 c = self._update(self._refs(p))
-                                if c < best[0] - 1e-9:
-                                    best = (c, x, y, a)
+                                key = (self._unit_dirty(p), c)
+                                if key[0] < best[0][0] or (key[0] == best[0][0] and c < best[0][1] - 1e-9):
+                                    best = (key, x, y, a)
                                 self._undo()
                 x0, y0, x1, y1 = (self.region_start.get(p.ref) or self.region_start.get(getattr(p, "name", None))
                                   or (0.0, 0.0, self.W, self.H))
                 st = max(step, math.sqrt((x1 - x0) * (y1 - y0) / UNSTICK_POINTS))
                 scan([x0 + i * st for i in range(int((x1 - x0) / st) + 1)],
                      [y0 + j * st for j in range(int((y1 - y0) / st) + 1)],
-                     tuple(a for a in (0.0, 90.0, 180.0, 270.0) if self._rot_ok(p, a)) or (p.r,))
+                     tuple(a for a in (0.0, 90.0, 180.0, 270.0) if self._rot_ok(p, a)) or (p.r,), centred=True)
                 scan([best[1] + i * polish for i in range(-6, 7)], [best[2] + j * polish for j in range(-6, 7)], (best[3],))
                 p.x, p.y, p.r = best[1], best[2], best[3]
                 self._update(self._refs(p))
@@ -1767,6 +1959,29 @@ class Placer:
             if not moved:
                 break
         return self.cost()
+
+    def _unit_dirty(self, u) -> bool:
+        """The unit `u` (a part or a block) at its current position is in a placement violation of its own, on the
+        incremental state (`_update`) and the thresholds of `violations`: a courtyard overlap, an isolation short, a
+        keep-out or floorplan region term, a stated (hard) separation short, or a pad too near the board edge."""
+        ce = float(self.d.board.get("copper_edge_mm", 0.3)) - 0.01
+        for p in self._unit_parts(u):
+            r = p.ref
+            if r not in self.adj:
+                continue
+            if any(self.pairs[k] > 0.01 for k in self.adj[r]) or any(self.iso_pairs[k] > 0.01 for k in self.iso_adj[r]):
+                return True
+            if self.part_ko.get(r, 0.0) > 0.01:
+                return True
+            if any(k in self.sep_hard and self._sep_val(k) / max(self.wt[self.seps[k][5]], 1e-9) > 0.01
+                   for k in self.part_seps.get(r, ())):
+                return True
+            for n in p.pads:
+                if n not in p.nocu:
+                    b = part_pad_box(p, n)
+                    if b[0] < ce or b[1] < ce or b[2] > self.W - ce or b[3] > self.H - ce:
+                        return True
+        return False
 
     def legalize(self, rounds: int = 200, refs=None):
         """Push overlapping courtyards apart along the axis of least overlap, then clamp into the board. `refs`: only
@@ -1851,7 +2066,7 @@ class Placer:
                     self._shift(p, 0.0, -(y1 - (self.H - m)))
                 for g in self.regions:  # a member of a rectangular floorplan region into its region
                     if p.ref in g["members"] and g["rect"]:
-                        c = COURTYARD_MARGIN
+                        c = self.cm
                         x0, y0, x1, y1 = p.box()
                         rx0, ry0, rx1, ry1 = g["rect"]
                         self._shift(p, max(0.0, rx0 - x0 - c) - max(0.0, x1 - c - rx1),
@@ -2192,7 +2407,7 @@ class Placer:
             for s in sides:
                 if s in occ:
                     occ[s][a0:a1, b0:b1] = True
-        cm = COURTYARD_MARGIN
+        cm = self.cm
         # polygon regions: integral images of the cells a region touches (exclusion) and of the cells outside it
         # (members), on the occupancy raster
         rS = {}
@@ -2463,7 +2678,7 @@ class Placer:
             for b in refs[i + 1:]:
                 # two fixed parts: the design put them there, so only their own courtyards count (KiCad's test);
                 # the placer's margin around them is no violation that any placement could repair
-                shrink = COURTYARD_MARGIN if P[a].fixed and P[b].fixed else 0.0
+                shrink = self.cm if P[a].fixed and P[b].fixed else 0.0
                 if not self._same(a, b) and _side_overlap(P[a], P[b], shrink) > 0.01:
                     out.append(f"courtyard overlap {a}/{b}")
             # copper must stay inside the board with the copper-to-edge clearance; a courtyard (body)
@@ -2554,6 +2769,65 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
     iterations, tries; seeded RNG), so the same design and seed0 give the same placement under any CPU load.
     `deadline` (time.time(), the layout budget) is only a safety abort: no new seed starts after it (the first always
     runs) and unstick stops, each reported in WORK["aborts"]. Returns (parts, cost, violations)."""
+    parts, cost, v = _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, COURTYARD_MARGIN)
+    if not (v and any(not p.fixed for p in parts.values()) and get_settings().layout.tight):
+        return parts, cost, v
+    # the placer margin around each courtyard and the board margin are room for assembly and for the router, not
+    # rules: KiCad tests the courtyards, the pad clearance and the copper-to-edge clearance. A board too dense for
+    # them (small open-hardware boards: a part off the edge or on another) is placed again by those rules alone
+    # (build_parts `tight`), kept when it leaves fewer violations
+    t = _with_board(design, {"margin_mm": 0.0},
+                    lambda: _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, 0.0, tight=True))
+    print(f"[place] tight placement (KiCad's rules, no placer margins): {len(v)} -> {len(t[2])} violations")
+    if len(t[2]) < len(v):
+        parts, cost, v = t
+    if "copper_edge_mm" not in design.board and get_settings().layout.extreme:
+        # extreme placement, the last resort on a board too dense for the placer margins: copper may come
+        # EXTREME_EDGE_MM from the edge, not 0.3 mm. Most fabs take it (JLCPCB 0.2 mm routed, many human boards less),
+        # but it is a narrower margin than hwflow's own, so it is kept only when it removes violations, or leaves as
+        # few with at most EXTREME_HPWL of the wirelength (a strip board where the 0.3 mm rule leaves room only with
+        # two connected parts at its two ends). The board then keeps copper_edge_mm: the router, the pours and KiCad
+        # DRC follow it, and REPORT.md says so (WORK["extreme_edge_mm"])
+        t = _with_board(design, {"margin_mm": 0.0, "copper_edge_mm": EXTREME_EDGE_MM},
+                        lambda: _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, 0.0,
+                                       tight=True))
+        h0, h1 = _hpwl(design, parts), _hpwl(design, t[0])
+        print(f"[place] extreme placement (copper {EXTREME_EDGE_MM} mm from the edge): {len(v)} -> {len(t[2])} "
+              f"violations, HPWL {h0:.1f} -> {h1:.1f} mm")
+        if len(t[2]) < len(v) or (len(t[2]) == len(v) and h1 <= EXTREME_HPWL * h0):
+            design.raw.setdefault("board", {})["copper_edge_mm"] = EXTREME_EDGE_MM
+            WORK["extreme_edge_mm"] = EXTREME_EDGE_MM
+            print(f"[place] WARNING: copper_edge_mm lowered to {EXTREME_EDGE_MM} mm for this layout: check the fab")
+            parts, cost, v = t
+    return parts, cost, v
+
+
+def _hpwl(design, parts) -> float:
+    """Half-perimeter wirelength (mm) over the pad centres of the placed parts, every net."""
+    total = 0.0
+    for conns in design.nets().values():
+        pts = [parts[r].pad(p) for r, p in conns if r in parts and p in parts[r].pads]
+        if len(pts) > 1:
+            xs, ys = [x for x, _ in pts], [y for _, y in pts]
+            total += max(xs) - min(xs) + max(ys) - min(ys)
+    return total
+
+
+def _with_board(design, keys, fn):
+    """fn() with the board keys set in design.yaml's board (Design.board is a fresh dict per read), the board as it
+    was afterwards (a key it did not have is removed again)."""
+    b = design.raw.setdefault("board", {})
+    old = {k: b[k] for k in keys if k in b}
+    b.update(keys)
+    try:
+        return fn()
+    finally:
+        for k in keys:
+            b.pop(k, None)
+        b.update(old)
+
+
+def _place(design, libs, seeds, iters, weights, seed0, refine, deadline, areas, margin, tight=False):
     import time
     b = design.board
     best = None
@@ -2565,7 +2839,7 @@ def place(design: Design, libs, seeds: int = 4, iters: int = 30000, weights=None
         if best is not None and deadline is not None and time.time() >= deadline:
             safety_abort(f"layout budget used up: seeds {seed}..{seed0 + seeds - 1} skipped")
             break
-        parts = build_parts(design, libs, areas=areas)
+        parts = build_parts(design, libs, margin=margin, areas=areas, tight=tight)
         pl = Placer(design, parts, b["width_mm"], b["height_mm"], seed=seed, weights=weights)
         cost = pl.run(iters)
         v = pl.violations()

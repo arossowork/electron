@@ -187,6 +187,25 @@ def test_thermal_vias_land_inside_their_pad():
     assert all(abs(v["x"] - 10.0) < 1.0 and abs(v["y"] - 10.0) < 3.0 for v in vias)
 
 
+
+def test_thermal_vias_take_a_list_of_pads():
+    """`thermal_vias` as a list puts a grid in each listed pad (the inner ground pads of an LGA module); every listed
+    pad may hold vias (via_pads), the others not."""
+    from hwflow.core.design import via_pads
+    from hwflow.core.libs import Libs
+    from hwflow.layout.board.pcb import thermal_vias
+    from hwflow.layout.place.placer import build_parts
+    d = Design.load(EX)
+    d.components["U1"].data["footprint"] = "Package_TO_SOT_SMD:SOT-89-3"
+    d.components["U1"].data["pins"] = {"1": "GND", "2": "VBUS", "3": "+3V3"}
+    d.components["U1"].data["thermal_vias"] = [{"pad": "2", "count": 2}, {"pad": "1", "count": 1}]
+    assert via_pads(d.components["U1"]) == {"1", "2"}
+    libs = Libs()
+    parts = build_parts(d, libs)
+    vias = thermal_vias(d, libs, parts)
+    assert sorted(v["net"] for v in vias) == ["GND", "VBUS", "VBUS"]
+    assert {v["thermal"] for v in vias} == {"U1.1", "U1.2"}
+
 def test_save_keeps_comments(tmp_path):
     import shutil
     proj = tmp_path / "p"
@@ -551,7 +570,7 @@ def test_layout_auto_retries_placement_and_keeps_the_clean_board(tmp_path, monke
     assert seen == [(True, 1), (False, 5), (False, 9)]
     assert r["ok"] and r["auto"]["kept"] == 3 and len(r["auto"]["attempts"]) == 3
     assert (pl_status._out(d) / f"{d.name}.kicad_pcb").read_text() == "board 3"
-    assert "kept attempt 3 of 3" in pl_stages._auto_summary(r)
+    assert "kept attempt 3 of 4" in pl_stages._auto_summary(r)
 
 
 def test_post_is_stale_when_layout_ran_after_it(tmp_path):

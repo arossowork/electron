@@ -60,6 +60,10 @@ fast:
     - +3V3
     - GND
     no_access: []
+  gate:
+    fail: false
+    peak: 1.45
+    area_mm2: 0.0
   seconds:
     check: 4.9
     pin_access: 0.4

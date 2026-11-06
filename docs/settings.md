@@ -18,6 +18,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.keepout_strict` | `HWFLOW_KEEPOUT_STRICT` | on | Strict keep-outs; off with `0`, `false`, `no`, `off` |
 | `layout.neckdown` | `HWFLOW_NECKDOWN` | on | Neck-down widening; off only when exactly `0` |
 | `layout.seedroute` | `HWFLOW_SEEDROUTE` | on | Seed routes for corridor nets; off only when exactly `0` |
+| `layout.ripup` | `HWFLOW_RIPUP` | on | Rip-up rounds for open isolation members (`docs/layout-flow.md` step 7); off only when exactly `0` |
 | `layout.seed0` | `HWFLOW_SEED0` | 1 | First placer seed (A/B runs) |
 | `layout.budget_s` | `HWFLOW_LAYOUT_BUDGET_S` | 3000 | Wall time of `layout --auto` |
 | `layout.auto_max_errors` | `HWFLOW_AUTO_MAX_ERRORS` | `repair.max_errors` | Errors above which `--auto` starts no other attempt |
@@ -41,7 +42,7 @@ groups are folded into the route and region cache keys (`Settings.key_dump()`); 
 | `layout.portfolio_grace` | `HWFLOW_PORTFOLIO_GRACE` | 1.5 | Running strategies get this x the first converged one's time; `inf` waits for all |
 | `repair.max_errors` | `HWFLOW_REPAIR_MAX_ERRORS` | 40 | Above this many errors, local repair is skipped |
 | `repair.budget_s` | `HWFLOW_REPAIR_BUDGET_S` | 1800 | Safety abort (wall time) of the whole repair and of each pour-stitch router call; the normal stops are counts (rounds, max_stall, nets per round). A stop here is reported as a routing safety abort |
-| `repair.max_stall` | `HWFLOW_REPAIR_MAX_STALL` | 2 | Rounds in a row without improvement before repair stops |
+| `repair.max_stall` | `HWFLOW_REPAIR_MAX_STALL` | 1 | Rounds in a row without improvement before repair stops (one rejected round costs a full re-route; 2 lets the second round widen the rip-up radius) |
 | `router.env_knobs` | `KICAD_*`, `KRT_*` (not `KICAD_CLI`) | none | Passed to the router process; part of the cache key |
 | `tools.kicad_cli` | `KICAD_CLI` | PATH `kicad-cli`, then the macOS app | kicad-cli binary |
 | `tools.java` | `JAVA` | PATH `java`, then Homebrew openjdk, then `java` | Java for Freerouting |

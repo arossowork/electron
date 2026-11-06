@@ -1,0 +1,66 @@
+source: pocket-recorder (projects/pocket-recorder) at its layout-PASS placement (build/placement.good.json, f4881f5), window
+  4,21,16,33 around the nPM1300 (U2) and the NAND (U3)
+source_failure: 'layout 1 open: nPM1300 pad 31 (NAND_PWR) walled in by the VDD_3V0 track from pad 30 to pad 32 (pads 28-32
+  alternate VDD_3V0 and the load-switch outputs)'
+reproduces: 'yes: HWFLOW_ESCAPE_TAPS=0 leaves 1 unrouted (NAND_PWR) in 208 s; with the escape taps (taps.escapes, on by default)
+  0 unrouted, 0 DRC in 80 s'
+fast:
+  check:
+    ok: true
+    errors: 0
+    warnings: 6
+    codes: []
+  parts: 41
+  nets: 23
+  board_mm:
+  - 21.65
+  - 23.55
+  placement_violations: []
+  fixed_violations: []
+  corridors: {}
+  placement_cost: 1034.9
+  rudy:
+    congestion: 0.0
+    max_overflow: 0.0
+  pin_access:
+    pads: 100
+    nets_no_exit_at_width:
+    - GND
+    necked: []
+    no_access:
+    - U2.33
+  gate:
+    fail: false
+    peak: 5.5
+    area_mm2: 0.0
+  seconds:
+    check: 2.0
+    pin_access: 0.2
+tiers:
+  check: fast
+  replace: none
+route:
+  ok: true
+  unrouted: 0
+  open_nets: []
+  drc_errors: 0
+  drc_types: {}
+  placement_violations: 0
+  isolation: []
+  router: '0 unrouted, krt 4 completed pass(es); retried in another net order (decoupling leg 0.3 mm: BAT_N (C10.2-U4.2),
+    VBAT (C10.1-U4.1), VBUS (C1.1-U2.21), VSYS (C2.1-U2.20); decoupling leg 0.25 mm: VDD_3V0 (C5.1-U2.28); decoupling leg
+    0.2 mm: MIC_PWR (C13.1-U5.5); decoupling leg 0.3 mm: VBAT (C4.1-U2.19),'
+  vias: 35
+  track_mm: 302.0
+  route_groups: []
+  seconds: 79.6
+  cpu_s: 185.2
+  timing:
+    drc_s: 8.2
+    place_s: 0.1
+    predict_s: 0.3
+    repair_s: 9.3
+    route_s: 59.7
+    stitch_s: 3.6
+  firstpass: null
+measured: '2026-11-03'

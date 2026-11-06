@@ -133,6 +133,23 @@ def router_used(d: Design) -> str:
     return "freerouting"
 
 
+def reopened(summary: str, groups: list[dict], nets) -> tuple[str, list[dict]]:
+    """The router summary and route-group rows with `nets` open again (their seed copper was dropped after the
+    route was counted and the router did not connect them): the leading "<n> unrouted" and each row's count and open
+    list include them, so the router's count agrees with the DRC."""
+    import re as _re
+    nets = sorted(set(nets))
+    if not nets:
+        return summary, groups
+    summary = _re.sub(r"^(\d+) unrouted", lambda m: f"{int(m.group(1)) + len(nets)} unrouted", summary, count=1)
+    rows = []
+    for g in groups:
+        mine = [n for n in nets if n in set(g.get("nets") or []) and n not in set(g.get("open") or [])]
+        rows.append(dict(g, unrouted=int(g.get("unrouted") or 0) + len(mine), open=sorted({*(g.get("open") or []), *mine}))
+                    if mine else g)
+    return summary, rows
+
+
 def _route_once(d: Design, libs: Libs, parts, passes: int, out: Path | None = None,
                 deadline: float | None = None) -> tuple[list, list, str, int]:
     """Route the board. With `d.route_groups` a list (the layout stage sets it), the nets route group by group
@@ -258,7 +275,7 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(Path(trunks.__file__).read_bytes())  # budget trunks routed first
     h.update(json.dumps(getattr(d, "budget_trunks", None) or {}, sort_keys=True, default=str).encode())
     h.update(json.dumps(d.raw.get("floorplan"), sort_keys=True, default=str).encode())  # conductive keep-outs, regions
-    h.update(json.dumps(pcb.net_min_widths(d), sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
+    h.update(json.dumps([pcb.net_min_widths(d), pcb.net_inner_min_widths(d)], sort_keys=True).encode())  # nets.<name>.min_width_mm: no neck under it
     if d.raw.get("blocks"):  # layout blocks: the nets their copper closes are not routed
         h.update(Path(core_blocks.__file__).read_bytes())
         for f in _block_files(d):
@@ -316,6 +333,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     pj = out / "placement.json"
     t0 = time.time()
     placer.WORK.update(pack_evals=0, aborts=[])  # the placement's work counters and safety aborts (place_work)
+    placer.WORK.pop("extreme_edge_mm", None)
     weights = (d.raw.get("placement") or {}).get("weights")
     declared = [d.board.get("width_mm"), d.board.get("height_mm")]  # before a saved layout size is applied
     area_log = None
@@ -338,16 +356,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
     elif (reuse and pj.exists() and _saved_board(pj) in (None, declared)) or (shared and pj.exists()):
         if not shared:
             _apply_saved_size(d, pj)
-        parts = placer.build_parts(d, libs)
-        saved = json.loads(pj.read_text())
-        for r, p in parts.items():
-            if r in saved and not p.fixed:  # a fixed part keeps the position the design gives it now
-                p.x, p.y, p.r = saved[r]
-        pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
-        pl.legalize()
-        viol, cost = pl.violations(), pl.cost()
-        if viol and get_settings().layout.settle:  # a saved placement with violations: settle them
-            viol, cost = pl.settle(), pl.cost()
+        parts, cost, viol = saved_placement(d, libs, json.loads(pj.read_text()))
     else:
         # placement gets half of the time left, so routing and repair still run inside the budget
         pdl = None if deadline is None else t0 + max(0.0, deadline - t0) / 2
@@ -448,7 +457,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             from ..layout.route import regionroute
             tracks, vias, drc = regionroute.validate(d, libs, parts, out, _out(d) / "routecache", tracks, vias, drc,
                                                      groups, route_check, deadline=deadline)
-        if (get_settings().layout.pour_stitch and d.board["gnd_pour"] and not d.route_budget_exhausted
+        if ((get_settings().layout.pour_stitch or d.board.get("pour_stitch")) and d.board["gnd_pour"]
+                and not d.route_budget_exhausted
                 and board_router(d) == "krt"):
             from ..layout.route import pourstitch
             t = time.time()
@@ -492,25 +502,50 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             tracks, vias = tr, vi
             summary += f"; seed route {', '.join(dropped)} removed (a DRC error touches it)"
             print(f"[layout] seed route {', '.join(dropped)}: removed, a DRC error touches it")
+            still = list(dropped)  # the dropped nets are open unless the router connects them again
             if roads.on_route(d) and board_router(d) == "krt":  # back to the router as ordinary nets
                 try:
-                    tracks, vias, note = roads.reroute(d, libs, parts, out, tracks, vias, dropped)
+                    tracks, vias, note, still = roads.reroute(d, libs, parts, out, tracks, vias, dropped)
                     summary += f"; {note}"
                     print(f"[layout] {note}")
                 except Exception as e:  # noqa: BLE001 - the nets stay open; the DRC reports them
                     print(f"[layout] roads {', '.join(dropped)}: reroute failed ({type(e).__name__}: {e})")
+            summary, groups = reopened(summary, groups, still)
             drc = route_check(tracks, vias, island)
     from ..layout.route.prune import prune
     tracks, vias, drc, pruned = prune(tracks, vias, drc, lambda tr, vi: route_check(tr, vi, island))
     if pruned:
         print(f"[layout] removed {pruned} dangling tracks or vias")
+    extreme_route = None
+    if (get_settings().layout.extreme and any(x["sev"] == "error" for x in drc) and not d.route_budget_exhausted
+            and router_used(d) == "krt"):
+        # the last resort: narrower tracks where no impedance, current or width rule holds them, and via-in-pad
+        # stitching of a split pour (layout/route/extreme.py); each step kept only when the full DRC improves
+        from ..layout.route import extreme
+        t = time.time()
+        xr = extreme.second_round(d, libs, parts, out, board, tracks, vias, drc,
+                                  lambda tr, vi: route_check(tr, vi, island), deadline=deadline)
+        tm["extreme_s"] = round(time.time() - t, 1)
+        if xr:
+            for line in xr["log"]:
+                print(f"[layout] extreme routing: {line}")
+            if xr["kept"]:
+                tracks, vias, drc = xr["tracks"], xr["vias"], xr["drc"]
+                extreme_route = {"narrowed": xr["narrowed"], "track_mm": extreme.EXTREME_TRACK_MM,
+                                 "via_in_pad": xr["via_in_pad"], "log": xr["log"]}
+                summary += "; extreme routing: " + "; ".join(xr["log"])
+                if xr["narrowed"]:
+                    pcb.write_project(out, name, d)  # the net classes at their new widths
     errs = [x for x in drc if x["sev"] == "error"]
     unrouted = [x for x in drc if x["type"] == "unconnected"]
     lays = pcb.net_layers(d)  # nets.<name>.layers: a track on another layer fails the layout
     off_layer = sorted({f"{t['net']} on {t['layer']}" for t in tracks if t["net"] in lays and t["layer"] not in lays[t["net"]]})
     minw = pcb.net_min_widths(d)  # nets.<name>.min_width_mm: a narrower track fails the layout
-    too_narrow = sorted({f"{t['net']} {t['w']:g} mm (min {minw[t['net']]:g})" for t in tracks
-                         if t["net"] in minw and float(t["w"]) < minw[t["net"]] - 1e-6})
+    iminw = pcb.net_inner_min_widths(d)  # nets.<name>.min_width_inner_mm: the floor on In*.Cu tracks
+    def _floor(t):
+        return iminw.get(t["net"], minw.get(t["net"], 0.0)) if str(t["layer"]).startswith("In") else minw.get(t["net"], 0.0)
+    too_narrow = sorted({f"{t['net']} {t['w']:g} mm on {t['layer']} (min {_floor(t):g})" for t in tracks
+                         if _floor(t) and float(t["w"]) < _floor(t) - 1e-6})
     # current_a: a stretch under its IPC-2221 width longer than a pad-entry neck (the post-layout track-current error)
     too_narrow += [f"{x['net']} {x['wmin']:g} mm for {x['neck']:.1f} mm (IPC-2221 {x['need']:g} mm for "
                    f"{x['current_a']} A; a neck of at most {x['neck_max']:g} mm)"
@@ -539,7 +574,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
             and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
-            "nets": nstats,
+            "nets": nstats, "extreme_route": extreme_route,
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
@@ -555,7 +590,8 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
 def _place_work() -> dict:
     """The placement's work counters and its wall-clock safety aborts (placer.WORK): an empty `aborts` means the
     placement stopped on counts only, so the same design and seed reproduce it bit for bit."""
-    return {"pack_evals": placer.WORK["pack_evals"], "aborts": list(placer.WORK["aborts"])}
+    return {"pack_evals": placer.WORK["pack_evals"], "aborts": list(placer.WORK["aborts"]),
+            "extreme_edge_mm": placer.WORK.get("extreme_edge_mm")}
 
 
 def isolation_distances(d: Design, board: Path, drc: list[dict]) -> list[dict]:
@@ -737,6 +773,12 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
         pass
     how = ("saved placement" if use_saved else "incremental from the last good layout" if r.get("eco")
            else f"{'shared ' if placement else ''}placer seeds {seed0}-{seed0 + seeds - 1}")
+    if _placer_failure(r):  # an illegal placement is not routed: say so, not "0 unrouted, DRC 0 errors"
+        v = r["placement_violations"]
+        return {"k": k + 1, "r": r, "line": (
+            f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, placer failure, not routed: "
+            f"{len(v)} placement violation{'s' if len(v) != 1 else ''} ({'; '.join(v[:3])}), "
+            f"placement {(r.get('timing') or {}).get('place_s', r.get('seconds'))} s")}
     line = (f"attempt {k + 1} ({how}): board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted"
             + (f" ({len(r['open_nets'])} open nets)" if r.get("open_nets") else "") + ", "
             f"DRC {r['drc_errors']} errors, {len(r['placement_violations'])} placement violations, "
@@ -747,6 +789,27 @@ def run_attempt(d: Design, libs: Libs, out: Path, k: int, *, size0, seeds: int, 
             + "".join(f", budget {b['name']} {b['value']}/{b['limit']:g} {b['unit']}" + ("" if b["ok"] else " FAIL")
                       for b in r.get("budgets") or []))
     return {"k": k + 1, "r": r, "line": line}
+
+
+def _placer_failure(r: dict) -> bool:
+    """An attempt whose placement stayed illegal: it was not routed (stage_layout), it cost placement time only."""
+    return bool(r.get("blocked")) and bool(r.get("placement_violations")) and r.get("router") == "-"
+
+
+def attempt_fates(s, results: dict[int, dict]) -> dict:
+    """What became of the attempts that gave no routed board (REPORT.md, status.json `layout.auto`): `skipped`, an
+    attempt whose placement stayed illegal (not routed); `cancelled`, an attempt of the n that has no result (stopped
+    or never started) with why. `s`: the buildplan.LayoutSearch; `results`: 0-based index -> {"k", "r"|"error"}."""
+    skipped = [{"k": res["k"], "why": f"{len(res['r']['placement_violations'])} placement violation(s), placement "
+                                      f"{(res['r'].get('timing') or {}).get('place_s', res['r'].get('seconds'))} s"}
+               for _, res in sorted(results.items()) if _placer_failure(res.get("r") or {})]
+    c = s.cutoff
+    cr = (results.get(c - 1) or {}).get("r") or {} if c is not None else {}
+    why = (f"attempt {c} routed clean" if cr.get("ok") else f"attempt {c} was final") if c is not None and cr \
+        else "wall-time budget used up" if s.over else "attempt 1 settled the search"
+    done = {res["k"] for res in results.values()}
+    cancelled = [{"k": k, "why": why} for k in range(1, s.n + 1) if k not in done]
+    return {"skipped": skipped, "cancelled": cancelled}
 
 
 def attempt_summary(res: dict, fixed_all: bool = False) -> dict:
@@ -781,10 +844,11 @@ def layout_auto(d: Design, libs: Libs, reuse: bool = False, attempts: int = 4, s
 
     Attempt 1 keeps the saved placement when `reuse` is set; every later attempt places again with new placer
     seeds. The attempts run together in a process pool (`workers`, default cpu count - 1, at most `attempts`; with
-    the layout portfolio attempt 1 runs first, alone), each in its own directory build/auto/a<k>/. The result does
-    not depend on completion order: an attempt is final when it has 0 DRC errors, 0 unrouted and no placement
-    violations, or when its remaining errors are on fixed parts that no placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias, index) of the
-    attempts up to the first final one, or of all of them. Later attempts are not waited for. Each attempt's board
+    the layout portfolio attempt 1 runs first, alone), each in its own directory build/auto/a<k>/. An attempt is
+    final when it has 0 DRC errors, 0 unrouted and no placement violations, or when its remaining errors are on fixed
+    parts that no placement can move; the winner is the best (not ok, errors + unrouted, placement violations, vias,
+    index) of the attempts up to the first final one, or of all of them. Later attempts are not waited for, nor are
+    earlier ones still running when the final one is clean (buildplan.layout_search). Each attempt's board
     is kept in build/auto/. A wall-time budget (_layout_budget, HWFLOW_LAYOUT_BUDGET_S) bounds the search: past it no
     attempt starts, running ones are stopped, the repair stops its rounds, and the best attempt done is kept and
     diagnosed. The first attempt uses the same deadline as later attempts. Final DRC/cleanup may run beyond
@@ -937,7 +1001,8 @@ def auto_select(d: Design, libs: Libs, results: dict[int, dict], s, *, workers, 
         stopped = ((stopped + "; ") if stopped else "") + (
             f"stopped: wall-time budget {budget:g} s (HWFLOW_LAYOUT_BUDGET_S) used up after {len(used)} of {n} "
             f"attempts; {skipped} attempt{'s' if skipped != 1 else ''} skipped or stopped")
-    r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers, "first_final": cutoff == 0},
+    r = dict(r, auto={"attempts": log, "kept": k, "stopped": stopped, "workers": workers, "first_final": cutoff == 0,
+                      "n": n, **attempt_fates(s, results)},
              seconds=round(time.time() - t0, 1))
     if r0.get("portfolio") and k != 1:  # a fallback attempt won; it ran with the knobs of the best strategy
         r["portfolio"] = dict(r0["portfolio"], fallback={"attempt": k, "knobs_of": r0["portfolio"].get("strategy")},
@@ -1028,9 +1093,29 @@ def _hopeless_limit() -> int:
 
 def _auto_summary(r: dict) -> str:
     a = r.get("auto") or {}
-    return (f"[layout --auto] {'OK' if r['ok'] else 'FAIL'}: kept attempt {a.get('kept')} of {len(a.get('attempts', []))} "
+    return (f"[layout --auto] {'OK' if r['ok'] else 'FAIL'}: kept attempt {a.get('kept')} of {a.get('n') or len(a.get('attempts', []))} "
             f"in {r['seconds']} s{' (' + a['stopped'] + ')' if a.get('stopped') else ''}; board {r['board_mm'][0]}x{r['board_mm'][1]} mm, {r['unrouted']} unrouted, "
             f"DRC {r['drc_errors']} errors / {r['drc_warnings']} warnings, {r['vias']} vias, {r['segments']} segments")
+
+
+def saved_placement(d, libs, saved: dict):
+    """The parts at a saved placement (`--reuse`: placement.json) -> (parts, cost, violations). A legal one stays as it
+    is: Placer.legalize pushes apart courtyards that only touch, past floorplan regions and isolation distances, and
+    made a legal placement illegal (timed-bathroom-vent: L2 pushed 1.25 mm out of its region). One with violations is
+    legalized, then settled."""
+    parts = placer.build_parts(d, libs)
+    for r, p in parts.items():
+        if r in saved and not p.fixed:  # a fixed part keeps the position the design gives it now
+            p.x, p.y, p.r = saved[r]
+    pl = placer.Placer(d, parts, d.board["width_mm"], d.board["height_mm"])
+    viol = pl.violations()
+    if viol:
+        pl.legalize()
+        viol = pl.violations()
+    cost = pl.cost()
+    if viol and get_settings().layout.settle:  # a saved placement with violations: settle them
+        viol, cost = pl.settle(), pl.cost()
+    return parts, cost, viol
 
 
 def _saved_board(pj: Path):

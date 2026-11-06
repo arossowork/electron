@@ -59,6 +59,10 @@ fast:
     nets_no_exit_at_width: []
     necked: []
     no_access: []
+  gate:
+    fail: false
+    peak: 3.48
+    area_mm2: 0.0
   seconds:
     check: 31.5
     pin_access: 1.0

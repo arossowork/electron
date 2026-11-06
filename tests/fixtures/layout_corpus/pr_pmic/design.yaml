@@ -1,0 +1,903 @@
+project: pocket-recorder_cut_pmic
+board:
+  width_mm: 21.65
+  height_mm: 23.55
+  layers: 4
+  thickness_mm: 0.4
+  margin_mm: 0.5
+  power_track_mm: 0.2
+  track_mm: 0.15
+  clearance_mm: 0.15
+  via_drill_mm: 0.15
+  via_dia_mm: 0.3
+  pour_stitch: true
+cost:
+  extra:
+  - name: PCB 22 x 54, 4 layers, 0.4 mm, 5k
+    usd: 0.5
+    source: assumed, stage 3 quote
+  - name: SMT assembly + hand-solder cell
+    usd: 1.5
+    source: assumed, stage 3 quote
+  - name: enclosure 60 x 56, two moulded shells 0.5 mm + light pipe + mic mesh
+    usd: 1.1
+    source: assumed (R20 scope, PM round 3)
+  - name: adhesive pad (phone attachment)
+    usd: 0.12
+    source: assumed (R27)
+  - name: magnetic pogo charging cable
+    usd: 2.5
+    source: conflicts.md C2 (2-3 USD)
+  - name: cell VTC LP103053 90 mAh (hand-soldered tabs J3/J4)
+    usd: 2.2
+    source: assumed, no quote (notes/parts.md)
+description: layout cutout of pocket-recorder (pmic)
+components:
+  C1:
+    value: 1uF
+    mpn: GRM188R61E105KA12D
+    price_usd: 0.01
+    voltage_rating_v: 25
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VBUS
+      '2': GND
+    placement:
+      x: 14.8247
+      y: 7.9235
+      rot: 0.0
+      fixed: true
+  C10:
+    value: 100nF
+    mpn: GRM033R61A104KE15D
+    price_usd: 0.003
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0201_0603Metric
+    group: battery
+    decouples: U4
+    pins:
+      '1': VBAT
+      '2': BAT_N
+    placement:
+      x: 15.25
+      y: 19.4
+      rot: 0.0
+      fixed: true
+  C13:
+    value: 100nF
+    mpn: GRM033R61A104KE15D
+    price_usd: 0.003
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0201_0603Metric
+    group: led
+    decouples: U5
+    pins:
+      '1': MIC_PWR
+      '2': GND
+    placement:
+      x: 8.7
+      y: 16.2
+      rot: 0.0
+      fixed: true
+  C2:
+    value: 10uF
+    mpn: CL10A106KA8NRNC
+    lcsc: C96446
+    price_usd: 0.02
+    voltage_rating_v: 25
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VSYS
+      '2': GND
+    placement:
+      x: 14.9
+      y: 12.0
+      rot: 0.0
+      fixed: true
+  C3:
+    value: 10uF
+    mpn: CL10A106KA8NRNC
+    lcsc: C96446
+    price_usd: 0.02
+    voltage_rating_v: 25
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VSYS
+      '2': GND
+    placement:
+      x: 14.85
+      y: 9.9
+      rot: 0.0
+      fixed: true
+  C4:
+    value: 10uF
+    mpn: CL10A106KA8NRNC
+    lcsc: C96446
+    price_usd: 0.02
+    voltage_rating_v: 25
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VBAT
+      '2': GND
+    placement:
+      x: 14.8706
+      y: 13.9617
+      rot: 180.0
+      fixed: true
+  C5:
+    value: 10uF
+    mpn: CL10A106KP8NNNC
+    lcsc: C19702
+    price_usd: 0.01
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0603_1608Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VDD_3V0
+      '2': GND
+    placement:
+      x: 10.75
+      y: 6.7
+      rot: 0.0
+      fixed: true
+  C6:
+    value: 100nF
+    mpn: GRM033R61A104KE15D
+    price_usd: 0.003
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0201_0603Metric
+    group: power
+    decouples: U2
+    pins:
+      '1': VDD_3V0
+      '2': GND
+    placement:
+      x: 6.35
+      y: 7.05
+      rot: 180.0
+      fixed: true
+  C7:
+    value: 1uF
+    mpn: GRM155R61A105KE15D
+    price_usd: 0.004
+    voltage_rating_v: 10
+    symbol: Device:C
+    footprint: Capacitor_SMD:C_0402_1005Metric
+    group: led
+    decouples: U2
+    pins:
+      '1': MIC_PWR
+      '2': GND
+    placement:
+      x: 8.05
+      y: 6.21
+      rot: 270.0
+      fixed: true
+  D1:
+    value: TPD1E10B06
+    mpn: TPD1E10B06DPYR
+    lcsc: C48260
+    price_usd: 0.025
+    symbol: Device:D_TVS
+    footprint: pocket:TI_X1SON-2_DPY0002A_1.0x0.6mm
+    group: input
+    pins:
+      '1': VBUS_POGO
+      '2': GND
+    limits:
+      abs_max_v: 5.5
+      min_v: -5.5
+      source: 'TPD1E10B06 Rev G p5: VRWM +-5.5 V (bidirectional)'
+    placement:
+      x: 17.5
+      y: 8.75
+      rot: 90.0
+      fixed: true
+  D3:
+    value: BZX884-C6V2
+    mpn: BZX884-C6V2,315
+    price_usd: 0.02
+    sourcing: Nexperia BZX884-C6V2,315 DFN1006-2 (SOD882) 0.48 mm max; LCSC number to confirm
+    symbol: Device:D_Zener
+    footprint: Diode_SMD:D_SOD-882
+    group: input
+    pins:
+      '1': VBUS
+      '2': Q_G
+    placement:
+      x: 17.85
+      y: 16.1
+      rot: 0.0
+      fixed: true
+  D4:
+    value: RED
+    mpn: KT-0402R
+    lcsc: C2286
+    price_usd: 0.01
+    symbol: Device:LED
+    footprint: LED_SMD:LED_0402_1005Metric
+    group: led
+    pins:
+      '1': LED_SNS
+      '2': LED_A
+    placement:
+      x: 4.4858
+      y: 14.2308
+      rot: 0.0
+      fixed: true
+  J3:
+    value: CELL_PLUS
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_2.0x2.0mm
+    group: battery
+    bom: false
+    pins:
+      '1': VBAT
+    placement:
+      x: 12.4
+      y: 19.15
+      rot: 90.0
+      fixed: true
+  L1:
+    value: 2.2uH
+    mpn: DFE201610E-2R2M=P2
+    lcsc: C337891
+    price_usd: 0.081
+    symbol: Device:L
+    footprint: Inductor_SMD:L_Murata_DFE201610P
+    group: power
+    pins:
+      '1': SW2
+      '2': VDD_3V0
+    placement:
+      x: 5.0
+      y: 10.5
+      rot: 90.0
+      fixed: true
+  M1:
+    value: PMZ350UPE
+    mpn: PMZ350UPE
+    lcsc: C478207
+    price_usd: 0.0379
+    symbol: pocket:PMZ350UPE
+    footprint: Package_TO_SOT_SMD:SOT-883
+    group: input
+    pins:
+      '1': Q_G
+      '2': VBUS
+      '3': VBUS_POGO
+    limits:
+      abs_max_v: 20
+      min_v: -20
+      source: 'PMZ350UPE p2: VDS -20 V; VGS +-8 V held by D3 (gate-source 6.2 V Zener)'
+    placement:
+      x: 17.5
+      y: 11.25
+      rot: 90.0
+      fixed: true
+  R1:
+    value: 150k
+    mpn: 0201WMF1503TEE
+    price_usd: 0.002
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: power
+    pins:
+      '1': VSET2
+      '2': GND
+    placement:
+      x: 10.9
+      y: 15.45
+      rot: 270.0
+      fixed: true
+  R10:
+    value: 10k
+    mpn: 0201WMF1002TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: storage
+    pins:
+      '1': NAND_PWR
+      '2': NAND_CS
+    placement:
+      x: 6.75
+      y: 3.75
+      rot: 90.0
+      fixed: true
+  R15:
+    value: 1k
+    mpn: 0201WMF1001TEE
+    price_usd: 0.002
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: led
+    pins:
+      '1': MIC_PWR
+      '2': LED_A
+    placement:
+      x: 5.3
+      y: 12.8
+      rot: 180.0
+      fixed: true
+  R16:
+    value: 100
+    mpn: 0201WMF1000TEE
+    price_usd: 0.002
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: led
+    pins:
+      '1': LED_SNS
+      '2': GND
+    placement:
+      x: 3.3686
+      y: 15.9165
+      rot: 270.0
+      fixed: true
+  R17:
+    value: 1000k
+    mpn: 0201WMF1004TEE
+    price_usd: 0.002
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: led
+    pins:
+      '1': MIC_PWR
+      '2': LED_REF
+    placement:
+      x: 5.3
+      y: 20.55
+      rot: 180.0
+      fixed: true
+  R18:
+    value: 18k
+    mpn: 0201WMF1802TEE
+    price_usd: 0.002
+    tolerance: 0.01
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: led
+    pins:
+      '1': LED_REF
+      '2': GND
+    placement:
+      x: 5.3
+      y: 19.25
+      rot: 0.0
+      fixed: true
+  R19:
+    value: 1000k
+    mpn: 0201WMF1004TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: led
+    pins:
+      '1': LED_FAULT
+      '2': GND
+    placement:
+      x: 8.4
+      y: 17.8
+      rot: 270.0
+      fixed: true
+  R2:
+    value: 4.7k
+    mpn: 0201WMF4701TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: power
+    pins:
+      '1': VDD_3V0
+      '2': I2C_SDA
+    placement:
+      x: 16.5
+      y: 5.95
+      rot: 270.0
+      fixed: true
+  R3:
+    value: 4.7k
+    mpn: 0201WMF4701TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: power
+    pins:
+      '1': VDD_3V0
+      '2': I2C_SCL
+    placement:
+      x: 13.1
+      y: 5.95
+      rot: 90.0
+      fixed: true
+  R4:
+    value: 100k
+    mpn: 0201WMF1003TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: power
+    pins:
+      '1': MIC_EN
+      '2': GND
+    placement:
+      x: 14.9263
+      y: 6.3352
+      rot: 0.0
+      fixed: true
+  R8:
+    value: 100k
+    mpn: 0201WMF1003TEE
+    price_usd: 0.002
+    symbol: Device:R
+    footprint: Resistor_SMD:R_0201_0603Metric
+    group: input
+    pins:
+      '1': Q_G
+      '2': GND
+    placement:
+      x: 18.15
+      y: 7.05
+      rot: 0.0
+      fixed: true
+  TH1:
+    value: 10k
+    mpn: NCP15XH103F03RC
+    lcsc: C77131
+    price_usd: 0.03
+    symbol: Device:Thermistor_NTC
+    footprint: Resistor_SMD:R_0402_1005Metric
+    group: power
+    pins:
+      '1': NTC
+      '2': GND
+    placement:
+      x: 12.75
+      y: 15.8
+      rot: 0.0
+      fixed: true
+  U2:
+    value: nPM1300
+    mpn: nPM1300-QEAA-R7
+    lcsc: C7501206
+    price_usd: 1.74
+    sourcing: Mouser 5634 @3000 1.74; JLC stock 0
+    symbol: pocket:nPM1300
+    footprint: Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm
+    package_pads: 33
+    package_pitch_mm: 0.5
+    group: power
+    thermal_vias:
+      pad: '33'
+      count: 4
+    pins:
+      '2': GND
+      '4': VSYS
+      '5': SW2
+      '6': GND
+      '7': PMIC_INT
+      '8': MIC_EN
+      '10': LED_FAULT
+      '12': VDD_3V0
+      '13': I2C_SDA
+      '14': I2C_SCL
+      '15': BTN
+      '16': VSET2
+      '17': GND
+      '18': NTC
+      '19': VBAT
+      '20': VSYS
+      '21': VBUS
+      '28': VDD_3V0
+      '29': MIC_PWR
+      '30': VDD_3V0
+      '31': NAND_PWR
+      '32': VDD_3V0
+      '33': GND
+    nc:
+    - '1'
+    - '3'
+    - '9'
+    - '11'
+    - '22'
+    - '23'
+    - '24'
+    - '25'
+    - '26'
+    - '27'
+    limits:
+      abs_max_v: 5.5
+      rec_max_v: 5.5
+      min_v: -0.3
+      pins:
+        '21': 22
+        '7': 3.45
+        '8': 3.45
+        '10': 3.45
+        '13': 3.45
+        '14': 3.45
+      source: nPM1300 PS v1.1 Table 5 p17 (VBUS 22 V, others 5.5 V, GPIO/SDA/SCL VDDIO + 0.3 = 3.45 V at 3.15), Table 7 p18
+    placement:
+      x: 9.7122
+      y: 11.0748
+      rot: 0.0
+      fixed: true
+  U4:
+    value: XB6166IS
+    mpn: XB6166IS
+    lcsc: C94310
+    price_usd: 0.152
+    symbol: pocket:XB6166IS
+    footprint: pocket:XySemi_DFN-6L_2x2mm_P0.65mm_EP0.7x1.2
+    group: battery
+    pins:
+      '1': VBAT
+      '2': BAT_N
+      '3': BAT_N
+      '4': GND
+      '5': GND
+      '6': GND
+      '7': BAT_N
+    limits:
+      abs_max_v: 6
+      source: XB6166IS REV0.6 p3 VDD -0.3..6 V
+    placement:
+      x: 17.65
+      y: 19.25
+      rot: 0.0
+      fixed: true
+  U5:
+    value: TLV3691
+    mpn: TLV3691IDCKR
+    lcsc: C180352
+    price_usd: 0.43
+    symbol: pocket:TLV3691
+    footprint: Package_TO_SOT_SMD:SOT-353_SC-70-5
+    group: led
+    pins:
+      '1': LED_SNS
+      '2': GND
+      '3': LED_REF
+      '4': LED_FAULT
+      '5': MIC_PWR
+    limits:
+      abs_max_v: 7
+      rec_max_v: 6.5
+      source: 'TLV3691 datasheet 0.9-6.5 V supply, abs max 7 V; SC70-5 DCK (1.1 mm max, within R24 1.2 mm) instead of X2SON-6:
+        its centre GND pad cannot escape at 0.2 mm clearance'
+    placement:
+      x: 5.85
+      y: 16.9
+      rot: 0.0
+      fixed: true
+  TPB1:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': BAT_N
+    group: cutout_terminal
+    placement:
+      x: 9.3125
+      y: 21.8
+      rot: 0
+      fixed: true
+  TPB10:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VBUS_POGO
+    group: cutout_terminal
+    placement:
+      x: 19.9
+      y: 9.5194
+      rot: 0
+      fixed: true
+  TPB11:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': VDD_3V0
+    group: cutout_terminal
+    placement:
+      x: 4.775
+      y: 1.75
+      rot: 0
+      fixed: true
+  TPB2:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': BTN
+    group: cutout_terminal
+    placement:
+      x: 3.0104
+      y: 21.8
+      rot: 0
+      fixed: true
+  TPB3:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SCL
+    group: cutout_terminal
+    placement:
+      x: 14.3542
+      y: 1.75
+      rot: 0
+      fixed: true
+  TPB4:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': I2C_SDA
+    group: cutout_terminal
+    placement:
+      x: 17.1271
+      y: 1.75
+      rot: 0
+      fixed: true
+  TPB5:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_EN
+    group: cutout_terminal
+    placement:
+      x: 19.9
+      y: 1.75
+      rot: 0
+      fixed: true
+  TPB6:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': MIC_PWR
+    group: cutout_terminal
+    placement:
+      x: 19.9
+      y: 13.78
+      rot: 0
+      fixed: true
+  TPB7:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_CS
+    group: cutout_terminal
+    placement:
+      x: 19.9
+      y: 4.5069
+      rot: 0
+      fixed: true
+  TPB8:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': NAND_PWR
+    group: cutout_terminal
+    placement:
+      x: 8.8083
+      y: 1.75
+      rot: 0
+      fixed: true
+  TPB9:
+    value: TP
+    symbol: Connector:TestPoint
+    footprint: TestPoint:TestPoint_Pad_D1.0mm
+    pins:
+      '1': PMIC_INT
+    group: cutout_terminal
+    placement:
+      x: 11.5812
+      y: 1.75
+      rot: 0
+      fixed: true
+nets:
+  VBUS_POGO:
+    class: power
+    current_a: 0.15
+    width_mm: 0.3
+    v_max: 5.5
+    v_min: -5.5
+    external_supply: true
+    req: R31
+  VBUS:
+    external_supply: true
+    class: power
+    current_a: 0.15
+    width_mm: 0.3
+    v_max: 5.5
+  VSYS:
+    class: power
+    current_a: 0.15
+    width_mm: 0.3
+    v_max: 5.5
+  VBAT:
+    external_supply: true
+    class: power
+    current_a: 0.1
+    width_mm: 0.3
+    v_max: 4.35
+  BAT_N:
+    external_supply: true
+    class: power
+    current_a: 0.1
+    width_mm: 0.3
+    v_max: 0.1
+  SW2:
+    class: switching
+    current_a: 0.1
+    width_mm: 0.3
+    v_max: 5.5
+  VDD_3V0:
+    class: power
+    current_a: 0.06
+    width_mm: 0.25
+    v_max: 3.15
+  NAND_PWR:
+    class: power
+    current_a: 0.035
+    width_mm: 0.2
+    v_max: 3.15
+  MIC_PWR:
+    class: power
+    current_a: 0.005
+    v_max: 3.15
+  GND:
+    class: ground
+  BTN:
+    v_max: 4.35
+  Q_G:
+    v_max: 5.5
+    v_min: -0.1
+  PMIC_INT:
+    v_max: 3.15
+  MIC_EN:
+    v_max: 3.15
+  LED_FAULT:
+    v_max: 3.15
+  I2C_SDA:
+    v_max: 3.15
+  I2C_SCL:
+    v_max: 3.15
+  LED_SNS:
+    sensitive: true
+  LED_REF:
+    sensitive: true
+floorplan:
+  construction: single
+  wall_mm:
+    left: 0.5
+    right: 0.5
+    top: 0.5
+    bottom: 0.5
+  depth:
+    limit_mm: 2.9
+    extra:
+    - name: enclosure walls 2 x 0.5
+      mm: 1.0
+      source: R1, conflicts.md C1
+    - name: assembly clearance over tallest part
+      mm: 0.3
+      source: R24 derivation
+  regions:
+  - name: pogo_edge
+    kind: other
+    items:
+    - input_protection
+    source: 'R27: pogo pads within 3 mm of the device short edge; R17 TVS within 5 mm'
+    rect:
+    - 17.0
+    - 4.4
+    - 21.65
+    - 18.4
+  items:
+  - name: input_protection
+    refs:
+    - D1
+    - M1
+    - R8
+    - D3
+    side: front
+    height_mm: 0.5
+    source: TVS X1SON-2 + PMZ350UPE SOT883 + 100 k gate resistor + 6.2 V gate Zener SOD-882 (R17, R31)
+  - name: led
+    refs:
+    - D4
+    side: front
+    at:
+    - 19.0
+    - 29.4
+    height_mm: 0.5
+    source: 0402 red LED under the light pipe, R13
+  - name: cell_tabs
+    refs:
+    - J3
+    - J4
+    side: front
+    height_mm: 0.3
+    source: two nickel-tab solder pads of the VTC LP103053 cell 30 x 53 x 1.0 (hand solder, R22); cell beside the board at
+      x = 0
+  - name: pmic_block
+    refs:
+    - U2
+    - L1
+    - C1
+    - C2
+    - C3
+    - C4
+    - C5
+    - C6
+    - R1
+    - R2
+    - R3
+    - R4
+    - TH1
+    side: front
+    height_mm: 1.0
+    source: nPM1300 QFN32 5x5 config 2 (one buck, PS v1.1 9.3) + L1 2016 1.0 mm + caps
+  - name: storage_block
+    refs:
+    - U3
+    - C8
+    - C9
+    - R10
+    - R11
+    - R12
+    - R13
+    - R14
+    side: front
+    height_mm: 1.0
+    source: FLSD04GHFLT LGA-8 9.2 x 7.2 x 1.0 max (datasheet p7-8) + caps + pull-ups
+  - name: protection_block
+    refs:
+    - U4
+    - C10
+    side: front
+    height_mm: 0.8
+    source: XB6166IS DFN-6 2x2 0.8 max + VDD cap
+  - name: led_fault_block
+    refs:
+    - U5
+    - R15
+    - R16
+    - R17
+    - R18
+    - R19
+    - C7
+    - C13
+    side: front
+    height_mm: 0.6
+    source: MIC_PWR cap, LED resistor, sense resistor, TLV3691 X2SON-6 + reference divider (R13)

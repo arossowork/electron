@@ -34,6 +34,36 @@ def board_fill(design, parts: dict, W: float, H: float) -> dict[str, float]:
 PLACE_FILL_MAX = 0.95
 
 
+def iso_bands(design, parts: dict, W: float, H: float) -> dict:
+    """ref -> area (mm2) a part takes with the isolation bands of its pads: the union of its placer courtyard (with
+    the margin) and its pads grown by half the distance each needs from a pad of another net (Placer._pad_need
+    against a pad of no group: two pads of different groups keep the sum of their halves at least). A part without
+    an isolation or class distance is not listed (its courtyard is all it takes). {} when it cannot be computed."""
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    from . import placer
+    try:
+        pl = placer.Placer(design, parts, W, H)
+    except Exception:  # noqa: BLE001 - context for the verdict; the courtyard fill stands without it
+        return {}
+    none = (-1, None, 0.0)
+    out = {}
+    for r in {k[0] for k in pl.pad_grp}:
+        p = parts.get(r)
+        if p is None or r not in design.components:
+            continue
+        halos = []
+        for n in p.pads:
+            if (r, n) in pl.pad_grp and n not in p.nocu:
+                h = pl._pad_need(pl._pad_key((r, n)), none) / 2
+                if h > 0:
+                    halos.append(box(*placer.part_pad_box(p, n)).buffer(h, join_style="mitre"))
+        if halos:
+            out[r] = unary_union([box(*p.box())] + halos).area
+    return out
+
+
 def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) -> dict:
     """Why a placement with violations `viol` is illegal and where to go back to: the fill of each board face (placer
     courtyards with their margin) and of each floorplan region the violations touch, against PLACE_FILL_MAX, the
@@ -56,6 +86,9 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
         rr, _ = floorplan.placer_regions(design, parts)
     except Exception:  # noqa: BLE001 - region rows are context; the board fill stands without them
         rr = []
+    bands = None
+    from shapely.geometry import box as _box
+    inner = outline.buffer(-mg, join_style="mitre") if floorplan.cuts(design) else _box(mg, mg, W - mg, H - mg)
     for g in rr:
         poly = g.get("poly")
         if poly is None or poly.is_empty:
@@ -70,10 +103,30 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
         load = sum((parts[r].box()[2] - parts[r].box()[0]) * (parts[r].box()[3] - parts[r].box()[1])
                    for r in g["members"] if r in parts)
         rf = load / poly.area if poly.area > 0 else math.inf
-        regs.append({"name": g["name"], "fill": round(rf, 3), "load_mm2": round(load, 1), "area_mm2": round(poly.area, 1)})
+        row = {"name": g["name"], "fill": round(rf, 3), "load_mm2": round(load, 1), "area_mm2": round(poly.area, 1)}
+        regs.append(row)
         if rf > fmax:
             over.append(f"region {g['name']} is {rf:.0%} full ({load:.0f} of {poly.area:.0f} mm2; at most {fmax:.0%} "
                         f"places: it needs {load / fmax:.0f} mm2, or fewer or smaller members)")
+            continue
+        # with the isolation bands of the members' pads, inside the board margin: the courtyard fill alone called
+        # a region of isolation groups placeable that no placer can fill (timed-bathroom-vent mains: 78 % of
+        # courtyards, 96 % with the bands inside the margin, no legal placement in 16 seeds)
+        if bands is None:
+            bands = iso_bands(design, parts, W, H)
+        mem = [r for r in g["members"] if r in parts]
+        if not any(r in bands for r in mem):
+            continue
+        bload = sum(bands.get(r) or ((parts[r].box()[2] - parts[r].box()[0]) * (parts[r].box()[3] - parts[r].box()[1]))
+                    for r in mem)
+        barea = poly.intersection(inner).area
+        bf = bload / barea if barea > 0 else math.inf
+        row.update(band_fill=round(bf, 3), band_load_mm2=round(bload, 1), band_area_mm2=round(barea, 1))
+        if bf > fmax:
+            over.append(f"region {g['name']} with the isolation bands of its pads (half the group distance around "
+                        f"each pad) is {bf:.0%} full ({bload:.0f} of {barea:.0f} mm2 inside the {mg:g} mm board margin; "
+                        f"at most {fmax:.0%} places: it needs {bload / fmax:.0f} mm2, or fewer or smaller members, "
+                        f"or smaller isolation distances)")
     units = {u.ref: u for u in getattr(parts, "blocks", ()) or ()}  # a block's courtyard part: block:<name>
     refs = {r for v in viol for r in re.split(r"[\s/.]+", v) if r in parts or r in units}
     fixed_only = bool(refs) and all((parts[r] if r in parts else units[r]).fixed for r in refs)
@@ -86,7 +139,7 @@ def placement_verdict(design, parts: dict, W: float, H: float, viol: list[str]) 
         back = "architecture"
         fits = [f"a board of at least {math.ceil((W - 2 * mg) * k + 2 * mg)} x {math.ceil((H - 2 * mg) * k + 2 * mg)} mm"
                 if f > fmax else None, *over]
-        msg = f"{head}; {face}: it does not fit; " + "; ".join(x for x in fits if x) + \
+        msg = f"{head}; {face}" + (": it does not fit; " if f > fmax else ", but ") + "; ".join(x for x in fits if x) + \
               " (or fewer or smaller parts, or parts on the other face)"
     elif fixed_only:
         back = "architecture"

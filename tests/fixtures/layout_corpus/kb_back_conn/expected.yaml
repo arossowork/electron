@@ -69,6 +69,10 @@ fast:
     no_access:
     - U600.21
     - U650.21
+  gate:
+    fail: false
+    peak: 5.82
+    area_mm2: 0.0
   seconds:
     check: 32.7
     pin_access: 1.4

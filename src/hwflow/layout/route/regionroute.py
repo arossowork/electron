@@ -125,8 +125,8 @@ def group_key(design, nets, board: dict, routed, rules: str = "", parts=None) ->
     from ..board import pcb as board_pcb
     from ..place import pinaccess
     from ..board import routing
-    from . import roads, taps, trunks
-    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads, taps, trunks):
+    from . import roads, seedroute, taps, trunks
+    for m in (board_pcb, krt, routing, sys.modules[__name__], pinaccess, roads, seedroute, taps, trunks):
         h.update(Path(m.__file__).read_bytes())
     from ..place import asicflow
     h.update(asicflow.flow(design).encode())  # the layout flow: pin access necked or not
@@ -190,8 +190,8 @@ def route(design, libs, parts, workdir: Path, cache: Path, timeout: int = 1800, 
     routed = [n for n in pcb.net_classes(design) if n not in gnds and n not in closed]
     tap_t, tap_v = [], []
     from . import taps
-    if taps.on(design):  # every pour pad's tap first: each group routes around it
-        src, tap_t, tap_v, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
+    # every pour pad's tap and every walled-in pad's escape first: each group routes around them
+    src, tap_t, tap_v, _ = taps.preseed(design, libs, parts, src, workdir, f"{name}_")
     board = pcb.read_board(src)
     groups = partition(routed, pads_by_net(board), seeds(design))
     if len(groups) < 2:

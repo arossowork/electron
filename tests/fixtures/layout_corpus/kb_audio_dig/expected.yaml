@@ -164,6 +164,10 @@ fast:
     - XU_TMS
     no_access:
     - TP1105.1
+  gate:
+    fail: true
+    peak: 9.0
+    area_mm2: 52.0
   seconds:
     check: 60.4
     pin_access: 3.0

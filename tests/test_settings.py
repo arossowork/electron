@@ -9,7 +9,8 @@ from hwflow.core.settings import get_settings
 SRC = Path(__file__).resolve().parents[1] / "src" / "hwflow"
 # subprocess environments that pass the parent environment through to a child on purpose (file: how many)
 # commands/run.py: HWFLOW_EXECUTOR and the detached child's environment; pipeline/runner.py: HWFLOW_RUN_ID (process control, not settings)
-ALLOWED = {"layout/board/kicad.py": 1, "layout/route/krt.py": 1, "commands/em.py": 2, "commands/run.py": 2, "pipeline/runner.py": 1}
+ALLOWED = {"layout/board/kicad.py": 1, "layout/route/krt.py": 1, "commands/em.py": 2, "commands/run.py": 2, "pipeline/runner.py": 1,
+           "layout/place/floorplan.py": 1}  # the spot-route check passes its environment to the child layout
 
 
 def test_defaults(monkeypatch):
@@ -17,7 +18,7 @@ def test_defaults(monkeypatch):
               "HWFLOW_LAYOUT_BUDGET_S", "HWFLOW_KEEPOUT_STRICT", "HWFLOW_NECKDOWN", "KRT_DIR", "HWFLOW_ROOT"):
         monkeypatch.delenv(k, raising=False)
     s = get_settings()
-    assert (s.repair.max_errors, s.repair.budget_s, s.repair.max_stall) == (40, 1800.0, 2)
+    assert (s.repair.max_errors, s.repair.budget_s, s.repair.max_stall) == (40, 1800.0, 1)
     assert s.layout.budget_s == 3000 and s.layout.auto_max_errors == 40 and s.layout.seed0 == 1
     assert s.layout.flow is None and s.layout.keepout_strict and s.layout.neckdown and s.layout.seedroute
     assert s.paths.krt_dir.endswith("tools/KiCadRoutingTools") and Path(s.paths.blocks_dir).name == "blocks"
@@ -113,3 +114,22 @@ def test_fast_preset(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     f = with_layout_env(get_settings(), {"HWFLOW_FAST": "1"}).layout
     assert (f.pour_stitch, f.place_escape, f.roads, f.firstpass) == (True, "1", "route", None)
+
+
+def test_worktree_tools_fall_back_to_the_main_checkout(monkeypatch, tmp_path):
+    """tools/ is gitignored, so a git worktree has none (pocket-recorder: layout failed at once without the router)."""
+    main, wt = tmp_path / "main", tmp_path / "wt"
+    (main / "tools" / "KiCadRoutingTools").mkdir(parents=True)
+    (main / ".git" / "worktrees" / "wt").mkdir(parents=True)
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {main / '.git' / 'worktrees' / 'wt'}\n")
+    for k in ("HWFLOW_TOOLS_DIR", "KRT_DIR", "FREEROUTING"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("HWFLOW_ROOT", str(wt))
+    p = get_settings().paths
+    assert p.krt_dir == str(main / "tools" / "KiCadRoutingTools")
+    assert p.freerouting == str(wt / "tools" / "freerouting-2.5.0.jar")  # in neither: the worktree's own path
+    (wt / "tools" / "KiCadRoutingTools").mkdir(parents=True)
+    assert get_settings().paths.krt_dir == str(wt / "tools" / "KiCadRoutingTools")  # its own copy wins
+    monkeypatch.setenv("HWFLOW_TOOLS_DIR", str(tmp_path / "t"))
+    assert get_settings().paths.krt_dir == str(tmp_path / "t" / "KiCadRoutingTools")

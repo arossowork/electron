@@ -333,13 +333,52 @@ def parse(design) -> dict | None:
     return fp
 
 
+COPPER_FORBIDS = ("tracks", "vias", "copperpour")
+
+
+def copper_keepouts(design, errs: list | None = None) -> list[dict]:
+    """Copper rule areas of the regions with `copper_keepout: {layers, forbids}` (an antenna clearance, a crystal or
+    a sensor area): {name, poly, layers, forbids} in board coordinates. Layers default to every copper layer, forbids
+    to tracks, vias and copper pour; the region's own parts keep their pads (KiCad rule areas do not forbid pads)."""
+    from .geometry import cu_layers
+    raw = design.raw.get("floorplan") or {}
+    errs = [] if errs is None else errs
+    board = cu_layers(int(design.board.get("layers", 2)))
+    out = []
+    for i, r in enumerate(raw.get("regions") or []):
+        spec = r.get("copper_keepout")
+        if spec is None:
+            continue
+        where = f"floorplan.regions.{r.get('name', f'region{i + 1}')}.copper_keepout"
+        if spec is True:
+            spec = {}
+        if not isinstance(spec, dict):
+            errs.append(f"{where}: must be true or a mapping {{layers, forbids}}")
+            continue
+        lay = [str(x) for x in spec.get("layers") or board]
+        bad = [x for x in lay if x not in board]
+        forb = [str(x) for x in spec.get("forbids") or COPPER_FORBIDS]
+        badf = [x for x in forb if x not in COPPER_FORBIDS]
+        if bad:
+            errs.append(f"{where}: layers {bad} are not copper layers of this board ({', '.join(board)})")
+        if badf:
+            errs.append(f"{where}: forbids {badf} are not among {', '.join(COPPER_FORBIDS)}")
+        g = _geom(r, where, errs)
+        if g is None or bad or badf:
+            continue
+        out.append({"name": str(r.get("name", f"region{i + 1}")), "poly": g, "layers": lay, "forbids": forb})
+    return out
+
+
 def validate(design) -> list[str]:
     """Error messages of the floorplan field (empty when it is valid or absent)."""
     try:
         parse(design)
     except FloorplanError as e:
         return str(e).split("; ")
-    return []
+    errs: list[str] = []
+    copper_keepouts(design, errs)
+    return errs
 
 
 def _shape_regions(fp: dict):
@@ -644,7 +683,7 @@ def placer_regions(design, parts) -> tuple[list, dict]:
         if r["poly"].is_empty:
             continue
         allow = {x for e in r["allow"] for x in (res.get(e) or [y for y in refs if fnmatch.fnmatchcase(y, e)])}
-        allow |= _block_yards(design, allow)
+        allow |= _block_yards(design, allow | mem[r["name"]])  # a block of the region's own members may sit in it too
         if r["cut"]:  # a hole in the board: every part keeps the board margin from its edge, as from the outline
             out.append(_rule(r["name"], r["poly"].buffer(float(design.board["margin_mm"]), join_style="mitre"),
                              r["sides"], set(), True, allow, {}))

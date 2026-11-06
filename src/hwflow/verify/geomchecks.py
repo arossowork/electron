@@ -112,6 +112,10 @@ class _Board:
             if not ref:
                 continue
             self.fp_layer[ref] = str(sexpr.value(fp, "layer") or "F.Cu")
+            lays = {str(sexpr.value(g, "layer")) for k in ("fp_line", "fp_rect", "fp_circle", "fp_poly", "fp_arc")
+                    for g in sexpr.find_all(fp, k)}
+            if self.fp_layer[ref] == "F.Cu" and lays & {"B.CrtYd", "B.Fab"} and not lays & {"F.CrtYd", "F.Fab"}:
+                self.fp_layer[ref] = "B.Cu"  # a mirrored `_back` footprint on F.Cu is a back-face part (kicad.mirrored_back_parts)
             pts = []
             for k in ("fp_line", "fp_rect", "fp_poly", "fp_circle", "fp_arc"):
                 for it in sexpr.find_all(fp, k):

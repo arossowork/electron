@@ -170,6 +170,10 @@ fast:
     - MCU_DP
     no_access:
     - R156.1
+  gate:
+    fail: true
+    peak: 9.0
+    area_mm2: 75.8
   seconds:
     check: 78.8
     pin_access: 2.5

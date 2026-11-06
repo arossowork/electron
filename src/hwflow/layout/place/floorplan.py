@@ -18,6 +18,7 @@ import fnmatch
 import math
 import re
 import time
+from pathlib import Path
 
 from shapely.geometry import LineString, Point, box
 from shapely.ops import unary_union
@@ -350,7 +351,10 @@ def check(design, libs, iters: int = 20000, seeds: int = 2, place: bool = True, 
             if it["size"]:
                 add("depth", None, f"item {it['name']}: no height_mm (not in the depth stack)")
             continue
-        sides = {s for x in names if x in parts for s in (parts[x].sides or {})} or {it["side"]}
+        # an item's given side is the face its body is on: a courtyard on the other face is then a keep-out (a lifted
+        # axial part's B.CrtYd that keeps back parts from under its body), not a body in the depth stack
+        sides = ({it["side"]} if it["side_given"] else set()) or \
+            {s for x in names if x in parts for s in (parts[x].sides or {})} or {it["side"]}
         flip = next(b["flipped"] for b in fp["boards"] if b["name"] == it["board"])
         for s in sides:
             s = ("back" if s == "front" else "front") if flip else s  # a flipped board: its back face looks up
@@ -964,6 +968,16 @@ def _seed_run(d2, parts, W, H, weights, iters, seed, start) -> tuple:
     pl = placer.Placer(d2, parts, W, H, seed=seed, weights=weights)
     cost = pl.run(iters)
     v = pl.violations()
+    if getattr(pl, "bud", None) and any(x.startswith("budget ") for x in v):
+        # copper_len legs, as the layout flow seeds them (asicflow): the small end next to its anchor pad, then legalize
+        before, vb = pl._state(), v
+        pl.budget_seed()
+        pl.legalize()
+        v = pl.violations()
+        if len(v) >= len(vb):
+            pl._restore(before)
+            v = vb
+        cost = pl.cost()
     if _region_viol(v):  # a big part stuck across its region edge: search it away
         before, vb = pl._state(), v
         cost = _settle(pl, v)
@@ -1007,6 +1021,89 @@ def _seed_runs(d2, parts, W, H, weights, iters, seeds, start) -> list[tuple]:
     return [_seed_run(d2, parts, W, H, weights, iters, seed, start) for seed in range(1, seeds + 1)]
 
 
+CONFIRM_SPOTS = 3       # hot spots routed to confirm a congestion-gate FAIL, the largest first
+CONFIRM_GROW_MM = 4.0   # the cutout region: the spot box grown by this (the 8 mm windows' half side)
+
+
+def _confirm_by_route(design, parts, spots) -> dict | None:
+    """Route each congestion-gate spot (`hwflow cutout` of the quick placement around it, every part fixed, the nets
+    that leave it on border terminals; `hwflow layout`, at most settings.floorplan_confirm_s) and return {clean,
+    spots: [{at, peak, seconds, unrouted, drc_errors}], why}. `clean`: every spot routed with 0 unrouted and 0 DRC
+    errors, so the gate's FAIL is not one; a spot that does not route, or a run that fails or times out, keeps it.
+    The window cut cannot tell a pad row that fans out across a window border from a congested escape (corpus case
+    pr_mcu: 7.7 x under an LGA module, routes clean in 14 s; kb_hub, kb_audio_dig: 9 x, 150-160 unrouted). None when
+    off or there is no spot."""
+    import shutil
+    import tempfile
+    limit = float(get_settings().layout.floorplan_confirm_s)
+    if limit <= 0 or not spots or not (design.dir / "design.yaml").exists():
+        return None
+    t_end = time.time() + limit
+    rows = []
+    tmp = tempfile.mkdtemp(prefix="fp-confirm-")
+    try:
+        return _route_spots(design, parts, spots, tmp, limit, t_end, rows)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _spot_errors(out: Path) -> int:
+    """DRC errors of a routed spot cutout other than unconnected items, leaving out those between the cutout's own
+    border terminals (TPB*: test-point pads the cut adds where a net leaves the window; they can sit closer to each
+    other than the rules, an artefact of the cut and not of the board). -1 without a DRC report."""
+    import json
+    reps = sorted((out / "build").glob("*.drc.json"))
+    if not reps:
+        return -1
+    n = 0
+    for v in json.loads(reps[0].read_text()).get("violations") or []:
+        items = [str(i.get("description", "")) for i in v.get("items") or []]
+        if v.get("severity") == "error" and not (items and all(" of TPB" in i or "Footprint TPB" in i for i in items)):
+            n += 1
+    return n
+
+
+def _route_spots(design, parts, spots, tmp, limit, t_end, rows) -> dict:
+    """_confirm_by_route's loop over the spots, in the scratch folder `tmp`."""
+    import json
+    import os
+    import subprocess
+    import sys
+    from . import cutout
+    pj = Path(tmp) / "placement.json"
+    pj.write_text(json.dumps({r: [p.x, p.y, p.r] for r, p in parts.items()}))
+    for k, sp in enumerate(sorted(spots, key=lambda s: -s["area_mm2"])[:CONFIRM_SPOTS]):
+        left = t_end - time.time()
+        if left < 10:
+            return {"clean": False, "spots": rows, "why": f"no time left of {limit:g} s"}
+        x0, y0, x1, y1 = sp["at"]
+        g = CONFIRM_GROW_MM
+        out = Path(tmp) / f"spot{k}"
+        try:
+            cutout.cutout(design.dir, out, region=f"{x0 - g},{y0 - g},{x1 + g},{y1 + g}", placement=pj,
+                          name=f"spot{k}")
+            t = time.time()
+            # the child layout: this environment, the router past the legality gate, no confirmation of its own, no
+            # extreme round (a spot that routes only with narrowed tracks or via-in-pad does not clear the gate)
+            env = dict(os.environ, HWFLOW_ROUTE_ILLEGAL="1", HWFLOW_FLOORPLAN_CONFIRM_S="0", HWFLOW_EXTREME="0")
+            subprocess.run([sys.executable, "-m", "hwflow.cli", "layout", str(out)], capture_output=True,
+                           text=True, timeout=left, env=env)
+            L = json.loads((out / "build" / "status.json").read_text()).get("layout") or {}
+        except subprocess.TimeoutExpired:
+            return {"clean": False, "spots": rows, "why": f"the spot x {x0:g}-{x1:g}, y {y0:g}-{y1:g} did not "
+                                                          f"route within {limit:g} s"}
+        except Exception as e:  # noqa: BLE001 - no confirmation: the gate's FAIL stands
+            return {"clean": False, "spots": rows, "why": f"not run: {type(e).__name__}: {e}"}
+        row = {"at": sp["at"], "peak": sp["peak"], "seconds": round(time.time() - t, 1),
+               "unrouted": int(L.get("unrouted", -1)), "drc_errors": _spot_errors(out)}
+        rows.append(row)
+        if "router" not in L or L.get("router") == "-" or row["unrouted"] or row["drc_errors"]:
+            return {"clean": False, "spots": rows, "why": f"the spot x {x0:g}-{x1:g}, y {y0:g}-{y1:g} left "
+                                                          f"{row['unrouted']} unrouted, {row['drc_errors']} DRC "
+                                                          f"errors as a cutout"}
+    return {"clean": True, "spots": rows, "why": ""}
+
+
 def _routability_checks(design, d2, libs, parts, place_out, alts) -> list[tuple]:
     """The routability prediction of the legal quick placement (routability.py, the predictor the layout stage runs),
     with the requirement-budget track widths of this placement set as the layout stage sets them, and its congestion
@@ -1045,11 +1142,21 @@ def _routability_checks(design, d2, libs, parts, place_out, alts) -> list[tuple]
                     break
             for r, (x, y, a) in state.items():
                 parts[r].x, parts[r].y, parts[r].r = x, y, a
-        if g is not None and g["fail"]:
+        routed = _confirm_by_route(design, parts, g["spots"]) if g is not None and g["fail"] else None
+        place_out["gate_route"] = routed
+        if g is not None and g["fail"] and routed and routed["clean"]:
+            out.append(("routability-prediction", None, "congestion gate not confirmed: "
+                        + "; ".join(f"the hot spot x {r['at'][0]:g}-{r['at'][2]:g}, y {r['at'][1]:g}-{r['at'][3]:g} "
+                                    f"mm ({r['peak']:g} x) routed clean as a cutout of the quick placement in "
+                                    f"{r['seconds']:.0f} s" for r in routed["spots"])
+                        + f" [{routability.gate_message(g, int(d2.board.get('layers', 2)), names)}] [{rp['message']}]",
+                        None))
+        elif g is not None and g["fail"]:
             seeds = f"placer seed{'s' if len(tried) > 1 else ''} {', '.join(map(str, tried))}"
+            why = f" (routing check: {routed['why']})" if routed and routed.get("why") else ""
             out.append(("routability-prediction", False, f"quick placement ({seeds}), layout not routable: "
-                        + routability.gate_message(g, int(d2.board.get("layers", 2)), names) + f" [{rp['message']}]",
-                        "architecture"))
+                        + routability.gate_message(g, int(d2.board.get("layers", 2)), names) + why
+                        + f" [{rp['message']}]", "architecture"))
         else:
             out.append(("routability-prediction", True if rp["verdict"] == "routable" else None, rp["message"], None))
     except Exception as e:  # noqa: BLE001 - an estimate; the other checks stand without it

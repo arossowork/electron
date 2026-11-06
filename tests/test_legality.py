@@ -87,3 +87,50 @@ def test_floorplan_fails_on_an_illegal_quick_placement(tmp_path, monkeypatch):
     c = [c for c in res["checks"] if c["name"] == "placement"]
     assert c and c[0]["ok"] is False and "illegal" in c[0]["msg"] and "region hv" in c[0]["msg"]
     assert res["verdict"] == "FAIL"
+
+
+def test_an_illegal_auto_attempt_is_skipped_as_a_placer_failure(tmp_path, monkeypatch):
+    """layout --auto: an attempt whose placement stays illegal costs placement time only (no router run), its line
+    says so, and the selection reports it as skipped next to the attempts that routed."""
+    from hwflow import buildplan
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    _pile(parts)
+    monkeypatch.setattr(placer, "place", lambda *a, **k: (parts, 1.0, ["courtyard overlap R1/R2"]))
+
+    def no_router(*a, **k):
+        raise AssertionError("the router must not run on an illegal placement")
+    monkeypatch.setattr(pl_stages, "_route_once", no_router)
+    out = tmp_path / "build"
+    out.mkdir(exist_ok=True)
+    res = pl_stages.run_attempt(d, libs, out, 1, size0=(None, None), seeds=1, iters=10, passes=1, reuse=False)
+    assert "placer failure, not routed: 1 placement violation (courtyard overlap R1/R2)" in res["line"]
+    assert "0 unrouted" not in res["line"]
+    s = pl_stages.attempt_summary(res)
+    assert not s["ok"] and not buildplan._final(s)  # a placer failure: another seed may place legally
+    search = buildplan.LayoutSearch(auto=True, n=2, cutoff=None, hopeless=False, fixed_all=False, deadline=None,
+                                    budget=100.0, wanted=(), complete=True, over=False, used=(2,))
+    fates = pl_stages.attempt_fates(search, {1: res})
+    assert [x["k"] for x in fates["skipped"]] == [2] and "1 placement violation" in fates["skipped"][0]["why"]
+    assert [x["k"] for x in fates["cancelled"]] == [1]
+
+
+def test_a_legal_saved_placement_is_reused_as_it_is(tmp_path, monkeypatch):
+    """--reuse: a saved placement without violations is not legalized (legalize pushed courtyards that only touch
+    apart, past regions and isolation distances: a legal timed-bathroom-vent placement came back with 2-3
+    violations); one with violations still is."""
+    d, libs = channel(tmp_path)
+    parts = placer.build_parts(d, libs)
+    _pile(parts)
+    pl = placer.Placer(d, parts, W, H, seed=1)
+    assert pl.settle() == []
+    saved = {r: [p.x, p.y, p.r] for r, p in parts.items()}
+    calls = []
+    real = placer.Placer.legalize
+    monkeypatch.setattr(placer.Placer, "legalize", lambda self, *a, **k: (calls.append(1), real(self, *a, **k))[1])
+    got, _, viol = pl_stages.saved_placement(d, libs, saved)
+    assert viol == [] and not calls
+    assert {r: [p.x, p.y, p.r] for r, p in got.items()} == saved
+    piled = {r: ([18.0, 15.0, v[2]] if not parts[r].fixed else v) for r, v in saved.items()}
+    _, _, viol = pl_stages.saved_placement(d, libs, piled)
+    assert calls

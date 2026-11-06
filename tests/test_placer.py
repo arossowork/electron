@@ -316,6 +316,32 @@ def test_unstick_grid_is_bounded_on_a_large_board(tmp_path, monkeypatch):
     assert pl.unstick(rounds=1, deadline=0.0) == pytest.approx(pl.cost())   # a past deadline moves nothing
 
 
+def test_unstick_prefers_a_legal_spot_to_a_cheaper_sliver_overlap(tmp_path):
+    """unstick ranks a candidate spot by the unit's own violations first, then by cost: a sliver of courtyard overlap
+    (a violation over 0.01 mm2) whose weighted area costs less than the wire of a legal spot nearby must not win
+    (timed-bathroom-vent: C2/U2 overlapped by 0.05 mm, 0.37 mm2, in every attempt although a legal spot existed)."""
+    fp = "Resistor_SMD:R_0603_1608Metric"
+    comps = {"R0": {"value": "1k", "symbol": "Device:R", "footprint": fp, "pins": {"1": "A", "2": "P"},
+                    "placement": {"x": 14, "y": 15, "rot": 0, "fixed": True}},
+             "R1": {"value": "1k", "symbol": "Device:R", "footprint": fp, "pins": {"1": "P", "2": "Q"}},
+             "R2": {"value": "1k", "symbol": "Device:R", "footprint": fp, "pins": {"1": "Q", "2": "B"},
+                    "placement": {"x": 19.39, "y": 15, "rot": 0, "fixed": True}}}
+    board = {"width_mm": W, "height_mm": H, "layers": 2, "gnd_pour": False}
+    (tmp_path / "design.yaml").write_text(yaml.safe_dump(
+        {"project": "pocket", "board": board, "nets": {n: {"class": "signal"} for n in "ABPQ"}, "components": comps}))
+    d = Design.load(tmp_path)
+    parts = placer.build_parts(d, Libs(design=d))
+    gap = parts["R2"].box()[0] - parts["R0"].box()[2]
+    assert 0 < min(parts["R1"].w, parts["R1"].h) - gap < 0.05  # the pocket between the two fixed parts is too narrow
+    parts["R1"].x, parts["R1"].y, parts["R1"].r = (parts["R0"].box()[2] + parts["R2"].box()[0]) / 2, 15.0, 90.0
+    pl = placer.Placer(d, parts, W, H, seed=1, weights={"overlap": 20.0})  # the sliver is cheaper than the detour
+    pl.cost()
+    assert any(v.startswith("courtyard overlap") for v in pl.violations())
+    pl.unstick()
+    assert pl.violations() == []
+    assert not pl._unit_dirty(parts["R1"])
+
+
 # ---- L12: terms fed by the post-layout checks --------------------------------------------------------------------
 
 def _two(tmp_path, a, b, nets, board_extra=None, status=None, weights=None):

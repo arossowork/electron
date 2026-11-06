@@ -11,7 +11,7 @@ import numpy as np
 
 from ..core import sexpr
 from ..sim import spice
-from ..core.design import Design
+from ..core.design import Design, via_pads
 from ..layout.board.pcb import net_classes, net_layers, read_board
 from ..sim.budgets import RHO_CU, leg_r
 from ..sim.spice import NodeMap
@@ -697,8 +697,7 @@ def layout_checks(design: Design, ex: Extraction) -> list[dict]:
                                           else f" (a stretch of {x['neck']:.1f} mm)"))
     # vias in or touching SMD pads: need IPC-4761 Type VII (filled, capped) or solder wicks away
     vr = b["via_dia_mm"] / 2
-    declared = {(r, str((c.get("thermal_vias") or {}).get("pad"))) for r, c in design.components.items()
-                if c.get("thermal_vias")}
+    declared = {(r, n) for r, c in design.components.items() for n in via_pads(c)}
     for v in ex.board["vias"]:
         for ref, fp in ex.board["footprints"].items():
             for p in fp["pads"]:

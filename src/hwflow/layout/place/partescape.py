@@ -49,6 +49,8 @@ from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
+from ...core.design import via_pads
+
 ESCAPE_PINS = 2  # pads on one part that need a neck before the package itself is the problem (the diagnosis's verdict)
 QS = 8          # buffer segments per quarter circle (inscribed polygons: obstacles come out slightly small)
 EPS = 1e-6
@@ -265,8 +267,7 @@ def part_findings(design, ref: str, fpd: dict) -> list[dict]:
     floor = float(b.get("min_track_mm", routing.NECK_FLOOR))
     via_dia = float(b["via_dia_mm"])
     clr = _clearance(design, ref, {p["net"] for p in netted})
-    tv = c.get("thermal_vias") or {}
-    via_ok = {str(tv.get("pad"))} if tv else set()
+    via_ok = via_pads(c)
     P = _Part(pads, clr, via_dia, via_ok)
     fp_id = c.get("footprint")
     conns = design.nets()

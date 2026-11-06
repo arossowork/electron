@@ -280,6 +280,10 @@ class Model:
             for z in _zones(["root"] + list(blocks.keepout_zones(design, parts))):  # board coordinates already
                 self.areas.append({"name": z["name"], "owner": None, "forbids": z["forbids"],
                                    "layers": routing.pad_layers(z["layers"], self.copper), "poly": Polygon(z["poly"]).buffer(0)})
+        from ..board.pcb import board_keepout_zones
+        for z in _zones(["root"] + board_keepout_zones(design)):  # board.keepouts, board coordinates
+            self.areas.append({"name": z["name"], "owner": None, "forbids": z["forbids"],
+                               "layers": routing.pad_layers(z["layers"], self.copper), "poly": Polygon(z["poly"]).buffer(0)})
         from ...core import floorplan
         cuts += [c["poly"] for c in floorplan.cuts(design)]  # floorplan cut regions: holes and notches of the board
         W, H = float(b["width_mm"]), float(b["height_mm"])

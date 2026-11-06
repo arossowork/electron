@@ -82,6 +82,8 @@ Files with a `slow` mark are noted.
 | `test_router_rules.py` | per-net router rules (11 tests; 4 slow; needs router) | real |
 | `test_regionroute.py` | hierarchical routing: partition, cache key, one real router run | synthetic, needs router |
 | `test_seedroute.py` | seed route for nets the router leaves open | synthetic, needs router |
+| `test_iso_guard.py` | isolation guards of a pass: holes round a bound pad stay open, copper closer than a group distance, dropped seed nets back in the router count | synthetic |
+| `test_ripup.py` | rip-up rounds of `krt_route`: blockers on a member's free-space path, strip, the walled-in member routed (1 test needs router) | synthetic |
 | `test_repair.py` | repair loop (needs router; one test needs `kicad-cli`) | real |
 | `test_legality.py` | placement legality gate: `Placer.settle`, `legality.placement_verdict`, `stage_layout` stops before the router, `hwflow floorplan` fails on an illegal quick placement | synthetic |
 | `test_routability.py` | routability predictor (report only): raster primitives, window cuts, exact bounds, verdict thresholds | synthetic |
@@ -202,6 +204,8 @@ run it and update `expected.yaml`: `tests/fixtures/layout_corpus/README.md`. Tes
 | s60_escape | synth60, whole board | 60 / 78 | 32 unrouted, 24 open (1885) | yes (source 31) |
 | sp_control | sensor_preamp on 18 x 13 mm | 11 / 7 | clean (24) | control |
 | sp_overfull | sensor_preamp on 13 x 10 mm | 11 / 7 | 11 unrouted, 6 placement violations (344) | deliberately over-full |
+| pr_pmic | pocket-recorder nPM1300 + NAND (layout-PASS placement) | 41 / 23 | clean (80) | yes: 1 unrouted (NAND_PWR, pad 31 walled in) with `HWFLOW_ESCAPE_TAPS=0` |
+| pr_mcu | pocket-recorder ISP1807 LGA module (layout-PASS placement) | 25 / 18 | clean (14) | yes: congestion gate FAIL at 7.7 x, the known false positive |
 
 Wall times were measured with 7 cases routing in parallel on a 16-core machine shared with other jobs. Not extracted:
 the home-thermostat-3 state with K1/F1 and BT1/BT2 overlaps and 4 unrouted at 74 % fill (no placement of it is kept;

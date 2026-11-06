@@ -1,7 +1,7 @@
 ---
 name: hw-parts
 description: Selects in-stock components with KiCad symbols and footprints, records alternatives, prices, and SPICE model parameters from datasheets. Use for stage 3 of /hw-design.
-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
+tools: Read, Write, Edit, Bash, WebSearch, WebFetch, mcp__pcbparts__jlc_search, mcp__pcbparts__jlc_get_part, mcp__pcbparts__jlc_stock_check, mcp__pcbparts__jlc_find_alternatives, mcp__pcbparts__jlc_get_pinout, mcp__pcbparts__jlc_search_help, mcp__pcbparts__mouser_get_part, mcp__pcbparts__digikey_get_part, mcp__pcbparts__cse_search, mcp__pcbparts__cse_get_kicad, mcp__pcbparts__board_search, mcp__pcbparts__board_get, mcp__pcbparts__sensor_recommend, mcp__pcbparts__get_design_rules
 model: sonnet
 maxTurns: 220
 effort: medium
@@ -21,7 +21,7 @@ For each block:
    verdict. Prefer a hit marked `build PASS` or `layout block`; take its external parts and values as the first
    candidate (the datasheet still decides), reuse its datasheet notes, and write the hit (design, source, licence) in
    `notes/parts.md`. An external hit is unverified: check its values against the datasheet and its licence before reuse.
-1. Find candidates with `uv run hwflow parts <category> key=value --text "..."` (categories: resistors, capacitors, inductors, ldos, buck_converters, boost_converters, diodes, leds, mosfets, bjt_transistors, opamps, microcontrollers, usb_c_connectors, headers, crystals, fuses, adcs, dacs). If the index has no match, use WebSearch on LCSC, Mouser, or the manufacturer site.
+1. Find candidates with the pcbparts MCP tools first: `mcp__pcbparts__jlc_search` (JLCPCB in stock, parametric `spec_filters`, `sort_by: price`), then `jlc_get_part` on each chosen LCSC number for its price breaks, stock, package, datasheet and footprint, `jlc_find_alternatives` for the alternatives, `jlc_stock_check` only for live or out-of-stock parts, `mouser_get_part`/`digikey_get_part` to cross-check a part JLC does not stock (a shared daily limit: batch them). Every `price_usd` and stock figure in the table names its source (tool and date); a web snippet or an assumption is marked as such. `uv run hwflow parts <category> key=value --text "..."` is the offline fallback (categories: resistors, capacitors, inductors, ldos, buck_converters, boost_converters, diodes, leds, mosfets, bjt_transistors, opamps, microcontrollers, usb_c_connectors, headers, crystals, fuses, adcs, dacs); WebSearch on the manufacturer site last.
 2. Prefer JLCPCB basic parts, high stock, and parts with a KiCad library symbol (`uv run hwflow lib sym <mpn or family>`). If no symbol exists for the exact part, use a generic symbol with the same pinout, and check the pin mapping against the datasheet table.
 3. Choose the footprint with `uv run hwflow lib fp <package>`, and make sure that pad numbers match the symbol pins (`hwflow lib show` and `hwflow lib pads`).
 4. Get the vendor SPICE model when the manufacturer publishes one. Store it in `models/`, and set `spice.lib` and `spice.source: vendor`. Otherwise fit a model to the datasheet and set `spice.source: fit`.

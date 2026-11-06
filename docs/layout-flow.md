@@ -37,6 +37,12 @@ on a violation: over the part's floorplan region (else the board), at most `plac
 rotation (a board up to about 58 x 58 mm keeps the 1.5 mm step) and the `placer.UNSTICK_UNITS` worst parts per round.
 The layout budget (`HWFLOW_LAYOUT_BUDGET_S`) reaches placement: `stage_layout` gives `place` half of the time left;
 past it no new seed starts and `unstick` stops.
+`unstick` ranks a candidate spot by the unit's own violations first (`Placer._unit_dirty`: courtyard overlap,
+isolation short, keep-out or region term, stated separation, pad near the board edge, at the thresholds of
+`violations`), then by cost. Ranking by cost alone kept a sliver overlap whose weighted area cost less than the wire
+of a legal spot: timed-bathroom-vent had C2/U2 overlapped by 0.05 mm (0.37 mm2) in 3 of 4 attempts; with the
+legality-first rule 2 of 4 attempts place legally at the same placement time. A pad too near the board edge is in
+unstick's list of parts to move too.
 Then `Placer.settle` runs on what is left (`HWFLOW_SETTLE=0`: off). Settle takes every unit in a violation
 out and puts it back, largest first, on the free spot nearest to where it was, in the four rotations, on an occupancy
 raster of the board (courtyards per side and through-hole pads on both, as `violations` counts them: a back-side
@@ -51,6 +57,44 @@ fewest predicted hard nets.
 When violations are left after settle, `unstick` runs once more on the settled placement and is kept only with fewer
 violations: settle's raster has no isolation distances, so on thermo-e2e-4 it fixed the regions but put R19 0.5-1 mm
 inside F1's mains isolation; the grid search cleared it in 6 s.
+
+When the placement is still illegal, `place` places again by KiCad's rules alone (the tight placement,
+`HWFLOW_TIGHT=0`: off) and keeps it when it leaves fewer violations. The placer margin around each courtyard
+(`COURTYARD_MARGIN`) and the board margin (`board.margin_mm`) are dropped. A footprint without a courtyard keeps
+only its pads, with half the pad clearance around each (`Part.guard`, `Part.keep`), so other parts may sit between
+them, as KiCad allows. On the PCBWorld D3-A boards (`evals/bench/pcbench`), small open-hardware boards too dense for
+the margins placed legally only this way.
+
+The tight placement keeps every net's pad clearance between two parts' pads, not only the larger net classes': with
+courtyards that touch, nothing else keeps a module's pads off a header's.
+
+After it, the **extreme placement** is the last resort (`HWFLOW_EXTREME=0`: off): the tight placement again with
+copper `placer.EXTREME_EDGE_MM` (0.15 mm) from the board edge instead of 0.3 mm. It is kept when it leaves fewer
+violations, or as many with at most `placer.EXTREME_HPWL` (70%) of the wirelength: on a 4.8 mm strip the 0.3 mm rule
+left room only with a resistor and its LED at the two ends, and that net did not route. The board then keeps
+`board.copper_edge_mm` for this layout: the router, the pours, the via stitching and the KiCad DRC rule
+(`pcb.edge_mm`) follow it, `[place] WARNING` is printed, and REPORT.md says to check the fab's copper-to-edge minimum
+(status.json `layout.place_work.extreme_edge_mm`). A design that sets `board.copper_edge_mm` itself is never changed.
+
+The placer's model of a footprint (`placer.build_parts`):
+
+- **Courtyard arcs** count to their extremes (`libs._arc_extremes`): the round courtyard of a 5 mm LED is 6.4 mm high,
+  not the 3.1 mm between its arc's end points.
+- **Every copper pad** is in it: a second pad with the same number apart from the first (the other clip of a fuse
+  holder, `<number>#<k>`) and a plated pad without a number (`#<k>`) are copper without a net that the edge, side
+  and through-hole checks see.
+- **A shield or stacked-board outline** without a courtyard, whose few pads span at least 60% of the board
+  (`placer._bodiless`), has no body: the parts of the board sit under it. A smaller footprint without a courtyard (a
+  potted AC/DC module, a battery holder) keeps its pad box as courtyard outside the tight placement.
+- **A courtyard drawn on its pads** (a module's castellated row): on the side its pads reach, a part the placer moves
+  keeps a routing channel (track, two clearances and the 0.1 mm placer margin, less the other part's margin) instead
+  of the margin (`placer._yard_box`). Two such rows face to face are legal for KiCad 0.5 mm apart, but no track can
+  leave either. A part at a given position keeps its courtyard, so a human placement is judged by KiCad's test.
+- **SMD pads outside the courtyard** (`Part.out`) keep the pad clearance to other parts' through-hole copper, which
+  is on both sides: no courtyard test sees them (an nRF24 module's pad row over a back-side header).
+- **A part larger than the board** in every rotation (a radio module on a smaller carrier, `placer._oversize`)
+  overhangs the edge: the board bounds hold its copper only, and its courtyard still keeps the other parts off its
+  body. `unstick` scans the box centre of a part over the board, not its origin, which lies off the board then.
 
 ### Reproducibility
 
@@ -81,11 +125,17 @@ by it, earlier or later depending on the load.
 ## Attempts of `--auto` (`hwflow.buildplan.layout_search`)
 
 Attempt k places with placer seeds `seed0 + 4(k-1)` .. and routes on its own, each in a process of its own
-(`hwflow build`: at most cpu count - 1; `layout_auto`: a process pool). The search ends at the first final attempt
-(0 unrouted, 0 DRC errors, legal; or errors on fixed parts only): the attempts after it are stopped, those before it
-are waited for. When attempt 1 ends far from routable (`auto_max_errors`) or with every part fixed, the others are
-stopped. Only the attempts up to the cutoff (or attempt 1 alone in those two cases) are ranked, so the kept board does
-not depend on which attempt ended first, nor on the order below.
+(`hwflow build`: at most cpu count - 1; `layout_auto`: a process pool). Each attempt routes as soon as its own
+placement is legal, while the others are still placing. An attempt whose placement stays illegal is never routed
+(`stage_layout`): it costs placement time only and its line reads `placer failure, not routed: <n> placement
+violations (...)`. The search ends at the first final attempt (0 unrouted, 0 DRC errors, legal; or errors on fixed
+parts only): the attempts after it are stopped. A clean final attempt also stops the attempts before it that still run
+(no other board can beat it); a final attempt with errors on fixed parts waits for them, and an attempt with residual
+errors lets the others go on, the best board being kept. When attempt 1 ends far from routable (`auto_max_errors`) or
+with every part fixed, the others are stopped. Only the attempts up to the cutoff that have a result (or attempt 1
+alone in those two cases) are ranked. REPORT.md lists under `layout --auto` the attempts skipped (illegal placement,
+not routed) and those cancelled or not started, with why (`auto.skipped`, `auto.cancelled` in status.json; counts in
+`hwflow summary`).
 
 Attempt 1 runs alone first only when it is likely final (`stages.first_alone`): it starts from the last good layout
 (incremental) or a saved placement (`--reuse`), attempt 1 of the project's last layout build was final
@@ -134,7 +184,11 @@ REPORT.md / status.json `layout.eco` give the kept, touched, conflicting and re-
 A placement with a violation (courtyard overlap, a part off the board or in a keep-out, a floorplan region broken,
 isolation) is invalid. `stage_layout` never routes it: it stops in seconds with `legality.placement_verdict`
 (`layout/place/legality.py`, also `diagnose.placement_verdict`), which names the fill of each board face and of each region the violations touch (placer courtyards with their margin,
-over the area inside `margin_mm`), and the board or region that would hold them. Above `PLACE_FILL_MAX` (95 %) it
+over the area inside `margin_mm`), and the board or region that would hold them. A region whose members have isolation
+or class distances also gets its fill with the isolation bands (`legality.iso_bands`: each member's courtyard with its
+pads grown by half their distance from a pad of another net, over the region inside the board margin); above
+`PLACE_FILL_MAX` it is over-full like a region of courtyards (timed-bathroom-vent mains: 78 % of courtyards, 98 % with
+the bands). Above `PLACE_FILL_MAX` (95 %) it
 sends the build back to architecture. Under it, each violating movable part is tested alone (`Placer.infeasible`: a
 dry run of the settle search with every other movable part off the board, under the rules `violations` counts): a
 part with no legal spot even then has constraints that exclude each other, and the verdict names them (its regions
@@ -219,8 +273,8 @@ connected components, and via sites. `Raster` is the reusable primitive (`.edt`,
   sets them (without them the floorplan saw a 1.35-1.5 mm budget net at its 0.3 mm class width): a whole-net width
   as the net's width, a budget trunk (the width on the budget path only, as krt_route routes it) as extra width
   where the trunk's pads lie on both sides of a cut. The congestion gate
-  is a FAIL back to architecture when the best quick placement and every other legal seed fail it; else `routable`
-  passes and anything else is a risk. The message names the hot spot, its parts and wide nets, and the moves (spread
+  is a FAIL back to architecture when the best quick placement and every other legal seed fail it and routing the
+  hot spots does not clear it (below, "Known false positive"); else `routable` passes and anything else is a risk. The message names the hot spot, its parts and wide nets, and the moves (spread
   the movable parts named, bring a budget's parts closer or loosen it when its wide track crosses the hot spot,
   parts to the other face, more layers or a larger board). The narrow straight or L-shaped channels of
   the layout's corridor report on the quick placement are listed as the `corridors` risk only: the routed boards
@@ -247,6 +301,39 @@ retrying with more than 3 nets open).
    route for corridor nets (`HWFLOW_SEEDROUTE`). The route groups are split by region and cached (`regionroute`).
    After routing, DRC repair (`repair.py`) and pruning of dangling vias and tracks (`prune.py`) run. Nets with
    `nets.<n>.min_width_mm` never neck below that width.
+   **Isolation check** (every pass with `board.isolation` groups). The rule areas of a pass keep a group's distance
+   from the copper already on the pass input; inside one pass two nets keep only the router's track-to-track class
+   rules, not via to track, and a pad that sits at the group distance from another net's pad gets its pad access
+   freed by the router, so its escape can ignore the area. A grown outline keeps any hole that holds a pad of a net
+   the area binds (`routing._rings`; a filled hole put that pad inside its own keep-out). After each pass
+   `routing.isolation_conflicts` measures the pass's tracks and vias against all other copper at the pair distance
+   (`krt._pair_clearance`, creepage included); the offending nets are routed again one by one, and when the router
+   puts the same copper back, seed-routed with the exact distances (`seedroute.seed(creepage=True)`). The new copper
+   is kept only with fewer conflicts.
+   **Min-width check** (every pass with `min_width_mm` nets). The router's cleanup draws connectors after the route at
+   their own width, past the neck rules: a via-to-pad bridge at the via diameter, a joint-to-pad shortcut. After each
+   pass `routing.min_width_fix` widens every track under its net's `min_width_mm` to it where clearances, isolation
+   distances, the outline and the track rule areas allow; any other such track is removed and its net routed again
+   at the pass width. A narrow track left by that second route is removed too, and its net is reported open.
+   **Rip-up** (`HWFLOW_RIPUP`, on). The passes route the isolation members first, widest first, so a member of a later
+   pass can find its way closed by the copper of an earlier pass plus that copper's isolation keep-off, although the
+   pads alone leave a wide corridor (the per-pass retry, "open nets first", only reorders the nets of one pass). When
+   an isolation member is still open at the end of a `krt_route` call, `seedroute.ripup_options` searches its
+   free-space way on the board without the copper of the nets this call routed (preseeded roads included). The
+   options are each nearby net whose copper alone closes that way (shortest way first), then every net on the way.
+   An option is kept only if the ripped nets still find a free-space way once the member has its own. Per option the
+   copper is ripped up, the member routes first, then the ripped nets (2 net orders per pass). An attempt is kept only
+   when all of them route and the fast DRC has no more errors other than unconnected. At most `RIPUP_TRIES` = 4
+   attempts per call; an attempt the time budget cuts is dropped. The route groups cache the result.
+   **Escape taps** (`taps.escapes`, on by default, `HWFLOW_ESCAPE_TAPS=0`: off): before any net is routed, a
+   single-layer SMD pad of a routed net whose two nearest pads on its footprint (a pad row: the second within 1.5 x
+   the nearest distance, on the opposite side) share one other routed net gets a stub to a via of its own net, kept
+   as fixed copper (same search and clearances as the pour taps below). Without it the router joins the two
+   neighbours with a track in front of the pad and walls it in: pocket-recorder, nPM1300 pads 28-32 (VOUT2, LSIN,
+   LSOUT alternate), NAND_PWR open at pad 31 in 4 attempts, placer and width changes included; with the taps
+   0 unrouted. Two nets that wall each other in on one footprint (the USB-C D+/D- crossover A6, B7, A7, B6) get no
+   tap: the router crosses them with a via of its own (oshw_pico_ice 42 -> 50 open with taps there). The plan takes
+   under 1 s; in the layout corpus it touches kb_audio and oshw_rocketbeacon only, both unchanged (taps on against off).
    **Pour taps** (`taps.py`, `HWFLOW_POUR_TAPS=1`, off by default and not in the fast preset): before any signal
    net is routed, every single-layer SMD pad of a pour net that its copper does not already join to a via or a
    through-hole pad (a layout block's track) gets its tap, kept by the router as fixed copper: a straight track (at
@@ -260,18 +347,39 @@ retrying with more than 3 nets open).
    against 0 signal nets open but 2 GND groups left (the module's whole ground area cut off on both layers, and a tap
    via walled in on B.Cu, which a tap cannot prevent); a congested thermo-e2e-4-live placement 3 against 6 signal
    nets open (the tap vias take routing room). It stays opt-in until it wins on more placements.
-8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1`, off by default). The router never routes a pour net, so a
-   GND pad reaches GND only through the fill of its own layer, and the layers join only at through-hole pads and vias.
-   Tracks cut the outer fill into islands around single pads, and a plane with no via floats. Before the repair, every
-   pour group other than the main one (most pads), and every pad no fill touches, is joined by the first of: a via in
-   the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of at most 2.5 mm to a via that
-   lands in the main fill, and once more the same stub where it displaces at most 3 routed nets (never isolation
-   members or layer-rule nets), which are routed again (one net order per pass, at most 20 re-routed nets in a
-   stitch). The re-routed nets move, so the free vias are tried again on that board (the stub's via can land in
-   another pocket, and a new via can fit). A displacement that leaves a displaced net open, or does not end with fewer
-   errors, is undone, and the next of up to 3 rounds displaces other nets. Every via and stub keeps the clearances,
-   the isolation distances and the rule areas; a round is kept only with fewer DRC errors and no more errors of any
-   type other than unconnected.
+8. **Pour stitch** (`pourstitch.py`, `HWFLOW_POUR_STITCH=1` or `board.pour_stitch: true`, off by default). The router
+   never routes a pour net, so a GND pad reaches GND only through the fill of its own layer, and the layers join only
+   at through-hole pads and vias. Tracks cut the outer fill into islands around single pads, and a plane with no via
+   floats. Before the repair, every pour group other than the main one (most pads), and every pad no fill touches, is
+   joined by the first of: a via in the group's fill, a via in an exposed pad (no paste, or two vias wide), a stub of
+   at most 2.5 mm to a via that lands in the main fill, and once more the same stub where it displaces at most 3
+   routed nets (never isolation members or layer-rule nets), which are routed again (one net order per pass, at most
+   20 re-routed nets in a stitch). The re-routed nets move, so the free vias are tried again on that board (the
+   stub's via can land in another pocket, and a new via can fit). A displacement that leaves a displaced net open, or
+   does not end with fewer errors, is undone, and the next of up to 3 rounds displaces other nets. Every via and stub
+   keeps the clearances, the isolation distances and the rule areas; a round is kept only with fewer DRC errors and
+   no more errors of any type other than unconnected.
+
+**Extreme routing** (`extreme.py`, `HWFLOW_EXTREME=0`: off), the last resort after the repair and the prune when the
+board still has DRC errors. It has two steps, and the full DRC must show fewer errors after a step to keep it:
+
+1. Narrower tracks. Every net with no electrical reason for its width is routed again at
+   `extreme.EXTREME_TRACK_MM` (0.15 mm, the `min_track_width` that `pcb.write_project` gives KiCad). A net keeps its
+   width when it has any of these:
+   - `impedance_ohm` (the width sets Z0);
+   - `current_a`;
+   - `min_width_mm` or `min_width_inner_mm`;
+   - `class: power`;
+   - a layout budget width;
+   - a ground pour.
+
+   The step is skipped above 60 such nets: it is meant for a small board. The new widths stay in the design for the
+   post-layout checks.
+2. Via-in-pad stitching. A split pour that the repair found no via room for gets a stitching via that may sit in a
+   pad of its own net (`repair.stitch_vias(in_pad=True)`).
+
+REPORT.md names the narrowed nets, says to check the fab's minimum track, and asks for filled and capped vias
+(IPC-4761 type VII) when a via sits in a pad. status.json has the same data in `layout.extreme_route`.
 
 ## Roads first and the layout portfolio (both off by default)
 
@@ -361,7 +469,7 @@ reliability and stays opt-in.
 | `HWFLOW_ASIC_MACRO=0`, `_DENSITY=0`, `_DP=0`, `_ANNEAL=0`, `_NECK=0` | turn one stage off, for debugging only. The route cache keys include them. |
 | `HWFLOW_FLOW=legacy`, or `placement: {flow: legacy}` in design.yaml | plain annealing from a random start plus the refine pass, with no pin-access hint. **This is a temporary escape hatch, to be removed after two more routed designs confirm this flow.** |
 | `HWFLOW_SEED0` | the first placer seed of `--auto` (attempt k uses seed0 + 4k) |
-| `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0` | router fallbacks off |
+| `HWFLOW_NECKDOWN=0`, `HWFLOW_SEEDROUTE=0`, `HWFLOW_RIPUP=0` | router fallbacks off |
 | `HWFLOW_SETTLE=0` | the settle legalizer off (debugging) |
 | `HWFLOW_ECO=0` | no incremental placement from `build/placement.good.json` (above): attempt 1 places from scratch |
 | `HWFLOW_ROADS=route` or `1` (or `placement: {roads: ...}`), `HWFLOW_ROADS_POWER=1` | roads first: the planned roads routed first, and with `1` also reserved in placement; `_POWER` adds every power-class net (experiment) |
@@ -369,6 +477,8 @@ reliability and stays opt-in.
 | `HWFLOW_FAST=1` | the fast preset: `HWFLOW_POUR_STITCH=1`, `HWFLOW_PLACE_ESCAPE=1`, `HWFLOW_ROADS=route` (above); an explicit switch wins |
 | `HWFLOW_PLACE_ESCAPE=1`, `_INFL=1`, `_ROT=1`, `_W`, `_CONN` (or `placement: {escape, escape_infl, escape_rot: true}`) | escape-aware placement steps 1-3 (prototype, off; above) |
 | `HWFLOW_POUR_STITCH=1` | pour stitch after routing (step 8): split GND pours and pads in pour holes joined by vias and stubs |
+| `HWFLOW_ESCAPE_TAPS=0` | no escape taps (step 7): a pad walled in by two footprint neighbours of one other net gets no stub via first |
+| `HWFLOW_FLOORPLAN_CONFIRM_S=<s>` | time for routing the congestion-gate hot spots of `hwflow floorplan` before a FAIL (default 120; 0: the window cut alone decides) |
 | `HWFLOW_POUR_TAPS=1` | pour taps before signal routing (step 7): every SMD pour-net pad gets a link or a stub via first |
 | `HWFLOW_PORTFOLIO=1`, `HWFLOW_PORTFOLIO_WORKERS`, `HWFLOW_PORTFOLIO_GRACE` | the layout portfolio as attempt 1 of `--auto` (off by default); strategies at once (default CPU count - 2); the grace factor (default 1.5; `inf` waits for all, a reproducible choice) |
 | `HWFLOW_ROUTE_ILLEGAL=1` | route an illegal placement (debugging only) |
@@ -460,6 +570,31 @@ pad layer its hard share was 5-16 points lower. The layout's own predictions on 
 check, 2 seeds): 38-80 s; the prediction itself 5-8 s per seed. The failures of thermo-e2e-6 were mostly VBAT
 (23 of 27 open items): the vbat_radio_supply budget set 1.45 mm on the whole net, 24 pads (MCU, drivers, decaps),
 through the BT1/M4/U1 hot spot; its zero-width corridor lines (L, OUT1, XTAL) were not among the open nets.
+
+**Known false positive: a pad row along a window border** (November 2026, corpus case `pr_mcu`). pocket-recorder's
+floorplan failed the gate at 7.0 x under its ISP1807 LGA module, and the layout routed that window on every attempt
+(the cutout routes clean in 14 s; its fixed placement peaks at 7.7 x with 24 mm2 at 6 x). The window's top border runs
+0.1 mm off a row of module pads: inside their clearance halo no other net's track fits, so the free-border supply is
+0.5 tracks, but the 7 nets that cross it are those pads' own nets, and the router took 8 nets across that border.
+Three corrections were measured on the corpus's fixed placements and dropped, since each lost true failures:
+- not counting a net against the border where its own pad's halo meets it (the exact cut): every clean case peaks at
+  1.4 x or less, but the gate then passes kb_hub, kb_audio_dig and kb_audio (84-160 unrouted when routed past the
+  legality gate, `route_routed`), s60_escape, oshw_pico_ice and oshw_rocketbeacon; a threshold of 3 x on that ratio
+  catches only oshw_b_parasite and ht1_battery;
+- one track per free run of the border (as line_cuts counts): pocket still 7.0 x (the border has no free cell);
+- a second window grid offset by half a step: pocket 6.3 x with 16 mm2, and riegel and ch32v003 move by 3-11 hard
+  nets with the offset (the plain ratio is grid-sensitive).
+The window cut cannot tell this pad row from a congested QFN escape, so the floorplan checks a gate FAIL by routing
+it (`floorplan._confirm_by_route`): each spot (at most 3, largest first) grown by 4 mm is cut out of the quick
+placement (`hwflow cutout`, every part fixed, the nets that leave it on border terminals) and routed with `hwflow
+layout`, all spots within `HWFLOW_FLOORPLAN_CONFIRM_S` (120 s; 0 turns the check off). Only when every spot routes
+with 0 unrouted and 0 DRC errors (errors between the cut's own border terminals left out) does the FAIL become a
+risk, "congestion gate not confirmed". On the corpus's fixed placements it clears pr_mcu (clean in 16 s) and keeps
+all seven true failures: kb_audio (21 unrouted in 106 s), oshw_b_parasite (1 in 31 s), oshw_rocketbeacon (4 in
+23 s), and kb_hub, kb_audio_dig, s60_escape and oshw_pico_ice (not routed within 120 s). pocket-recorder's floorplan
+went from FAIL to PASS with risks (the spot routed in 15 s; the whole check 29 s). `tests/test_layout_corpus.py`
+records the gate on every case (`fast.gate`), lists pr_mcu as the one clean case the window cut fails, and routes
+pr_mcu, oshw_b_parasite and oshw_rocketbeacon through the check (slow tier).
 
 ## Removed after the experiments
 
