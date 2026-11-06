@@ -258,6 +258,8 @@ def _route_key(d: Design, libs: Libs, parts, out: Path, passes: int) -> str:
     h.update(json.dumps([d.board, passes, krt.KRT_VARIANTS, krt.router_version(d)], sort_keys=True, default=str).encode())
     h.update((Path(repair.__file__)).read_bytes())
     h.update(Path(pcb.__file__).read_bytes())  # board generation used by the router
+    from ..layout.board import padring
+    h.update(Path(padring.__file__).read_bytes())  # pads grown to the minimum annular ring
     h.update(Path(krt.__file__).read_bytes())  # router driver (passes, arguments, deadlines, env defaults)
     h.update(Path(routing.__file__).read_bytes())  # isolation keep-outs, neck-down widening
     h.update(Path(seedroute.__file__).read_bytes())  # seed routes of nets the router leaves open
@@ -574,7 +576,7 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "ok": not d.route_budget_exhausted and not errs and not viol and not off_layer and not too_narrow
             and not conductive and all(r["ok"] for r in iso) and all(r["ok"] for r in bud),
             "isolation": iso, "off_layer": off_layer, "too_narrow": too_narrow, "conductive_isolation": conductive,
-            "nets": nstats, "extreme_route": extreme_route,
+            "nets": nstats, "extreme_route": extreme_route, "pad_ring_repair": _pad_ring(d, libs),
             "budget_widths": bud_w, "budgets": bud,
             "board_mm": [d.board["width_mm"], d.board["height_mm"]],
             "area_search": area_log, "placement_cost": round(cost, 1), "placement_violations": viol,
@@ -585,6 +587,16 @@ def stage_layout(d: Design, libs: Libs, reuse: bool = False, seeds: int = 4, ite
             "route_groups": [{k: g[k] for k in ("name", "kind", "nets", "cache", "seconds", "unrouted", "open")}
                              for g in groups],
             "eco": eco_info, "timing": tm, "place_work": _place_work(), "seconds": round(time.time() - t0, 1)}
+
+
+def _pad_ring(d: Design, libs) -> dict | None:
+    """The pads whose annular ring hwflow grew to the board minimum, and those it could not (layout/board/padring.py):
+    None when every plated hole has the minimum ring."""
+    from ..layout.board import padring
+    p = padring.plan(d, libs)
+    if not (p["rows"] or p["left"]):
+        return None
+    return {"min_ring_mm": p["min_ring"], "grown": p["rows"], "left": p["left"]}
 
 
 def _place_work() -> dict:

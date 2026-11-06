@@ -10,6 +10,7 @@ import numpy as np
 from ...core.design import Design
 from ...core.geometry import COURTYARD_MARGIN, Part, Parts, Rigid, rot  # noqa: F401  (re-exported)
 from ...core.settings import get_settings
+from ..board import padring
 
 
 def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=None, tight: bool = False) -> dict[str, Part]:
@@ -28,6 +29,7 @@ def build_parts(design: Design, libs, margin: float = COURTYARD_MARGIN, areas=No
         if c.get("virtual"):
             continue
         fp = libs.footprint(c.get("footprint"))
+        fp = dict(fp, pads=padring.apply_pads(design, libs, c.ref, fp["pads"]))  # rings grown to the fab minimum
         x0, y0, x1, y1 = fp["bbox"]
         pads, sizes, cu, rnd, kinds = {}, {}, {}, set(), {}
         for num, (cx, cy, w, h, lays, circle) in _pad_copper(fp["pads"], kinds).items():

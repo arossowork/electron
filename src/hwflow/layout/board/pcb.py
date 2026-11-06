@@ -172,9 +172,10 @@ def _closed_courtyards(t: list) -> list:
 
 
 def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: dict, pin_nets: dict,
-                     fields: dict | None = None, keepoff: dict | None = None) -> list:
+                     fields: dict | None = None, keepoff: dict | None = None, grown: dict | None = None) -> list:
     """`keepoff` (net -> isolation distance, `isolation_keepoff`): a local clearance override below the distance of
-    an isolation member net on the footprint is dropped from it and its pads, so the isolation rules bind."""
+    an isolation member net on the footprint is dropped from it and its pads, so the isolation rules bind. `grown`
+    (pad index in file order -> (w, h), padring.plan): pads whose annular ring is grown to the board minimum."""
     need = max([float((keepoff or {}).get(n, 0.0)) for n in pin_nets.values() if n] or [0.0])
     t = _closed_courtyards(copy.deepcopy(fp_tree))
     if need > 0:
@@ -188,10 +189,13 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
     for k, v in (fields or {}).items():
         out.append(["property", Q(k), Q(str(v)), ["at", 0, 0, 0], ["layer", Q("F.Fab")], ["hide", "yes"],
                     ["uuid", uid()], ["effects", ["font", ["size", 1, 1], ["thickness", 0.15]]]])
+    npad = -1
     for item in t[2:]:
         if not isinstance(item, list):
             continue
         head = item[0]
+        if head == "pad":
+            npad += 1
         if head in ("layer", "uuid", "at", "version", "generator", "generator_version", "tedit"):
             continue
         if head == "property":
@@ -213,6 +217,8 @@ def _place_footprint(fp_tree: list, ref: str, value: str, part: Part, netidx: di
             _quote_tokens(item)
             at = sexpr.find(item, "at")
             sexpr.set_at_angle(at, (sexpr.at_angle(at) + part.r) % 360)
+            if grown and npad in grown and (size := sexpr.find(item, "size")):
+                size[1], size[2] = grown[npad]
             net = pin_nets.get(str(item[1]))
             item = [x for x in item if not (isinstance(x, list) and x and x[0] in ("net", "uuid"))]
             if need > 0:
@@ -396,6 +402,8 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
     tree.append(["gr_text", Q(f"{design.name} rev {design.raw.get('revision', 'A')}"), ["at", 1.5, H - 1.2, 0],
                  ["layer", Q("F.SilkS")], ["uuid", uid()],
                  ["effects", ["font", ["size", 0.8, 0.8], ["thickness", 0.12]], ["justify", "left"]]])
+    from . import padring
+    grown = padring.plan(design, libs)["grown"]
     for ref, part in parts.items():
         c = design.components[ref]
         fp = libs.footprint_tree(c.get("footprint"))
@@ -403,7 +411,8 @@ def build_board(design: Design, libs, parts: dict[str, Part], tracks: list | Non
         fp[1] = Q(c.get("footprint"))
         fields = {k.upper() if k != "manufacturer" else "Manufacturer": c.get(k)
                   for k in ("mpn", "lcsc", "manufacturer") if c.get(k)}
-        tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields, keepoff))
+        tree.append(_place_footprint(fp, ref, str(c.get("value")), part, netidx, c.pins, fields, keepoff,
+                                     grown.get(ref)))
     routed = tracks is not None
     if design.raw.get("blocks"):  # layout blocks: their copper, once, on the unrouted and on the routed board
         from ...core import blocks
@@ -824,8 +833,7 @@ def write_project(dirpath: Path, name: str, design: Design):
                                                 "min_copper_edge_clearance": edge_mm(design),
                                                 "min_hole_clearance": min(0.25, float(b["clearance_mm"])),
                                                 "min_hole_to_hole": 0.25,
-                                                "min_via_annular_width": min(0.1, round((float(b["via_dia_mm"]) - float(
-                                                    b["via_drill_mm"])) / 2, 4))}}},
+                                                "min_via_annular_width": _min_ring(design)}}},
         "meta": {"filename": f"{name}.kicad_pro", "version": 3},
         "net_settings": {"classes": nc, "meta": {"version": 4}, "net_colors": None,
                          "netclass_assignments": None, "netclass_patterns": assignments},
@@ -846,6 +854,11 @@ def write_project(dirpath: Path, name: str, design: Design):
         dru.write_text("(version 1)\n" + "\n".join(rules) + "\n")
     elif dru.exists():
         dru.unlink()
+
+
+def _min_ring(design: Design) -> float:
+    from .padring import min_ring
+    return min_ring(design)
 
 
 def ringless_hole_rules(design: Design) -> list[str]:
@@ -958,6 +971,8 @@ def export_dsn(design: Design, libs, parts: dict[str, Part], path: Path):
     for ref, part in parts.items():
         c = design.components[ref]
         fp = libs.footprint(c.get("footprint"))
+        from . import padring
+        fp = dict(fp, pads=padring.apply_pads(design, libs, ref, fp["pads"]))
         img = f"{c.get('footprint')}__{ref}"
         placement.append(["component", Q(img), ["place", _dsn_ref(ref), _um(part.x), -_um(part.y), "front", part.r]])
         image = ["image", Q(img)]

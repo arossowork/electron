@@ -9,6 +9,23 @@ Code: `src/hwflow/layout/place/asicflow.py` (stage order, density map, pin-acces
 detailed moves, anneal), `gplace.py` (global placement), `pinaccess.py`, `krt.krt_route` and `regionroute.py`,
 `repair.py`, `prune.py` (routing). Tests: `tests/test_layout_flow.py`.
 
+## Footprint copper before placement: the annular-ring repair (`layout/board/padring.py`)
+
+A plated through-hole pad (or a via footprint) whose copper ring around the drill is under the board's minimum
+annular width (`min_via_annular_width`, the rule behind KiCad's `annular_width`; `padring.min_ring`) fails DRC
+wherever it sits. `padring.plan` grows such a pad's copper before placement: the drill and the pad shape stay, the
+copper grows symmetrically to the minimum ring plus 0.01 mm on both axes (the drill offset counted). It applies to
+every part hwflow writes, moved or not, because the fab minimum holds for all of them. A pad grows only if the grown
+copper keeps the net-class clearance to the other pads of its footprint (pads of one number are one connection) and
+the hole clearance to its non-plated holes; a part at a given position also keeps the copper-to-edge distance, the
+clearance to the other given-position parts' pads and the rule areas that forbid pads. A pad that cannot grow is left
+and listed. Not touched: a ringless hole without a net (exempt by `pcb.ringless_hole_rules`), a hole inside a larger
+pad of its own number (KiCad measures the ring to that pad), a custom-shaped pad (listed). The placer's footprint
+model (`build_parts`), the generated board (`build_board`) and the DSN export take the grown sizes; status.json
+`layout.pad_ring_repair` and REPORT.md (`annular ring:` lines) list every grown pad with its old and new size.
+On PCBWorld D3 it changes 3 of 113 boards (0086 a 0.84 mm via footprint on 0.7 mm, 0113 3.1 mm pads on 3.0 mm holes,
+0520 1.2 mm ovals on 1.016 mm), which now pass DRC in place mode; route mode keeps the same clean verdicts.
+
 ## Placement (per placer seed, `placer.place` → `Placer.run` → `asicflow.place`)
 
 1. **Macro stage** (`HWFLOW_ASIC_MACRO`). A layout block, or a unit with a courtyard of at least 10 × the median

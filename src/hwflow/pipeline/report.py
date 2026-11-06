@@ -178,6 +178,12 @@ def write_report(d: Design, history: bool = False) -> str:
             if x.get("via_in_pad"):
                 L.append(f"  - extreme routing: {len(x['via_in_pad'])} pour stitching vias may sit in pads "
                          "(via-in-pad): order them filled and capped (IPC-4761 type VII)")
+        if c.get("pad_ring_repair"):  # layout/board/padring.py: a footprint change the product person should see
+            from ..layout.board import padring
+            pr = c["pad_ring_repair"]
+            for line in padring.summary({"rows": pr.get("grown") or [], "left": pr.get("left") or [],
+                                         "min_ring": pr["min_ring_mm"]}):
+                L.append(f"  - annular ring: {line}")
         if (c.get("place_work") or {}).get("extreme_edge_mm"):  # placer.place's last resort
             L.append(f"  - extreme placement: copper {c['place_work']['extreme_edge_mm']} mm from the board edge, not "
                      "0.3 mm (the board did not fit otherwise): check the fab's copper-to-edge minimum")
