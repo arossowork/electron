@@ -55,6 +55,6 @@ excluded in place mode too is a decision about the metric, left open here.
 `scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`, krt: 14 of 37 cases clean (ht4_s11_mains,
 ht4_s1_k2in, ht4_s1_mains, kb_keys, oshw_ac_relay, oshw_buck_tps54202, oshw_ch32v003_usb_devboard,
 oshw_ch32v003_usbpd, oshw_hot_plate_power, oshw_ina228_simple, oshw_powerline_usbc, pr_mcu, pr_pmic, sp_control);
-8 placements illegal or with placer violations; oshw_pico_ice timed out (3600 s; it took 3582 s in router-ab.md).
+6 placements with placer violations (esp32c3_devkit_lipo, espgaggia, hestiapi_one, hue_simple_switch, milliohm_meter, rocketbeacon); oshw_pico_ice timed out (3600 s; it took 3582 s in router-ab.md).
 router-ab.md part 2 (a70660f, 35 cases without pr_mcu and pr_pmic): 8 clean.
 Fast tier (`pytest -m "not slow"`): 890 passed.
