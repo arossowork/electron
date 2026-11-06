@@ -348,7 +348,8 @@ def prep(src: Path, work: Path, name: str) -> Path:
         if not src_pl.exists():
             raise FileNotFoundError(f"no placement to replay: {src_pl}")
         raw = yaml.safe_load((dst / "design.yaml").read_text())
-        freed = fix_at(raw, json.loads(src_pl.read_text()))
+        fix_at(raw, json.loads(src_pl.read_text()))
+        freed = json.loads((dst / "pcbench.json").read_text())["free"]  # the parts the place run released and placed
         (dst / "design.yaml").write_text(yaml.safe_dump(raw, sort_keys=False, width=200))
         (dst / "replay_free.json").write_text(json.dumps(freed))
         print(f"  replay {src_pl}: {len(freed)} placed parts fixed at hwflow's placement", flush=True)

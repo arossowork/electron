@@ -189,7 +189,7 @@ def route(case: Path, workdir: Path | None = None, timeout: float = 3600, free: 
                             for g in L.get("route_groups") or []],
            "seconds": round(wall, 1), "cpu_s": round(cpu, 1), "timing": L.get("timing"),
            "firstpass": L.get("firstpass"), "router_used": L.get("router_used"),
-           "hpwl_mm": _board_hpwl(w / "build"),
+           "hpwl_mm": _board_hpwl(w / "build"), "blocked": str(L.get("router", "")) in ("-", ""),
            # the steps stages.stage_layout runs only with krt (a Freerouting board gets none of them)
            "krt_only_steps": {"repair": bool(L.get("repair")), "repair_rounds": (L.get("repair") or {}).get("rounds", 0),
                               "pour_stitch": bool(L.get("pour_stitch")),
@@ -231,6 +231,12 @@ def source_reference(case: Path) -> dict:
     return {"hpwl_mm": h, "free": free, **ref}
 
 
+def _clean(g: dict) -> bool:
+    """Routed, legal, 0 unrouted, 0 DRC errors."""
+    return (not g.get("error") and not g.get("blocked") and not g.get("placement_violations")
+            and not g.get("unrouted") and not g.get("drc_errors"))
+
+
 def place_table(cases, rows) -> str:
     """Place mode, per case: free parts, legal, unrouted, DRC errors, clean, HPWL and track length against the
     source placement, vias, time, the krt-only steps that ran."""
@@ -246,7 +252,7 @@ def place_table(cases, rows) -> str:
         steps = ", ".join(k for k, v in (g.get("krt_only_steps") or {}).items() if v and k != "repair_rounds")
         L.append(f"{c.name:28} {ref.get('free', 0):>4} {'yes' if not g.get('placement_violations') else 'no':>5} "
                  f"{g.get('unrouted', 0):>4} {g.get('drc_errors', 0):>4} "
-                 f"{'yes' if not g.get('unrouted') and not g.get('drc_errors') else 'no':>5} "
+                 f"{'yes' if _clean(g) else 'not routed' if g.get('blocked') else 'no':>5} "
                  f"{f(ratio(g.get('hpwl_mm'), ref.get('hpwl_mm'))):>6} {f(ratio(g.get('track_mm'), ref.get('track_mm'))):>6} "
                  f"{g.get('vias') if g.get('vias') is not None else '-':>5} {ref.get('vias') if ref.get('vias') is not None else '-':>5} "
                  f"{g.get('seconds', '-'):>7}  {steps}" + ("  (no free part: routing only)" if not ref.get("free") else ""))

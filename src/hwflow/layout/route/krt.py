@@ -33,9 +33,9 @@ def run_freerouting(dsn: Path, ses: Path, passes: int = 30, timeout: int = 900) 
     except subprocess.TimeoutExpired as e:
         log = f"TIMEOUT after {timeout}s\n" + (e.stdout or b"").decode(errors="replace")
     (dsn.parent / "freerouting.log").write_text(log)
-    if not ses.exists():
+    if not ses.exists() and not log.startswith("TIMEOUT after"):
         raise RuntimeError("freerouting produced no session file:\n" + log[-2000:])
-    return log
+    return log  # a timeout leaves no session (2.x writes it at the end): the caller reads "TIMEOUT after"
 
 
 def krt_dir() -> Path:

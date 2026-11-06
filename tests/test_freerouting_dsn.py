@@ -96,3 +96,30 @@ def test_reference_with_a_hyphen_is_quoted_in_the_network(tmp_path):
     text = (tmp_path / "x.dsn").read_text()
     assert f'"L-K1"-{pins[0]}' in text and f" L-K1-{pins[0]}" not in text
     assert '(place "L-K1"' in text
+
+
+def test_freerouting_timeout_is_an_unrouted_result_not_a_crash(tmp_path, monkeypatch):
+    """Freerouting 2.x writes the session only at the end: a run stopped at the router timeout leaves none. The
+    layout stage then gets "TIMEOUT after" (a budget-exhausted candidate with no copper), not a RuntimeError that
+    ends the layout stage (kb_hub, kb_audio_dig of the layout corpus)."""
+    jar = tmp_path / "fr.jar"
+    jar.write_text("")
+    monkeypatch.setenv("FREEROUTING", str(jar))
+
+    def slow(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw.get("timeout"), output=b"Auto-routing pass #9")
+
+    monkeypatch.setattr(krt.subprocess, "run", slow)
+    log = krt.run_freerouting(tmp_path / "t.dsn", tmp_path / "t.ses", timeout=5)
+    assert log.startswith("TIMEOUT after 5s") and not (tmp_path / "t.ses").exists()
+
+    def crash(cmd, **kw):  # any other run without a session is still an error
+        return subprocess.CompletedProcess(cmd, 1, "", "Exception in thread main")
+
+    monkeypatch.setattr(krt.subprocess, "run", crash)
+    try:
+        krt.run_freerouting(tmp_path / "t.dsn", tmp_path / "t.ses")
+    except RuntimeError as e:
+        assert "no session file" in str(e)
+    else:
+        raise AssertionError("a run without a session and without a timeout must raise")
