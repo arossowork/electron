@@ -209,14 +209,17 @@ class Libs:
             size = sexpr.find(p, "size")
             layers = [str(x) for x in (sexpr.find(p, "layers") or [])[1:]]
             drill = sexpr.find(p, "drill")
-            dval = None
+            dval, off = None, (0.0, 0.0)
             if drill:
                 nums = [x for x in drill[1:] if not isinstance(x, list) and re.match(r"^[\d.]+$", str(x))]
                 dval = float(nums[0]) if nums else None
+                o = sexpr.find(drill, "offset")  # the copper shape's offset from the pad origin (pad frame)
+                if o and len(o) >= 3:
+                    off = (float(o[1]), float(o[2]))
             pads.append({
                 "number": str(p[1]), "kind": str(p[2]), "shape": str(p[3]),
                 "x": float(at[1]), "y": float(at[2]), "rot": sexpr.at_angle(at),
-                "w": float(size[1]), "h": float(size[2]), "layers": layers, "drill": dval,
+                "w": float(size[1]), "h": float(size[2]), "layers": layers, "drill": dval, "offset": off,
                 "rratio": float(sexpr.value(p, "roundrect_rratio", 0.25)),
                 "hull": sexpr.custom_pad_hull(p),
             })
@@ -250,10 +253,13 @@ class Libs:
                     ys += [float(c[2]) - r, float(c[2]) + r]
                 side_pts[layer][0].extend(xs[n0:])
                 side_pts[layer][1].extend(ys[n0:])
-        if not xs:
+        if not xs:  # no courtyard: the pad copper (at its drill offset), as the placer sees it (placer._pad_copper)
+            from .geometry import rot
             for p in pads:
-                xs += [p["x"] - p["w"] / 2, p["x"] + p["w"] / 2]
-                ys += [p["y"] - p["h"] / 2, p["y"] + p["h"] / 2]
+                dx, dy = rot(*p["offset"], p["rot"])
+                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
+                xs += [p["x"] + dx - w / 2, p["x"] + dx + w / 2]
+                ys += [p["y"] + dy - h / 2, p["y"] + dy + h / 2]
         sides = {}
         for layer, side in (("F.CrtYd", "front"), ("B.CrtYd", "back")):
             sx, sy = side_pts[layer]
