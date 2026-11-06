@@ -1,5 +1,5 @@
 """The extreme routing round: the last resort of a layout that the router and the repair loop left with DRC errors or
-open connections (stages.stage_layout, after the repair; HWFLOW_EXTREME=0: off). Three steps, each kept only when the
+open connections (stages.stage_layout, after the repair; HWFLOW_EXTREME=0: off). Two steps, each kept only when the
 full DRC has fewer errors after it:
 
 1. narrower tracks: every net with no electrical reason for its width is routed again at EXTREME_TRACK_MM (the board
@@ -8,10 +8,7 @@ full DRC has fewer errors after it:
    net already at or under the minimum is not touched;
 2. via-in-pad stitching: a split pour (an island the repair loop found no via room for) gets a via that may sit in a
    pad of its own net (repair.stitch_vias `in_pad`). The fab then has to fill and cap those vias (IPC-4761 type VII),
-   so REPORT.md names them;
-3. pour stitch: a split pour still left (an island around a pad that holds no room for a via, walled in by tracks)
-   gets the pour stitch (pourstitch.stitch: a stub to a via, displacing at most 3 routed nets that are routed again),
-   when the layout did not run it already (settings.layout.pour_stitch, board.pour_stitch).
+   so REPORT.md names them.
 
 The narrowed widths stay in the design (design.yaml's nets in memory) for the rest of the layout and the
 post-layout checks, as copper_edge_mm of the extreme placement does. No LLM, no re-placement."""
@@ -20,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..board import pcb
-from . import pourstitch, repair
+from . import repair
 
 EXTREME_TRACK_MM = 0.15  # pcb.write_project's min_track_width floor (JLCPCB 2-layer: 0.127 mm)
 MAX_NETS = 60  # the narrow step re-routes at most this many nets: a last resort for a small board, not a keyboard
@@ -103,23 +100,6 @@ def second_round(d, libs, parts, workdir: Path, board: Path, tracks: list, vias:
                 best, in_pad = (tr, vi + new, dr2), new
             else:
                 log.append(f"{len(new)} via-in-pad stitching vias: {_errors(dr)} -> {_errors(dr2)} errors, not kept")
-    tr, vi, dr = best
-    from ...core.settings import get_settings
-    if (pourstitch.split(d, dr) and d.board["gnd_pour"]
-            and not (get_settings().layout.pour_stitch or d.board.get("pour_stitch"))):
-        try:
-            ps = pourstitch.stitch(d, libs, parts, board, tr, vi, dr, check, deadline=deadline)
-        except Exception as e:  # noqa: BLE001 - a router failure: the round keeps the copper it had
-            log.append(f"pour stitch: {type(e).__name__}: {str(e)[:100]}")
-            ps = None
-        if ps is not None and _errors(ps["drc"]) < _errors(dr):
-            log.append(f"pour stitch, {ps['added'][1]} vias and {ps['added'][0]} stubs: {_errors(dr)} -> "
-                       f"{_errors(ps['drc'])} errors")
-            best = (ps["tracks"], ps["vias"], ps["drc"])
-        elif ps is not None:
-            log.append(f"pour stitch: {_errors(dr)} -> {_errors(ps['drc'])} errors, not kept")
-            if (ps["tracks"], ps["vias"]) != (tr, vi):
-                check(tr, vi)  # the board file back to the copper kept
     if best[0] is tracks and best[1] is vias:
         check(tracks, vias)  # the board file back to the copper it was called with
         return None if not log else {"tracks": tracks, "vias": vias, "drc": drc, "narrowed": {}, "via_in_pad": [],
