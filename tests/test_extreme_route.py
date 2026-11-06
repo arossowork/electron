@@ -35,3 +35,16 @@ def test_widths_are_set_and_restored(tmp_path):
     assert d.net_info("SIG")["width_mm"] == extreme.EXTREME_TRACK_MM and d.net_info("RF")["width_mm"] == 0.8
     extreme._set_widths(d, {"SIG": None, "RF": 1.1})
     assert "width_mm" not in d.net_info("SIG") and d.net_info("RF")["width_mm"] == 1.1
+
+
+def test_walled_pads_are_looked_for_only_when_no_pour_pad_is_tapped(tmp_path):
+    """Step 3 taps the walled-in pour pads; a board that taps them already (board.pour_taps) or has no pour skips it
+    before any DRC (the `check` callback is never called)."""
+    d = _design(tmp_path)
+    def check(*a):
+        raise AssertionError("no DRC expected")
+    d.raw["board"]["pour_taps"] = ["R4"]
+    assert extreme._walled(d, tmp_path / "x.kicad_pcb", [], [], [], check) == set()
+    d.raw["board"].pop("pour_taps")
+    d.raw["board"]["gnd_pour"] = False
+    assert extreme._walled(d, tmp_path / "x.kicad_pcb", [], [], [], check) == set()

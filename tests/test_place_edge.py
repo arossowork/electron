@@ -107,6 +107,19 @@ def test_a_bodiless_smd_part_blocks_only_its_own_side():
     assert placer._side_overlap(smd, back) > 0
 
 
+def test_a_bodiless_smd_pad_keeps_clear_of_through_hole_pads():
+    """A bottom-mount USB socket without a courtyard: its B.Cu pads keep the pad clearance to the pins of a socket
+    strip whose courtyard is on the front only (KiCad: a clearance error)."""
+    usb = placer.Part("CON", 3, 3, 0, 0, {"1": (0, 0)}, x=10, y=10, pad_size={"1": (1.0, 1.0)}, sides={},
+                      cu={"1": frozenset({"B.Cu"})}, guard=frozenset({"1"}), keep=0.1)
+    pin = placer.Part("P", 2.5, 2.5, 0, 0, {"1": (0, 0)}, x=11.45, y=10, pad_size={"1": (1.7, 1.7)},
+                      sides={"front": (2.5, 2.5, 0, 0)}, cu={"1": frozenset({"*"})}, tht=frozenset({"1"}))
+    assert placer._side_overlap(usb, pin) > 0  # 0.1 mm apart, inside the 0.2 mm clearance
+    assert placer._tht_pair(usb, pin) is not None
+    pin.x = 12.0  # 0.65 mm apart
+    assert placer._side_overlap(usb, pin) == 0
+
+
 def test_net_class_clearance_is_per_copper_layer(tmp_path):
     d, libs = _strip(tmp_path, 0.0)
     parts = placer.build_parts(d, libs, margin=0.0, tight=True)

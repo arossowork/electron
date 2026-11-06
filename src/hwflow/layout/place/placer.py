@@ -218,6 +218,8 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
                     total += sum(_overlap(pad, c) for pad in pads)
         if a.tht and b.out:
             total += sum(_overlap(x, y) for x, y in _out_pairs(a, b))
+        if a.guard and not a.sides and b.sides and (b.tht or b.npth):
+            total += sum(_overlap(x, y) for x, y in _guard_pairs(a, b))
         if b.out and a.sides:  # nor a courtyard on their side (another part's body or pads over them)
             for side, bs in out_boxes(b).items():
                 if (ya := yard(a, side)) is not None:
@@ -248,6 +250,18 @@ def _out_pairs(a: "Part", b: "Part"):
     k = b.out_keep
     outs = [(x0 - k, y0 - k, x1 + k, y1 + k) for x0, y0, x1, y1 in (part_pad_box(b, n) for n in sorted(b.out, key=str))]
     return [(x, y) for x in (part_pad_box(a, n) for n in sorted(a.tht, key=str)) for y in outs]
+
+
+def _guard_pairs(a: "Part", b: "Part"):
+    """(guarded pad box of a, through-hole pad or hole box of b) on the same side, both grown by a's pad clearance
+    half: a part without a body (its SMD pads all the placer knows of it) keeps the clearance to the through-hole
+    copper of a part with a body, which is on every layer (a bottom-mount USB socket's B.Cu pads 0.09 mm from a
+    socket strip's pin, a clearance error no courtyard test sees)."""
+    m = a.keep
+    holes = [(x0 - m, y0 - m, x1 + m, y1 + m) for x0, y0, x1, y1
+             in [part_pad_box(b, n) for n in sorted(b.tht, key=str)] + b.npth_boxes()]
+    own = dict.fromkeys(x for s in ("front", "back") for x in side_holes(a)[s])
+    return [(x, y) for x in own for y in holes]
 
 
 def hole_boxes(p: "Part") -> list:
@@ -311,6 +325,11 @@ def _tht_pair(pa: "Part", pb: "Part"):
                 if o > 0 and (best is None or o > best[0]):
                     best = (o, (y, pad) if flip else (pad, y))
     for a, b, flip in ((pa, pb, False), (pb, pa, True)):
+        if a.guard and not a.sides and b.sides and (b.tht or b.npth):
+            for pad, y in _guard_pairs(a, b):
+                o = _overlap(pad, y)
+                if o > 0 and (best is None or o > best[0]):
+                    best = (o, (pad, y) if not flip else (y, pad))
         if a.tht and b.out:
             for pad, y in _out_pairs(a, b):
                 o = _overlap(pad, y)
