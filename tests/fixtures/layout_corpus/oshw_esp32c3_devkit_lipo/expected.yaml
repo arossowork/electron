@@ -35,44 +35,17 @@ fast:
   check:
     ok: true
     errors: 0
-    warnings: 0
+    warnings: 2
     codes: []
   parts: 53
   nets: 34
   board_mm:
   - 27.94
   - 38.1
-  placement_violations:
-  - courtyard overlap BUT1/R16
-  - courtyard overlap C1/R5
-  - courtyard overlap D1/FET1
-  - courtyard overlap D1/R1
-  - courtyard overlap D2/FET1
-  - courtyard overlap FID1/FID4
-  - courtyard overlap FID2/FID5
-  - courtyard overlap FID3/FID6
-  - courtyard overlap U1/R4
-  - courtyard overlap U3/C5
-  - courtyard overlap U3/C6
-  - courtyard overlap U3/R14
-  - courtyard overlap UEXT1/BAT_PWR_E1
-  - courtyard overlap UEXT1/BAT_SENS_E1
-  - courtyard overlap UEXT1/PWR_SENS_E1
-  - courtyard overlap UEXT1/R17
-  - courtyard overlap UEXT1/R18
-  - courtyard overlap UEXT1/R6
-  - courtyard overlap UEXT1/R7
-  - courtyard overlap UEXT1/R8
-  - courtyard overlap UEXT1/R9
-  - courtyard overlap USB-C1/C2
-  - courtyard overlap USB-C1/C4
-  - courtyard overlap USB-C1/L1
-  - courtyard overlap USB-C1/R10
-  - courtyard overlap USB-C1/R11
-  - courtyard overlap USB-C1/U2
+  placement_violations: []
   fixed_violations: []
   corridors: {}
-  placement_cost: 42506.8
+  placement_cost: 5031.8
   rudy:
     congestion: 0.0
     max_overflow: 0.0
@@ -91,7 +64,7 @@ fast:
 tiers:
   check: fast
   replace: none
-measured: '2026-10-27'
+measured: '2026-11-06'
 route:
   ok: false
   unrouted: 8

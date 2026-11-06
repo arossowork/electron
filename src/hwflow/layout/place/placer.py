@@ -209,11 +209,13 @@ def _side_overlap(pa: "Part", pb: "Part", shrink: float = 0.0) -> float:
         if ba and bb:
             total += _overlap(ba, bb)
     if not pa.sides and not pb.sides and (pa.tht or pa.guard) and (pb.tht or pb.guard):  # two parts without a body
-        total += sum(_overlap(x, y) for x in hole_boxes(pa) for y in hole_boxes(pb))
+        ha, hb = side_holes(pa), side_holes(pb)
+        total += sum(_overlap(x, y) for s in ("front", "back") for x in ha[s] for y in hb[s])
     for a, b in ((pa, pb), (pb, pa)):
         if (a.tht or a.npth or a.guard) and b.sides:
-            for pad in hole_boxes(a):
-                total += sum(_overlap(pad, c) for c in (yard(b, "front"), yard(b, "back")) if c)
+            for side, pads in side_holes(a).items():
+                if (c := yard(b, side)) is not None:
+                    total += sum(_overlap(pad, c) for pad in pads)
         if a.tht and b.out:
             total += sum(_overlap(x, y) for x, y in _out_pairs(a, b))
         if b.out and a.sides:  # nor a courtyard on their side (another part's body or pads over them)
@@ -259,6 +261,32 @@ def hole_boxes(p: "Part") -> list:
     return boxes
 
 
+def side_holes(p: "Part") -> dict:
+    """side -> the boxes of `hole_boxes` that block that side: a through-hole pad and a hole on both sides, a guarded
+    SMD pad (a part without a body) only on the side of its copper, as KiCad tests it (a pad on B.Cu meets nothing
+    on F.Cu): a test pad on the back under a front part without a courtyard is legal."""
+    out = {"front": [], "back": []}
+    m = p.keep if not p.sides and p.keep else 0.0
+
+    def grow(b):
+        return (b[0] - m, b[1] - m, b[2] + m, b[3] + m) if m else b
+    for n in sorted(p.tht | p.guard, key=str):
+        b = grow(part_pad_box(p, n))
+        lays = (p.cu or {}).get(n, frozenset({"*"}))
+        if n in p.tht or "*" in lays:
+            out["front"].append(b)
+            out["back"].append(b)
+        else:
+            if "F.Cu" in lays:
+                out["front"].append(b)
+            if "B.Cu" in lays:
+                out["back"].append(b)
+    for b in p.npth_boxes():
+        out["front"].append(grow(b))
+        out["back"].append(grow(b))
+    return out
+
+
 def part_pad_box(p: "Part", n):
     x, y = p.pad(n)
     w, h = (p.pad_size or {}).get(n, (0.0, 0.0))
@@ -274,9 +302,11 @@ def _tht_pair(pa: "Part", pb: "Part"):
     for a, b, flip in ((pa, pb, False), (pb, pa, True)):
         if not (a.tht or a.npth or a.guard) or not b.sides:
             continue
-        yards = [y for y in (b.side_box("front"), b.side_box("back")) if y]
-        for pad in hole_boxes(a):
-            for y in yards:
+        for side, pads in side_holes(a).items():
+            y = b.side_box(side)
+            if y is None:
+                continue
+            for pad in pads:
                 o = _overlap(pad, y)
                 if o > 0 and (best is None or o > best[0]):
                     best = (o, (y, pad) if flip else (pad, y))
@@ -1203,12 +1233,22 @@ class Placer:
         net class clearance (pads of different nets); 0 on the same part."""
         if a[0] == b[0] or self._same(a[0], b[0]):
             return 0.0
-        need = self._pad_need(self._pad_key(a), self._pad_key(b))
+        ka, kb = self._pad_key(a), self._pad_key(b)
+        if not self._share_layer(a, b):  # KiCad's clearance is per copper layer: an SMD pad on F.Cu and one on
+            # B.Cu keep no net-class clearance; the isolation distances stay (insulation through the board)
+            ka, kb = (ka[0], ka[1], 0.0), (kb[0], kb[1], 0.0)
+        need = self._pad_need(ka, kb)
         if need <= 0:
             return 0.0
         ba, bb = self.part_pad_box(self.parts[a[0]], a[1]), self.part_pad_box(self.parts[b[0]], b[1])
         gap = math.hypot(max(0.0, ba[0] - bb[2], bb[0] - ba[2]), max(0.0, ba[1] - bb[3], bb[1] - ba[3]))
         return max(0.0, need - gap)
+
+    def _share_layer(self, a, b) -> bool:
+        """Pads a and b ((ref, pad)) have copper on a common layer (a through-hole pad: every layer)."""
+        la = (self.parts[a[0]].cu or {}).get(a[1], frozenset({"*"}))
+        lb = (self.parts[b[0]].cu or {}).get(b[1], frozenset({"*"}))
+        return "*" in la or "*" in lb or bool(la & lb)
 
     def _pad_key(self, a) -> tuple:
         """(isolation group or -1, net, net class need) of pad a = (ref, pad): what `_pad_need` reads."""
@@ -2410,9 +2450,8 @@ class Placer:
         """side -> boxes of part `p` that block that side: its courtyard on its own side, and on both sides everything
         of it that goes through the board (through-hole pads, non-plated holes), the rule `violations` checks."""
         out = {s: [b] if (b := p.side_box(s)) else [] for s in ("front", "back")}
-        for b in hole_boxes(p):
-            out["front"].append(b)
-            out["back"].append(b)
+        for s, bs in side_holes(p).items():
+            out[s] += bs
         for s, bs in out_boxes(p).items():  # SMD pads outside the courtyard, on their side (`_side_overlap`)
             out[s] += bs
         return out

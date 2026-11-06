@@ -34,7 +34,7 @@ fast:
   check:
     ok: true
     errors: 0
-    warnings: 2
+    warnings: 3
     codes: []
   parts: 35
   nets: 19
@@ -44,35 +44,11 @@ fast:
   placement_violations:
   - BT1 pad 1 copper closer than 0.3 mm to the board edge
   - J1 pad 1 copper closer than 0.3 mm to the board edge
-  - courtyard overlap AE1/BT1
-  - courtyard overlap C11/BT1
-  - courtyard overlap C15/BT1
-  - courtyard overlap C2/BT1
-  - courtyard overlap C3/BT1
-  - courtyard overlap C4/BT1
-  - courtyard overlap C5/BT1
-  - courtyard overlap C6/BT1
-  - courtyard overlap C7/BT1
-  - courtyard overlap C8/BT1
-  - courtyard overlap D1/BT1
-  - courtyard overlap J1/BT1
-  - courtyard overlap J2/BT1
-  - courtyard overlap L1/BT1
-  - courtyard overlap L2/BT1
-  - courtyard overlap L3/BT1
-  - courtyard overlap R1/BT1
-  - courtyard overlap R3/BT1
-  - courtyard overlap R4/BT1
-  - courtyard overlap TP1/BT1
-  - courtyard overlap TP2/BT1
-  - courtyard overlap U1/BT1
-  - courtyard overlap U2/BT1
-  - courtyard overlap Y1/BT1
   fixed_violations:
   - BT1 inside floorplan region 'outline_cut1' (4.0 mm2)
   - BT1 inside floorplan region 'outline_cut2' (4.0 mm2)
   corridors: {}
-  placement_cost: 89573.7
+  placement_cost: 20603.0
   rudy:
     congestion: 0.0
     max_overflow: 0.0
@@ -93,7 +69,7 @@ fast:
 tiers:
   check: fast
   replace: none
-measured: '2026-10-27'
+measured: '2026-11-06'
 route:
   ok: false
   unrouted: 3

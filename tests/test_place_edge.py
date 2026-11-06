@@ -91,3 +91,30 @@ def test_a_drill_offset_moves_the_pad_copper():
     cu = placer._pad_copper(pads)
     assert cu["1"][:2] == pytest.approx((7.7, 0.0))
     assert cu["2"][:2] == pytest.approx((-4.85, 2.85))  # the offset turns with the pad (KiCad rotation)
+
+
+def test_a_bodiless_smd_part_blocks_only_its_own_side():
+    """A part without a courtyard (tight placement: its pads are all the placer knows of it) keeps other courtyards off
+    its pads on the side of their copper only; a through-hole pad blocks both sides (KiCad pth_inside_courtyard)."""
+    smd = placer.Part("Q", 3, 3, 0, 0, {"1": (0, 0)}, x=10, y=10, pad_size={"1": (2.0, 2.0)}, sides={},
+                      cu={"1": frozenset({"F.Cu"})}, guard=frozenset({"1"}), keep=0.1)
+    back = placer.Part("T", 3.5, 3.5, 0, 0, {"1": (0, 0)}, x=10, y=10, pad_size={"1": (3, 3)},
+                       sides={"back": (3.5, 3.5, 0, 0)}, cu={"1": frozenset({"B.Cu"})})
+    assert placer._side_overlap(smd, back) == 0  # a back test pad under a front SOT-223: legal
+    assert placer.side_holes(smd)["back"] == []
+    smd.cu = {"1": frozenset({"*"})}
+    smd.tht = frozenset({"1"})
+    assert placer._side_overlap(smd, back) > 0
+
+
+def test_net_class_clearance_is_per_copper_layer(tmp_path):
+    d, libs = _strip(tmp_path, 0.0)
+    parts = placer.build_parts(d, libs, margin=0.0, tight=True)
+    pl = placer.Placer(d, parts, 3.0, 14.0, seed=1)
+    a, b = ("J1", "1"), ("J2", "1")
+    for r, y in (("J1", 3.0), ("J2", 4.9)):  # through-hole pads 0.2 mm apart: they share every layer
+        parts[r].x, parts[r].y, parts[r].r = 1.5, y, 0.0
+    assert pl._share_layer(a, b) and pl._iso_short(a, b) > 0
+    parts["J1"].cu = {n: frozenset({"F.Cu"}) for n in parts["J1"].pads}  # as SMD pads on opposite sides
+    parts["J2"].cu = {n: frozenset({"B.Cu"}) for n in parts["J2"].pads}
+    assert not pl._share_layer(a, b) and pl._iso_short(a, b) == 0

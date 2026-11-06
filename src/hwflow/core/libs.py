@@ -265,8 +265,10 @@ class Libs:
             if sx:
                 sides[side] = (min(sx), min(sy), max(sx), max(sy))
         courtyard = bool(sides)
-        if not sides:
-            sides["front"] = (min(xs), min(ys), max(xs), max(ys))
+        if not sides:  # the pad box, on the side of the pads' copper (a footprint whose copper is all on B.Cu: back)
+            cu = {ly for p in pads for ly in p["layers"] if ly.endswith(".Cu")}
+            back = cu == {"B.Cu"} and all(p["kind"] != "thru_hole" for p in pads)
+            sides["back" if back else "front"] = (min(xs), min(ys), max(xs), max(ys))
         return {"id": fp_id, "pads": pads, "bbox": (min(xs), min(ys), max(xs), max(ys)), "sides": sides, "tree": t,
                 "courtyard": courtyard,
                 "smd": all(p["kind"] == "smd" for p in pads if p["number"])}
