@@ -605,6 +605,7 @@ def main():
                          "hwflow's placement from an earlier place run (--placements), all fixed")
     ap.add_argument("--placements", help="replay mode: the work dir of the place-mode run whose placements are routed")
     ap.add_argument("--placement-attempt", default="1", help="replay mode: attempt number (default 1) or `kept`")
+    ap.add_argument("--jobs", "-j", type=int, default=1, help="designs run in parallel (wall time; per-board times are then not comparable)")
     ap.add_argument("--child"); ap.add_argument("--offset", type=int, default=0); ap.add_argument("--result"); ap.add_argument("--seeds", type=int, default=4); ap.add_argument("--iters", type=int, default=30000)
     a = ap.parse_args()
     if a.child:
@@ -632,35 +633,47 @@ def main():
         ds = {k: v for k, v in ds.items() if k in a.only}
     work = Path(a.workdir).resolve()
     work.mkdir(parents=True, exist_ok=True)
-    doc = {"date": datetime.now().isoformat(timespec="seconds"), "runs": a.runs, "offsets": OFFSETS, "timeout_s": a.timeout, "loadavg_start": os.getloadavg(), "cpus": os.cpu_count(),
+    doc = {"date": datetime.now().isoformat(timespec="seconds"), "runs": a.runs, "offsets": OFFSETS, "timeout_s": a.timeout, "loadavg_start": os.getloadavg(), "cpus": os.cpu_count(), "jobs": a.jobs,
            "pcbench_set": a.pcbench_set if (a.pcbench or a.pcbench_only) else None, "router_env": os.environ.get("HWFLOW_ROUTER"),
            "git": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
            "designs": {}}
     t_all = time.time()
-    for name, src in ds.items():
+    import threading
+    prep_lock = threading.Lock()
+
+    def one_design(name, src):
         print(f"[{name}]", flush=True)
         cfg = {**DEFAULTS, **(PCB_CFG if name.startswith(("pcb:", "pcbr:")) else PCBP_CFG if name.startswith("pcbp:") else SPECIAL.get(name, {}))}
         try:
-            pd = prep(src, work, name.replace(":", "_"))
+            with prep_lock:  # prep runs check and sch in this process: one at a time
+                pd = prep(src, work, name.replace(":", "_"))
         except FileNotFoundError as e:  # replay: the place run left no placement (a timeout or a crash there)
             print(f"  {e}", flush=True)
             doc["designs"][name] = {"runs": [{"error": str(e), "ok": False, "wall_s": 0.0, "routability": 0.0}],
                                     "human": json.loads((src / "pcbench.json").read_text()).get("human")}
-            continue
+            return
         runs = []
         n_runs = min(a.runs, cfg["max_runs"] or a.runs)
         for i in range(n_runs):
-            t = time.time()
             r = run_one(pd, name.replace(":", "_"), i, a.timeout, work, cfg["seeds"], cfg["iters"], cfg["env"])
             runs.append(r)
             b = r.get("before_a1") or {}
-            print(f"  run {i + 1} (seed +{r.get('offset')}): {'TIMEOUT in ' + str(r.get('running_phase_at_timeout')) if r.get('timeout') else ('ERROR ' + str(r.get('error'))[:150] if r.get('error') else ('ok' if r.get('ok') else 'FAIL'))}"
+            print(f"  [{name}] run {i + 1} (seed +{r.get('offset')}): {'TIMEOUT in ' + str(r.get('running_phase_at_timeout')) if r.get('timeout') else ('ERROR ' + str(r.get('error'))[:150] if r.get('error') else ('ok' if r.get('ok') else 'FAIL'))}"
                   f" attempts={r.get('attempts')} before(a1) err={b.get('errors')} unr={b.get('unrouted')} after={(r.get('after') or {}).get('errors')} "
                   f"rounds={r.get('repair_rounds')} {r.get('phase_s')} wall={r['wall_s']}s", flush=True)
             doc["designs"][name] = {"placer": {"seeds": cfg["seeds"], "iters": cfg["iters"]}, "env": cfg["env"], "runs": runs, "aggregate": aggregate(runs)}
             if name.startswith(PCB_PREFIX) and (src / "pcbench.json").exists():
                 doc["designs"][name]["human"] = json.loads((src / "pcbench.json").read_text()).get("human")
         shutil.rmtree(work / name.replace(":", "_") / "prep", ignore_errors=True)
+
+    if a.jobs > 1:  # designs in parallel (each in its own child process); the timings are then not comparable to -j 1
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(a.jobs) as ex:
+            list(ex.map(lambda kv: one_design(*kv), ds.items()))
+        doc["designs"] = {n: doc["designs"][n] for n in ds if n in doc["designs"]}
+    else:
+        for name, src in ds.items():
+            one_design(name, src)
     doc["pcbench"] = pcbench_summary(doc)
     doc["pcbench_place"] = pcbench_place_summary(doc)
     doc["pcbench_replay"] = pcbench_place_summary(doc, "pcbr:")
