@@ -257,9 +257,8 @@ class Libs:
             from .geometry import rot
             for p in pads:
                 dx, dy = rot(*p["offset"], p["rot"])
-                w, h = (p["w"], p["h"]) if p["rot"] % 180 == 0 else (p["h"], p["w"])
-                xs += [p["x"] + dx - w / 2, p["x"] + dx + w / 2]
-                ys += [p["y"] + dy - h / 2, p["y"] + dy + h / 2]
+                xs += [p["x"] + dx - p["w"] / 2, p["x"] + dx + p["w"] / 2]
+                ys += [p["y"] + dy - p["h"] / 2, p["y"] + dy + p["h"] / 2]
         sides = {}
         for layer, side in (("F.CrtYd", "front"), ("B.CrtYd", "back")):
             sx, sy = side_pts[layer]
