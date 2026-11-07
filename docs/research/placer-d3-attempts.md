@@ -24,7 +24,8 @@ router-ab.md. Every placement step stops on a count (docs/layout-flow.md, reprod
 | 4 | c0a4e26 | net-class pad clearance per copper layer (SMD pads on opposite sides keep none, as KiCad); a courtyard-less SMD part blocks only its own copper side, its fallback box on that side | all denominator boards of the 3 sets | **100/104 = 0.962** | 89/91 = 0.978 | 6/7 = 0.857 | 5/6 = 0.833 | won 0077; lost 0076 (a bottom-mount USB socket without courtyard: its B.Cu pads 0.09 mm from a socket strip's pin, no check paired them once guarded pads stopped blocking the front courtyard) |
 | 5 | 9db4423 | a courtyard-less part's SMD pads keep the pad clearance to other parts' through-hole pads (fixes 0076 of attempt 4); extreme routing steps 3 (pour taps on the walled-in pads, all signal nets re-routed) and 4 (pour stitch after it) | 0077 and 0520 only (`--only`) | - | 0077 clean | - | 0520 not clean | 0520 fully routed for the first time (attempts 2 and 3 of its 4: 0 open, GND islands closed by steps 3 and 4); its 24 errors left are annular_width on U1, the PHOTON footprint (0.092 mm ring, min 0.1), a fixed_error in route mode and counted in place mode, as 0113 and 0086 |
 | 6 | 9db4423 | attempt 5's code (D3-C run again after the harness stopped the first run at 3 boards) | all denominator boards of the 3 sets | **101/104 = 0.971** | 90/91 = 0.989 | 6/7 = 0.857 | 5/6 = 0.833 | won 0076 back; the 3 boards lost each fail only on annular_width of a released footprint (0086 XRef2 x1, 0113 x6, 0520 U1 x24): the reachable maximum under the metric |
-| 7 | (next commit) | annular-ring repair: plated pads under the board's minimum ring grow to it before placement when the clearances allow (layout/board/padring.py; placer model, board, DSN, status.json, REPORT.md) | 0086, 0113 and 0520 only (`--only`) | - | 0086 clean | 0113 clean | 0520 clean | the grown pads: 0086 XRef2 0.838 -> 0.92 mm, 0113 6 mounting pads 3.1 -> 3.22 mm, 0520 U1 24 ovals 1.2 -> 1.236 mm wide; route mode on the 3 (the only D3 boards with such pads): still clean (DRV 0), their annular fixed_errors gone |
+| 7 | 4d0ca12 | annular-ring repair: plated pads under the board's minimum ring grow to it before placement when the clearances allow (layout/board/padring.py; placer model, board, DSN, status.json, REPORT.md) | 0086, 0113 and 0520 only (`--only`) | - | 0086 clean | 0113 clean | 0520 clean | the grown pads: 0086 XRef2 0.838 -> 0.92 mm, 0113 6 mounting pads 3.1 -> 3.22 mm, 0520 U1 24 ovals 1.2 -> 1.236 mm wide; route mode on the 3 (the only D3 boards with such pads): still clean (DRV 0), their annular fixed_errors gone |
+| 8 | 4d0ca12 | attempt 7's code | all denominator boards of the 3 sets | **104/104 = 1.000** | 91/91 = 1.000 | 7/7 = 1.000 | 6/6 = 1.000 | won 0086, 0113, 0520; no board lost |
 
 Attempt 1 wall time: D3-A 22 min, D3-B 5 min, D3-C 57 min (0571 and 0626 about 45 min each).
 
@@ -67,10 +68,11 @@ Fast tier (`pytest -m "not slow"`): 890 passed.
 
 # Phase 2 (branch placer-d3-100): toward 100%
 
-Attempts 2 to 6 above (6 of 20 used; attempt 5 on 0077 and 0520 only). Best: attempt 6 at 9db4423, a full
-evaluation of the 104 denominator boards: **101/104 = 0.971** (D3-A 90/91, D3-B 6/7, D3-C 5/6). No board clean in
-attempt 1 was lost. The three boards left fail only on footprint-intrinsic annular_width errors of released parts
-(the scorer asymmetry above): 101/104 is the maximum under the metric, so the search stopped there.
+Attempts 2 to 8 above (8 of 20 used; attempt 5 on 0077 and 0520 only, attempt 7 on 0086, 0113 and 0520 only).
+Best: attempt 8 at 4d0ca12, a full evaluation of the 104 denominator boards: **104/104 = 1.000** (D3-A 91/91,
+D3-B 7/7, D3-C 6/6). Attempt 6 (101/104) had left 0086, 0113 and 0520 on footprint-intrinsic annular_width errors of
+released parts; the annular-ring repair (attempt 7) grows those pads to the board minimum, as a fab would require
+for any board, and route mode on the same three boards stays clean.
 
 ## The changes kept (each generic: no board name, no PCBWorld-only path)
 
@@ -91,13 +93,11 @@ attempt 1 was lost. The three boards left fail only on footprint-intrinsic annul
 - Tried and dropped: the pour stitch as a third extreme-routing step on the first route (no board won); a packing search over the
   neighbourhood when no region holds the violators (0077: 3 -> 2 violations, still lost).
 
-## The 3 boards still lost (attempt 6)
+## Boards still lost
 
-| board | why | curable? |
-|---|---|---|
-| 0113_maytal (D3-B) | 6 annular_width on a released part, intrinsic to its footprint | not by placement: metric question |
-| 0086_BB-PWR-8009 (D3-A) | fully routed; 1 annular_width on XRef2, a released via footprint (route mode: a fixed_error) | not by placement: same metric question |
-| 0520_RGBMatrixPanelCPLD (D3-C) | fully routed, GND pour whole; 24 annular_width on U1, the released PHOTON footprint (0.092 mm ring, board minimum 0.1 mm; route mode: fixed_errors on U1) | not by placement: same metric question |
+None at attempt 8. At attempt 6, 0113, 0086 and 0520 were lost to annular_width alone (rings of 0.05, 0.069 and
+0.092 mm against the 0.1 mm minimum); attempt 7's annular-ring repair grew those pads (status.json
+`layout.pad_ring_repair`, REPORT.md `annular ring:` lines).
 
 Extreme placement and routing on the two boards worked on (attempts 3-6):
 - 0077: the normal placement had violations, so the tight and then the extreme placement ran (copper 0.15 mm from
@@ -110,12 +110,12 @@ Extreme placement and routing on the two boards worked on (attempts 3-6):
   room in the GND islands, even with a 0.45 mm via (the walled-in pads are QFP pins 0.54 mm wide between signal
   fan-outs), so a smaller via would not help. Steps 3 and 4 (attempt 5) closed the islands in 2 of 4 attempts.
 
-Under the current metric the reachable maximum is 101/104 (0113, 0086 and 0520 lost to intrinsic footprint errors).
+With the annular-ring repair, no board of the denominator is capped by its footprint any more.
 
-## Layout corpus and tests at the final code (9db4423)
+## Layout corpus and tests at the final code (4d0ca12)
 
-`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`: 15 of 37 clean, the 14 cases clean at e360b5e and
-sp_overfull; 5 placements with placer violations (espgaggia, hestiapi_one, hue_simple_switch, milliohm_meter,
-rocketbeacon; esp32c3_devkit_lipo's were on back-side courtyard-less parts that KiCad does not test, removed with
-the layer rules of attempt 4); oshw_pico_ice timed out at 3600 s, as before.
-Fast tier: 899 passed (8 tests in tests/test_place_edge.py, 1 new in tests/test_extreme_route.py).
+`scripts/layout_corpus.py summary --place --jobs 6 --timeout 3600`: 15 of 37 clean, the same cases as at 9db4423
+(the 14 clean at e360b5e and sp_overfull); the same 5 placements with placer violations (espgaggia, hestiapi_one,
+hue_simple_switch, milliohm_meter, rocketbeacon); kb_audio and oshw_pico_ice timed out at 3600 s, as at 9db4423.
+No corpus case has a pad under the minimum ring, so the annular-ring repair changes none of them.
+Fast tier: 904 passed (tests/test_pad_ring.py: 5 new).
