@@ -14,6 +14,7 @@ not been checked against a real part: check it before the first order that uses 
 | hw:ESP32-C3-MINI-1 | Espressif ESP32-C3-MINI-1 module | Espressif datasheet pinout | home-thermostat-3 (ERC, sim) |
 | hw:MAX17227A | ADI/Maxim nanoPower boost, TDFN-8 2x2 | MAX17227A datasheet pin table | home-thermostat-3 (ERC, sim) |
 | hw:ACS108-8SN | ST ACS108-8SN AC switch, SOT-223 (pin 1 OUT, 2 COM+tab, 3 G) | ST DS12893 Rev 2 p.1 (names); pin 1/3 order from label order of the p.1 figure, not a pin table | not yet: confirm pin 1/3 before layout (timed-bathroom-vent) |
+| hw:LM66100 | TI LM66100DCKR ideal diode, SC-70-6 (footprint Package_TO_SOT_SMD:SOT-363_SC-70-6) | TI SLVSEZ8A p.3 pin table | battery_logger parts stage (pin table read from the datasheet page image) |
 | hw:TPS61299 | TI low-IQ boost, SOT-563 | TI SLVSGS9G | home-thermostat-3 (early rounds) |
 
 ## Footprints (`footprints/hw.pretty`)
